@@ -4,36 +4,45 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { extractMarkdownSummary, regenerateAdsReportBundle } from '../utils/adsReports'
 
-/* ── h1 セクション分割 ── */
-function splitMarkdownByH1(markdown) {
+/* ── reference 準拠: h1 セクション分割 + 重複 id 回避 ── */
+function splitMarkdownByTopLevelSections(markdown) {
   if (!markdown) return []
   const lines = markdown.split(/\r?\n/)
   const sections = []
   let currentHeading = null
   let currentLines = []
+  const idCounts = {}
 
   const flush = () => {
-    if (currentHeading !== null) {
-      const md = currentLines.join('\n').trim()
-      const id = 'sec-' + currentHeading.replace(/[^\w\u3000-\u9fff]/g, '-').toLowerCase()
-      const isSummary = /サマリー|概要|統合|summary/i.test(currentHeading)
-      sections.push({ heading: currentHeading, id, md, kind: isSummary ? 'summary' : 'report' })
-    } else if (currentLines.some((l) => l.trim())) {
-      const md = currentLines.join('\n').trim()
-      if (md) sections.push({ heading: 'レポート', id: 'sec-report-preamble', md, kind: 'report' })
-    }
+    const md = currentLines.join('\n').trim()
+    if (!md) return
+
+    const heading = currentHeading || '概要'
+    const baseId = `sec-${heading.replace(/[^\w\u3000-\u9fff]/g, '-').toLowerCase()}`
+    idCounts[baseId] = (idCounts[baseId] || 0) + 1
+
+    sections.push({
+      heading,
+      id: idCounts[baseId] === 1 ? baseId : `${baseId}-${idCounts[baseId]}`,
+      md,
+      kind: /サマリー|概要|統合|summary/i.test(heading) ? 'summary' : 'report',
+    })
   }
 
   for (const line of lines) {
-    const m = line.match(/^# (.+)/)
-    if (m) {
-      flush()
-      currentHeading = m[1]
-      currentLines = []
-    } else {
-      currentLines.push(line)
+    const match = line.match(/^# (.+)/)
+    if (match && !line.startsWith('##')) {
+      if (currentHeading !== null || currentLines.length > 0) {
+        flush()
+      }
+      currentHeading = match[1].replace(/[#*`]/g, '').trim()
+      currentLines = [line]
+      continue
     }
+
+    currentLines.push(line)
   }
+
   flush()
   return sections
 }
@@ -90,7 +99,7 @@ export default function EssentialPack() {
     return periodReports.find((item) => item.periodTag === selectedPeriod)?.reportMd ?? ''
   }, [periodReports, reportBundle?.reportMd, selectedPeriod])
 
-  const sections = useMemo(() => splitMarkdownByH1(currentReport), [currentReport])
+  const sections = useMemo(() => splitMarkdownByTopLevelSections(currentReport), [currentReport])
   const useAccordion = sections.length > 1
   const insightSummary = useMemo(() => extractMarkdownSummary(currentReport), [currentReport])
 
@@ -133,12 +142,18 @@ export default function EssentialPack() {
   const navToSection = useCallback(
     (sectionId) => {
       setOpenSections((prev) => ({ ...prev, [sectionId]: true }))
-      setTimeout(() => {
-        const el = document.getElementById(sectionId)
-        if (!el) return
-        const top = el.getBoundingClientRect().top + window.scrollY - 80
-        window.scrollTo({ top, behavior: 'smooth' })
-      }, 60)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const container = mainRef.current
+          const target = document.getElementById(sectionId)
+          if (!container || !target) return
+
+          const containerRect = container.getBoundingClientRect()
+          const targetRect = target.getBoundingClientRect()
+          const top = targetRect.top - containerRect.top + container.scrollTop - 16
+          container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+        })
+      })
     },
     [],
   )
