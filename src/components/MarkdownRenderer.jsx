@@ -76,18 +76,18 @@ function getColumnClass(header, cellIndex) {
   const normalized = String(header ?? '').trim().toLowerCase()
 
   if (cellIndex === 0 || /(title|page|landing|location|url|path|keyword|query|campaign|content|source)/i.test(normalized)) {
-    return 'min-w-[18rem] max-w-[32rem]'
+    return 'min-w-[14rem] max-w-[28rem]'
   }
 
   if (/(date|period|day|week|month|event_date)/i.test(normalized)) {
-    return 'min-w-[7rem]'
+    return 'min-w-[6rem]'
   }
 
   if (/(users|sessions|page_views|pageviews|views|pv|count|rate|ratio|ctr|cpc|cpa|cv|avg|cost|revenue|value|time|duration|bounce|engagement|impressions|clicks)/i.test(normalized)) {
-    return 'min-w-[6.5rem]'
+    return 'min-w-[4.5rem]'
   }
 
-  return 'min-w-[8rem]'
+  return 'min-w-[5.5rem]'
 }
 
 function renderTableCellContent(cell, keyPrefix) {

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react'
-import { login as adsLogin, setToken, logout as adsLogout } from '../api/adsInsights'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import { login as adsLogin, setToken, logout as adsLogout, setOnAuthError } from '../api/adsInsights'
 
 const AuthContext = createContext(null)
 
@@ -55,6 +55,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(STORAGE_KEY_TOKEN)
     onLogoutCallbacksRef.current.forEach((cb) => cb())
   }, [])
+
+  useEffect(() => {
+    setOnAuthError(() => logoutAds())
+    return () => setOnAuthError(null)
+  }, [logoutAds])
 
   const value = {
     adsToken,

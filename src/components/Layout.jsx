@@ -282,7 +282,7 @@ export default function Layout() {
               <span className="text-on-surface-variant">考察スタジオ</span>
               <span className={`flex items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
-                {isAdsAuthenticated ? '接続中' : '未接続'}
+                {isAdsAuthenticated ? '接続済' : '未接続'}
               </span>
             </div>
           </div>

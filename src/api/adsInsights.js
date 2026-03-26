@@ -2,6 +2,11 @@ const BASE = '/api/ads'
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 
 let authToken = null
+let onAuthError = null
+
+export function setOnAuthError(handler) {
+  onAuthError = handler
+}
 
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' }
@@ -35,15 +40,33 @@ function toQueryString(params = {}) {
 }
 
 async function request(path, options = {}) {
+  const {
+    skipAuth = false,
+    suppressAuthErrorHandler = false,
+    ...fetchOptions
+  } = options
+
+  const headers = skipAuth
+    ? { 'Content-Type': 'application/json', ...fetchOptions.headers }
+    : { ...authHeaders(), ...fetchOptions.headers }
+
+  const didSendAuth = !skipAuth && Boolean(authToken)
+
   const res = await fetch(`${BASE}${path}`, {
-    headers: { ...authHeaders(), ...options.headers },
-    ...options,
+    headers,
+    ...fetchOptions,
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const error = new Error(body.detail || `Ads Insights API error: ${res.status}`)
     error.status = res.status
     error.body = body
+    error.isAuthError = res.status === 401 && didSendAuth
+
+    if (error.isAuthError && !suppressAuthErrorHandler) {
+      onAuthError?.(error)
+    }
+
     throw error
   }
   return res.json()
@@ -58,6 +81,7 @@ export async function login(password) {
   const data = await request('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ password }),
+    skipAuth: true,
   })
   authToken = data.token
   return data

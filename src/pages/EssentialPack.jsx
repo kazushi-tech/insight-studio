@@ -70,7 +70,13 @@ export default function EssentialPack() {
         const nextBundle = await regenerateAdsReportBundle(setupState)
         if (!cancelled) setReportBundle(nextBundle)
       } catch (e) {
-        if (!cancelled) setError(e.message)
+        if (!cancelled) {
+          setError(
+            e.isAuthError
+              ? '認証エラー: セッションが切れました。再ログインしてください。'
+              : e.message,
+          )
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -167,7 +173,11 @@ export default function EssentialPack() {
       const nextBundle = await regenerateAdsReportBundle(setupState)
       setReportBundle(nextBundle)
     } catch (e) {
-      setError(e.message)
+      setError(
+        e.isAuthError
+          ? '認証エラー: セッションが切れました。再ログインしてください。'
+          : e.message,
+      )
     } finally {
       setLoading(false)
     }

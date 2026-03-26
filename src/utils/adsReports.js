@@ -108,29 +108,54 @@ export function dedupeExactChartGroups(chartGroups = []) {
   return deduped
 }
 
+function toFiniteNumber(value) {
+  if (value == null || value === '') return null
+  const normalized =
+    typeof value === 'string' ? Number(value.trim().replace(/,/g, '').replace(/[%％]$/, '')) : Number(value)
+  return Number.isFinite(normalized) ? normalized : null
+}
+
+export function isMeaningfulChartGroup(group) {
+  const values = (Array.isArray(group?.datasets) ? group.datasets : [])
+    .flatMap((dataset) => (Array.isArray(dataset?.data) ? dataset.data : []))
+    .map(toFiniteNumber)
+    .filter((value) => value != null)
+
+  if (values.length === 0) return false
+  if (values.length === 1) return true
+
+  const first = values[0]
+  return values.some((value) => value !== first)
+}
+
 export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest') {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
 
+  let groups
+
   if (periodFilter === 'all') {
-    return mergeChartGroupsByTitle(chartGroups)
+    groups = mergeChartGroupsByTitle(chartGroups)
+  } else {
+    const periodTags = getChartPeriodTags(chartGroups)
+    let targetTag = periodFilter
+
+    if (targetTag === 'latest' && periodTags.length > 0) {
+      targetTag = periodTags[periodTags.length - 1]
+    }
+
+    groups = !targetTag
+      ? dedupeExactChartGroups(chartGroups)
+      : dedupeExactChartGroups(chartGroups.filter((group) => group?._periodTag === targetTag))
   }
 
-  const periodTags = getChartPeriodTags(chartGroups)
-  let targetTag = periodFilter
-
-  if (targetTag === 'latest' && periodTags.length > 0) {
-    targetTag = periodTags[periodTags.length - 1]
-  }
-
-  if (!targetTag) return dedupeExactChartGroups(chartGroups)
-
-  return dedupeExactChartGroups(chartGroups.filter((group) => group?._periodTag === targetTag))
+  return groups.filter(isMeaningfulChartGroup)
 }
 
 export function buildAiChartContext(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
 
   return chartGroups
+    .filter(isMeaningfulChartGroup)
     .map((group) => ({
       title: group?.title ?? '',
       chartType: group?.chartType ?? 'line',

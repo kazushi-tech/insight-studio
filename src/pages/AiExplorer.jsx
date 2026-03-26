@@ -77,7 +77,13 @@ export default function AiExplorer() {
         const nextBundle = await regenerateAdsReportBundle(setupState)
         if (!cancelled) setReportBundle(nextBundle)
       } catch (e) {
-        if (!cancelled) setReportError(e.message)
+        if (!cancelled) {
+          setReportError(
+            e.isAuthError
+              ? '認証エラー: セッションが切れました。再ログインしてください。'
+              : e.message,
+          )
+        }
       } finally {
         if (!cancelled) setReportLoading(false)
       }
@@ -178,10 +184,13 @@ export default function AiExplorer() {
         setStatus('✓ 考察生成完了')
       }
     } catch (e) {
-      setStatus(`生成エラー: ${e.message}`)
+      const errorMsg = e.isAuthError
+        ? '認証エラー: セッションが切れました。再ログインしてください。'
+        : e.message
+      setStatus(`生成エラー: ${errorMsg}`)
       setMessages([
         ...nextMessages,
-        { role: 'assistant', text: `エラー: ${e.message}`, isError: true },
+        { role: 'assistant', text: `エラー: ${errorMsg}`, isError: true },
       ])
     } finally {
       setLoading(false)
@@ -200,8 +209,11 @@ export default function AiExplorer() {
       setReportBundle(nextBundle)
       setStatus('✓ 要点パックとグラフを更新しました')
     } catch (e) {
-      setReportError(e.message)
-      setStatus(`更新エラー: ${e.message}`)
+      const errorMsg = e.isAuthError
+        ? '認証エラー: セッションが切れました。再ログインしてください。'
+        : e.message
+      setReportError(errorMsg)
+      setStatus(`更新エラー: ${errorMsg}`)
     } finally {
       setReportLoading(false)
     }
