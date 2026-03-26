@@ -27,7 +27,7 @@ export default function Compare() {
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
-  const report = result?.report ?? result?.analysis ?? ''
+  const report = result?.report_md ?? result?.report ?? result?.analysis ?? ''
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">

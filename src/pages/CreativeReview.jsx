@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { review } from '../api/marketLens'
+import { reviewByType } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
+
+const REVIEW_AVAILABLE = false
 
 export default function CreativeReview() {
   const { geminiKey, hasGeminiKey } = useAuth()
@@ -9,13 +11,14 @@ export default function CreativeReview() {
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
 
-  const canSubmit = url && hasGeminiKey && !loading
+  const canSubmit = REVIEW_AVAILABLE && url && hasGeminiKey && !loading
 
   async function handleReview() {
+    if (!REVIEW_AVAILABLE) return
     setError(null)
     setLoading(true)
     try {
-      const data = await review(url, geminiKey)
+      const data = await reviewByType('ad-lp', { url }, geminiKey)
       setResult(data)
     } catch (e) {
       setError(e.message)
@@ -26,7 +29,7 @@ export default function CreativeReview() {
 
   const totalScore = result?.total_score ?? result?.score ?? null
   const scores = result?.scores ?? result?.categories ?? []
-  const report = result?.report ?? result?.analysis ?? ''
+  const report = result?.report_md ?? result?.report ?? result?.analysis ?? ''
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -42,7 +45,17 @@ export default function CreativeReview() {
         </div>
       </div>
 
-      {!hasGeminiKey && (
+      {!REVIEW_AVAILABLE && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-sm text-amber-800">
+          <span className="material-symbols-outlined text-lg">construction</span>
+          <div>
+            <p className="font-bold japanese-text">この機能は現在利用できません</p>
+            <p className="mt-1 japanese-text">Market Lens backend の review API 契約が更新されたため、クリエイティブレビュー機能を一時停止しています。対応が完了次第、再度ご利用いただけます。</p>
+          </div>
+        </div>
+      )}
+
+      {!hasGeminiKey && REVIEW_AVAILABLE && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
@@ -54,10 +67,11 @@ export default function CreativeReview() {
         <div className="relative flex-1">
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
           <input
-            className="w-full bg-surface-container-lowest rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40 transition-all shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]"
+            className="w-full bg-surface-container-lowest rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40 transition-all shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] disabled:opacity-50"
             placeholder="診断するLPのURLを入力"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
+            disabled={!REVIEW_AVAILABLE}
           />
         </div>
         <button
@@ -89,7 +103,7 @@ export default function CreativeReview() {
       <div className="grid grid-cols-12 gap-8">
         {/* LP Preview */}
         <div className="col-span-6 bg-surface-container rounded-2xl min-h-[500px] flex flex-col items-center justify-center relative overflow-hidden">
-          {url ? (
+          {url && REVIEW_AVAILABLE ? (
             <iframe src={url} title="Review Target" className="w-full h-full min-h-[500px] rounded-2xl" sandbox="allow-scripts allow-same-origin" />
           ) : (
             <>

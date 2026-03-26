@@ -8,7 +8,7 @@ export default defineConfig({
     port: 3002,
     proxy: {
       '/api/ml': {
-        target: 'https://market-lens-ai.vercel.app',
+        target: 'https://market-lens-ai.onrender.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/ml/, '/api'),
       },

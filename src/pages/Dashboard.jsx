@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getHistory } from '../api/marketLens'
+import { getScans } from '../api/marketLens'
 
 const STAT_CARDS = [
   {
@@ -80,9 +80,9 @@ export default function Dashboard() {
   const [historyError, setHistoryError] = useState(null)
 
   useEffect(() => {
-    getHistory()
+    getScans()
       .then((data) => {
-        const items = data.history ?? data.results ?? (Array.isArray(data) ? data : [])
+        const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
         setHistory(items)
       })
       .catch((e) => {

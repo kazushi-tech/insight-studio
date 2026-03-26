@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/ml/:path*",
-      "destination": "https://market-lens-ai.vercel.app/api/:path*"
+      "destination": "https://market-lens-ai.onrender.com/api/:path*"
     },
     {
       "source": "/api/ads/:path*",
