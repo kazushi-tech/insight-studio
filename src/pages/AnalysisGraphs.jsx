@@ -1,9 +1,13 @@
-const CREATIVES_DATA = [
+import { useState, useEffect } from 'react'
+import { loadData } from '../api/adsInsights'
+import { useAuth } from '../contexts/AuthContext'
+
+const FALLBACK_CREATIVES = [
   { name: '2024_Spring_Banner_01', network: 'Google Display Network', impr: '452,001', clicks: '12,431', ctr: '2.75%', cv: 184, status: '配信中', statusColor: 'emerald' },
   { name: 'Retargeting_Video_Short', network: 'Instagram Stories', impr: '231,988', clicks: '5,102', ctr: '2.20%', cv: 92, status: '停止中', statusColor: 'slate' },
 ]
 
-const ROI_RANKING = [
+const FALLBACK_ROI = [
   { name: '春の特大セール A', value: 342 },
   { name: 'SNS限定キャンペーン', value: 218 },
   { name: 'リターゲティング広告', value: 184 },
@@ -11,6 +15,23 @@ const ROI_RANKING = [
 ]
 
 export default function AnalysisGraphs() {
+  const { isAdsAuthenticated } = useAuth()
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    if (!isAdsAuthenticated) return
+    setLoading(true)
+    loadData({ type: 'graphs' })
+      .then(setData)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [isAdsAuthenticated])
+
+  const creatives = data?.creatives ?? FALLBACK_CREATIVES
+  const roiRanking = data?.roi_ranking ?? FALLBACK_ROI
+
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       {/* Header */}
@@ -27,6 +48,20 @@ export default function AnalysisGraphs() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
+          <span className="material-symbols-outlined text-lg">error</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-on-surface-variant">
+          <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+          データを読み込み中…
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4">
@@ -118,7 +153,7 @@ export default function AnalysisGraphs() {
             <button className="text-on-surface-variant hover:text-primary"><span className="material-symbols-outlined">tune</span></button>
           </div>
           <div className="space-y-4">
-            {ROI_RANKING.map((item) => (
+            {roiRanking.map((item) => (
               <div key={item.name} className="space-y-1">
                 <div className="flex justify-between text-sm">
                   <span className="japanese-text">{item.name}</span>
@@ -187,7 +222,7 @@ export default function AnalysisGraphs() {
             </tr>
           </thead>
           <tbody>
-            {CREATIVES_DATA.map((c) => (
+            {creatives.map((c) => (
               <tr key={c.name} className="border-b border-surface-container/50 hover:bg-surface-container-low transition-colors">
                 <td className="py-4">
                   <div className="flex items-center gap-3">

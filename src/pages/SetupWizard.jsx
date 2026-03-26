@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getFolders, listPeriods, loadData } from '../api/adsInsights'
+import { useAuth } from '../contexts/AuthContext'
 
 const QUERY_TYPES = [
   { icon: 'trending_up', label: 'PV分析', desc: 'ページビューの推移とトレンドを可視化します。', color: 'text-orange-500' },
@@ -17,13 +20,79 @@ const QUERY_TYPES = [
 const STEPS = ['クエリタイプ選択', '期間選択', 'レポート生成']
 
 export default function SetupWizard() {
+  const navigate = useNavigate()
+  const { isAdsAuthenticated } = useAuth()
   const [step, setStep] = useState(0)
-  const [selected, setSelected] = useState(new Set([0, 2]))
+  const [selected, setSelected] = useState(new Set())
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  // Step 0: folders from API
+  const [folders, setFolders] = useState([])
+  const [foldersLoading, setFoldersLoading] = useState(false)
+
+  // Step 1: periods
+  const [periods, setPeriods] = useState([])
+  const [selectedPeriod, setSelectedPeriod] = useState(null)
+
+  // Step 2: load result
+  const [loadResult, setLoadResult] = useState(null)
+
+  useEffect(() => {
+    if (!isAdsAuthenticated) return
+    setFoldersLoading(true)
+    getFolders()
+      .then((data) => {
+        const items = data.folders ?? data.results ?? (Array.isArray(data) ? data : [])
+        setFolders(items)
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setFoldersLoading(false))
+  }, [isAdsAuthenticated])
 
   const toggle = (i) => {
     const next = new Set(selected)
     next.has(i) ? next.delete(i) : next.add(i)
     setSelected(next)
+  }
+
+  async function handleNext() {
+    setError(null)
+    if (step === 0) {
+      if (selected.size === 0) return
+      // Fetch periods based on selected query types
+      setLoading(true)
+      try {
+        const queryTypes = [...selected].map((i) => QUERY_TYPES[i].label)
+        const data = await listPeriods({ query_types: queryTypes.join(',') })
+        const items = data.periods ?? data.results ?? (Array.isArray(data) ? data : [])
+        setPeriods(items)
+        setStep(1)
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    } else if (step === 1) {
+      if (!selectedPeriod) return
+      setLoading(true)
+      try {
+        const queryTypes = [...selected].map((i) => QUERY_TYPES[i].label)
+        const data = await loadData({ query_types: queryTypes, period: selectedPeriod })
+        setLoadResult(data)
+        setStep(2)
+      } catch (e) {
+        setError(e.message)
+      } finally {
+        setLoading(false)
+      }
+    } else if (step === 2) {
+      navigate('/ads/pack')
+    }
+  }
+
+  function handleBack() {
+    if (step > 0) setStep(step - 1)
   }
 
   return (
@@ -45,6 +114,13 @@ export default function SetupWizard() {
         </div>
       </div>
 
+      {!isAdsAuthenticated && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+          <span className="material-symbols-outlined text-lg">warning</span>
+          <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
+        </div>
+      )}
+
       {/* Steps indicator */}
       <div className="flex items-center justify-between max-w-2xl mx-auto">
         {STEPS.map((s, i) => (
@@ -58,7 +134,7 @@ export default function SetupWizard() {
                   : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant'
               }`}
             >
-              {i + 1}
+              {i < step ? <span className="material-symbols-outlined text-sm">check</span> : i + 1}
             </div>
             <span className={`text-sm font-bold ${i === step ? 'text-[#1A1A2E]' : 'text-on-surface-variant'}`}>
               {s}
@@ -68,57 +144,128 @@ export default function SetupWizard() {
         ))}
       </div>
 
-      {/* Query Type Selection */}
-      <div>
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">クエリタイプを選択</h3>
-            <p className="text-on-surface-variant mt-1 text-sm">分析したいデータ項目を選択してください（複数選択可能）</p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setSelected(new Set())} className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all">
-              全解除
-            </button>
-            <button onClick={() => setSelected(new Set(QUERY_TYPES.map((_, i) => i)))} className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all">
-              全選択
-            </button>
-          </div>
+      {error && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
+          <span className="material-symbols-outlined text-lg">error</span>
+          <span>{error}</span>
         </div>
+      )}
 
-        <div className="grid grid-cols-3 gap-4">
-          {QUERY_TYPES.map((qt, i) => (
-            <button
-              key={qt.label}
-              onClick={() => toggle(i)}
-              className={`p-5 rounded-2xl text-left transition-all border-2 ${
-                selected.has(i)
-                  ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
-                  : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`material-symbols-outlined text-2xl ${qt.color}`}>{qt.icon}</span>
-                  <span className="font-bold text-[#1A1A2E] japanese-text">{qt.label}</span>
+      {/* Step 0: Query Type Selection */}
+      {step === 0 && (
+        <div>
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">クエリタイプを選択</h3>
+              <p className="text-on-surface-variant mt-1 text-sm">分析したいデータ項目を選択してください（複数選択可能）</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setSelected(new Set())} className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all">
+                全解除
+              </button>
+              <button onClick={() => setSelected(new Set(QUERY_TYPES.map((_, i) => i)))} className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all">
+                全選択
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {QUERY_TYPES.map((qt, i) => (
+              <button
+                key={qt.label}
+                onClick={() => toggle(i)}
+                className={`p-5 rounded-2xl text-left transition-all border-2 ${
+                  selected.has(i)
+                    ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
+                    : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={`material-symbols-outlined text-2xl ${qt.color}`}>{qt.icon}</span>
+                    <span className="font-bold text-[#1A1A2E] japanese-text">{qt.label}</span>
+                  </div>
+                  {selected.has(i) && (
+                    <span className="material-symbols-outlined text-secondary">check_circle</span>
+                  )}
                 </div>
-                {selected.has(i) && (
-                  <span className="material-symbols-outlined text-secondary">check_circle</span>
-                )}
-              </div>
-              <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text">{qt.desc}</p>
-            </button>
-          ))}
+                <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text">{qt.desc}</p>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Step 1: Period Selection */}
+      {step === 1 && (
+        <div>
+          <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text mb-4">分析期間を選択</h3>
+          {periods.length === 0 ? (
+            <p className="text-on-surface-variant text-sm japanese-text">利用可能な期間がありません。</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              {periods.map((p, i) => {
+                const label = typeof p === 'string' ? p : p.label ?? p.period ?? `期間 ${i + 1}`
+                const value = typeof p === 'string' ? p : p.value ?? p.period ?? p
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedPeriod(value)}
+                    className={`p-5 rounded-2xl text-left transition-all border-2 ${
+                      selectedPeriod === value
+                        ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
+                        : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-secondary">calendar_today</span>
+                      <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 2: Load Complete */}
+      {step === 2 && (
+        <div className="text-center py-12">
+          <span className="material-symbols-outlined text-6xl text-secondary mb-4 block">check_circle</span>
+          <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">データ読み込み完了</h3>
+          <p className="text-on-surface-variant mt-2 japanese-text">「次へ」を押して要点パックに進みましょう。</p>
+          {loadResult?.summary && (
+            <p className="text-sm text-on-surface-variant mt-4 japanese-text">{loadResult.summary}</p>
+          )}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="flex justify-center gap-4 pt-4">
-        <button className="px-10 py-3 border border-outline-variant/50 rounded-xl font-bold text-sm hover:bg-surface-container transition-all">
+        <button
+          onClick={handleBack}
+          disabled={step === 0}
+          className="px-10 py-3 border border-outline-variant/50 rounded-xl font-bold text-sm hover:bg-surface-container transition-all disabled:opacity-50"
+        >
           戻る
         </button>
-        <button className="px-10 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20">
-          次へ
-          <span className="material-symbols-outlined text-sm">chevron_right</span>
+        <button
+          onClick={handleNext}
+          disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && !selectedPeriod) || !isAdsAuthenticated}
+          className="px-10 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+              処理中…
+            </>
+          ) : (
+            <>
+              {step === 2 ? '要点パックへ' : '次へ'}
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </>
+          )}
         </button>
       </div>
     </div>

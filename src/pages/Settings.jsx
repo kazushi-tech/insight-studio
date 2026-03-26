@@ -1,9 +1,44 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getConfig, saveConfig } from '../api/adsInsights'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Settings() {
+  const { isAdsAuthenticated } = useAuth()
   const [autoArchive, setAutoArchive] = useState(true)
   const [notifications, setNotifications] = useState(true)
   const [dataSync, setDataSync] = useState(false)
+  const [configLoading, setConfigLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (!isAdsAuthenticated) return
+    setConfigLoading(true)
+    getConfig()
+      .then((data) => {
+        if (data.auto_archive != null) setAutoArchive(data.auto_archive)
+        if (data.notifications != null) setNotifications(data.notifications)
+        if (data.data_sync != null) setDataSync(data.data_sync)
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setConfigLoading(false))
+  }, [isAdsAuthenticated])
+
+  async function handleSave() {
+    setError(null)
+    setSaving(true)
+    setSaved(false)
+    try {
+      await saveConfig({ auto_archive: autoArchive, notifications, data_sync: dataSync })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const Toggle = ({ checked, onChange }) => (
     <button
@@ -158,13 +193,36 @@ export default function Settings() {
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
+          <span className="material-symbols-outlined text-lg">error</span>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {saved && (
+        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-3 text-sm text-emerald-700">
+          <span className="material-symbols-outlined text-lg">check_circle</span>
+          <span className="japanese-text">設定を保存しました</span>
+        </div>
+      )}
+
       {/* Footer Actions */}
       <div className="flex justify-end gap-4">
         <button className="px-8 py-3 text-sm font-bold text-on-surface-variant hover:bg-surface-container rounded-xl transition-all">
           キャンセル
         </button>
-        <button className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-xl shadow-primary/20">
-          設定保存
+        <button
+          onClick={handleSave}
+          disabled={saving || !isAdsAuthenticated}
+          className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {saving ? (
+            <>
+              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+              保存中…
+            </>
+          ) : '設定保存'}
         </button>
       </div>
     </div>

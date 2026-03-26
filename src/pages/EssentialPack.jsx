@@ -1,48 +1,31 @@
 import { useState } from 'react'
-
-const SECTIONS = [
-  {
-    icon: 'grid_view',
-    title: '全体サマリー',
-    subtitle: '主要指標の概況と前月比推移',
-    metrics: [
-      { label: '総表示回数', value: '1,240,500', change: '+8.2%' },
-      { label: 'クリック数', value: '45,230', change: '+12.4%' },
-      { label: '総コスト', value: '¥842,000', tag: '安定' },
-    ],
-  },
-  {
-    icon: 'person',
-    title: 'トラフィック分析',
-    subtitle: 'デバイス別・時間帯別の流入傾向',
-    devices: [
-      { label: 'スマートフォン', value: 78, color: 'bg-secondary' },
-      { label: 'PC', value: 18, color: 'bg-primary' },
-      { label: 'タブレット', value: 4, color: 'bg-tertiary' },
-    ],
-  },
-  {
-    icon: 'conversion_path',
-    title: 'コンバージョン考察',
-    subtitle: '成果に繋がったキーワードとクリエイティブの分析',
-    table: [
-      { name: 'リターゲティング_秋CP', cv: 124, cvr: '3.2%', cpa: '¥1,200' },
-      { name: '新規獲得_ディスプレイ', cv: 58, cvr: '1.1%', cpa: '¥2,450' },
-    ],
-  },
-  {
-    icon: 'attach_money',
-    title: 'ROI・費用対効果',
-    subtitle: '投資に対する利益率の算出と将来予測',
-    roas: '450%',
-    roasTarget: '400%',
-  },
-]
+import { generateInsights } from '../api/adsInsights'
+import { useAuth } from '../contexts/AuthContext'
 
 const NAV_ITEMS = ['サマリー', 'トラフィック', 'コンバージョン', 'ROI分析']
 
 export default function EssentialPack() {
+  const { isAdsAuthenticated } = useAuth()
   const [activeNav, setActiveNav] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [insights, setInsights] = useState(null)
+
+  async function handleGenerate() {
+    setError(null)
+    setLoading(true)
+    try {
+      const data = await generateInsights({ type: 'essential_pack' })
+      setInsights(data)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const report = insights?.report ?? insights?.analysis ?? insights?.content ?? null
+  const sections = insights?.sections ?? []
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
@@ -76,19 +59,53 @@ export default function EssentialPack() {
             ))}
           </nav>
         </div>
-        <div className="bg-secondary p-5 rounded-2xl text-on-secondary">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined">smart_toy</span>
-            <span className="font-bold text-sm">AI INSIGHT</span>
+        {!isAdsAuthenticated && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+            <span className="material-symbols-outlined text-sm align-middle mr-1">warning</span>
+            考察スタジオへのログインが必要です
           </div>
-          <p className="text-sm leading-relaxed">
-            先月に比べ、CPAが12%改善されました。特に動画広告のコンバージョン率が向上しています。
-          </p>
-        </div>
+        )}
+
+        <button
+          onClick={handleGenerate}
+          disabled={loading || !isAdsAuthenticated}
+          className="w-full py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+              生成中…
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-sm">smart_toy</span>
+              AI考察を生成
+            </>
+          )}
+        </button>
+
+        {insights && (
+          <div className="bg-secondary p-5 rounded-2xl text-on-secondary">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined">smart_toy</span>
+              <span className="font-bold text-sm">AI INSIGHT</span>
+            </div>
+            <p className="text-sm leading-relaxed">
+              {insights?.summary ?? insights?.ai_insight ?? '考察レポートが生成されました。'}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Right Content */}
       <div className="flex-1 p-8 space-y-8 overflow-y-auto">
+        {error && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
+            <span className="material-symbols-outlined text-lg">error</span>
+            <span>{error}</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-extrabold text-[#1A1A2E] japanese-text">広告考察レポート</h2>
           <div className="flex gap-3">
@@ -205,6 +222,20 @@ export default function EssentialPack() {
             </div>
           </div>
         </div>
+
+        {/* AI Generated Report */}
+        {report && (
+          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-secondary">auto_awesome</span>
+              <div>
+                <h3 className="text-xl font-bold japanese-text">AI生成レポート</h3>
+                <p className="text-sm text-on-surface-variant">考察スタジオが生成した分析結果</p>
+              </div>
+            </div>
+            <div className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap japanese-text">{report}</div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react'
+import { getHistory } from '../api/marketLens'
+
 const STAT_CARDS = [
   {
     icon: 'web',
@@ -26,13 +29,6 @@ const STAT_CARDS = [
     badgeType: 'negative',
     bars: [80, 70, 90, 60, 40, 30, 25],
   },
-]
-
-const RECENT_ITEMS = [
-  { name: '高級時計 ブランドLP', category: 'ラグジュアリー / 小売', date: '2023.10.24', status: '完了', statusColor: 'emerald' },
-  { name: 'エコ住宅 ソーラーパネルLP', category: '不動産 / エネルギー', date: '2023.10.23', status: '審査中', statusColor: 'amber' },
-  { name: 'プレミアム スキンケアLP', category: '美容 / コスメ', date: '2023.10.22', status: '完了', statusColor: 'emerald' },
-  { name: '金融サービス 資産運用LP', category: '金融 / 投資', date: '2023.10.21', status: '要確認', statusColor: 'rose' },
 ]
 
 const TREND_KEYWORDS = ['#パーソナライズ', '#D2C戦略', '#動画LP', '#サブスクリプション']
@@ -78,16 +74,21 @@ function StatCard({ card }) {
   )
 }
 
-function StatusBadge({ status, color }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold japanese-text bg-${color}-50 text-${color}-700`}>
-      <span className={`w-1.5 h-1.5 rounded-full bg-${color}-500`}></span>
-      {status}
-    </span>
-  )
-}
-
 export default function Dashboard() {
+  const [history, setHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyError, setHistoryError] = useState(null)
+
+  useEffect(() => {
+    getHistory()
+      .then((data) => {
+        const items = data.history ?? data.results ?? (Array.isArray(data) ? data : [])
+        setHistory(items)
+      })
+      .catch((e) => setHistoryError(e.message))
+      .finally(() => setHistoryLoading(false))
+  }, [])
+
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-12">
       {/* Welcome Header */}
@@ -125,41 +126,65 @@ export default function Dashboard() {
           </button>
         </div>
         <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container text-on-surface-variant">
-                <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider japanese-text">案件名</th>
-                <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">カテゴリー</th>
-                <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">更新日</th>
-                <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">ステータス</th>
-                <th className="py-5 px-8"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container/50">
-              {RECENT_ITEMS.map((item) => (
-                <tr key={item.name} className="hover:bg-surface-container-low transition-colors group">
-                  <td className="py-5 px-8">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
-                        <span className="material-symbols-outlined text-lg">web</span>
-                      </div>
-                      <span className="font-bold text-[#1A1A2E] japanese-text">{item.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-5 px-8 text-sm text-on-surface-variant japanese-text">{item.category}</td>
-                  <td className="py-5 px-8 text-sm text-on-surface-variant tabular-nums">{item.date}</td>
-                  <td className="py-5 px-8">
-                    <StatusBadge status={item.status} color={item.statusColor} />
-                  </td>
-                  <td className="py-5 px-8 text-right">
-                    <button className="w-10 h-10 rounded-lg hover:bg-white flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-all">
-                      <span className="material-symbols-outlined">more_vert</span>
-                    </button>
-                  </td>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-16 text-on-surface-variant">
+              <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+              読み込み中…
+            </div>
+          ) : historyError ? (
+            <div className="flex items-center gap-3 px-8 py-6 text-sm text-red-700">
+              <span className="material-symbols-outlined">error</span>
+              <span>{historyError}</span>
+            </div>
+          ) : history.length === 0 ? (
+            <div className="text-center py-16 text-on-surface-variant">
+              <span className="material-symbols-outlined text-4xl text-outline-variant mb-2 block">history</span>
+              <p className="text-sm japanese-text">分析履歴がまだありません</p>
+            </div>
+          ) : (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container text-on-surface-variant">
+                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider japanese-text">案件名</th>
+                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">URL</th>
+                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">更新日</th>
+                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">スコア</th>
+                  <th className="py-5 px-8"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-surface-container/50">
+                {history.map((item, i) => (
+                  <tr key={item.id ?? i} className="hover:bg-surface-container-low transition-colors group">
+                    <td className="py-5 px-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
+                          <span className="material-symbols-outlined text-lg">web</span>
+                        </div>
+                        <span className="font-bold text-[#1A1A2E] japanese-text">{item.name ?? item.title ?? `分析 #${i + 1}`}</span>
+                      </div>
+                    </td>
+                    <td className="py-5 px-8 text-sm text-on-surface-variant truncate max-w-[200px]">{item.url ?? item.urls?.[0] ?? '-'}</td>
+                    <td className="py-5 px-8 text-sm text-on-surface-variant tabular-nums">{item.date ?? item.created_at ?? '-'}</td>
+                    <td className="py-5 px-8">
+                      {item.score != null ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          {item.score}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-on-surface-variant">--</span>
+                      )}
+                    </td>
+                    <td className="py-5 px-8 text-right">
+                      <button className="w-10 h-10 rounded-lg hover:bg-white flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-all">
+                        <span className="material-symbols-outlined">more_vert</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
