@@ -9,6 +9,13 @@ import EssentialPack from './pages/EssentialPack'
 import AnalysisGraphs from './pages/AnalysisGraphs'
 import AiExplorer from './pages/AiExplorer'
 import Settings from './pages/Settings'
+import { useAdsSetup } from './contexts/AdsSetupContext'
+
+function SetupGuard({ children }) {
+  const { isSetupComplete } = useAdsSetup()
+  if (!isSetupComplete) return <Navigate to="/ads/wizard" replace />
+  return children
+}
 
 export default function App() {
   return (
@@ -19,9 +26,9 @@ export default function App() {
         <Route path="discovery" element={<Discovery />} />
         <Route path="creative-review" element={<CreativeReview />} />
         <Route path="ads/wizard" element={<SetupWizard />} />
-        <Route path="ads/pack" element={<EssentialPack />} />
-        <Route path="ads/graphs" element={<AnalysisGraphs />} />
-        <Route path="ads/ai" element={<AiExplorer />} />
+        <Route path="ads/pack" element={<SetupGuard><EssentialPack /></SetupGuard>} />
+        <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
+        <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

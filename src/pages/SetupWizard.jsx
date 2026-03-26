@@ -2,26 +2,37 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getFolders, listPeriods, loadData } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
+import { useAdsSetup } from '../contexts/AdsSetupContext'
 
 const QUERY_TYPES = [
-  { icon: 'trending_up', label: 'PV分析', desc: 'ページビューの推移とトレンドを可視化します。', color: 'text-orange-500' },
-  { icon: 'input', label: '流入分析', desc: 'チャネル別の流入元とトラフィック質を特定します。', color: 'text-blue-500' },
-  { icon: 'target', label: 'CV分析', desc: 'コンバージョン経路と成果への寄与を分析します。', color: 'text-emerald-500' },
-  { icon: 'search', label: '検索クエリ分析', desc: 'キーワードのニーズとパフォーマンスを網羅。', color: 'text-purple-500' },
-  { icon: 'warning', label: '異常検知', desc: '数値の急激な変化や乖離を自動で検出します。', color: 'text-red-500' },
-  { icon: 'web', label: 'LP分析', desc: 'ランディングページの離脱率と有効性を判定。', color: 'text-cyan-500' },
-  { icon: 'devices', label: 'デバイス分析', desc: 'PC・SP・Tabの利用動向と差異を確認します。', color: 'text-indigo-500' },
-  { icon: 'schedule', label: '時間帯分析', desc: '成果が出やすい曜日や時間帯の傾向を把握。', color: 'text-amber-500' },
-  { icon: 'group', label: 'ユーザー属性', desc: '年齢・性別・地域などのデモグラフィック情報。', color: 'text-pink-500' },
-  { icon: 'timer', label: 'エンゲージメント時間', desc: 'サイト滞在時間やユーザーの熱量を測定。', color: 'text-teal-500' },
-  { icon: 'stacked_bar_chart', label: 'オークション圧分析', desc: '競合他社の入札動向と表示機会損失を分析。', color: 'text-rose-500' },
+  { id: 'pv', icon: 'trending_up', label: 'PV分析', desc: 'ページビューの推移とトレンドを可視化します。', color: 'text-orange-500' },
+  { id: 'traffic', icon: 'input', label: '流入分析', desc: 'チャネル別の流入元とトラフィック質を特定します。', color: 'text-blue-500' },
+  { id: 'cv', icon: 'target', label: 'CV分析', desc: 'コンバージョン経路と成果への寄与を分析します。', color: 'text-emerald-500' },
+  { id: 'search_query', icon: 'search', label: '検索クエリ分析', desc: 'キーワードのニーズとパフォーマンスを網羅。', color: 'text-purple-500' },
+  { id: 'anomaly', icon: 'warning', label: '異常検知', desc: '数値の急激な変化や乖離を自動で検出します。', color: 'text-red-500' },
+  { id: 'lp', icon: 'web', label: 'LP分析', desc: 'ランディングページの離脱率と有効性を判定。', color: 'text-cyan-500' },
+  { id: 'device', icon: 'devices', label: 'デバイス分析', desc: 'PC・SP・Tabの利用動向と差異を確認します。', color: 'text-indigo-500' },
+  { id: 'hourly', icon: 'schedule', label: '時間帯分析', desc: '成果が出やすい曜日や時間帯の傾向を把握。', color: 'text-amber-500' },
+  { id: 'demographics', icon: 'group', label: 'ユーザー属性', desc: '年齢・性別・地域などのデモグラフィック情報。', color: 'text-pink-500' },
+  { id: 'engagement', icon: 'timer', label: 'エンゲージメント時間', desc: 'サイト滞在時間やユーザーの熱量を測定。', color: 'text-teal-500' },
+  { id: 'auction', icon: 'stacked_bar_chart', label: 'オークション圧分析', desc: '競合他社の入札動向と表示機会損失を分析。', color: 'text-rose-500' },
 ]
+
+function extractPeriods(data) {
+  if (data.periods) return data.periods
+  if (data.results) return data.results
+  if (data.available_periods) return data.available_periods
+  if (data.data) return data.data
+  if (Array.isArray(data)) return data
+  return []
+}
 
 const STEPS = ['クエリタイプ選択', '期間選択', 'レポート生成']
 
 export default function SetupWizard() {
   const navigate = useNavigate()
   const { isAdsAuthenticated } = useAuth()
+  const { completeSetup } = useAdsSetup()
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState(new Set())
   const [error, setError] = useState(null)
@@ -60,12 +71,11 @@ export default function SetupWizard() {
     setError(null)
     if (step === 0) {
       if (selected.size === 0) return
-      // Fetch periods based on selected query types
       setLoading(true)
       try {
-        const queryTypes = [...selected].map((i) => QUERY_TYPES[i].label)
-        const data = await listPeriods({ query_types: queryTypes.join(',') })
-        const items = data.periods ?? data.results ?? (Array.isArray(data) ? data : [])
+        const queryTypeIds = [...selected].map((i) => QUERY_TYPES[i].id)
+        const data = await listPeriods({ query_types: queryTypeIds.join(',') })
+        const items = extractPeriods(data)
         setPeriods(items)
         setStep(1)
       } catch (e) {
@@ -77,9 +87,10 @@ export default function SetupWizard() {
       if (!selectedPeriod) return
       setLoading(true)
       try {
-        const queryTypes = [...selected].map((i) => QUERY_TYPES[i].label)
-        const data = await loadData({ query_types: queryTypes, period: selectedPeriod })
+        const queryTypeIds = [...selected].map((i) => QUERY_TYPES[i].id)
+        const data = await loadData({ query_types: queryTypeIds, period: selectedPeriod })
         setLoadResult(data)
+        completeSetup({ queryTypes: queryTypeIds, period: selectedPeriod })
         setStep(2)
       } catch (e) {
         setError(e.message)

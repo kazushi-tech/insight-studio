@@ -1,6 +1,10 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
+import { useAdsSetup } from '../contexts/AdsSetupContext'
+
+const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'dashboard', label: 'ダッシュボード' },
@@ -26,7 +30,21 @@ const NAV_ITEMS = [
   { to: '/settings', icon: 'settings', label: '設定' },
 ]
 
-function SidebarLink({ to, icon, label, isChild }) {
+function SidebarLink({ to, icon, label, isChild, disabled }) {
+  if (disabled) {
+    return (
+      <span
+        className={`flex items-center gap-3 px-6 py-2.5 text-sm opacity-40 cursor-not-allowed border-l-4 border-transparent ${
+          isChild ? 'pl-14' : ''
+        }`}
+        title="セットアップを完了してください"
+      >
+        {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
+        <span className="japanese-text">{label}</span>
+        <span className="material-symbols-outlined text-[14px] ml-auto">lock</span>
+      </span>
+    )
+  }
   return (
     <NavLink
       to={to}
@@ -36,8 +54,8 @@ function SidebarLink({ to, icon, label, isChild }) {
           isChild ? 'pl-14' : ''
         } ${
           isActive
-            ? 'text-gold border-l-4 border-gold bg-white font-bold'
-            : 'text-[#1A1A2E] hover:bg-slate-100 border-l-4 border-transparent'
+            ? 'text-gold border-l-4 border-gold bg-surface-container-lowest font-bold'
+            : 'text-on-surface hover:bg-surface-container border-l-4 border-transparent'
         }`
       }
     >
@@ -47,7 +65,7 @@ function SidebarLink({ to, icon, label, isChild }) {
   )
 }
 
-function SidebarGroup({ item }) {
+function SidebarGroup({ item, disabledPaths }) {
   const location = useLocation()
   const isGroupActive = item.children?.some((c) => location.pathname === c.to)
   const [open, setOpen] = useState(isGroupActive)
@@ -58,8 +76,8 @@ function SidebarGroup({ item }) {
         onClick={() => setOpen(!open)}
         className={`w-full flex items-center gap-3 px-6 py-2.5 text-sm transition-colors border-l-4 ${
           isGroupActive
-            ? 'text-gold border-gold bg-white font-bold'
-            : 'text-[#1A1A2E] hover:bg-slate-100 border-transparent'
+            ? 'text-gold border-gold bg-surface-container-lowest font-bold'
+            : 'text-on-surface hover:bg-surface-container border-transparent'
         }`}
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -71,7 +89,13 @@ function SidebarGroup({ item }) {
       {open && (
         <div className="flex flex-col">
           {item.children.map((child) => (
-            <SidebarLink key={child.to} to={child.to} label={child.label} isChild />
+            <SidebarLink
+              key={child.to}
+              to={child.to}
+              label={child.label}
+              isChild
+              disabled={disabledPaths?.includes(child.to)}
+            />
           ))}
         </div>
       )}
@@ -102,7 +126,7 @@ function KeySettingsModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-[480px] p-8 space-y-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-[480px] p-8 space-y-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-bold japanese-text">API キー設定</h3>
           <button onClick={onClose} className="text-on-surface-variant hover:text-primary">
@@ -173,18 +197,22 @@ function KeySettingsModal({ onClose }) {
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
   const { hasGeminiKey, isAdsAuthenticated } = useAuth()
+  const { isDark, toggleTheme } = useTheme()
+  const { isSetupComplete, resetSetup } = useAdsSetup()
+  const navigate = useNavigate()
+  const disabledPaths = isSetupComplete ? [] : SETUP_GATED_PATHS
 
   return (
     <div className="flex min-h-screen bg-surface">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 w-[240px] bg-slate-50 text-sm tracking-wide flex flex-col">
+      <aside className="fixed left-0 top-0 h-full z-40 py-6 w-[240px] bg-surface text-sm tracking-wide flex flex-col">
         {/* Logo */}
         <div className="px-6 mb-8 flex items-center gap-3">
           <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-gold">
             <span className="material-symbols-outlined text-2xl">insights</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[#1A1A2E] tracking-tighter leading-tight">
+            <h1 className="text-xl font-bold text-on-surface tracking-tighter leading-tight">
               Insight Studio
             </h1>
             <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">
@@ -197,7 +225,7 @@ export default function Layout() {
         <nav className="flex flex-col gap-0.5 flex-1">
           {NAV_ITEMS.map((item) =>
             item.children ? (
-              <SidebarGroup key={item.label} item={item} />
+              <SidebarGroup key={item.label} item={item} disabledPaths={disabledPaths} />
             ) : (
               <SidebarLink key={item.to} to={item.to} icon={item.icon} label={item.label} />
             )
@@ -206,7 +234,7 @@ export default function Layout() {
 
         {/* Connection Status */}
         <div className="px-6 mb-3">
-          <div className="bg-white rounded-xl p-3 space-y-2 text-xs">
+          <div className="bg-surface-container-lowest rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-on-surface-variant">Gemini API</span>
               <span className={`flex items-center gap-1 font-bold ${hasGeminiKey ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
@@ -224,11 +252,14 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* New Project Button */}
+        {/* New Setup Button */}
         <div className="px-6 mt-2">
-          <button className="w-full py-3.5 bg-secondary text-on-secondary rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 text-sm">
-            <span className="material-symbols-outlined text-lg">add_circle</span>
-            <span>新規プロジェクト</span>
+          <button
+            onClick={() => { resetSetup(); navigate('/ads/wizard') }}
+            className="w-full py-3.5 bg-secondary text-on-secondary rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 text-sm"
+          >
+            <span className="material-symbols-outlined text-lg">replay</span>
+            <span>新しいセットアップ</span>
           </button>
         </div>
       </aside>
@@ -264,8 +295,13 @@ export default function Layout() {
                   <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full" />
                 )}
               </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
-                <span className="material-symbols-outlined">light_mode</span>
+              <button
+                onClick={toggleTheme}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                title={isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
+                aria-label={isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
+              >
+                <span className="material-symbols-outlined">{isDark ? 'light_mode' : 'dark_mode'}</span>
               </button>
               <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant relative">
                 <span className="material-symbols-outlined">notifications</span>
@@ -274,7 +310,7 @@ export default function Layout() {
             </div>
             <div className="flex items-center gap-3 pl-6 border-l border-outline-variant/30">
               <div className="text-right">
-                <p className="text-sm font-bold text-[#1A1A2E]">田中 一郎</p>
+                <p className="text-sm font-bold text-on-surface">田中 一郎</p>
                 <p className="text-[10px] text-on-surface-variant">管理者</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container">

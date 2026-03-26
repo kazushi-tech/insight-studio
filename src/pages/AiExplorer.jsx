@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { generateInsights } from '../api/adsInsights'
+import { getHistory } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
 
 const QUICK_PROMPTS = [
@@ -8,16 +9,46 @@ const QUICK_PROMPTS = [
   { icon: 'compare_arrows', label: '先月と比較して', color: 'text-purple-500' },
 ]
 
+function summarizeHistory(items) {
+  if (!Array.isArray(items) || items.length === 0) return null
+  const recent = items.slice(0, 5)
+  const lines = recent.map((item) => {
+    const title = item.title || item.url || '不明'
+    const score = item.score != null ? `スコア: ${item.score}` : ''
+    const date = item.created_at || item.date || ''
+    return [title, score, date].filter(Boolean).join(' | ')
+  })
+  return lines.join('\n')
+}
+
 export default function AiExplorer() {
   const { isAdsAuthenticated } = useAuth()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
+  const [contextMode, setContextMode] = useState('ads-only')
+  const [mlContextSummary, setMlContextSummary] = useState(null)
+  const [mlLoading, setMlLoading] = useState(false)
   const chatEndRef = useRef(null)
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (contextMode !== 'ads-with-ml') {
+      setMlContextSummary(null)
+      return
+    }
+    setMlLoading(true)
+    getHistory()
+      .then((data) => {
+        const items = data.history ?? data.results ?? (Array.isArray(data) ? data : [])
+        setMlContextSummary(summarizeHistory(items))
+      })
+      .catch(() => setMlContextSummary(null))
+      .finally(() => setMlLoading(false))
+  }, [contextMode])
 
   async function handleSend(text) {
     const prompt = text ?? input.trim()
@@ -29,7 +60,10 @@ export default function AiExplorer() {
     setLoading(true)
 
     try {
-      const data = await generateInsights({ type: 'chat', prompt })
+      const enrichedPrompt = mlContextSummary
+        ? `[Market Lens Summary]\n${mlContextSummary}\n\n[Question]\n${prompt}`
+        : prompt
+      const data = await generateInsights({ type: 'chat', prompt: enrichedPrompt })
       const aiContent = data.response ?? data.analysis ?? data.content ?? JSON.stringify(data)
       setMessages((prev) => [...prev, { role: 'ai', content: aiContent }])
     } catch (e) {
@@ -56,6 +90,40 @@ export default function AiExplorer() {
             <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
+
+        {/* Context Mode Toggle */}
+        <div className="flex items-center gap-3 mb-4">
+          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">CONTEXT</p>
+          <div className="flex bg-surface-container rounded-full p-0.5">
+            <button
+              onClick={() => setContextMode('ads-only')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                contextMode === 'ads-only'
+                  ? 'bg-primary text-on-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              広告データのみ
+            </button>
+            <button
+              onClick={() => setContextMode('ads-with-ml')}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                contextMode === 'ads-with-ml'
+                  ? 'bg-primary text-on-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              + Market Lens
+            </button>
+          </div>
+          {contextMode === 'ads-with-ml' && (
+            <span className={`text-xs flex items-center gap-1 ${mlLoading ? 'text-on-surface-variant' : mlContextSummary ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${mlLoading ? 'bg-amber-400 animate-pulse' : mlContextSummary ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
+              {mlLoading ? '読込中…' : mlContextSummary ? '履歴接続済' : '履歴なし'}
+            </span>
+          )}
+        </div>
+
         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">QUICK ANALYSIS</p>
         <div className="flex gap-4">
           {QUICK_PROMPTS.map((p) => (

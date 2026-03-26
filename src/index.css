@@ -52,10 +52,70 @@
   --color-gold-dim: #EEC058;
 }
 
+:root[data-theme='dark'] {
+  --color-surface-bright: #262d36;
+  --color-surface-container-high: #2f3742;
+  --color-surface-container-highest: #39414d;
+  --color-surface-container-low: #1b212a;
+  --color-surface-container-lowest: #141920;
+  --color-surface-container: #232a34;
+  --color-surface-dim: #0f141a;
+  --color-surface-variant: #2a313c;
+  --color-surface-tint: #d4a843;
+  --color-surface: #0d1117;
+  --color-background: #0d1117;
+
+  --color-primary: #f3f5f7;
+  --color-primary-container: #17202a;
+  --color-primary-fixed: #242d38;
+  --color-primary-fixed-dim: #394453;
+  --color-on-primary: #0d1117;
+  --color-on-primary-container: #dbe2ea;
+  --color-on-primary-fixed: #f3f5f7;
+
+  --color-secondary: #e2ba63;
+  --color-secondary-container: #5f4813;
+  --color-secondary-fixed: #7c5d12;
+  --color-secondary-fixed-dim: #9a7518;
+  --color-on-secondary: #16110a;
+  --color-on-secondary-container: #f6dfad;
+
+  --color-tertiary: #c9b27b;
+  --color-tertiary-container: #51482e;
+  --color-tertiary-fixed: #66593a;
+  --color-on-tertiary: #11161d;
+
+  --color-error: #ff8f8f;
+  --color-error-container: #5a2020;
+  --color-on-error: #261010;
+  --color-on-error-container: #ffd9d9;
+
+  --color-on-surface: #edf2f7;
+  --color-on-surface-variant: #a5b0bf;
+  --color-on-background: #edf2f7;
+
+  --color-outline: #677180;
+  --color-outline-variant: #39414d;
+
+  --color-inverse-surface: #edf2f7;
+  --color-inverse-on-surface: #161b22;
+}
+
 @layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
   body {
     font-family: 'Manrope', sans-serif;
     letter-spacing: 0.02em;
+    background-color: var(--color-background);
+    color: var(--color-on-background);
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
   }
 }
 
@@ -76,4 +136,29 @@
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   display: inline-block;
   vertical-align: middle;
+}
+
+:root[data-theme='dark'] .bg-white {
+  background-color: var(--color-surface-container-lowest) !important;
+}
+
+:root[data-theme='dark'] .bg-white\/80 {
+  background-color: rgb(20 25 32 / 80%) !important;
+}
+
+:root[data-theme='dark'] .bg-slate-50 {
+  background-color: var(--color-surface) !important;
+}
+
+:root[data-theme='dark'] .border-slate-100 {
+  border-color: var(--color-outline-variant) !important;
+}
+
+:root[data-theme='dark'] .hover\:bg-slate-100:hover,
+:root[data-theme='dark'] .hover\:bg-white:hover {
+  background-color: var(--color-surface-container) !important;
+}
+
+:root[data-theme='dark'] .text-\[\#1A1A2E\] {
+  color: var(--color-on-surface) !important;
 }

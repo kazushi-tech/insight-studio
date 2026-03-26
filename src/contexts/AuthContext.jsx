@@ -43,10 +43,17 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const onLogoutCallbacks = []
+
+  function onAdsLogout(cb) {
+    onLogoutCallbacks.push(cb)
+  }
+
   function logoutAds() {
     adsLogout()
     setAdsToken(null)
     localStorage.removeItem(STORAGE_KEY_TOKEN)
+    onLogoutCallbacks.forEach((cb) => cb())
   }
 
   const value = {
@@ -55,6 +62,7 @@ export function AuthProvider({ children }) {
     setGeminiKey,
     loginAds,
     logoutAds,
+    onAdsLogout,
     isAdsAuthenticated: !!adsToken,
     hasGeminiKey: !!geminiKey,
     loading,
