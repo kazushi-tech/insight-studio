@@ -25,6 +25,7 @@ const GRANULARITIES = [
   { value: 'weekly', label: '週別', icon: 'date_range' },
   { value: 'daily', label: '日別', icon: 'today' },
 ]
+const GENERATE_RETRY_DELAYS_MS = [800, 1600]
 
 function extractPeriods(data) {
   if (Array.isArray(data?.periods) && data.periods.length > 0) return data.periods
@@ -32,6 +33,29 @@ function extractPeriods(data) {
   if (Array.isArray(data?.available_periods)) return data.available_periods
   if (Array.isArray(data)) return data
   return []
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isRetryableError(error) {
+  return !error?.status || error.status === 429 || error.status >= 500
+}
+
+async function generateBatchWithRetry(payload) {
+  for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      return await bqGenerateBatch(payload)
+    } catch (error) {
+      if (!isRetryableError(error) || attempt === GENERATE_RETRY_DELAYS_MS.length) {
+        throw error
+      }
+      await sleep(GENERATE_RETRY_DELAYS_MS[attempt])
+    }
+  }
+
+  throw new Error('BQレポート生成に失敗しました。')
 }
 
 export default function SetupWizard() {
@@ -45,8 +69,10 @@ export default function SetupWizard() {
   const [loading, setLoading] = useState(false)
   const [periods, setPeriods] = useState([])
   const [selectedPeriods, setSelectedPeriods] = useState(new Set())
+  const [generatedPeriods, setGeneratedPeriods] = useState(new Set())
   const [loadResult, setLoadResult] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
+  const [loadingLabel, setLoadingLabel] = useState('処理中…')
 
   useEffect(() => {
     if (!location.state?.resetAt) return
@@ -56,8 +82,10 @@ export default function SetupWizard() {
     setLoading(false)
     setPeriods([])
     setSelectedPeriods(new Set())
+    setGeneratedPeriods(new Set())
     setLoadResult(null)
     setGranularity('monthly')
+    setLoadingLabel('処理中…')
   }, [location.state?.resetAt])
 
   useEffect(() => {
@@ -68,20 +96,26 @@ export default function SetupWizard() {
     setLoading(false)
     setPeriods([])
     setSelectedPeriods(new Set())
+    setGeneratedPeriods(new Set())
     setLoadResult(null)
     setGranularity('monthly')
+    setLoadingLabel('処理中…')
   }, [isAdsAuthenticated])
 
   const toggle = (index) => {
     const next = new Set(selected)
     next.has(index) ? next.delete(index) : next.add(index)
     setSelected(next)
+    setGeneratedPeriods(new Set())
+    setLoadResult(null)
   }
 
   const togglePeriod = (value) => {
     const next = new Set(selectedPeriods)
     next.has(value) ? next.delete(value) : next.add(value)
     setSelectedPeriods(next)
+    setGeneratedPeriods(new Set())
+    setLoadResult(null)
   }
 
   async function fetchPeriods(gran) {
@@ -92,8 +126,11 @@ export default function SetupWizard() {
   async function handleGranularityChange(gran) {
     setGranularity(gran)
     setSelectedPeriods(new Set())
+    setGeneratedPeriods(new Set())
     setError(null)
+    setLoadResult(null)
     setLoading(true)
+    setLoadingLabel('期間を取得中…')
     try {
       const items = await fetchPeriods(gran)
       setPeriods(items)
@@ -114,6 +151,7 @@ export default function SetupWizard() {
     if (step === 0) {
       if (selected.size === 0) return
       setLoading(true)
+      setLoadingLabel('期間を取得中…')
 
       try {
         const items = await fetchPeriods(granularity)
@@ -125,6 +163,8 @@ export default function SetupWizard() {
 
         setPeriods(items)
         setSelectedPeriods(new Set())
+        setGeneratedPeriods(new Set())
+        setLoadResult(null)
         setStep(1)
       } catch (e) {
         setError(e.message)
@@ -138,26 +178,40 @@ export default function SetupWizard() {
     if (step === 1) {
       if (selectedPeriods.size === 0) return
       setLoading(true)
+      setLoadingLabel('レポートを生成中…')
+      let completedCount = generatedPeriods.size
 
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
         const periodsArray = [...selectedPeriods]
+        const currentGenerated = new Set(generatedPeriods)
+        const pendingPeriods = periodsArray.filter((period) => !currentGenerated.has(period))
         const results = []
-        for (const period of periodsArray) {
-          const data = await bqGenerateBatch({
+        for (let index = 0; index < pendingPeriods.length; index += 1) {
+          const period = pendingPeriods[index]
+          setLoadingLabel(`レポートを生成中… (${currentGenerated.size + 1}/${periodsArray.length})`)
+          const data = await generateBatchWithRetry({
             query_types: queryTypeIds,
             period,
           })
           results.push(data)
+          currentGenerated.add(period)
+          completedCount = currentGenerated.size
+          setGeneratedPeriods(new Set(currentGenerated))
         }
         setLoadResult(results.length === 1 ? results[0] : { ok: true, results })
         completeSetup({ queryTypes: queryTypeIds, periods: periodsArray, granularity })
         setStep(2)
       } catch (e) {
-        setError(e.message)
+        const progressMessage =
+          completedCount > 0
+            ? `${e.message} ${completedCount}/${selectedPeriods.size} 期間は生成済みです。次の再試行では未完了分のみ送信します。`
+            : e.message
+        setError(progressMessage)
       } finally {
         setLoading(false)
+        setLoadingLabel('処理中…')
       }
 
       return
@@ -168,7 +222,11 @@ export default function SetupWizard() {
 
   function handleBack() {
     if (step === 0) return
-    if (step === 1) setSelectedPeriods(new Set())
+    if (step === 1) {
+      setSelectedPeriods(new Set())
+      setGeneratedPeriods(new Set())
+      setLoadResult(null)
+    }
     setStep((current) => current - 1)
   }
 
@@ -313,43 +371,53 @@ export default function SetupWizard() {
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-3 text-on-surface-variant">
               <span className="material-symbols-outlined text-2xl animate-spin">progress_activity</span>
-              <span className="text-sm">期間を取得中…</span>
+              <span className="text-sm">{loadingLabel}</span>
             </div>
           ) : periods.length === 0 ? (
             <p className="text-on-surface-variant text-sm japanese-text">利用可能な期間がありません。</p>
           ) : (
-            <div className="grid grid-cols-3 gap-4">
-              {periods.map((period, index) => {
-                const label = typeof period === 'string'
-                  ? period
-                  : period.period_tag ?? period.label ?? period.period ?? `期間 ${index + 1}`
-                const value = typeof period === 'string'
-                  ? period
-                  : period.period_tag ?? period.value ?? period.period ?? period
+            <div className="space-y-4">
+              {generatedPeriods.size > 0 && (
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+                  <span className="material-symbols-outlined text-lg">info</span>
+                  <span className="japanese-text">
+                    前回の処理で {generatedPeriods.size} 期間は生成済みです。再試行すると未完了分のみ送信します。
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-4">
+                {periods.map((period, index) => {
+                  const label = typeof period === 'string'
+                    ? period
+                    : period.period_tag ?? period.label ?? period.period ?? `期間 ${index + 1}`
+                  const value = typeof period === 'string'
+                    ? period
+                    : period.period_tag ?? period.value ?? period.period ?? period
 
-                return (
-                  <button
-                    key={index}
-                    onClick={() => togglePeriod(value)}
-                    className={`p-5 rounded-2xl text-left transition-all border-2 ${
-                      selectedPeriods.has(value)
-                        ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
-                        : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-secondary">calendar_today</span>
-                        <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => togglePeriod(value)}
+                      className={`p-5 rounded-2xl text-left transition-all border-2 ${
+                        selectedPeriods.has(value)
+                          ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
+                          : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-secondary">calendar_today</span>
+                          <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
+                        </div>
+                        {selectedPeriods.has(value) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
                       </div>
-                      {selectedPeriods.has(value) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
-                    </div>
-                    {period.period_type && (
-                      <p className="text-xs text-on-surface-variant mt-1 ml-9">{period.period_type}</p>
-                    )}
-                  </button>
-                )
-              })}
+                      {period.period_type && (
+                        <p className="text-xs text-on-surface-variant mt-1 ml-9">{period.period_type}</p>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
