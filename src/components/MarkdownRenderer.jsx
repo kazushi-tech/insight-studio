@@ -31,6 +31,16 @@ function parseTableRow(line) {
     .map((cell) => cell.trim())
 }
 
+function isNumericCell(text) {
+  const trimmed = text.trim()
+  return /^[-+¥$]?[\d,]+\.?\d*[%％回件円]?$/.test(trimmed) || /^[-▲△]?\d/.test(trimmed)
+}
+
+function makeHeadingId(title, index) {
+  const base = 'toc-' + title.replace(/[^\w\u3000-\u9fff]/g, '-').toLowerCase()
+  return `${base}-${index}`
+}
+
 export default function MarkdownRenderer({ content, className = '' }) {
   const markdown = typeof content === 'string' ? content.trim() : ''
 
@@ -39,6 +49,7 @@ export default function MarkdownRenderer({ content, className = '' }) {
   const lines = markdown.split(/\r?\n/)
   const blocks = []
   let index = 0
+  let headingCounter = 0
 
   while (index < lines.length) {
     const line = lines[index]
@@ -71,8 +82,9 @@ export default function MarkdownRenderer({ content, className = '' }) {
       const title = headingMatch[2]
       const Tag = level === 1 ? 'h2' : level === 2 ? 'h3' : 'h4'
       const sizeClass = level === 1 ? 'text-2xl' : level === 2 ? 'text-xl' : 'text-lg'
+      const hId = makeHeadingId(title, headingCounter++)
       blocks.push(
-        <Tag key={`heading-${blocks.length}`} className={`${sizeClass} font-bold japanese-text text-on-surface`}>
+        <Tag key={`heading-${blocks.length}`} id={hId} className={`${sizeClass} font-bold japanese-text text-on-surface scroll-mt-20`}>
           {title}
         </Tag>,
       )
@@ -91,11 +103,16 @@ export default function MarkdownRenderer({ content, className = '' }) {
 
       blocks.push(
         <div key={`table-${blocks.length}`} className="overflow-x-auto rounded-2xl border border-outline-variant/20">
-          <table className="w-full text-sm">
+          <table className="text-sm" style={{ width: 'max-content', minWidth: '100%', tableLayout: 'auto', borderCollapse: 'collapse' }}>
             <thead className="bg-surface-container-low">
               <tr>
                 {headers.map((header, cellIndex) => (
-                  <th key={`th-${cellIndex}`} className="px-4 py-3 text-left font-bold">
+                  <th
+                    key={`th-${cellIndex}`}
+                    className={`px-4 py-3 text-left font-bold whitespace-nowrap border-b border-outline-variant/20 ${
+                      cellIndex === 0 ? 'max-w-[400px]' : ''
+                    }`}
+                  >
                     {header}
                   </th>
                 ))}
@@ -103,12 +120,27 @@ export default function MarkdownRenderer({ content, className = '' }) {
             </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
-                <tr key={`tr-${rowIndex}`} className="border-t border-outline-variant/10">
-                  {row.map((cell, cellIndex) => (
-                    <td key={`td-${rowIndex}-${cellIndex}`} className="px-4 py-3 align-top whitespace-pre-wrap">
-                      {renderInline(cell, `table-${rowIndex}-${cellIndex}`)}
-                    </td>
-                  ))}
+                <tr
+                  key={`tr-${rowIndex}`}
+                  className={`border-t border-outline-variant/10 hover:bg-surface-container/40 transition-colors ${
+                    rowIndex % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/30'
+                  }`}
+                >
+                  {row.map((cell, cellIndex) => {
+                    const numeric = isNumericCell(cell)
+                    const isFirstCol = cellIndex === 0
+                    return (
+                      <td
+                        key={`td-${rowIndex}-${cellIndex}`}
+                        title={cell}
+                        className={`px-4 py-3 align-top whitespace-nowrap ${
+                          numeric ? 'text-right font-mono tabular-nums' : ''
+                        } ${isFirstCol ? 'max-w-[400px] hover:whitespace-normal hover:break-words hover:relative hover:z-10 hover:bg-surface-container' : ''}`}
+                      >
+                        {renderInline(cell, `table-${rowIndex}-${cellIndex}`)}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

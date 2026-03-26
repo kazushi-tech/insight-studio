@@ -1,8 +1,42 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
-import { extractMarkdownHeadings, extractMarkdownSummary, regenerateAdsReportBundle } from '../utils/adsReports'
+import { extractMarkdownSummary, regenerateAdsReportBundle } from '../utils/adsReports'
+
+/* ── h1 セクション分割 ── */
+function splitMarkdownByH1(markdown) {
+  if (!markdown) return []
+  const lines = markdown.split(/\r?\n/)
+  const sections = []
+  let currentHeading = null
+  let currentLines = []
+
+  const flush = () => {
+    if (currentHeading !== null) {
+      const md = currentLines.join('\n').trim()
+      const id = 'sec-' + currentHeading.replace(/[^\w\u3000-\u9fff]/g, '-').toLowerCase()
+      const isSummary = /サマリー|概要|統合|summary/i.test(currentHeading)
+      sections.push({ heading: currentHeading, id, md, kind: isSummary ? 'summary' : 'report' })
+    } else if (currentLines.some((l) => l.trim())) {
+      const md = currentLines.join('\n').trim()
+      if (md) sections.push({ heading: 'レポート', id: 'sec-report-preamble', md, kind: 'report' })
+    }
+  }
+
+  for (const line of lines) {
+    const m = line.match(/^# (.+)/)
+    if (m) {
+      flush()
+      currentHeading = m[1]
+      currentLines = []
+    } else {
+      currentLines.push(line)
+    }
+  }
+  flush()
+  return sections
+}
 
 export default function EssentialPack() {
   const { isAdsAuthenticated } = useAuth()
@@ -10,6 +44,8 @@ export default function EssentialPack() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [selectedPeriod, setSelectedPeriod] = useState('all')
+  const [openSections, setOpenSections] = useState({})
+  const mainRef = useRef(null)
 
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
@@ -54,8 +90,55 @@ export default function EssentialPack() {
     return periodReports.find((item) => item.periodTag === selectedPeriod)?.reportMd ?? ''
   }, [periodReports, reportBundle?.reportMd, selectedPeriod])
 
-  const reportHeadings = useMemo(() => extractMarkdownHeadings(currentReport), [currentReport])
+  const sections = useMemo(() => splitMarkdownByH1(currentReport), [currentReport])
+  const useAccordion = sections.length > 1
   const insightSummary = useMemo(() => extractMarkdownSummary(currentReport), [currentReport])
+
+  /* ── accordion 初期状態: summary + 最初の report を open ── */
+  useEffect(() => {
+    if (!sections.length) return
+    const init = {}
+    let firstReportDone = false
+    for (const s of sections) {
+      if (s.kind === 'summary') {
+        init[s.id] = true
+      } else if (!firstReportDone) {
+        init[s.id] = true
+        firstReportDone = true
+      } else {
+        init[s.id] = false
+      }
+    }
+    setOpenSections(init)
+  }, [sections])
+
+  const toggleSection = useCallback((id) => {
+    setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }))
+  }, [])
+
+  const expandAll = useCallback(() => {
+    setOpenSections((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(next)) next[key] = true
+      return next
+    })
+  }, [])
+
+  const collapseAll = useCallback(() => {
+    const next = {}
+    for (const s of sections) next[s.id] = s.kind === 'summary'
+    setOpenSections(next)
+  }, [sections])
+
+  const navToSection = useCallback(
+    (sectionId) => {
+      setOpenSections((prev) => ({ ...prev, [sectionId]: true }))
+      setTimeout(() => {
+        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' })
+      }, 60)
+    },
+    [],
+  )
 
   async function handleRefresh() {
     if (!setupState || !isAdsAuthenticated || loading) return
@@ -72,87 +155,82 @@ export default function EssentialPack() {
     }
   }
 
+  function handlePeriodChange(e) {
+    setSelectedPeriod(e.target.value)
+    if (mainRef.current) mainRef.current.scrollTop = 0
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
-      <div className="w-[300px] bg-surface-container-lowest border-r border-surface-container p-6 space-y-6">
-        <div>
-          <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">分析期間</label>
-          <div className="mt-2 space-y-1">
-            {setupState?.periods?.length > 0 ? (
-              setupState.periods.map((period) => (
-                <div key={period} className="flex items-center gap-2 px-4 py-2 bg-surface-container rounded-xl text-sm">
-                  <span className="material-symbols-outlined text-sm text-secondary">calendar_today</span>
-                  <span>{period}</span>
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-on-surface-variant px-4 py-2">セットアップ未完了</p>
-            )}
-          </div>
-        </div>
-
-        {setupState && (
-          <div>
-            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">分析条件</label>
-            <div className="mt-2 space-y-1 text-xs text-on-surface-variant">
-              <p>粒度: {setupState.granularity === 'monthly' ? '月別' : setupState.granularity === 'weekly' ? '週別' : '日別'}</p>
-              <p>クエリ: {setupState.queryTypes?.join(', ')}</p>
-              <p>dataset: {setupState.datasetId}</p>
-            </div>
-          </div>
-        )}
-
+      {/* ── Sticky Left Nav ── */}
+      <div className="w-[260px] min-w-[260px] bg-surface-container-lowest border-r border-surface-container p-5 space-y-5 sticky top-16 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
+        {/* 期間プルダウン */}
         {periodReports.length > 1 && (
           <div>
-            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">表示期間</label>
-            <div className="mt-2 flex flex-col gap-1">
-              <button
-                onClick={() => setSelectedPeriod('all')}
-                className={`px-4 py-3 rounded-xl text-sm text-left transition-all ${
-                  selectedPeriod === 'all'
-                    ? 'bg-secondary/10 text-secondary font-bold'
-                    : 'text-on-surface-variant hover:bg-surface-container'
-                }`}
-              >
-                すべて結合
-              </button>
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block mb-1">期間</label>
+            <select
+              value={selectedPeriod}
+              onChange={handlePeriodChange}
+              className="w-full px-3 py-2 text-sm bg-surface-container border border-outline-variant/30 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-secondary/30"
+            >
+              <option value="all">全期間 ({periodReports.length})</option>
               {periodReports.map((report) => (
-                <button
-                  key={report.periodTag}
-                  onClick={() => setSelectedPeriod(report.periodTag)}
-                  className={`px-4 py-3 rounded-xl text-sm text-left transition-all ${
-                    selectedPeriod === report.periodTag
-                      ? 'bg-secondary/10 text-secondary font-bold'
-                      : 'text-on-surface-variant hover:bg-surface-container'
-                  }`}
-                >
+                <option key={report.periodTag} value={report.periodTag}>
                   {report.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* 分析条件 */}
+        {setupState && (
+          <div>
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block mb-1">分析条件</label>
+            <div className="space-y-0.5 text-xs text-on-surface-variant">
+              <p>粒度: {setupState.granularity === 'monthly' ? '月別' : setupState.granularity === 'weekly' ? '週別' : '日別'}</p>
+              <p>クエリ: {setupState.queryTypes?.join(', ')}</p>
+            </div>
+          </div>
+        )}
+
+        {/* セクションナビ (accordion 時) */}
+        {useAccordion && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-secondary uppercase tracking-wider">セクション</label>
+              <div className="flex gap-1">
+                <button onClick={expandAll} className="text-[10px] px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-low transition-colors text-on-surface-variant">
+                  全て開く
                 </button>
+                <button onClick={collapseAll} className="text-[10px] px-2 py-0.5 rounded bg-surface-container hover:bg-surface-container-low transition-colors text-on-surface-variant">
+                  全て閉じる
+                </button>
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              {sections.map((s) => (
+                <a
+                  key={s.id}
+                  href={`#${s.id}`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    navToSection(s.id)
+                  }}
+                  className={`block px-3 py-1.5 text-xs rounded-lg transition-all leading-snug ${
+                    openSections[s.id]
+                      ? 'text-secondary font-bold border-l-2 border-secondary bg-secondary/5'
+                      : 'text-on-surface-variant border-l-2 border-transparent hover:bg-surface-container'
+                  } ${s.kind === 'summary' ? 'font-bold' : ''}`}
+                >
+                  {s.heading}
+                </a>
               ))}
             </div>
           </div>
         )}
 
-        <div>
-          <h4 className="text-sm font-bold text-[#1A1A2E] mb-3 japanese-text">レポート構成</h4>
-          {reportHeadings.length > 0 ? (
-            <div className="space-y-2">
-              {reportHeadings.map((heading) => (
-                <div
-                  key={heading.id}
-                  className={`rounded-xl px-4 py-3 text-sm ${
-                    heading.level === 1 ? 'bg-surface-container text-on-surface font-bold' : 'text-on-surface-variant'
-                  }`}
-                >
-                  {heading.title}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-on-surface-variant">見出しはまだありません。</p>
-          )}
-        </div>
-
+        {/* 認証警告 */}
         {!isAdsAuthenticated && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
             <span className="material-symbols-outlined text-sm align-middle mr-1">warning</span>
@@ -160,10 +238,11 @@ export default function EssentialPack() {
           </div>
         )}
 
+        {/* 再取得ボタン */}
         <button
           onClick={handleRefresh}
           disabled={loading || !isAdsAuthenticated || !setupState}
-          className="w-full py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2.5 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>
@@ -178,18 +257,20 @@ export default function EssentialPack() {
           )}
         </button>
 
+        {/* サマリーカード */}
         {insightSummary && (
-          <div className="bg-secondary p-5 rounded-2xl text-on-secondary">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined">description</span>
-              <span className="font-bold text-sm">REPORT SUMMARY</span>
+          <div className="bg-secondary p-4 rounded-2xl text-on-secondary">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-sm">description</span>
+              <span className="font-bold text-xs">SUMMARY</span>
             </div>
-            <p className="text-sm leading-relaxed">{insightSummary}</p>
+            <p className="text-xs leading-relaxed">{insightSummary}</p>
           </div>
         )}
       </div>
 
-      <div className="flex-1 p-8 space-y-8 overflow-y-auto">
+      {/* ── Main Content ── */}
+      <div ref={mainRef} className="flex-1 min-w-0 p-8 space-y-6 overflow-y-auto">
         {error && (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
             <span className="material-symbols-outlined text-lg">error</span>
@@ -200,7 +281,7 @@ export default function EssentialPack() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-extrabold text-[#1A1A2E] japanese-text">広告考察レポート</h2>
-            <p className="text-sm text-on-surface-variant mt-1">`ads-insights` の `/api/bq/generate_batch` が返した `report_md` を表示しています。</p>
+            <p className="text-xs text-on-surface-variant mt-1">report_md を表示しています</p>
           </div>
           <div className="flex gap-3">
             <button className="px-4 py-2 bg-white border border-outline-variant/50 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-surface-container transition-all">
@@ -226,21 +307,66 @@ export default function EssentialPack() {
             <span className="material-symbols-outlined text-5xl text-outline-variant">description</span>
             <h3 className="text-xl font-bold japanese-text">レポート本文がまだありません</h3>
             <p className="text-sm text-on-surface-variant japanese-text">
-              `ads-insights` repo の BQ flow に合わせて、Wizard の `generate_batch` 結果をここに表示します。必要なら左のボタンで再取得してください。
+              Wizard の generate_batch 結果をここに表示します。左のボタンで再取得してください。
             </p>
           </div>
         )}
 
-        {currentReport && (
+        {/* ── Accordion セクション表示 ── */}
+        {currentReport && useAccordion && (
+          <div className="space-y-3">
+            {sections.map((section) => (
+              <div
+                key={section.id}
+                id={section.id}
+                className="rounded-2xl border border-outline-variant/20 overflow-hidden shadow-[0_4px_12px_-4px_rgba(26,26,46,0.06)] scroll-mt-20"
+              >
+                {section.kind === 'summary' ? (
+                  /* Summary: 常に開いた状態、ボタンなし */
+                  <div className="p-6">
+                    <h3 className="text-lg font-bold text-on-surface japanese-text mb-4">{section.heading}</h3>
+                    <MarkdownRenderer content={section.md} />
+                  </div>
+                ) : (
+                  /* Report: 開閉可能 accordion */
+                  <>
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      aria-expanded={!!openSections[section.id]}
+                      className={`w-full flex items-center justify-between px-6 py-4 text-left transition-colors ${
+                        openSections[section.id]
+                          ? 'bg-secondary/5 text-secondary'
+                          : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container/40'
+                      }`}
+                    >
+                      <span className="font-bold text-sm">{section.heading}</span>
+                      <span
+                        className="material-symbols-outlined text-base transition-transform duration-200"
+                        style={{ transform: openSections[section.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                      >
+                        expand_more
+                      </span>
+                    </button>
+                    {openSections[section.id] && (
+                      <div className="p-6 border-t border-outline-variant/10">
+                        <MarkdownRenderer content={section.md} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── 単一セクション表示 (accordion 不要時) ── */}
+        {currentReport && !useAccordion && (
           <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 space-y-6">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-secondary">article</span>
-              <div>
-                <h3 className="text-xl font-bold japanese-text">
-                  {selectedPeriod === 'all' ? '統合レポート' : `${selectedPeriod} レポート`}
-                </h3>
-                <p className="text-sm text-on-surface-variant">report_md を markdown として描画しています</p>
-              </div>
+              <h3 className="text-xl font-bold japanese-text">
+                {selectedPeriod === 'all' ? '統合レポート' : `${selectedPeriod} レポート`}
+              </h3>
             </div>
             <MarkdownRenderer content={currentReport} />
           </div>
