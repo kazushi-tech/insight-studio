@@ -35,7 +35,7 @@ export function AdsSetupProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    onAdsLogout(resetSetup)
+    return onAdsLogout(resetSetup)
   }, [onAdsLogout, resetSetup])
 
   const completeSetup = useCallback((payload) => {

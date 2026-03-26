@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import { login as adsLogin, setToken, getToken, logout as adsLogout } from '../api/adsInsights'
+import { createContext, useContext, useState, useCallback, useRef } from 'react'
+import { login as adsLogin, setToken, logout as adsLogout } from '../api/adsInsights'
 
 const AuthContext = createContext(null)
 
@@ -7,6 +7,7 @@ const STORAGE_KEY_TOKEN = 'is_ads_token'
 const STORAGE_KEY_GEMINI = 'is_gemini_key'
 
 export function AuthProvider({ children }) {
+  const onLogoutCallbacksRef = useRef(new Set())
   const [adsToken, setAdsToken] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY_TOKEN)
     if (saved) setToken(saved)
@@ -18,16 +19,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  function setGeminiKey(key) {
+  const setGeminiKey = useCallback((key) => {
     setGeminiKeyState(key)
     if (key) {
       localStorage.setItem(STORAGE_KEY_GEMINI, key)
     } else {
       localStorage.removeItem(STORAGE_KEY_GEMINI)
     }
-  }
+  }, [])
 
-  async function loginAds(password) {
+  const loginAds = useCallback(async (password) => {
     setLoading(true)
     setError(null)
     try {
@@ -41,20 +42,19 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const onLogoutCallbacks = []
+  const onAdsLogout = useCallback((cb) => {
+    onLogoutCallbacksRef.current.add(cb)
+    return () => onLogoutCallbacksRef.current.delete(cb)
+  }, [])
 
-  function onAdsLogout(cb) {
-    onLogoutCallbacks.push(cb)
-  }
-
-  function logoutAds() {
+  const logoutAds = useCallback(() => {
     adsLogout()
     setAdsToken(null)
     localStorage.removeItem(STORAGE_KEY_TOKEN)
-    onLogoutCallbacks.forEach((cb) => cb())
-  }
+    onLogoutCallbacksRef.current.forEach((cb) => cb())
+  }, [])
 
   const value = {
     adsToken,

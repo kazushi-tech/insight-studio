@@ -8,6 +8,25 @@ function authHeaders() {
   return headers
 }
 
+function toQueryString(params = {}) {
+  const search = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value == null) return
+
+    if (Array.isArray(value)) {
+      value
+        .filter((item) => item != null && item !== '')
+        .forEach((item) => search.append(key, item))
+      return
+    }
+
+    search.append(key, value)
+  })
+
+  return search.toString()
+}
+
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     headers: { ...authHeaders(), ...options.headers },
@@ -51,9 +70,9 @@ export function getFolders() {
 }
 
 /** GET /api/list_periods — 期間一覧 */
-export function listPeriods(params) {
-  const qs = new URLSearchParams(params).toString()
-  return request(`/list_periods?${qs}`)
+export function listPeriods(params = {}) {
+  const qs = toQueryString(params)
+  return request(qs ? `/list_periods?${qs}` : '/list_periods')
 }
 
 /** GET /api/months — 月別データ */

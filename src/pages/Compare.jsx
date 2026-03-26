@@ -27,7 +27,11 @@ export default function Compare() {
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
+  const hasScores = overallScore != null || Object.values(scores).some((v) => v != null)
   const report = result?.report_md ?? result?.report ?? result?.analysis ?? ''
+  const extracted = result?.extracted ?? null
+  const scanStatus = result?.status ?? null
+  const runId = result?.run_id ?? null
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -125,32 +129,76 @@ export default function Compare() {
         </div>
       </div>
 
-      {/* Score & Report Area */}
-      <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-2xl text-on-secondary min-h-[300px]">
-          <p className="text-xs uppercase tracking-widest font-bold opacity-80">OVERALL STRATEGY SCORE</p>
-          <div className="mt-4 flex items-baseline gap-1">
-            <span className="text-7xl font-black tabular-nums">{overallScore ?? '--'}</span>
-            <span className="text-2xl font-bold opacity-60">/100</span>
-          </div>
-          <div className="mt-8 space-y-3 text-sm">
-            <div className="flex justify-between"><span>UXコンバージョン率</span><span className="font-bold">{scores.ux ?? scores.conversion ?? '--'}</span></div>
-            <div className="flex justify-between"><span>ブランド信頼性</span><span className="font-bold">{scores.brand ?? scores.trust ?? '--'}</span></div>
-            <div className="flex justify-between"><span>SEO最適化</span><span className="font-bold">{scores.seo ?? '--'}</span></div>
+      {/* Result Area */}
+      {result && (
+        <div className="space-y-8">
+          {/* Status Banner */}
+          {(scanStatus || runId) && (
+            <div className="flex items-center gap-4 text-xs text-on-surface-variant">
+              {scanStatus && (
+                <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
+                  <span className={`w-1.5 h-1.5 rounded-full ${scanStatus === 'completed' ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
+                  {scanStatus}
+                </span>
+              )}
+              {runId && <span className="text-outline">run: {runId}</span>}
+            </div>
+          )}
+
+          <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
+            {/* Score Panel — only shown when backend returns scores */}
+            {hasScores && (
+              <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-2xl text-on-secondary min-h-[300px]">
+                <p className="text-xs uppercase tracking-widest font-bold opacity-80">OVERALL STRATEGY SCORE</p>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-7xl font-black tabular-nums">{overallScore ?? '--'}</span>
+                  <span className="text-2xl font-bold opacity-60">/100</span>
+                </div>
+                <div className="mt-8 space-y-3 text-sm">
+                  {scores.ux != null && <div className="flex justify-between"><span>UXコンバージョン率</span><span className="font-bold">{scores.ux}</span></div>}
+                  {scores.conversion != null && <div className="flex justify-between"><span>コンバージョン</span><span className="font-bold">{scores.conversion}</span></div>}
+                  {scores.brand != null && <div className="flex justify-between"><span>ブランド信頼性</span><span className="font-bold">{scores.brand}</span></div>}
+                  {scores.trust != null && <div className="flex justify-between"><span>信頼性</span><span className="font-bold">{scores.trust}</span></div>}
+                  {scores.seo != null && <div className="flex justify-between"><span>SEO最適化</span><span className="font-bold">{scores.seo}</span></div>}
+                </div>
+              </div>
+            )}
+
+            {/* Report — primary display */}
+            <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 min-h-[300px]`}>
+              <div className="flex items-center gap-2 text-on-surface-variant mb-6">
+                <span className="material-symbols-outlined">description</span>
+                <span className="text-sm font-bold">分析レポート</span>
+              </div>
+              {extracted && (
+                <div className="mb-6 p-4 bg-surface-container rounded-xl text-sm space-y-2">
+                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">抽出データ</p>
+                  <pre className="text-xs text-on-surface-variant whitespace-pre-wrap overflow-x-auto">{typeof extracted === 'string' ? extracted : JSON.stringify(extracted, null, 2)}</pre>
+                </div>
+              )}
+              {report ? (
+                <div className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap japanese-text">{report}</div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>
+                  <p className="text-sm japanese-text">分析が完了しましたが、レポートデータが含まれていません。</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <div className="col-span-8 bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 min-h-[300px]">
+      )}
+
+      {/* Empty State — before any scan */}
+      {!result && !error && !loading && (
+        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 min-h-[200px]">
           <div className="flex items-center gap-2 text-on-surface-variant mb-6">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>
           </div>
-          {report ? (
-            <div className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap japanese-text">{report}</div>
-          ) : (
-            <p className="text-on-surface-variant text-sm japanese-text">URLを入力し「分析開始」を押すと、AIが競合比較レポートを生成します。</p>
-          )}
+          <p className="text-on-surface-variant text-sm japanese-text">URLを入力し「分析開始」を押すと、AIが競合比較レポートを生成します。</p>
         </div>
-      </div>
+      )}
     </div>
   )
 }

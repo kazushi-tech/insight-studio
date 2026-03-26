@@ -55,9 +55,9 @@ export default function AiExplorer() {
         setMlContextSummary(summary)
         setMlStatus(summary ? 'ready' : 'empty')
       })
-      .catch(() => {
+      .catch((e) => {
         setMlContextSummary(null)
-        setMlStatus('unavailable')
+        setMlStatus(e.status === 404 ? 'unavailable' : 'error')
       })
       .finally(() => setMlLoading(false))
   }, [contextMode])
@@ -170,6 +170,11 @@ export default function AiExplorer() {
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
           <p className="text-xs text-amber-700 mb-4 japanese-text">
             Market Lens の履歴 API が停止中のため、広告データのみで回答します。
+          </p>
+        )}
+        {contextMode === 'ads-with-ml' && mlStatus === 'error' && (
+          <p className="text-xs text-red-700 mb-4 japanese-text">
+            Market Lens の履歴取得に失敗しました。広告データのみで回答します。
           </p>
         )}
 

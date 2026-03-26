@@ -86,11 +86,6 @@ export default function Dashboard() {
         setHistory(items)
       })
       .catch((e) => {
-        if (e.status === 404) {
-          setHistory([])
-          setHistoryError(null)
-          return
-        }
         setHistoryError(e.message)
       })
       .finally(() => setHistoryLoading(false))

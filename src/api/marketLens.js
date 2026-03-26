@@ -30,7 +30,13 @@ async function request(path, options = {}) {
   return res.json()
 }
 
-/** POST /api/scan — LP比較分析 */
+/**
+ * POST /api/scan — LP比較分析
+ *
+ * api_key は backend contract 上 optional だが、
+ * product 仕様として UI 側で必須（hasGeminiKey gating）にしている。
+ * 分析品質を担保するための意図的な制約。
+ */
 export function scan(urls, apiKey) {
   return request('/scan', {
     method: 'POST',

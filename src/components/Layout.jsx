@@ -14,7 +14,7 @@ const NAV_ITEMS = [
     children: [
       { to: '/compare', label: 'LP比較分析' },
       { to: '/discovery', label: '競合発見' },
-      { to: '/creative-review', label: 'クリエイティブ診断' },
+      { to: '/creative-review', label: 'クリエイティブ診断', badge: '停止中' },
     ],
   },
   {
@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { to: '/settings', icon: 'settings', label: '設定' },
 ]
 
-function SidebarLink({ to, icon, label, isChild, disabled }) {
+function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
   if (disabled) {
     return (
       <span
@@ -61,6 +61,7 @@ function SidebarLink({ to, icon, label, isChild, disabled }) {
     >
       {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
       <span className="japanese-text">{label}</span>
+      {badge && <span className="ml-auto text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{badge}</span>}
     </NavLink>
   )
 }
@@ -95,6 +96,7 @@ function SidebarGroup({ item, disabledPaths }) {
               label={child.label}
               isChild
               disabled={disabledPaths?.includes(child.to)}
+              badge={child.badge}
             />
           ))}
         </div>
@@ -200,7 +202,7 @@ export default function Layout() {
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, resetSetup } = useAdsSetup()
   const navigate = useNavigate()
-  const disabledPaths = isSetupComplete ? [] : SETUP_GATED_PATHS
+  const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -255,7 +257,10 @@ export default function Layout() {
         {/* New Setup Button */}
         <div className="px-6 mt-2">
           <button
-            onClick={() => { resetSetup(); navigate('/ads/wizard') }}
+            onClick={() => {
+              resetSetup()
+              navigate('/ads/wizard', { state: { resetAt: Date.now() } })
+            }}
             className="w-full py-3.5 bg-secondary text-on-secondary rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 text-sm"
           >
             <span className="material-symbols-outlined text-lg">replay</span>

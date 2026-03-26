@@ -9,11 +9,13 @@ import EssentialPack from './pages/EssentialPack'
 import AnalysisGraphs from './pages/AnalysisGraphs'
 import AiExplorer from './pages/AiExplorer'
 import Settings from './pages/Settings'
+import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 
 function SetupGuard({ children }) {
+  const { isAdsAuthenticated } = useAuth()
   const { isSetupComplete } = useAdsSetup()
-  if (!isSetupComplete) return <Navigate to="/ads/wizard" replace />
+  if (!isAdsAuthenticated || !isSetupComplete) return <Navigate to="/ads/wizard" replace />
   return children
 }
 
