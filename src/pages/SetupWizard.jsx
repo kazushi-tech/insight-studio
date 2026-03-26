@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { bqPeriods, bqGenerate } from '../api/adsInsights'
+import { bqPeriods, bqGenerateBatch } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 
@@ -8,14 +8,14 @@ const QUERY_TYPES = [
   { id: 'pv', icon: 'trending_up', label: 'PV分析', desc: 'ページビューの推移とトレンドを可視化します。', color: 'text-orange-500' },
   { id: 'traffic', icon: 'input', label: '流入分析', desc: 'チャネル別の流入元とトラフィック質を特定します。', color: 'text-blue-500' },
   { id: 'cv', icon: 'target', label: 'CV分析', desc: 'コンバージョン経路と成果への寄与を分析します。', color: 'text-emerald-500' },
-  { id: 'search_query', icon: 'search', label: '検索クエリ分析', desc: 'キーワードのニーズとパフォーマンスを網羅。', color: 'text-purple-500' },
+  { id: 'search', icon: 'search', label: '検索クエリ分析', desc: 'キーワードのニーズとパフォーマンスを網羅。', color: 'text-purple-500' },
   { id: 'anomaly', icon: 'warning', label: '異常検知', desc: '数値の急激な変化や乖離を自動で検出します。', color: 'text-red-500' },
-  { id: 'lp', icon: 'web', label: 'LP分析', desc: 'ランディングページの離脱率と有効性を判定。', color: 'text-cyan-500' },
+  { id: 'landing', icon: 'web', label: 'LP分析', desc: 'ランディングページの離脱率と有効性を判定。', color: 'text-cyan-500' },
   { id: 'device', icon: 'devices', label: 'デバイス分析', desc: 'PC・SP・Tabの利用動向と差異を確認します。', color: 'text-indigo-500' },
   { id: 'hourly', icon: 'schedule', label: '時間帯分析', desc: '成果が出やすい曜日や時間帯の傾向を把握。', color: 'text-amber-500' },
-  { id: 'demographics', icon: 'group', label: 'ユーザー属性', desc: '年齢・性別・地域などのデモグラフィック情報。', color: 'text-pink-500' },
+  { id: 'user_attr', icon: 'group', label: 'ユーザー属性', desc: '年齢・性別・地域などのデモグラフィック情報。', color: 'text-pink-500' },
   { id: 'engagement', icon: 'timer', label: 'エンゲージメント時間', desc: 'サイト滞在時間やユーザーの熱量を測定。', color: 'text-teal-500' },
-  { id: 'auction', icon: 'stacked_bar_chart', label: 'オークション圧分析', desc: '競合他社の入札動向と表示機会損失を分析。', color: 'text-rose-500' },
+  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: 'オークション圧分析', desc: '競合他社の入札動向と表示機会損失を分析。', color: 'text-rose-500' },
 ]
 
 const STEPS = ['クエリタイプ選択', '期間選択', 'レポート生成']
@@ -143,11 +143,15 @@ export default function SetupWizard() {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
         const periodsArray = [...selectedPeriods]
-        const data = await bqGenerate({
-          query_types: queryTypeIds,
-          periods: periodsArray,
-        })
-        setLoadResult(data)
+        const results = []
+        for (const period of periodsArray) {
+          const data = await bqGenerateBatch({
+            query_types: queryTypeIds,
+            period,
+          })
+          results.push(data)
+        }
+        setLoadResult(results.length === 1 ? results[0] : { ok: true, results })
         completeSetup({ queryTypes: queryTypeIds, periods: periodsArray, granularity })
         setStep(2)
       } catch (e) {
