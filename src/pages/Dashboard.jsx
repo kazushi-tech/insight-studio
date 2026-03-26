@@ -85,7 +85,14 @@ export default function Dashboard() {
         const items = data.history ?? data.results ?? (Array.isArray(data) ? data : [])
         setHistory(items)
       })
-      .catch((e) => setHistoryError(e.message))
+      .catch((e) => {
+        if (e.status === 404) {
+          setHistory([])
+          setHistoryError(null)
+          return
+        }
+        setHistoryError(e.message)
+      })
       .finally(() => setHistoryLoading(false))
   }, [])
 

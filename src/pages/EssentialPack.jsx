@@ -4,6 +4,78 @@ import { useAuth } from '../contexts/AuthContext'
 
 const NAV_ITEMS = ['サマリー', 'トラフィック', 'コンバージョン', 'ROI分析']
 
+const FALLBACK_SECTIONS = [
+  {
+    icon: 'grid_view',
+    title: '全体サマリー',
+    subtitle: '主要指標の概況と前月比推移',
+    metrics: [
+      { label: '総表示回数', value: '1,240,500', change: '+8.2%' },
+      { label: 'クリック数', value: '45,230', change: '+12.4%' },
+      { label: '総コスト', value: '¥842,000', tag: '安定' },
+    ],
+  },
+  {
+    icon: 'person',
+    title: 'トラフィック分析',
+    subtitle: 'デバイス別・時間帯別の流入傾向',
+    devices: [
+      { label: 'スマートフォン', value: 78, color: 'bg-secondary' },
+      { label: 'PC', value: 18, color: 'bg-primary' },
+      { label: 'タブレット', value: 4, color: 'bg-tertiary' },
+    ],
+  },
+  {
+    icon: 'conversion_path',
+    title: 'コンバージョン考察',
+    subtitle: '成果に繋がったキーワードとクリエイティブの分析',
+    table: [
+      { name: 'リターゲティング_秋CP', cv: 124, cvr: '3.2%', cpa: '¥1,200' },
+      { name: '新規獲得_ディスプレイ', cv: 58, cvr: '1.1%', cpa: '¥2,450' },
+    ],
+  },
+  {
+    icon: 'attach_money',
+    title: 'ROI・費用対効果',
+    subtitle: '投資に対する利益率の算出と将来予測',
+  },
+]
+
+function normalizeSections(rawSections) {
+  const sections = Array.isArray(rawSections) ? rawSections : []
+
+  return [
+    {
+      ...FALLBACK_SECTIONS[0],
+      ...sections[0],
+      metrics:
+        Array.isArray(sections[0]?.metrics) && sections[0].metrics.length > 0
+          ? sections[0].metrics
+          : FALLBACK_SECTIONS[0].metrics,
+    },
+    {
+      ...FALLBACK_SECTIONS[1],
+      ...sections[1],
+      devices:
+        Array.isArray(sections[1]?.devices) && sections[1].devices.length > 0
+          ? sections[1].devices
+          : FALLBACK_SECTIONS[1].devices,
+    },
+    {
+      ...FALLBACK_SECTIONS[2],
+      ...sections[2],
+      table:
+        Array.isArray(sections[2]?.table) && sections[2].table.length > 0
+          ? sections[2].table
+          : FALLBACK_SECTIONS[2].table,
+    },
+    {
+      ...FALLBACK_SECTIONS[3],
+      ...sections[3],
+    },
+  ]
+}
+
 export default function EssentialPack() {
   const { isAdsAuthenticated } = useAuth()
   const [activeNav, setActiveNav] = useState(0)
@@ -25,7 +97,7 @@ export default function EssentialPack() {
   }
 
   const report = insights?.report ?? insights?.analysis ?? insights?.content ?? null
-  const sections = insights?.sections ?? []
+  const displaySections = normalizeSections(insights?.sections)
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)]">
@@ -131,7 +203,7 @@ export default function EssentialPack() {
             <span className="material-symbols-outlined ml-auto text-on-surface-variant">expand_less</span>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            {SECTIONS[0].metrics.map((m) => (
+            {displaySections[0].metrics.map((m) => (
               <div key={m.label} className="bg-surface-container rounded-xl p-4">
                 <p className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">{m.label}</p>
                 <div className="flex items-baseline gap-2 mt-2">
@@ -156,7 +228,7 @@ export default function EssentialPack() {
           </div>
           <div className="space-y-3">
             <p className="text-sm font-bold japanese-text">デバイス比率</p>
-            {SECTIONS[1].devices.map((d) => (
+            {displaySections[1].devices.map((d) => (
               <div key={d.label} className="flex items-center gap-4">
                 <span className="text-sm w-32 japanese-text">{d.label}</span>
                 <div className="flex-1 h-3 bg-surface-container rounded-full overflow-hidden">
@@ -188,7 +260,7 @@ export default function EssentialPack() {
               </tr>
             </thead>
             <tbody>
-              {SECTIONS[2].table.map((row) => (
+              {displaySections[2].table.map((row) => (
                 <tr key={row.name} className="border-b border-surface-container/50">
                   <td className="py-3 font-bold japanese-text">{row.name}</td>
                   <td className="py-3 text-right tabular-nums">{row.cv}</td>
