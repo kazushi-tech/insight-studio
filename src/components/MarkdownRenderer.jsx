@@ -102,16 +102,14 @@ export default function MarkdownRenderer({ content, className = '' }) {
       }
 
       blocks.push(
-        <div key={`table-${blocks.length}`} className="overflow-x-auto rounded-2xl border border-outline-variant/20">
-          <table className="text-sm" style={{ width: 'max-content', minWidth: '100%', tableLayout: 'auto', borderCollapse: 'collapse' }}>
+        <div key={`table-${blocks.length}`} className="overflow-x-auto my-4 rounded-lg">
+          <table className="w-full text-[13px] border-collapse border border-outline-variant/20 rounded-lg">
             <thead className="bg-surface-container-low">
               <tr>
                 {headers.map((header, cellIndex) => (
                   <th
                     key={`th-${cellIndex}`}
-                    className={`px-4 py-3 text-left font-bold whitespace-nowrap border-b border-outline-variant/20 ${
-                      cellIndex === 0 ? 'max-w-[400px]' : ''
-                    }`}
+                    className="px-3.5 py-3 text-left font-bold whitespace-nowrap border border-outline-variant/20"
                   >
                     {header}
                   </th>
@@ -122,20 +120,19 @@ export default function MarkdownRenderer({ content, className = '' }) {
               {rows.map((row, rowIndex) => (
                 <tr
                   key={`tr-${rowIndex}`}
-                  className={`border-t border-outline-variant/10 hover:bg-surface-container/40 transition-colors ${
-                    rowIndex % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/30'
+                  className={`hover:bg-surface-container/40 transition-colors ${
+                    rowIndex % 2 === 0 ? '' : 'bg-surface-container-low/30'
                   }`}
                 >
                   {row.map((cell, cellIndex) => {
                     const numeric = isNumericCell(cell)
-                    const isFirstCol = cellIndex === 0
                     return (
                       <td
                         key={`td-${rowIndex}-${cellIndex}`}
                         title={cell}
-                        className={`px-4 py-3 align-top whitespace-nowrap ${
-                          numeric ? 'text-right font-mono tabular-nums' : ''
-                        } ${isFirstCol ? 'max-w-[400px] hover:whitespace-normal hover:break-words hover:relative hover:z-10 hover:bg-surface-container' : ''}`}
+                        className={`px-3.5 py-2.5 border border-outline-variant/10 align-top ${
+                          numeric ? 'text-right font-mono tabular-nums whitespace-nowrap' : ''
+                        } ${cellIndex === 0 ? 'max-w-[400px]' : ''}`}
                       >
                         {renderInline(cell, `table-${rowIndex}-${cellIndex}`)}
                       </td>

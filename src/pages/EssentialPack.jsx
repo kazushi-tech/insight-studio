@@ -134,7 +134,10 @@ export default function EssentialPack() {
     (sectionId) => {
       setOpenSections((prev) => ({ ...prev, [sectionId]: true }))
       setTimeout(() => {
-        document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' })
+        const el = document.getElementById(sectionId)
+        if (!el) return
+        const top = el.getBoundingClientRect().top + window.scrollY - 80
+        window.scrollTo({ top, behavior: 'smooth' })
       }, 60)
     },
     [],
@@ -161,7 +164,7 @@ export default function EssentialPack() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)]">
+    <div className="flex min-h-[calc(100vh-4rem)] overflow-x-hidden">
       {/* ── Sticky Left Nav ── */}
       <div className="w-[260px] min-w-[260px] bg-surface-container-lowest border-r border-surface-container p-5 space-y-5 sticky top-16 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
         {/* 期間プルダウン */}
@@ -270,7 +273,7 @@ export default function EssentialPack() {
       </div>
 
       {/* ── Main Content ── */}
-      <div ref={mainRef} className="flex-1 min-w-0 p-8 space-y-6 overflow-y-auto">
+      <div ref={mainRef} className="flex-1 min-w-0 p-8 space-y-6 overflow-x-hidden overflow-y-auto">
         {error && (
           <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
             <span className="material-symbols-outlined text-lg">error</span>
@@ -319,7 +322,7 @@ export default function EssentialPack() {
               <div
                 key={section.id}
                 id={section.id}
-                className="rounded-2xl border border-outline-variant/20 overflow-hidden shadow-[0_4px_12px_-4px_rgba(26,26,46,0.06)] scroll-mt-20"
+                className="rounded-2xl border border-outline-variant/20 shadow-[0_4px_12px_-4px_rgba(26,26,46,0.06)] scroll-mt-20 overflow-x-hidden"
               >
                 {section.kind === 'summary' ? (
                   /* Summary: 常に開いた状態、ボタンなし */
