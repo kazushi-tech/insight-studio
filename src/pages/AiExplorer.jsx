@@ -1,9 +1,15 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { neonGenerate } from '../api/adsInsights'
 import { getScans } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import {
+  buildAiChartContext,
+  getChartPeriodTags,
+  regenerateAdsReportBundle,
+} from '../utils/adsReports'
+import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 
 const QUICK_PROMPTS = [
   { icon: 'warning', label: 'リスクを要約して', color: 'text-red-500' },
@@ -25,12 +31,29 @@ function summarizeHistory(items) {
   return lines.join('\n')
 }
 
+function isAssistantMessage(message) {
+  return message?.role === 'assistant' || message?.role === 'ai'
+}
+
+function toConversationHistory(messages) {
+  return messages.slice(-10).map((message) => ({
+    role: isAssistantMessage(message) ? 'assistant' : 'user',
+    text:
+      typeof message?.text === 'string' && message.text.length > 500
+        ? `${message.text.slice(0, 500)}…(省略)`
+        : message?.text ?? '',
+  }))
+}
+
 export default function AiExplorer() {
   const { isAdsAuthenticated, geminiKey, hasGeminiKey } = useAuth()
-  const { setupState, reportBundle } = useAdsSetup()
+  const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState(null)
+  const [status, setStatus] = useState('')
   const [contextMode, setContextMode] = useState('ads-only')
   const [mlContextSummary, setMlContextSummary] = useState(null)
   const [mlLoading, setMlLoading] = useState(false)
@@ -40,6 +63,30 @@ export default function AiExplorer() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (!setupState || !isAdsAuthenticated) return
+    if (reportBundle?.source === 'bq_generate_batch') return
+
+    let cancelled = false
+
+    ;(async () => {
+      setReportLoading(true)
+      setReportError(null)
+      try {
+        const nextBundle = await regenerateAdsReportBundle(setupState)
+        if (!cancelled) setReportBundle(nextBundle)
+      } catch (e) {
+        if (!cancelled) setReportError(e.message)
+      } finally {
+        if (!cancelled) setReportLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isAdsAuthenticated, reportBundle?.source, setReportBundle, setupState])
 
   useEffect(() => {
     if (contextMode !== 'ads-with-ml') {
@@ -65,41 +112,98 @@ export default function AiExplorer() {
       .finally(() => setMlLoading(false))
   }, [contextMode])
 
+  const chartContext = useMemo(
+    () => buildAiChartContext(reportBundle?.chartGroups ?? []),
+    [reportBundle?.chartGroups],
+  )
+  const periodTags = useMemo(
+    () => getChartPeriodTags(reportBundle?.chartGroups ?? []),
+    [reportBundle?.chartGroups],
+  )
+
+  const promptDisabled =
+    !isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd || loading || reportLoading
+
   async function handleSend(text) {
-    const prompt = text ?? input.trim()
+    const prompt = (text ?? input).trim()
     if (!prompt || loading || !reportBundle?.reportMd) return
 
     setInput('')
 
     const userMessage = { role: 'user', text: prompt }
-    setMessages((prev) => [...prev, userMessage])
+    const nextMessages = [...messages, userMessage]
+    setMessages(nextMessages)
     setLoading(true)
+    setStatus('考察生成中...')
 
     try {
-      const enrichedPrompt = mlContextSummary
-        ? `[Market Lens Summary]\n${mlContextSummary}\n\n[Question]\n${prompt}`
-        : prompt
-      const conversationHistory = [...messages, userMessage].slice(-10).map((message) => ({
-        role: message.role === 'ai' ? 'assistant' : 'user',
-        text: message.text,
-      }))
-      const data = await neonGenerate({
-        mode: 'question',
-        model: 'gemini-2.5-flash',
-        temperature: 0.7,
-        message: enrichedPrompt,
-        point_pack_md: reportBundle.reportMd,
-        data_source: 'bq',
-        bq_query_types: setupState?.queryTypes ?? [],
-        conversation_history: conversationHistory,
-        ai_chart_context: reportBundle.chartGroups ?? [],
-      }, geminiKey)
-      const aiContent = data.text ?? data.response ?? data.analysis ?? data.content ?? JSON.stringify(data)
-      setMessages((prev) => [...prev, { role: 'ai', text: aiContent }])
+      const enrichedPrompt =
+        contextMode === 'ads-with-ml' && mlContextSummary
+          ? `${prompt}\n\n[補助コンテキスト: Market Lens]\n${mlContextSummary}`
+          : prompt
+
+      const data = await neonGenerate(
+        {
+          mode: 'question',
+          model: 'gemini-2.5-flash',
+          temperature: 0.7,
+          message: enrichedPrompt,
+          point_pack_md: reportBundle.reportMd,
+          style_reference: '',
+          style_preset: 'standard',
+          data_source: 'bq',
+          bq_query_types: setupState?.queryTypes ?? [],
+          conversation_history: toConversationHistory(nextMessages),
+          ai_chart_context: chartContext,
+        },
+        geminiKey,
+      )
+
+      const normalized = normalizeAdsPayload(data)
+      if (data?.ok === false || normalized?.ok === false) {
+        throw new Error(data?.error || normalized?.error || 'AI 考察の生成に失敗しました。')
+      }
+
+      const aiContent = getAdsText(data) ?? getAdsText(normalized)
+      if (!aiContent) {
+        throw new Error('AI 応答本文を取得できませんでした。')
+      }
+
+      const assistantMessage = { role: 'assistant', text: aiContent }
+      setMessages([...nextMessages, assistantMessage])
+
+      if (aiContent.length < 100 && !aiContent.includes('不明') && !aiContent.includes('未取得')) {
+        setStatus('⚠️ AI応答が短いです。質問を具体化すると改善する場合があります。')
+      } else {
+        setStatus('✓ 考察生成完了')
+      }
     } catch (e) {
-      setMessages((prev) => [...prev, { role: 'ai', text: `エラー: ${e.message}`, isError: true }])
+      setStatus(`生成エラー: ${e.message}`)
+      setMessages([
+        ...nextMessages,
+        { role: 'assistant', text: `エラー: ${e.message}`, isError: true },
+      ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleRefreshReport() {
+    if (!setupState || !isAdsAuthenticated || reportLoading) return
+
+    setReportLoading(true)
+    setReportError(null)
+    setStatus('要点パックとグラフを再取得中...')
+
+    try {
+      const nextBundle = await regenerateAdsReportBundle(setupState)
+      setReportBundle(nextBundle)
+      setStatus('✓ 要点パックとグラフを更新しました')
+    } catch (e) {
+      setReportError(e.message)
+      setStatus(`更新エラー: ${e.message}`)
+    } finally {
+      setReportLoading(false)
     }
   }
 
@@ -142,9 +246,37 @@ export default function AiExplorer() {
     ? '読込失敗'
     : '未接続'
 
+  const statusTone = status.startsWith('生成エラー') || status.startsWith('更新エラー')
+    ? 'bg-red-50 border-red-200 text-red-700'
+    : status.startsWith('⚠️')
+    ? 'bg-amber-50 border-amber-200 text-amber-800'
+    : status.startsWith('✓')
+    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+    : 'bg-surface-container border-outline-variant/30 text-on-surface-variant'
+
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="px-10 pt-8 pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-6 mb-5">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">AI考察スタジオ</h2>
+            <p className="text-sm text-on-surface-variant max-w-3xl">
+              `ads-insights` 本家の `sendChat()` と同じく、`point_pack_md`・直近会話履歴・軽量化した
+              `ai_chart_context` を `/api/neon/generate` に渡して回答を生成します。
+            </p>
+          </div>
+          <button
+            onClick={handleRefreshReport}
+            disabled={!setupState || !isAdsAuthenticated || reportLoading}
+            className="px-5 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+          >
+            <span className={`material-symbols-outlined text-base ${reportLoading ? 'animate-spin' : ''}`}>
+              {reportLoading ? 'progress_activity' : 'sync'}
+            </span>
+            コンテキスト更新
+          </button>
+        </div>
+
         {!isAdsAuthenticated && (
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800 mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
@@ -157,10 +289,59 @@ export default function AiExplorer() {
             <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
           </div>
         )}
+        {reportError && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700 mb-4">
+            <span className="material-symbols-outlined text-lg">error</span>
+            <span className="japanese-text">{reportError}</span>
+          </div>
+        )}
+        {reportLoading && !reportBundle?.reportMd && (
+          <div className="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3 text-sm text-on-surface-variant mb-4">
+            <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+            <span className="japanese-text">要点パックとグラフコンテキストを再構築しています…</span>
+          </div>
+        )}
         {!reportBundle?.reportMd && (
           <div className="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3 text-sm text-on-surface-variant mb-4">
             <span className="material-symbols-outlined text-lg">info</span>
             <span className="japanese-text">`ads-insights` repo 準拠では、要点パック生成後にその `point_pack_md` を使って考察を生成します。先にセットアップを完了してください。</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+          <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Point Pack</p>
+            <p className="mt-3 text-xl font-bold text-on-surface japanese-text">
+              {reportBundle?.reportMd ? '読み込み済み' : reportLoading ? '再構築中' : '未生成'}
+            </p>
+            <p className="mt-2 text-sm text-on-surface-variant">AI の根拠本文として送信される Markdown</p>
+          </section>
+          <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Chart Context</p>
+            <p className="mt-3 text-3xl font-extrabold text-on-surface">{chartContext?.length ?? 0}</p>
+            <p className="mt-2 text-sm text-on-surface-variant">軽量化して AI に渡す chart group 数</p>
+          </section>
+          <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Coverage</p>
+            <p className="mt-3 text-xl font-bold text-on-surface japanese-text">
+              {periodTags.length > 0 ? `${periodTags.length} 期間 / ${(setupState?.queryTypes ?? []).length} クエリ` : '未設定'}
+            </p>
+            <p className="mt-2 text-sm text-on-surface-variant">reportBundle に含まれる期間と query type</p>
+          </section>
+        </div>
+
+        {status && (
+          <div className={`flex items-center gap-3 rounded-xl border px-5 py-3 text-sm mb-5 ${statusTone}`}>
+            <span className="material-symbols-outlined text-lg">
+              {status.startsWith('生成エラー') || status.startsWith('更新エラー')
+                ? 'error'
+                : status.startsWith('⚠️')
+                ? 'warning'
+                : status.startsWith('✓')
+                ? 'check_circle'
+                : 'info'}
+            </span>
+            <span className="japanese-text">{status}</span>
           </div>
         )}
 
@@ -213,7 +394,7 @@ export default function AiExplorer() {
             <button
               key={prompt.label}
               onClick={() => handleSend(prompt.label)}
-              disabled={!isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd || loading}
+              disabled={promptDisabled}
               className="flex items-center gap-3 px-6 py-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 hover:border-secondary/50 hover:shadow-lg transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className={`material-symbols-outlined ${prompt.color}`}>{prompt.icon}</span>
@@ -228,12 +409,12 @@ export default function AiExplorer() {
           <div className="text-center py-20 text-on-surface-variant">
             <span className="material-symbols-outlined text-6xl text-outline-variant mb-4 block">smart_toy</span>
             <p className="text-lg font-bold japanese-text">AI考察エンジン</p>
-            <p className="text-sm mt-1">データについて質問すると、AIが考察を生成します</p>
+            <p className="text-sm mt-1">要点パックとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
           </div>
         )}
 
         {messages.map((message, index) =>
-          message.role === 'ai' ? (
+          isAssistantMessage(message) ? (
             <div key={index} className="flex gap-4">
               <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-gold text-lg">smart_toy</span>
@@ -252,7 +433,7 @@ export default function AiExplorer() {
                 田
               </div>
             </div>
-          )
+          ),
         )}
 
         {loading && (
@@ -277,11 +458,11 @@ export default function AiExplorer() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd}
+            disabled={promptDisabled}
           />
           <button
             onClick={() => handleSend()}
-            disabled={!input.trim() || loading || !isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd}
+            disabled={!input.trim() || promptDisabled}
             className="w-10 h-10 bg-secondary text-on-secondary rounded-full flex items-center justify-center hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined">send</span>

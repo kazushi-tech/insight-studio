@@ -112,7 +112,10 @@ export function generateInsights(payload) {
 
 /** POST /api/neon/generate — Point Pack 기반 AI考察 */
 export function neonGenerate(payload, apiKey) {
-  const headers = apiKey ? { 'X-Gemini-API-Key': apiKey } : {}
+  const headers = {
+    Accept: 'application/json',
+    ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
+  }
 
   return request('/neon/generate', {
     method: 'POST',

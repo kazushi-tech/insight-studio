@@ -1,30 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
+import ChartGroupCard from '../components/ads/ChartGroupCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
-import { regenerateAdsReportBundle } from '../utils/adsReports'
-
-function renderValue(value) {
-  if (value == null) return '-'
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
-
-function buildRows(group) {
-  const labels = Array.isArray(group?.labels) ? group.labels : []
-  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
-
-  return labels.map((label, index) => ({
-    label,
-    values: datasets.map((dataset) => dataset?.data?.[index]),
-  }))
-}
+import {
+  getChartPeriodTags,
+  getDisplayChartGroups,
+  regenerateAdsReportBundle,
+} from '../utils/adsReports'
 
 export default function AnalysisGraphs() {
   const { isAdsAuthenticated } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [periodFilter, setPeriodFilter] = useState('all')
+  const [periodFilter, setPeriodFilter] = useState('latest')
 
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
@@ -51,26 +40,45 @@ export default function AnalysisGraphs() {
   }, [isAdsAuthenticated, reportBundle?.source, setReportBundle, setupState])
 
   const chartGroups = useMemo(() => reportBundle?.chartGroups ?? [], [reportBundle?.chartGroups])
-  const periodTags = useMemo(
-    () => [...new Set(chartGroups.map((group) => group._periodTag).filter(Boolean))],
-    [chartGroups],
-  )
+  const periodTags = useMemo(() => getChartPeriodTags(chartGroups), [chartGroups])
 
   useEffect(() => {
     if (periodTags.length === 0) {
-      setPeriodFilter('all')
+      setPeriodFilter('latest')
       return
     }
 
-    if (periodFilter !== 'all' && !periodTags.includes(periodFilter)) {
-      setPeriodFilter(periodTags[periodTags.length - 1])
-    }
+    if (periodFilter === 'all' || periodFilter === 'latest') return
+    if (!periodTags.includes(periodFilter)) setPeriodFilter('latest')
   }, [periodFilter, periodTags])
 
-  const filteredGroups = useMemo(() => {
-    if (periodFilter === 'all') return chartGroups
-    return chartGroups.filter((group) => group._periodTag === periodFilter)
-  }, [chartGroups, periodFilter])
+  const filteredGroups = useMemo(
+    () => getDisplayChartGroups(chartGroups, periodFilter),
+    [chartGroups, periodFilter],
+  )
+
+  const summary = useMemo(() => {
+    const datasetCount = filteredGroups.reduce(
+      (sum, group) => sum + (Array.isArray(group?.datasets) ? group.datasets.length : 0),
+      0,
+    )
+    const lineCount = filteredGroups.filter((group) => group?.chartType === 'line').length
+    const barCount = filteredGroups.filter((group) => group?.chartType === 'bar_horizontal').length
+
+    return {
+      groupCount: filteredGroups.length,
+      datasetCount,
+      lineCount,
+      barCount,
+    }
+  }, [filteredGroups])
+
+  const activeScopeLabel =
+    periodFilter === 'all'
+      ? '全期間まとめ'
+      : periodFilter === 'latest'
+      ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
+      : `対象期間: ${periodFilter}`
 
   async function handleRefresh() {
     if (!setupState || !isAdsAuthenticated || loading) return
@@ -89,10 +97,14 @@ export default function AnalysisGraphs() {
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-6">
+        <div className="space-y-2">
           <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
-          <p className="text-sm text-on-surface-variant mt-1">`ads-insights` の `/api/bq/generate_batch` が返した `chart_data.groups` を表示しています。</p>
+          <p className="text-sm text-on-surface-variant max-w-3xl">
+            `ads-insights` の `/api/bq/generate_batch` が返した `chart_data.groups` を、本家の `ChartGridView`
+            / `ChartGroupComponent` の考え方に寄せて可視化しています。`全期間まとめ` では同一タイトルのグラフを
+            period ごとに束ねて比較表示します。
+          </p>
         </div>
         <button
           onClick={handleRefresh}
@@ -106,46 +118,73 @@ export default function AnalysisGraphs() {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-sm">
-        {setupState?.periods?.map((period) => (
-          <span key={period} className="px-4 py-2 bg-surface-container-lowest rounded-xl border border-outline-variant/30">
-            期間: {period}
-          </span>
-        ))}
-        {setupState?.queryTypes?.map((queryType) => (
-          <span key={queryType} className="px-4 py-2 bg-surface-container-lowest rounded-xl border border-outline-variant/30">
-            クエリ: {queryType}
-          </span>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Scope</p>
+          <p className="mt-3 text-xl font-bold text-on-surface japanese-text">{activeScopeLabel}</p>
+          <p className="mt-2 text-sm text-on-surface-variant">period filter に応じて raw groups を切り替えています。</p>
+        </section>
+        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Groups</p>
+          <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.groupCount}</p>
+          <p className="mt-2 text-sm text-on-surface-variant">表示中の chart group 数</p>
+        </section>
+        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Datasets</p>
+          <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.datasetCount}</p>
+          <p className="mt-2 text-sm text-on-surface-variant">系列数の合計</p>
+        </section>
+        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Mix</p>
+          <p className="mt-3 text-xl font-bold text-on-surface">{summary.lineCount} line / {summary.barCount} bar</p>
+          <p className="mt-2 text-sm text-on-surface-variant">line と horizontal bar の内訳</p>
+        </section>
       </div>
 
-      {periodTags.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setPeriodFilter('all')}
-            className={`px-4 py-2 rounded-full text-sm font-bold ${
-              periodFilter === 'all'
-                ? 'bg-primary text-on-primary'
-                : 'bg-surface-container-lowest text-on-surface-variant'
-            }`}
+      <div className="rounded-[28px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="graph-period-filter" className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
+            Display Period
+          </label>
+          <select
+            id="graph-period-filter"
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value)}
+            className="min-w-[220px] rounded-2xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-secondary/30"
           >
-            全期間
-          </button>
-          {periodTags.map((period) => (
-            <button
-              key={period}
-              onClick={() => setPeriodFilter(period)}
-              className={`px-4 py-2 rounded-full text-sm font-bold ${
-                periodFilter === period
-                  ? 'bg-primary text-on-primary'
-                  : 'bg-surface-container-lowest text-on-surface-variant'
-              }`}
-            >
-              {period}
-            </button>
-          ))}
+            <option value="latest">最新期間</option>
+            <option value="all">全期間まとめ</option>
+            {periodTags.map((period) => (
+              <option key={period} value={period}>
+                {period}
+              </option>
+            ))}
+          </select>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {setupState?.periods?.map((period) => (
+              <span key={period} className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-semibold">
+                期間: {period}
+              </span>
+            ))}
+            {setupState?.queryTypes?.map((queryType) => (
+              <span key={queryType} className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-semibold">
+                クエリ: {queryType}
+              </span>
+            ))}
+          </div>
         </div>
-      )}
+
+        {periodFilter === 'all' && periodTags.length > 1 && (
+          <p className="text-sm text-on-surface-variant japanese-text">
+            同じタイトルのグラフは period ごとに datasets を束ねて比較できるようにしています。
+          </p>
+        )}
+        {periodFilter === 'latest' && periodTags.length > 0 && (
+          <p className="text-sm text-on-surface-variant japanese-text">
+            最新期間として <span className="font-bold text-on-surface">{periodTags[periodTags.length - 1]}</span> を表示中です。
+          </p>
+        )}
+      </div>
 
       {error && (
         <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
@@ -171,59 +210,16 @@ export default function AnalysisGraphs() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6">
-        {filteredGroups.map((group, groupIndex) => {
-          const datasets = Array.isArray(group.datasets) ? group.datasets : []
-          const rows = buildRows(group).slice(0, 12)
-
-          return (
-            <div key={`${group.title ?? 'group'}-${groupIndex}`} className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold japanese-text">{group.title ?? `グラフ ${groupIndex + 1}`}</h3>
-                  <p className="text-xs text-on-surface-variant">
-                    type: {group.chartType ?? 'unknown'}
-                    {group._periodTag ? ` / period: ${group._periodTag}` : ''}
-                  </p>
-                </div>
-              </div>
-
-              {datasets.length > 0 && rows.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-on-surface-variant border-b border-surface-container">
-                        <th className="py-3 text-left font-bold">label</th>
-                        {datasets.slice(0, 4).map((dataset, datasetIndex) => (
-                          <th key={`${dataset.label ?? 'dataset'}-${datasetIndex}`} className="py-3 text-left font-bold">
-                            {dataset.label ?? `dataset ${datasetIndex + 1}`}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row, rowIndex) => (
-                        <tr key={`${row.label}-${rowIndex}`} className="border-b border-surface-container/50">
-                          <td className="py-3 align-top font-medium">{renderValue(row.label)}</td>
-                          {row.values.slice(0, 4).map((value, valueIndex) => (
-                            <td key={`${row.label}-${valueIndex}`} className="py-3 align-top">
-                              {renderValue(value)}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <pre className="text-xs text-on-surface-variant whitespace-pre-wrap break-all overflow-x-auto">
-                  {JSON.stringify(group, null, 2)}
-                </pre>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {filteredGroups.length > 0 && (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {filteredGroups.map((group, groupIndex) => (
+            <ChartGroupCard
+              key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
+              group={group}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

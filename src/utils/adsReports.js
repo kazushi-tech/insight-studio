@@ -28,6 +28,128 @@ export function pickChartGroups(result, periodTag) {
   return groups.map((group) => ({ ...group, _periodTag: periodTag }))
 }
 
+export function getChartPeriodTags(chartGroups = []) {
+  return [...new Set(chartGroups.map((group) => group?._periodTag).filter(Boolean))]
+}
+
+export function mergeChartGroupsByTitle(chartGroups = []) {
+  if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
+
+  const titleMap = new Map()
+
+  chartGroups.forEach((group, index) => {
+    const fallbackTitle = `chart-${index + 1}`
+    const title =
+      typeof group?.title === 'string' && group.title.trim().length > 0
+        ? group.title.trim()
+        : fallbackTitle
+
+    if (!titleMap.has(title)) titleMap.set(title, [])
+    titleMap.get(title).push(group)
+  })
+
+  const mergedGroups = []
+
+  for (const [, groupList] of titleMap) {
+    if (groupList.length === 1) {
+      mergedGroups.push(groupList[0])
+      continue
+    }
+
+    const baseGroup = groupList[0]
+    const mergedDatasets = []
+
+    groupList.forEach((group, index) => {
+      const periodTag = group?._periodTag || `Period ${index + 1}`
+      const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+
+      datasets.forEach((dataset, datasetIndex) => {
+        const label =
+          typeof dataset?.label === 'string' && dataset.label.trim().length > 0
+            ? dataset.label.trim()
+            : `Dataset ${datasetIndex + 1}`
+
+        mergedDatasets.push({
+          ...dataset,
+          label: `${label} (${periodTag})`,
+        })
+      })
+    })
+
+    mergedGroups.push({
+      ...baseGroup,
+      datasets: mergedDatasets,
+    })
+  }
+
+  return mergedGroups
+}
+
+export function dedupeExactChartGroups(chartGroups = []) {
+  if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
+
+  const seen = new Set()
+  const deduped = []
+
+  chartGroups.forEach((group) => {
+    const title = group?.title || ''
+    const labels = JSON.stringify(group?.labels || [])
+    const datasetsSignature = (Array.isArray(group?.datasets) ? group.datasets : [])
+      .map((dataset) => `${dataset?.label || ''}:${JSON.stringify(dataset?.data || [])}`)
+      .join('|')
+    const signature = `${title}__${labels}__${datasetsSignature}`
+
+    if (seen.has(signature)) return
+
+    seen.add(signature)
+    deduped.push(group)
+  })
+
+  return deduped
+}
+
+export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest') {
+  if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
+
+  if (periodFilter === 'all') {
+    return mergeChartGroupsByTitle(chartGroups)
+  }
+
+  const periodTags = getChartPeriodTags(chartGroups)
+  let targetTag = periodFilter
+
+  if (targetTag === 'latest' && periodTags.length > 0) {
+    targetTag = periodTags[periodTags.length - 1]
+  }
+
+  if (!targetTag) return dedupeExactChartGroups(chartGroups)
+
+  return dedupeExactChartGroups(chartGroups.filter((group) => group?._periodTag === targetTag))
+}
+
+export function buildAiChartContext(chartGroups = []) {
+  if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
+
+  return chartGroups
+    .map((group) => ({
+      title: group?.title ?? '',
+      chartType: group?.chartType ?? 'line',
+      labels: Array.isArray(group?.labels) ? group.labels : [],
+      datasets: (Array.isArray(group?.datasets) ? group.datasets : []).map((dataset) => ({
+        label: dataset?.label ?? '',
+        data: Array.isArray(dataset?.data) ? dataset.data : [],
+      })),
+      _periodTag: group?._periodTag ?? '',
+    }))
+    .filter(
+      (group) =>
+        group.title ||
+        group.labels.length > 0 ||
+        group.datasets.length > 0 ||
+        group._periodTag,
+    )
+}
+
 export async function generateBatchWithRetry(payload) {
   for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
