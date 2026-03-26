@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/ml/:path*",
+      "destination": "https://market-lens-ai.vercel.app/api/:path*"
+    },
+    {
+      "source": "/api/ads/:path*",
+      "destination": "https://ads-insights-9q5s.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
