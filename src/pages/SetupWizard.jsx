@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { bqPeriods, bqGenerateBatch } from '../api/adsInsights'
+import { bqPeriods, DEFAULT_ADS_DATASET_ID } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { buildAdsReportBundle, generateBatchWithRetry } from '../utils/adsReports'
 
 const QUERY_TYPES = [
   { id: 'pv', icon: 'trending_up', label: 'PV分析', desc: 'ページビューの推移とトレンドを可視化します。', color: 'text-orange-500' },
@@ -25,37 +26,12 @@ const GRANULARITIES = [
   { value: 'weekly', label: '週別', icon: 'date_range' },
   { value: 'daily', label: '日別', icon: 'today' },
 ]
-const GENERATE_RETRY_DELAYS_MS = [800, 1600]
-
 function extractPeriods(data) {
   if (Array.isArray(data?.periods) && data.periods.length > 0) return data.periods
   if (Array.isArray(data?.results)) return data.results
   if (Array.isArray(data?.available_periods)) return data.available_periods
   if (Array.isArray(data)) return data
   return []
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function isRetryableError(error) {
-  return !error?.status || error.status === 429 || error.status >= 500
-}
-
-async function generateBatchWithRetry(payload) {
-  for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
-    try {
-      return await bqGenerateBatch(payload)
-    } catch (error) {
-      if (!isRetryableError(error) || attempt === GENERATE_RETRY_DELAYS_MS.length) {
-        throw error
-      }
-      await sleep(GENERATE_RETRY_DELAYS_MS[attempt])
-    }
-  }
-
-  throw new Error('BQレポート生成に失敗しました。')
 }
 
 export default function SetupWizard() {
@@ -193,6 +169,7 @@ export default function SetupWizard() {
           setLoadingLabel(`レポートを生成中… (${currentGenerated.size + 1}/${periodsArray.length})`)
           const data = await generateBatchWithRetry({
             query_types: queryTypeIds,
+            dataset_id: DEFAULT_ADS_DATASET_ID,
             period,
           })
           results.push(data)
@@ -200,8 +177,25 @@ export default function SetupWizard() {
           completedCount = currentGenerated.size
           setGeneratedPeriods(new Set(currentGenerated))
         }
-        setLoadResult(results.length === 1 ? results[0] : { ok: true, results })
-        completeSetup({ queryTypes: queryTypeIds, periods: periodsArray, granularity })
+        const reportBundle = buildAdsReportBundle({
+          setupState: {
+            queryTypes: queryTypeIds,
+            periods: periodsArray,
+            granularity,
+            datasetId: DEFAULT_ADS_DATASET_ID,
+          },
+          results,
+        })
+        setLoadResult(results.length === 1 ? results[0] : { ok: true, results, report_md: reportBundle.reportMd })
+        completeSetup(
+          {
+            queryTypes: queryTypeIds,
+            periods: periodsArray,
+            granularity,
+            datasetId: DEFAULT_ADS_DATASET_ID,
+          },
+          reportBundle,
+        )
         setStep(2)
       } catch (e) {
         const progressMessage =

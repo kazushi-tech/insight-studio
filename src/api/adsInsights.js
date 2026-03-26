@@ -1,5 +1,5 @@
 const BASE = '/api/ads'
-const DEFAULT_DATASET_ID = 'analytics_311324674'
+export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 
 let authToken = null
 
@@ -49,6 +49,10 @@ async function request(path, options = {}) {
   return res.json()
 }
 
+function withDefaultDataset(payload = {}) {
+  return { dataset_id: DEFAULT_ADS_DATASET_ID, ...payload }
+}
+
 /** POST /api/auth/login — 認証 */
 export async function login(password) {
   const data = await request('/auth/login', {
@@ -94,7 +98,7 @@ export function getMonths() {
 export function loadData(payload) {
   return request('/load', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(withDefaultDataset(payload)),
   })
 }
 
@@ -102,6 +106,17 @@ export function loadData(payload) {
 export function generateInsights(payload) {
   return request('/generate_insights', {
     method: 'POST',
+    body: JSON.stringify(withDefaultDataset(payload)),
+  })
+}
+
+/** POST /api/neon/generate — Point Pack 기반 AI考察 */
+export function neonGenerate(payload, apiKey) {
+  const headers = apiKey ? { 'X-Gemini-API-Key': apiKey } : {}
+
+  return request('/neon/generate', {
+    method: 'POST',
+    headers,
     body: JSON.stringify(payload),
   })
 }
@@ -151,7 +166,7 @@ export function bqQueryTypes() {
 
 /** GET /api/bq/periods — BQ期間一覧 */
 export function bqPeriods(params = {}) {
-  const merged = { dataset_id: DEFAULT_DATASET_ID, ...params }
+  const merged = { dataset_id: DEFAULT_ADS_DATASET_ID, ...params }
   const qs = toQueryString(merged)
   return request(qs ? `/bq/periods?${qs}` : '/bq/periods')
 }
@@ -160,7 +175,7 @@ export function bqPeriods(params = {}) {
 export function bqGenerate(payload) {
   return request('/bq/generate', {
     method: 'POST',
-    body: JSON.stringify({ dataset_id: DEFAULT_DATASET_ID, ...payload }),
+    body: JSON.stringify(withDefaultDataset(payload)),
   })
 }
 
@@ -168,6 +183,6 @@ export function bqGenerate(payload) {
 export function bqGenerateBatch(payload) {
   return request('/bq/generate_batch', {
     method: 'POST',
-    body: JSON.stringify({ dataset_id: DEFAULT_DATASET_ID, ...payload }),
+    body: JSON.stringify(withDefaultDataset(payload)),
   })
 }

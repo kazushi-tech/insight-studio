@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
+import { DEFAULT_ADS_DATASET_ID } from '../api/adsInsights'
 
 const AdsSetupContext = createContext(null)
 
 const STORAGE_KEY = 'insight-studio-ads-setup'
-const STORAGE_VERSION = 2
+const STORAGE_VERSION = 3
 const QUERY_TYPE_MIGRATIONS = {
   search_query: 'search',
   lp: 'landing',
@@ -38,6 +39,10 @@ function normalizeSetupState(state) {
   )
   const periods = normalizeStringArray(state.periods)
   const granularity = VALID_GRANULARITIES.has(state.granularity) ? state.granularity : 'monthly'
+  const datasetId =
+    typeof state.datasetId === 'string' && state.datasetId.trim().length > 0
+      ? state.datasetId.trim()
+      : DEFAULT_ADS_DATASET_ID
 
   if (queryTypes.length === 0 || periods.length === 0) return null
 
@@ -46,6 +51,7 @@ function normalizeSetupState(state) {
     queryTypes,
     periods,
     granularity,
+    datasetId,
     completedAt: state.completedAt,
   }
 }
@@ -86,9 +92,11 @@ function saveState(state) {
 export function AdsSetupProvider({ children }) {
   const { onAdsLogout } = useAuth()
   const [setupState, setSetupState] = useState(loadState)
+  const [reportBundle, setReportBundle] = useState(null)
 
   const resetSetup = useCallback(() => {
     setSetupState(null)
+    setReportBundle(null)
     saveState(null)
   }, [])
 
@@ -96,15 +104,17 @@ export function AdsSetupProvider({ children }) {
     return onAdsLogout(resetSetup)
   }, [onAdsLogout, resetSetup])
 
-  const completeSetup = useCallback((payload) => {
+  const completeSetup = useCallback((payload, nextReportBundle = null) => {
     const state = {
       version: STORAGE_VERSION,
       queryTypes: payload.queryTypes,
       periods: payload.periods,
       granularity: payload.granularity,
+      datasetId: payload.datasetId ?? DEFAULT_ADS_DATASET_ID,
       completedAt: new Date().toISOString(),
     }
     setSetupState(state)
+    setReportBundle(nextReportBundle)
     saveState(state)
   }, [])
 
@@ -113,6 +123,8 @@ export function AdsSetupProvider({ children }) {
       value={{
         setupState,
         isSetupComplete: !!setupState,
+        reportBundle,
+        setReportBundle,
         completeSetup,
         resetSetup,
       }}

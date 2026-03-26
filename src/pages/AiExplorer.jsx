@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { generateInsights } from '../api/adsInsights'
+import MarkdownRenderer from '../components/MarkdownRenderer'
+import { neonGenerate } from '../api/adsInsights'
 import { getScans } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -25,8 +26,8 @@ function summarizeHistory(items) {
 }
 
 export default function AiExplorer() {
-  const { isAdsAuthenticated } = useAuth()
-  const { setupState } = useAdsSetup()
+  const { isAdsAuthenticated, geminiKey, hasGeminiKey } = useAuth()
+  const { setupState, reportBundle } = useAdsSetup()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
@@ -66,11 +67,11 @@ export default function AiExplorer() {
 
   async function handleSend(text) {
     const prompt = text ?? input.trim()
-    if (!prompt || loading) return
+    if (!prompt || loading || !reportBundle?.reportMd) return
 
     setInput('')
 
-    const userMessage = { role: 'user', content: prompt }
+    const userMessage = { role: 'user', text: prompt }
     setMessages((prev) => [...prev, userMessage])
     setLoading(true)
 
@@ -78,19 +79,25 @@ export default function AiExplorer() {
       const enrichedPrompt = mlContextSummary
         ? `[Market Lens Summary]\n${mlContextSummary}\n\n[Question]\n${prompt}`
         : prompt
-      const data = await generateInsights({
-        type: 'chat',
-        prompt: enrichedPrompt,
-        ...(setupState && {
-          query_types: setupState.queryTypes,
-          periods: setupState.periods,
-          granularity: setupState.granularity,
-        }),
-      })
-      const aiContent = data.response ?? data.analysis ?? data.content ?? JSON.stringify(data)
-      setMessages((prev) => [...prev, { role: 'ai', content: aiContent }])
+      const conversationHistory = [...messages, userMessage].slice(-10).map((message) => ({
+        role: message.role === 'ai' ? 'assistant' : 'user',
+        text: message.text,
+      }))
+      const data = await neonGenerate({
+        mode: 'question',
+        model: 'gemini-2.5-flash',
+        temperature: 0.7,
+        message: enrichedPrompt,
+        point_pack_md: reportBundle.reportMd,
+        data_source: 'bq',
+        bq_query_types: setupState?.queryTypes ?? [],
+        conversation_history: conversationHistory,
+        ai_chart_context: reportBundle.chartGroups ?? [],
+      }, geminiKey)
+      const aiContent = data.text ?? data.response ?? data.analysis ?? data.content ?? JSON.stringify(data)
+      setMessages((prev) => [...prev, { role: 'ai', text: aiContent }])
     } catch (e) {
-      setMessages((prev) => [...prev, { role: 'ai', content: `エラー: ${e.message}`, isError: true }])
+      setMessages((prev) => [...prev, { role: 'ai', text: `エラー: ${e.message}`, isError: true }])
     } finally {
       setLoading(false)
     }
@@ -144,6 +151,18 @@ export default function AiExplorer() {
             <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
+        {!hasGeminiKey && (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800 mb-4">
+            <span className="material-symbols-outlined text-lg">warning</span>
+            <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
+          </div>
+        )}
+        {!reportBundle?.reportMd && (
+          <div className="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3 text-sm text-on-surface-variant mb-4">
+            <span className="material-symbols-outlined text-lg">info</span>
+            <span className="japanese-text">`ads-insights` repo 準拠では、要点パック生成後にその `point_pack_md` を使って考察を生成します。先にセットアップを完了してください。</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 mb-4">
           <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">CONTEXT</p>
@@ -194,7 +213,7 @@ export default function AiExplorer() {
             <button
               key={prompt.label}
               onClick={() => handleSend(prompt.label)}
-              disabled={!isAdsAuthenticated || loading}
+              disabled={!isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd || loading}
               className="flex items-center gap-3 px-6 py-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 hover:border-secondary/50 hover:shadow-lg transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className={`material-symbols-outlined ${prompt.color}`}>{prompt.icon}</span>
@@ -220,14 +239,14 @@ export default function AiExplorer() {
                 <span className="material-symbols-outlined text-gold text-lg">smart_toy</span>
               </div>
               <div className={`bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
-                <div className="text-sm leading-relaxed whitespace-pre-wrap japanese-text">{message.content}</div>
+                <MarkdownRenderer content={message.text} className="text-sm" />
                 <p className="text-xs text-on-surface-variant mt-3">AI 考察エンジン</p>
               </div>
             </div>
           ) : (
             <div key={index} className="flex justify-end gap-4">
               <div className="bg-primary-container text-on-primary rounded-2xl px-6 py-4 max-w-2xl">
-                <p className="text-sm leading-relaxed text-white japanese-text">{message.content}</p>
+                <p className="text-sm leading-relaxed text-white japanese-text">{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">
                 田
@@ -258,11 +277,11 @@ export default function AiExplorer() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!isAdsAuthenticated}
+            disabled={!isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd}
           />
           <button
             onClick={() => handleSend()}
-            disabled={!input.trim() || loading || !isAdsAuthenticated}
+            disabled={!input.trim() || loading || !isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd}
             className="w-10 h-10 bg-secondary text-on-secondary rounded-full flex items-center justify-center hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined">send</span>
