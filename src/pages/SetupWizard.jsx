@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { bqPeriods, bqGenerate, loadData, getFolders, listPeriods } from '../api/adsInsights'
+import { bqPeriods, bqGenerateBatch } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 
@@ -19,13 +19,13 @@ const QUERY_TYPES = [
 ]
 
 const STEPS = ['クエリタイプ選択', '期間選択', 'レポート生成']
-const DATA_MODES = ['EXCEL', 'BIGQUERY', '統合']
 
-/**
- * レスポンスから periods 配列を抽出する。
- * BQ契約:  { ok, periods: [{period_tag, period_type}], granularity }
- * Excel契約: { ok, periods: [{identifier, period_tag, ...}], provider_type }
- */
+const GRANULARITIES = [
+  { value: 'monthly', label: '月別', icon: 'calendar_month' },
+  { value: 'weekly', label: '週別', icon: 'date_range' },
+  { value: 'daily', label: '日別', icon: 'today' },
+]
+
 function extractPeriods(data) {
   if (Array.isArray(data?.periods) && data.periods.length > 0) return data.periods
   if (Array.isArray(data?.results)) return data.results
@@ -46,7 +46,7 @@ export default function SetupWizard() {
   const [periods, setPeriods] = useState([])
   const [selectedPeriod, setSelectedPeriod] = useState(null)
   const [loadResult, setLoadResult] = useState(null)
-  const [dataMode, setDataMode] = useState(1) // 0=EXCEL, 1=BIGQUERY, 2=統合
+  const [granularity, setGranularity] = useState('monthly')
 
   useEffect(() => {
     if (!location.state?.resetAt) return
@@ -57,6 +57,7 @@ export default function SetupWizard() {
     setPeriods([])
     setSelectedPeriod(null)
     setLoadResult(null)
+    setGranularity('monthly')
   }, [location.state?.resetAt])
 
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function SetupWizard() {
     setPeriods([])
     setSelectedPeriod(null)
     setLoadResult(null)
+    setGranularity('monthly')
   }, [isAdsAuthenticated])
 
   const toggle = (index) => {
@@ -76,32 +78,28 @@ export default function SetupWizard() {
     setSelected(next)
   }
 
-  async function fetchPeriods() {
-    if (dataMode === 1) {
-      // BigQuery mode — GET /api/bq/periods
-      const data = await bqPeriods({ granularity: 'monthly' })
-      return extractPeriods(data)
-    }
-    // Excel mode — GET /api/list_periods
-    const data = await listPeriods()
+  async function fetchPeriods(gran) {
+    const data = await bqPeriods({ granularity: gran })
     return extractPeriods(data)
   }
 
-  async function submitLoad(selectedTypes, period) {
-    const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
-
-    if (dataMode === 1) {
-      // BigQuery mode — POST /api/bq/generate
-      const data = await bqGenerate({
-        query_types: queryTypeIds,
-        period,
-      })
-      return { data, queryTypes: queryTypeIds }
+  async function handleGranularityChange(gran) {
+    setGranularity(gran)
+    setSelectedPeriod(null)
+    setError(null)
+    setLoading(true)
+    try {
+      const items = await fetchPeriods(gran)
+      setPeriods(items)
+      if (items.length === 0) {
+        setError('この粒度では利用可能な分析期間が見つかりませんでした。')
+      }
+    } catch (e) {
+      setError(e.message)
+      setPeriods([])
+    } finally {
+      setLoading(false)
     }
-
-    // Excel mode — POST /api/load
-    const data = await loadData({ query_types: queryTypeIds, period })
-    return { data, queryTypes: queryTypeIds }
   }
 
   async function handleNext() {
@@ -112,13 +110,10 @@ export default function SetupWizard() {
       setLoading(true)
 
       try {
-        const items = await fetchPeriods()
+        const items = await fetchPeriods(granularity)
 
         if (items.length === 0) {
-          const hint = dataMode === 1
-            ? 'BigQueryデータセットに期間データが見つかりませんでした。'
-            : 'データフォルダにExcelファイルが配置されているか確認してください。'
-          setError(`利用可能な分析期間が見つかりませんでした。${hint}`)
+          setError('BigQueryデータセットに利用可能な分析期間が見つかりませんでした。')
           return
         }
 
@@ -140,9 +135,13 @@ export default function SetupWizard() {
 
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
-        const { data, queryTypes } = await submitLoad(selectedTypes, selectedPeriod)
+        const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
+        const data = await bqGenerateBatch({
+          query_types: queryTypeIds,
+          period: selectedPeriod,
+        })
         setLoadResult(data)
-        completeSetup({ queryTypes, period: selectedPeriod })
+        completeSetup({ queryTypes: queryTypeIds, period: selectedPeriod, granularity })
         setStep(2)
       } catch (e) {
         setError(e.message)
@@ -166,19 +165,7 @@ export default function SetupWizard() {
     <div className="p-10 max-w-[1200px] mx-auto space-y-10">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight">Setup Wizard</h2>
-        <div className="flex bg-surface-container rounded-full p-1">
-          {DATA_MODES.map((tab, index) => (
-            <button
-              key={tab}
-              onClick={() => { setDataMode(index); setStep(0); setPeriods([]); setSelectedPeriod(null); setError(null) }}
-              className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                index === dataMode ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-primary/10 text-primary">BigQuery</span>
       </div>
 
       {!isAdsAuthenticated && (
@@ -261,8 +248,33 @@ export default function SetupWizard() {
 
       {step === 1 && (
         <div>
-          <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text mb-4">分析期間を選択</h3>
-          {periods.length === 0 ? (
+          <div className="flex justify-between items-end mb-6">
+            <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">分析期間を選択</h3>
+            <div className="flex bg-surface-container rounded-full p-1">
+              {GRANULARITIES.map((g) => (
+                <button
+                  key={g.value}
+                  onClick={() => handleGranularityChange(g.value)}
+                  disabled={loading}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                    granularity === g.value
+                      ? 'bg-primary text-on-primary'
+                      : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">{g.icon}</span>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12 gap-3 text-on-surface-variant">
+              <span className="material-symbols-outlined text-2xl animate-spin">progress_activity</span>
+              <span className="text-sm">期間を取得中…</span>
+            </div>
+          ) : periods.length === 0 ? (
             <p className="text-on-surface-variant text-sm japanese-text">利用可能な期間がありません。</p>
           ) : (
             <div className="grid grid-cols-3 gap-4">

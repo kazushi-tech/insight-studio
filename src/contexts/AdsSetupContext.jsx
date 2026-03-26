@@ -42,6 +42,7 @@ export function AdsSetupProvider({ children }) {
     const state = {
       queryTypes: payload.queryTypes,
       period: payload.period,
+      granularity: payload.granularity,
       completedAt: new Date().toISOString(),
     }
     setSetupState(state)

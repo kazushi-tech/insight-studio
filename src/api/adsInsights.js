@@ -145,9 +145,17 @@ export function bqPeriods(params = {}) {
   return request(qs ? `/bq/periods?${qs}` : '/bq/periods')
 }
 
-/** POST /api/bq/generate — BQレポート生成 */
+/** POST /api/bq/generate — BQレポート生成（単一クエリタイプ） */
 export function bqGenerate(payload) {
   return request('/bq/generate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** POST /api/bq/generate_batch — BQレポート一括生成（複数クエリタイプ） */
+export function bqGenerateBatch(payload) {
+  return request('/bq/generate_batch', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
