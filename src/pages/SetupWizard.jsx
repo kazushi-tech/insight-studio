@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { getFolders, listPeriods, loadData } from '../api/adsInsights'
+import { bqPeriods, bqGenerate, loadData, getFolders, listPeriods } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 
@@ -19,92 +19,19 @@ const QUERY_TYPES = [
 ]
 
 const STEPS = ['クエリタイプ選択', '期間選択', 'レポート生成']
+const DATA_MODES = ['EXCEL', 'BIGQUERY', '統合']
 
+/**
+ * レスポンスから periods 配列を抽出する。
+ * BQ契約:  { ok, periods: [{period_tag, period_type}], granularity }
+ * Excel契約: { ok, periods: [{identifier, period_tag, ...}], provider_type }
+ */
 function extractPeriods(data) {
-  const candidates = [
-    data?.periods,
-    data?.results,
-    data?.available_periods,
-    data?.data,
-    data?.items,
-    data,
-  ]
-
-  for (const candidate of candidates) {
-    if (Array.isArray(candidate)) return candidate
-    if (Array.isArray(candidate?.items)) return candidate.items
-    if (Array.isArray(candidate?.periods)) return candidate.periods
-  }
-
+  if (Array.isArray(data?.periods) && data.periods.length > 0) return data.periods
+  if (Array.isArray(data?.results)) return data.results
+  if (Array.isArray(data?.available_periods)) return data.available_periods
+  if (Array.isArray(data)) return data
   return []
-}
-
-function buildQueryTypeVariants(selectedTypes) {
-  const groups = [
-    selectedTypes.map((type) => type.id).filter(Boolean),
-    selectedTypes.map((type) => type.label).filter(Boolean),
-  ]
-  const variants = []
-  const seen = new Set()
-
-  groups.forEach((values) => {
-    const signature = values.join('|')
-    if (!values.length || seen.has(signature)) return
-    seen.add(signature)
-    variants.push(values)
-  })
-
-  return variants
-}
-
-async function resolvePeriods(selectedTypes) {
-  const variants = buildQueryTypeVariants(selectedTypes)
-  let lastError = null
-
-  for (const values of variants) {
-    for (const queryTypes of [values, values.join(',')]) {
-      try {
-        const data = await listPeriods({ query_types: queryTypes })
-        const items = extractPeriods(data)
-        if (items.length > 0) {
-          return { items, queryTypes: values }
-        }
-      } catch (e) {
-        lastError = e
-      }
-    }
-  }
-
-  if (lastError) throw lastError
-  return { items: [], queryTypes: variants[0] ?? [] }
-}
-
-async function loadSelectedData(selectedTypes, period, preferredQueryTypes) {
-  const candidates = []
-  const seen = new Set()
-
-  const pushCandidate = (queryTypes) => {
-    if (!Array.isArray(queryTypes) || queryTypes.length === 0) return
-    const signature = queryTypes.join('|')
-    if (seen.has(signature)) return
-    seen.add(signature)
-    candidates.push(queryTypes)
-  }
-
-  pushCandidate(preferredQueryTypes)
-  buildQueryTypeVariants(selectedTypes).forEach(pushCandidate)
-
-  let lastError = null
-  for (const queryTypes of candidates) {
-    try {
-      const data = await loadData({ query_types: queryTypes, period })
-      return { data, queryTypes }
-    } catch (e) {
-      lastError = e
-    }
-  }
-
-  throw lastError ?? new Error('データ読み込みに失敗しました。')
 }
 
 export default function SetupWizard() {
@@ -118,37 +45,28 @@ export default function SetupWizard() {
   const [loading, setLoading] = useState(false)
   const [periods, setPeriods] = useState([])
   const [selectedPeriod, setSelectedPeriod] = useState(null)
-  const [resolvedQueryTypes, setResolvedQueryTypes] = useState([])
   const [loadResult, setLoadResult] = useState(null)
-
-  useEffect(() => {
-    if (!isAdsAuthenticated) return
-    getFolders().catch((e) => setError(e.message))
-  }, [isAdsAuthenticated])
+  const [dataMode, setDataMode] = useState(1) // 0=EXCEL, 1=BIGQUERY, 2=統合
 
   useEffect(() => {
     if (!location.state?.resetAt) return
-
     setStep(0)
     setSelected(new Set())
     setError(null)
     setLoading(false)
     setPeriods([])
     setSelectedPeriod(null)
-    setResolvedQueryTypes([])
     setLoadResult(null)
   }, [location.state?.resetAt])
 
   useEffect(() => {
     if (isAdsAuthenticated) return
-
     setStep(0)
     setSelected(new Set())
     setError(null)
     setLoading(false)
     setPeriods([])
     setSelectedPeriod(null)
-    setResolvedQueryTypes([])
     setLoadResult(null)
   }, [isAdsAuthenticated])
 
@@ -156,6 +74,34 @@ export default function SetupWizard() {
     const next = new Set(selected)
     next.has(index) ? next.delete(index) : next.add(index)
     setSelected(next)
+  }
+
+  async function fetchPeriods() {
+    if (dataMode === 1) {
+      // BigQuery mode — GET /api/bq/periods
+      const data = await bqPeriods({ granularity: 'monthly' })
+      return extractPeriods(data)
+    }
+    // Excel mode — GET /api/list_periods
+    const data = await listPeriods()
+    return extractPeriods(data)
+  }
+
+  async function submitLoad(selectedTypes, period) {
+    const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
+
+    if (dataMode === 1) {
+      // BigQuery mode — POST /api/bq/generate
+      const data = await bqGenerate({
+        query_types: queryTypeIds,
+        period,
+      })
+      return { data, queryTypes: queryTypeIds }
+    }
+
+    // Excel mode — POST /api/load
+    const data = await loadData({ query_types: queryTypeIds, period })
+    return { data, queryTypes: queryTypeIds }
   }
 
   async function handleNext() {
@@ -166,17 +112,18 @@ export default function SetupWizard() {
       setLoading(true)
 
       try {
-        const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
-        const { items, queryTypes } = await resolvePeriods(selectedTypes)
+        const items = await fetchPeriods()
 
         if (items.length === 0) {
-          setError('分析期間を取得できませんでした。選択したクエリタイプの送信形式を確認してください。')
+          const hint = dataMode === 1
+            ? 'BigQueryデータセットに期間データが見つかりませんでした。'
+            : 'データフォルダにExcelファイルが配置されているか確認してください。'
+          setError(`利用可能な分析期間が見つかりませんでした。${hint}`)
           return
         }
 
         setPeriods(items)
         setSelectedPeriod(null)
-        setResolvedQueryTypes(queryTypes)
         setStep(1)
       } catch (e) {
         setError(e.message)
@@ -193,9 +140,8 @@ export default function SetupWizard() {
 
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
-        const { data, queryTypes } = await loadSelectedData(selectedTypes, selectedPeriod, resolvedQueryTypes)
+        const { data, queryTypes } = await submitLoad(selectedTypes, selectedPeriod)
         setLoadResult(data)
-        setResolvedQueryTypes(queryTypes)
         completeSetup({ queryTypes, period: selectedPeriod })
         setStep(2)
       } catch (e) {
@@ -221,11 +167,12 @@ export default function SetupWizard() {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight">Setup Wizard</h2>
         <div className="flex bg-surface-container rounded-full p-1">
-          {['EXCEL', 'BIGQUERY', '統合'].map((tab, index) => (
+          {DATA_MODES.map((tab, index) => (
             <button
               key={tab}
+              onClick={() => { setDataMode(index); setStep(0); setPeriods([]); setSelectedPeriod(null); setError(null) }}
               className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${
-                index === 1 ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-high'
+                index === dataMode ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:bg-surface-container-high'
               }`}
             >
               {tab}
@@ -320,8 +267,12 @@ export default function SetupWizard() {
           ) : (
             <div className="grid grid-cols-3 gap-4">
               {periods.map((period, index) => {
-                const label = typeof period === 'string' ? period : period.label ?? period.period ?? `期間 ${index + 1}`
-                const value = typeof period === 'string' ? period : period.value ?? period.period ?? period
+                const label = typeof period === 'string'
+                  ? period
+                  : period.period_tag ?? period.label ?? period.period ?? `期間 ${index + 1}`
+                const value = typeof period === 'string'
+                  ? period
+                  : period.period_tag ?? period.value ?? period.period ?? period
 
                 return (
                   <button
@@ -337,6 +288,9 @@ export default function SetupWizard() {
                       <span className="material-symbols-outlined text-secondary">calendar_today</span>
                       <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
                     </div>
+                    {period.period_type && (
+                      <p className="text-xs text-on-surface-variant mt-1 ml-9">{period.period_type}</p>
+                    )}
                   </button>
                 )
               })}
