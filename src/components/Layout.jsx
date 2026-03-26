@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useState } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 const NAV_ITEMS = [
   { to: '/', icon: 'dashboard', label: 'ダッシュボード' },
@@ -78,7 +79,101 @@ function SidebarGroup({ item }) {
   )
 }
 
+function KeySettingsModal({ onClose }) {
+  const { geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading, error } = useAuth()
+  const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
+  const [adsPassword, setAdsPassword] = useState('')
+  const [adsError, setAdsError] = useState(null)
+
+  const handleSaveGemini = () => {
+    setGeminiKey(localGeminiKey)
+    onClose()
+  }
+
+  const handleAdsLogin = async () => {
+    setAdsError(null)
+    try {
+      await loginAds(adsPassword)
+      setAdsPassword('')
+    } catch (e) {
+      setAdsError(e.message)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-[480px] p-8 space-y-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-bold japanese-text">API キー設定</h3>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-primary">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        {/* Gemini Key */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（BYOK）</label>
+          <p className="text-xs text-on-surface-variant">Market Lens AI の分析機能に必要です</p>
+          <input
+            type="password"
+            className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+            placeholder="AIza..."
+            value={localGeminiKey}
+            onChange={(e) => setLocalGeminiKey(e.target.value)}
+          />
+          <button
+            onClick={handleSaveGemini}
+            className="px-5 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+          >
+            保存
+          </button>
+        </div>
+
+        <hr className="border-surface-container" />
+
+        {/* Ads Insights Auth */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-on-surface-variant japanese-text">考察スタジオ 認証</label>
+          {isAdsAuthenticated ? (
+            <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-4 py-3">
+              <span className="text-sm text-emerald-700 font-bold flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                認証済み
+              </span>
+              <button onClick={logoutAds} className="text-sm text-error font-bold hover:underline">
+                ログアウト
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="password"
+                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+                placeholder="パスワードを入力"
+                value={adsPassword}
+                onChange={(e) => setAdsPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAdsLogin()}
+              />
+              {adsError && <p className="text-xs text-error">{adsError}</p>}
+              <button
+                onClick={handleAdsLogin}
+                disabled={loading}
+                className="px-5 py-2 bg-secondary text-on-secondary rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                {loading ? 'ログイン中...' : 'ログイン'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Layout() {
+  const [showKeyModal, setShowKeyModal] = useState(false)
+  const { hasGeminiKey, isAdsAuthenticated } = useAuth()
+
   return (
     <div className="flex min-h-screen bg-surface">
       {/* Sidebar */}
@@ -109,8 +204,28 @@ export default function Layout() {
           )}
         </nav>
 
+        {/* Connection Status */}
+        <div className="px-6 mb-3">
+          <div className="bg-white rounded-xl p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-on-surface-variant">Gemini API</span>
+              <span className={`flex items-center gap-1 font-bold ${hasGeminiKey ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasGeminiKey ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
+                {hasGeminiKey ? '設定済' : '未設定'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-on-surface-variant">考察スタジオ</span>
+              <span className={`flex items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
+                {isAdsAuthenticated ? '接続中' : '未接続'}
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* New Project Button */}
-        <div className="px-6 mt-4">
+        <div className="px-6 mt-2">
           <button className="w-full py-3.5 bg-secondary text-on-secondary rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 text-sm">
             <span className="material-symbols-outlined text-lg">add_circle</span>
             <span>新規プロジェクト</span>
@@ -136,6 +251,19 @@ export default function Layout() {
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
+              {/* API Key Settings */}
+              <button
+                onClick={() => setShowKeyModal(true)}
+                className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative ${
+                  hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
+                }`}
+                title="API キー設定"
+              >
+                <span className="material-symbols-outlined">key</span>
+                {(!hasGeminiKey || !isAdsAuthenticated) && (
+                  <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full" />
+                )}
+              </button>
               <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
                 <span className="material-symbols-outlined">light_mode</span>
               </button>
@@ -161,6 +289,9 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Key Settings Modal */}
+      {showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
     </div>
   )
 }
