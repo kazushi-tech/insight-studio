@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
-import { neonGenerate } from '../api/adsInsights'
+import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import { getScans } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -80,7 +80,7 @@ export default function AiExplorer() {
         if (!cancelled) {
           setReportError(
             e.isAuthError
-              ? '認証エラー: セッションが切れました。再ログインしてください。'
+              ? AUTH_EXPIRED_MESSAGE
               : e.message,
           )
         }
@@ -184,9 +184,7 @@ export default function AiExplorer() {
         setStatus('✓ 考察生成完了')
       }
     } catch (e) {
-      const errorMsg = e.isAuthError
-        ? '認証エラー: セッションが切れました。再ログインしてください。'
-        : e.message
+      const errorMsg = e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message
       setStatus(`生成エラー: ${errorMsg}`)
       setMessages([
         ...nextMessages,
@@ -209,9 +207,7 @@ export default function AiExplorer() {
       setReportBundle(nextBundle)
       setStatus('✓ 要点パックとグラフを更新しました')
     } catch (e) {
-      const errorMsg = e.isAuthError
-        ? '認証エラー: セッションが切れました。再ログインしてください。'
-        : e.message
+      const errorMsg = e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message
       setReportError(errorMsg)
       setStatus(`更新エラー: ${errorMsg}`)
     } finally {

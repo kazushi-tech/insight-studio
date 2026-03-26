@@ -32,17 +32,20 @@ export function getChartPeriodTags(chartGroups = []) {
   return [...new Set(chartGroups.map((group) => group?._periodTag).filter(Boolean))]
 }
 
+function getChartGroupTitle(group, index) {
+  const fallbackTitle = `chart-${index + 1}`
+  return typeof group?.title === 'string' && group.title.trim().length > 0
+    ? group.title.trim()
+    : fallbackTitle
+}
+
 export function mergeChartGroupsByTitle(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
 
   const titleMap = new Map()
 
   chartGroups.forEach((group, index) => {
-    const fallbackTitle = `chart-${index + 1}`
-    const title =
-      typeof group?.title === 'string' && group.title.trim().length > 0
-        ? group.title.trim()
-        : fallbackTitle
+    const title = getChartGroupTitle(group, index)
 
     if (!titleMap.has(title)) titleMap.set(title, [])
     titleMap.get(title).push(group)
@@ -78,6 +81,7 @@ export function mergeChartGroupsByTitle(chartGroups = []) {
 
     mergedGroups.push({
       ...baseGroup,
+      _periodTag: '',
       datasets: mergedDatasets,
     })
   }
@@ -154,8 +158,10 @@ export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest')
 export function buildAiChartContext(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
 
-  return chartGroups
-    .filter(isMeaningfulChartGroup)
+  const contextGroups = mergeChartGroupsByTitle(chartGroups).filter(isMeaningfulChartGroup)
+  if (contextGroups.length === 0) return null
+
+  return contextGroups
     .map((group) => ({
       title: group?.title ?? '',
       chartType: group?.chartType ?? 'line',

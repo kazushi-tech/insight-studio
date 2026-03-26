@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -73,7 +74,7 @@ export default function EssentialPack() {
         if (!cancelled) {
           setError(
             e.isAuthError
-              ? '認証エラー: セッションが切れました。再ログインしてください。'
+              ? AUTH_EXPIRED_MESSAGE
               : e.message,
           )
         }
@@ -175,7 +176,7 @@ export default function EssentialPack() {
     } catch (e) {
       setError(
         e.isAuthError
-          ? '認証エラー: セッションが切れました。再ログインしてください。'
+          ? AUTH_EXPIRED_MESSAGE
           : e.message,
       )
     } finally {

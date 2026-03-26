@@ -1,5 +1,6 @@
 const BASE = '/api/ads'
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
+export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 
 let authToken = null
 let onAuthError = null
@@ -8,15 +9,20 @@ export function setOnAuthError(handler) {
   onAuthError = handler
 }
 
-function authHeaders() {
+function clientHeaders() {
   const headers = { 'Content-Type': 'application/json' }
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
   let clientId = localStorage.getItem('insight-studio-client-id')
   if (!clientId) {
     clientId = crypto.randomUUID()
     localStorage.setItem('insight-studio-client-id', clientId)
   }
   headers['X-Client-ID'] = clientId
+  return headers
+}
+
+function authHeaders() {
+  const headers = clientHeaders()
+  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
   return headers
 }
 
@@ -43,22 +49,26 @@ async function request(path, options = {}) {
   const {
     skipAuth = false,
     suppressAuthErrorHandler = false,
+    headers: customHeaders = {},
     ...fetchOptions
   } = options
 
-  const headers = skipAuth
-    ? { 'Content-Type': 'application/json', ...fetchOptions.headers }
-    : { ...authHeaders(), ...fetchOptions.headers }
+  const headers = new Headers(skipAuth ? clientHeaders() : authHeaders())
+  new Headers(customHeaders).forEach((value, key) => {
+    headers.set(key, value)
+  })
 
-  const didSendAuth = !skipAuth && Boolean(authToken)
+  const didSendAuth = Boolean(headers.get('Authorization'))
 
   const res = await fetch(`${BASE}${path}`, {
-    headers,
     ...fetchOptions,
+    headers,
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    const error = new Error(body.detail || `Ads Insights API error: ${res.status}`)
+    const error = new Error(
+      body.detail || body.error || body.message || `Ads Insights API error: ${res.status}`,
+    )
     error.status = res.status
     error.body = body
     error.isAuthError = res.status === 401 && didSendAuth

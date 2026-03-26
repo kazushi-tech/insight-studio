@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -31,7 +32,7 @@ export default function AnalysisGraphs() {
         if (!cancelled) {
           setError(
             e.isAuthError
-              ? '認証エラー: セッションが切れました。再ログインしてください。'
+              ? AUTH_EXPIRED_MESSAGE
               : e.message,
           )
         }
@@ -97,7 +98,7 @@ export default function AnalysisGraphs() {
     } catch (e) {
       setError(
         e.isAuthError
-          ? '認証エラー: セッションが切れました。再ログインしてください。'
+          ? AUTH_EXPIRED_MESSAGE
           : e.message,
       )
     } finally {
