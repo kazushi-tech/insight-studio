@@ -1,10 +1,17 @@
 const BASE = '/api/ads'
+const DEFAULT_DATASET_ID = 'analytics_311324674'
 
 let authToken = null
 
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' }
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  let clientId = localStorage.getItem('insight-studio-client-id')
+  if (!clientId) {
+    clientId = crypto.randomUUID()
+    localStorage.setItem('insight-studio-client-id', clientId)
+  }
+  headers['X-Client-ID'] = clientId
   return headers
 }
 
@@ -141,7 +148,8 @@ export function bqQueryTypes() {
 
 /** GET /api/bq/periods — BQ期間一覧 */
 export function bqPeriods(params = {}) {
-  const qs = toQueryString(params)
+  const merged = { dataset_id: DEFAULT_DATASET_ID, ...params }
+  const qs = toQueryString(merged)
   return request(qs ? `/bq/periods?${qs}` : '/bq/periods')
 }
 
@@ -149,7 +157,7 @@ export function bqPeriods(params = {}) {
 export function bqGenerate(payload) {
   return request('/bq/generate', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ dataset_id: DEFAULT_DATASET_ID, ...payload }),
   })
 }
 
@@ -157,6 +165,6 @@ export function bqGenerate(payload) {
 export function bqGenerateBatch(payload) {
   return request('/bq/generate_batch', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ dataset_id: DEFAULT_DATASET_ID, ...payload }),
   })
 }

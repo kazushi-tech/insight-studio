@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { bqPeriods, bqGenerateBatch } from '../api/adsInsights'
+import { bqPeriods, bqGenerate } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 
@@ -44,7 +44,7 @@ export default function SetupWizard() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [periods, setPeriods] = useState([])
-  const [selectedPeriod, setSelectedPeriod] = useState(null)
+  const [selectedPeriods, setSelectedPeriods] = useState(new Set())
   const [loadResult, setLoadResult] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
 
@@ -55,7 +55,7 @@ export default function SetupWizard() {
     setError(null)
     setLoading(false)
     setPeriods([])
-    setSelectedPeriod(null)
+    setSelectedPeriods(new Set())
     setLoadResult(null)
     setGranularity('monthly')
   }, [location.state?.resetAt])
@@ -67,7 +67,7 @@ export default function SetupWizard() {
     setError(null)
     setLoading(false)
     setPeriods([])
-    setSelectedPeriod(null)
+    setSelectedPeriods(new Set())
     setLoadResult(null)
     setGranularity('monthly')
   }, [isAdsAuthenticated])
@@ -78,6 +78,12 @@ export default function SetupWizard() {
     setSelected(next)
   }
 
+  const togglePeriod = (value) => {
+    const next = new Set(selectedPeriods)
+    next.has(value) ? next.delete(value) : next.add(value)
+    setSelectedPeriods(next)
+  }
+
   async function fetchPeriods(gran) {
     const data = await bqPeriods({ granularity: gran })
     return extractPeriods(data)
@@ -85,7 +91,7 @@ export default function SetupWizard() {
 
   async function handleGranularityChange(gran) {
     setGranularity(gran)
-    setSelectedPeriod(null)
+    setSelectedPeriods(new Set())
     setError(null)
     setLoading(true)
     try {
@@ -118,7 +124,7 @@ export default function SetupWizard() {
         }
 
         setPeriods(items)
-        setSelectedPeriod(null)
+        setSelectedPeriods(new Set())
         setStep(1)
       } catch (e) {
         setError(e.message)
@@ -130,18 +136,19 @@ export default function SetupWizard() {
     }
 
     if (step === 1) {
-      if (!selectedPeriod) return
+      if (selectedPeriods.size === 0) return
       setLoading(true)
 
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
-        const data = await bqGenerateBatch({
+        const periodsArray = [...selectedPeriods]
+        const data = await bqGenerate({
           query_types: queryTypeIds,
-          period: selectedPeriod,
+          periods: periodsArray,
         })
         setLoadResult(data)
-        completeSetup({ queryTypes: queryTypeIds, period: selectedPeriod, granularity })
+        completeSetup({ queryTypes: queryTypeIds, periods: periodsArray, granularity })
         setStep(2)
       } catch (e) {
         setError(e.message)
@@ -157,7 +164,7 @@ export default function SetupWizard() {
 
   function handleBack() {
     if (step === 0) return
-    if (step === 1) setSelectedPeriod(null)
+    if (step === 1) setSelectedPeriods(new Set())
     setStep((current) => current - 1)
   }
 
@@ -249,23 +256,53 @@ export default function SetupWizard() {
       {step === 1 && (
         <div>
           <div className="flex justify-between items-end mb-6">
-            <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">分析期間を選択</h3>
-            <div className="flex bg-surface-container rounded-full p-1">
-              {GRANULARITIES.map((g) => (
+            <div>
+              <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">分析期間を選択</h3>
+              <p className="text-on-surface-variant mt-1 text-sm">
+                {selectedPeriods.size > 0
+                  ? `${selectedPeriods.size} 件選択中`
+                  : '1件以上選択してください'}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex gap-2">
                 <button
-                  key={g.value}
-                  onClick={() => handleGranularityChange(g.value)}
+                  onClick={() => setSelectedPeriods(new Set())}
                   disabled={loading}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all ${
-                    granularity === g.value
-                      ? 'bg-primary text-on-primary'
-                      : 'text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
+                  className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all"
                 >
-                  <span className="material-symbols-outlined text-base">{g.icon}</span>
-                  {g.label}
+                  全解除
                 </button>
-              ))}
+                <button
+                  onClick={() => {
+                    const allValues = periods.map((p) =>
+                      typeof p === 'string' ? p : p.period_tag ?? p.value ?? p.period ?? p
+                    )
+                    setSelectedPeriods(new Set(allValues))
+                  }}
+                  disabled={loading}
+                  className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all"
+                >
+                  全選択
+                </button>
+              </div>
+              <div className="flex bg-surface-container rounded-full p-1">
+                {GRANULARITIES.map((g) => (
+                  <button
+                    key={g.value}
+                    onClick={() => handleGranularityChange(g.value)}
+                    disabled={loading}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                      granularity === g.value
+                        ? 'bg-primary text-on-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container-high'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-base">{g.icon}</span>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -289,16 +326,19 @@ export default function SetupWizard() {
                 return (
                   <button
                     key={index}
-                    onClick={() => setSelectedPeriod(value)}
+                    onClick={() => togglePeriod(value)}
                     className={`p-5 rounded-2xl text-left transition-all border-2 ${
-                      selectedPeriod === value
+                      selectedPeriods.has(value)
                         ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
                         : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-secondary">calendar_today</span>
-                      <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-secondary">calendar_today</span>
+                        <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
+                      </div>
+                      {selectedPeriods.has(value) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
                     </div>
                     {period.period_type && (
                       <p className="text-xs text-on-surface-variant mt-1 ml-9">{period.period_type}</p>
@@ -315,7 +355,9 @@ export default function SetupWizard() {
         <div className="text-center py-12">
           <span className="material-symbols-outlined text-6xl text-secondary mb-4 block">check_circle</span>
           <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">データ読み込み完了</h3>
-          <p className="text-on-surface-variant mt-2 japanese-text">「次へ」を押して要点パックに進みましょう。</p>
+          <p className="text-on-surface-variant mt-2 japanese-text">
+            {selectedPeriods.size}期間 × {selected.size}クエリタイプのレポートを生成しました。「次へ」を押して要点パックに進みましょう。
+          </p>
           {loadResult?.summary && (
             <p className="text-sm text-on-surface-variant mt-4 japanese-text">{loadResult.summary}</p>
           )}
@@ -332,7 +374,7 @@ export default function SetupWizard() {
         </button>
         <button
           onClick={handleNext}
-          disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && !selectedPeriod) || !isAdsAuthenticated}
+          disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated}
           className="px-10 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (

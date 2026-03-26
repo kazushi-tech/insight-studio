@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { generateInsights } from '../api/adsInsights'
 import { getScans } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
+import { useAdsSetup } from '../contexts/AdsSetupContext'
 
 const QUICK_PROMPTS = [
   { icon: 'warning', label: 'リスクを要約して', color: 'text-red-500' },
@@ -25,6 +26,7 @@ function summarizeHistory(items) {
 
 export default function AiExplorer() {
   const { isAdsAuthenticated } = useAuth()
+  const { setupState } = useAdsSetup()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
@@ -76,7 +78,15 @@ export default function AiExplorer() {
       const enrichedPrompt = mlContextSummary
         ? `[Market Lens Summary]\n${mlContextSummary}\n\n[Question]\n${prompt}`
         : prompt
-      const data = await generateInsights({ type: 'chat', prompt: enrichedPrompt })
+      const data = await generateInsights({
+        type: 'chat',
+        prompt: enrichedPrompt,
+        ...(setupState && {
+          query_types: setupState.queryTypes,
+          periods: setupState.periods,
+          granularity: setupState.granularity,
+        }),
+      })
       const aiContent = data.response ?? data.analysis ?? data.content ?? JSON.stringify(data)
       setMessages((prev) => [...prev, { role: 'ai', content: aiContent }])
     } catch (e) {

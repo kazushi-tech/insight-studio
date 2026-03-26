@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { loadData } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
+import { useAdsSetup } from '../contexts/AdsSetupContext'
 
 const FALLBACK_CREATIVES = [
   { name: '2024_Spring_Banner_01', network: 'Google Display Network', impr: '452,001', clicks: '12,431', ctr: '2.75%', cv: 184, status: '配信中', statusColor: 'emerald' },
@@ -16,18 +17,34 @@ const FALLBACK_ROI = [
 
 export default function AnalysisGraphs() {
   const { isAdsAuthenticated } = useAuth()
+  const { setupState } = useAdsSetup()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!isAdsAuthenticated) return
-    setLoading(true)
-    loadData({ type: 'graphs' })
-      .then(setData)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false))
-  }, [isAdsAuthenticated])
+    let cancelled = false
+    ;(async () => {
+      if (!cancelled) setLoading(true)
+      try {
+        const result = await loadData({
+          type: 'graphs',
+          ...(setupState && {
+            query_types: setupState.queryTypes,
+            periods: setupState.periods,
+            granularity: setupState.granularity,
+          }),
+        })
+        if (!cancelled) setData(result)
+      } catch (e) {
+        if (!cancelled) setError(e.message)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [isAdsAuthenticated, setupState])
 
   const creatives = data?.creatives ?? FALLBACK_CREATIVES
   const roiRanking = data?.roi_ranking ?? FALLBACK_ROI
@@ -37,16 +54,15 @@ export default function AnalysisGraphs() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <p className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">総インプレッション</p>
-            <p className="text-2xl font-black tabular-nums text-primary">1,284,092</p>
+        {setupState && (
+          <div className="flex items-center gap-4 text-xs text-on-surface-variant">
+            <span className="px-3 py-1 bg-surface-container rounded-lg font-bold">
+              {setupState.granularity === 'monthly' ? '月別' : setupState.granularity === 'weekly' ? '週別' : '日別'}
+            </span>
+            <span>{setupState.periods?.length ?? 0}期間</span>
+            <span>{setupState.queryTypes?.length ?? 0}クエリ</span>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-on-surface-variant font-bold uppercase tracking-wider">平均CTR</p>
-            <p className="text-2xl font-black tabular-nums text-secondary">2.48%</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {error && (

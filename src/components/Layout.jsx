@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -34,7 +34,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
   if (disabled) {
     return (
       <span
-        className={`flex items-center gap-3 px-6 py-2.5 text-sm opacity-40 cursor-not-allowed border-l-4 border-transparent ${
+        className={`flex items-center gap-3 px-6 py-2.5 text-[15px] opacity-40 cursor-not-allowed border-l-4 border-transparent ${
           isChild ? 'pl-14' : ''
         }`}
         title="セットアップを完了してください"
@@ -50,7 +50,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-6 py-2.5 transition-colors text-sm ${
+        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] ${
           isChild ? 'pl-14' : ''
         } ${
           isActive
@@ -75,7 +75,7 @@ function SidebarGroup({ item, disabledPaths }) {
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className={`w-full flex items-center gap-3 px-6 py-2.5 text-sm transition-colors border-l-4 ${
+        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-4 ${
           isGroupActive
             ? 'text-gold border-gold bg-surface-container-lowest font-bold'
             : 'text-on-surface hover:bg-surface-container border-transparent'
@@ -106,7 +106,7 @@ function SidebarGroup({ item, disabledPaths }) {
 }
 
 function KeySettingsModal({ onClose }) {
-  const { geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading, error } = useAuth()
+  const { geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
@@ -204,10 +204,44 @@ export default function Layout() {
   const navigate = useNavigate()
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem('insight-studio-sidebar-width')
+    return saved ? Math.max(200, Math.min(400, Number(saved))) : 260
+  })
+  const isResizing = useRef(false)
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isResizing.current) return
+    const newWidth = Math.max(200, Math.min(400, e.clientX))
+    setSidebarWidth(newWidth)
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    isResizing.current = false
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+    localStorage.setItem('insight-studio-sidebar-width', String(sidebarWidth))
+  }, [sidebarWidth])
+
+  useEffect(() => {
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [handleMouseMove, handleMouseUp])
+
+  const startResize = () => {
+    isResizing.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
+
   return (
     <div className="flex min-h-screen bg-surface">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 w-[240px] bg-surface text-sm tracking-wide flex flex-col">
+      <aside className="fixed left-0 top-0 h-full z-40 py-6 bg-surface text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth }}>
         {/* Logo */}
         <div className="px-6 mb-8 flex items-center gap-3">
           <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-gold">
@@ -267,24 +301,17 @@ export default function Layout() {
             <span>新しいセットアップ</span>
           </button>
         </div>
+        <div
+          onMouseDown={startResize}
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-secondary/30 active:bg-secondary/50 transition-colors"
+        />
       </aside>
 
       {/* Main Content */}
-      <main className="ml-[240px] flex-1 min-h-screen flex flex-col">
+      <main className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
         {/* Top Header */}
         <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative w-full max-w-md group">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-secondary transition-colors">
-                search
-              </span>
-              <input
-                className="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-secondary/40 transition-all outline-none"
-                placeholder="分析データを検索..."
-                type="text"
-              />
-            </div>
-          </div>
+          <div className="flex-1" />
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               {/* API Key Settings */}
@@ -307,10 +334,6 @@ export default function Layout() {
                 aria-label={isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
               >
                 <span className="material-symbols-outlined">{isDark ? 'light_mode' : 'dark_mode'}</span>
-              </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant relative">
-                <span className="material-symbols-outlined">notifications</span>
-                <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
               </button>
             </div>
             <div className="flex items-center gap-3 pl-6 border-l border-outline-variant/30">

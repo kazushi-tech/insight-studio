@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { generateInsights } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
+import { useAdsSetup } from '../contexts/AdsSetupContext'
 
 const NAV_ITEMS = ['サマリー', 'トラフィック', 'コンバージョン', 'ROI分析']
 
@@ -78,6 +79,7 @@ function normalizeSections(rawSections) {
 
 export default function EssentialPack() {
   const { isAdsAuthenticated } = useAuth()
+  const { setupState } = useAdsSetup()
   const [activeNav, setActiveNav] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -87,7 +89,14 @@ export default function EssentialPack() {
     setError(null)
     setLoading(true)
     try {
-      const data = await generateInsights({ type: 'essential_pack' })
+      const data = await generateInsights({
+        type: 'essential_pack',
+        ...(setupState && {
+          query_types: setupState.queryTypes,
+          periods: setupState.periods,
+          granularity: setupState.granularity,
+        }),
+      })
       setInsights(data)
     } catch (e) {
       setError(e.message)
@@ -105,11 +114,28 @@ export default function EssentialPack() {
       <div className="w-[280px] bg-surface-container-lowest border-r border-surface-container p-6 space-y-6">
         <div>
           <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">分析期間</label>
-          <div className="mt-2 flex items-center gap-2 px-4 py-3 bg-surface-container rounded-xl text-sm">
-            <span>2023年10月1日 - 10月31日</span>
-            <span className="material-symbols-outlined text-lg ml-auto">calendar_today</span>
+          <div className="mt-2 space-y-1">
+            {setupState?.periods?.length > 0 ? (
+              setupState.periods.map((p) => (
+                <div key={p} className="flex items-center gap-2 px-4 py-2 bg-surface-container rounded-xl text-sm">
+                  <span className="material-symbols-outlined text-sm text-secondary">calendar_today</span>
+                  <span>{p}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-on-surface-variant px-4 py-2">セットアップ未完了</p>
+            )}
           </div>
         </div>
+        {setupState && (
+          <div>
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">分析条件</label>
+            <div className="mt-2 space-y-1 text-xs text-on-surface-variant">
+              <p>粒度: {setupState.granularity === 'monthly' ? '月別' : setupState.granularity === 'weekly' ? '週別' : '日別'}</p>
+              <p>クエリ: {setupState.queryTypes?.join(', ')}</p>
+            </div>
+          </div>
+        )}
         <div>
           <h4 className="text-sm font-bold text-[#1A1A2E] mb-3 japanese-text">レポート構成</h4>
           <nav className="flex flex-col gap-1">

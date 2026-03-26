@@ -41,7 +41,7 @@ export function AdsSetupProvider({ children }) {
   const completeSetup = useCallback((payload) => {
     const state = {
       queryTypes: payload.queryTypes,
-      period: payload.period,
+      periods: payload.periods,
       granularity: payload.granularity,
       completedAt: new Date().toISOString(),
     }
@@ -63,6 +63,7 @@ export function AdsSetupProvider({ children }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAdsSetup() {
   const ctx = useContext(AdsSetupContext)
   if (!ctx) throw new Error('useAdsSetup must be used within AdsSetupProvider')
