@@ -1,4 +1,7 @@
-const BASE = '/api/ml'
+const DIRECT_MARKET_LENS_ORIGIN =
+  import.meta.env.VITE_MARKET_LENS_API_ORIGIN ||
+  (import.meta.env.PROD ? 'https://market-lens-ai.onrender.com' : '')
+const BASE = DIRECT_MARKET_LENS_ORIGIN ? `${DIRECT_MARKET_LENS_ORIGIN}/api` : '/api/ml'
 const LONG_ANALYSIS_TIMEOUT = 180000
 
 const DISCOVERY_STAGE_LABELS = {
