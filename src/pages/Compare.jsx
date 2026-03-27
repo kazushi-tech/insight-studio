@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { scan } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -14,7 +14,7 @@ function formatElapsed(ms) {
 function MetaBand({ run }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
-  const elapsed = run.status !== 'running' && run.startedAt ? Date.now() - run.startedAt : null
+  const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
 
   return (
     <div className="flex items-center gap-4 text-xs text-on-surface-variant">
@@ -41,13 +41,6 @@ export default function Compare() {
 
   const run = getRun('compare')
   const [urls, setUrls] = useState(() => run?.input?.urls || { target: '', compA: '', compB: '' })
-
-  // Sync urls from run input when remounting
-  useEffect(() => {
-    if (run?.input?.urls && !urls.target && !urls.compA) {
-      setUrls(run.input.urls)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null

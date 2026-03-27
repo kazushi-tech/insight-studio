@@ -256,8 +256,9 @@ function ReviewResultDisplay({ review, size }) {
   }
 
   // If structured review with no recognized fields, fall back to markdown or JSON
-  const hasStructured = review.summary || review.good_points || review.improvements ||
-    review.rubric_scores || review.test_ideas || review.evidence
+  const hasStructured = review.summary || review.product_identification || review.target_hypothesis ||
+    review.message_angle || review.good_points || review.keep_as_is || review.improvements ||
+    review.rubric_scores || review.test_ideas || review.evidence || review.positioning_insights
 
   if (!hasStructured && review.markdown) {
     return <MarkdownRenderer content={review.markdown} size={size} />
@@ -295,7 +296,7 @@ function formatElapsed(ms) {
 
 function MetaBand({ run }) {
   if (!run || run.status === 'idle') return null
-  const elapsed = run.status !== 'running' && run.startedAt ? Date.now() - run.startedAt : null
+  const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
 
   return (
     <div className="flex items-center gap-3 text-xs text-on-surface-variant">

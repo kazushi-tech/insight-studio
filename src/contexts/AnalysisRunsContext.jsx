@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useRef, useSyncExternalStore } from 'react'
+import { createContext, useContext, useState, useSyncExternalStore } from 'react'
 
 // ─── Run kinds ───
 // compare | discovery | creative-review | banner-generation
@@ -6,6 +6,11 @@ import { createContext, useContext, useCallback, useRef, useSyncExternalStore } 
 function createRunStore() {
   const runs = new Map()
   const listeners = new Set()
+  let snapshot = {}
+
+  function syncSnapshot() {
+    snapshot = Object.fromEntries(runs)
+  }
 
   function notify() {
     listeners.forEach((fn) => fn())
@@ -17,7 +22,7 @@ function createRunStore() {
   }
 
   function getSnapshot() {
-    return Object.fromEntries(runs)
+    return snapshot
   }
 
   function getRun(kind) {
@@ -31,11 +36,13 @@ function createRunStore() {
       status: 'running',
       input,
       startedAt: Date.now(),
+      finishedAt: null,
       result: null,
       error: null,
       meta: {},
     }
     runs.set(kind, run)
+    syncSnapshot()
     notify()
     return run
   }
@@ -46,9 +53,11 @@ function createRunStore() {
     runs.set(kind, {
       ...existing,
       status: 'completed',
+      finishedAt: Date.now(),
       result,
       meta: { ...existing.meta, ...meta },
     })
+    syncSnapshot()
     notify()
   }
 
@@ -58,13 +67,16 @@ function createRunStore() {
     runs.set(kind, {
       ...existing,
       status: 'failed',
+      finishedAt: Date.now(),
       error: typeof error === 'string' ? error : error?.message || String(error),
     })
+    syncSnapshot()
     notify()
   }
 
   function clearRun(kind) {
     runs.delete(kind)
+    syncSnapshot()
     notify()
   }
 
@@ -96,18 +108,16 @@ function createRunStore() {
 const AnalysisRunsContext = createContext(null)
 
 export function AnalysisRunsProvider({ children }) {
-  const storeRef = useRef(null)
-  if (!storeRef.current) {
-    storeRef.current = createRunStore()
-  }
+  const [store] = useState(() => createRunStore())
 
   return (
-    <AnalysisRunsContext.Provider value={storeRef.current}>
+    <AnalysisRunsContext.Provider value={store}>
       {children}
     </AnalysisRunsContext.Provider>
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAnalysisRuns() {
   const store = useContext(AnalysisRunsContext)
   if (!store) throw new Error('useAnalysisRuns must be used within AnalysisRunsProvider')

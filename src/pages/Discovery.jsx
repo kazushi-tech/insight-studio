@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { discoveryAnalyze } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -14,7 +14,7 @@ function formatElapsed(ms) {
 function MetaBand({ run }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
-  const elapsed = run.status !== 'running' && run.startedAt ? Date.now() - run.startedAt : null
+  const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
@@ -71,14 +71,6 @@ export default function Discovery() {
 
   const run = getRun('discovery')
   const [url, setUrl] = useState(() => run?.input?.url || '')
-  const abortRef = useRef(null)
-
-  // Sync URL from run input when remounting
-  useEffect(() => {
-    if (run?.input?.url && !url) {
-      setUrl(run.input.url)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
