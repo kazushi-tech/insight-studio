@@ -45,6 +45,14 @@ function toQueryString(params = {}) {
   return search.toString()
 }
 
+function isUnauthorizedErrorPayload(body) {
+  const markers = [body?.detail, body?.error, body?.message]
+    .filter((value) => typeof value === 'string')
+    .map((value) => value.trim().toLowerCase())
+
+  return markers.some((value) => value === 'unauthorized')
+}
+
 async function request(path, options = {}) {
   const {
     skipAuth = false,
@@ -71,7 +79,7 @@ async function request(path, options = {}) {
     )
     error.status = res.status
     error.body = body
-    error.isAuthError = res.status === 401 && didSendAuth
+    error.isAuthError = res.status === 401 && didSendAuth && isUnauthorizedErrorPayload(body)
 
     if (error.isAuthError && !suppressAuthErrorHandler) {
       onAuthError?.(error)
