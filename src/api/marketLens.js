@@ -1,4 +1,5 @@
 const BASE = '/api/ml'
+const LONG_ANALYSIS_TIMEOUT = 180000
 
 function buildErrorMessage(path, status, body) {
   if (body?.detail) return body.detail
@@ -43,6 +44,9 @@ async function requestJson(path, options = {}) {
   } catch (e) {
     clearTimeout(timeoutId)
     if (e.name === 'AbortError') {
+      if (path === '/scan' || path === '/discovery/analyze') {
+        throw new Error('分析の完了まで時間がかかっています。対象サイトの取得やバックエンドの起動待ちで数十秒かかることがあります。少し待って再実行してください。')
+      }
       throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
     }
     throw e
@@ -103,6 +107,7 @@ export function scan(urls, apiKey) {
   return requestJson('/scan', {
     method: 'POST',
     body: JSON.stringify({ urls, api_key: apiKey }),
+    timeout: LONG_ANALYSIS_TIMEOUT,
   })
 }
 
@@ -111,6 +116,7 @@ export function discoveryAnalyze(url, apiKey) {
   return requestJson('/discovery/analyze', {
     method: 'POST',
     body: JSON.stringify({ brand_url: url, api_key: apiKey }),
+    timeout: LONG_ANALYSIS_TIMEOUT,
   })
 }
 

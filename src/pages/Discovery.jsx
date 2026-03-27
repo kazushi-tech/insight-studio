@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { discoveryAnalyze } from '../api/marketLens'
+import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -8,6 +9,7 @@ export default function Discovery() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [result, setResult] = useState(null)
   const [discoveries, setDiscoveries] = useState([])
 
   const canSubmit = url && hasGeminiKey && !loading
@@ -15,9 +17,12 @@ export default function Discovery() {
   async function handleDiscover() {
     setError(null)
     setLoading(true)
+    setResult(null)
+    setDiscoveries([])
     try {
       const data = await discoveryAnalyze(url, geminiKey)
-      const items = data.competitors ?? data.results ?? (Array.isArray(data) ? data : [data])
+      setResult(data)
+      const items = data.fetched_sites ?? data.competitors ?? data.results ?? (Array.isArray(data) ? data : [data])
       setDiscoveries(items)
     } catch (e) {
       setError(e.message)
@@ -70,8 +75,23 @@ export default function Discovery() {
         </button>
       </div>
 
+      <p className="text-xs text-on-surface-variant japanese-text">競合探索と比較分析には 30〜90 秒ほどかかることがあります。</p>
+
       {error && (
         <ErrorBanner message={error} />
+      )}
+
+      {result?.report_md && (
+        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 space-y-5">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
+            <span className="px-3 py-1 rounded-full bg-surface-container font-bold">
+              {result.industry || '業界未分類'}
+            </span>
+            <span>{result.candidate_count ?? discoveries.length} 件候補</span>
+            <span>{result.analyzed_count ?? discoveries.length} 件分析</span>
+          </div>
+          <MarkdownRenderer content={result.report_md} />
+        </div>
       )}
 
       {/* Discovered LPs */}
@@ -104,7 +124,7 @@ export default function Discovery() {
                 </div>
                 <div className="p-5">
                   <div className="flex items-start justify-between">
-                    <h4 className="font-bold text-[#1A1A2E] japanese-text">{item.name ?? item.title ?? item.url}</h4>
+                    <h4 className="font-bold text-[#1A1A2E] japanese-text">{item.title ?? item.name ?? item.url}</h4>
                     {item.url && (
                       <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary transition-colors">
                         <span className="material-symbols-outlined text-lg">open_in_new</span>

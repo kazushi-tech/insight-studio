@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { scan } from '../api/marketLens'
+import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -78,23 +79,26 @@ export default function Compare() {
       </div>
 
       <div className="flex justify-end">
-        <button
-          className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-primary/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={!canSubmit}
-          onClick={handleScan}
-        >
-          {loading ? (
-            <>
-              <LoadingSpinner size="sm" />
-              <span>分析中…</span>
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined text-lg">bolt</span>
-              分析開始
-            </>
-          )}
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <button
+            className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-primary/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!canSubmit}
+            onClick={handleScan}
+          >
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>分析中…</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">bolt</span>
+                分析開始
+              </>
+            )}
+          </button>
+          <p className="text-xs text-on-surface-variant japanese-text">重いLPは 30〜90 秒ほどかかることがあります。</p>
+        </div>
       </div>
 
       {error && (
@@ -175,7 +179,7 @@ export default function Compare() {
                 </div>
               )}
               {report ? (
-                <div className="text-sm text-on-surface leading-relaxed whitespace-pre-wrap japanese-text">{report}</div>
+                <MarkdownRenderer content={report} />
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
                   <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>

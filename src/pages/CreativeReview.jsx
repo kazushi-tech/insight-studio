@@ -13,6 +13,12 @@ import {
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
+const REVIEW_TEXT_SIZE_STORAGE_KEY = 'creative_review_text_size'
+const REVIEW_TEXT_SIZE_OPTIONS = [
+  { value: 'normal', label: '標準' },
+  { value: 'large', label: '大' },
+  { value: 'xlarge', label: '特大' },
+]
 
 const RUBRIC_LABEL_MAP = {
   visual_impact: '視覚的インパクト',
@@ -205,6 +211,9 @@ export default function CreativeReview() {
   // generation
   const [genImageUrl, setGenImageUrl] = useState(null)
   const [genId, setGenId] = useState(null)
+  const [reviewTextSize, setReviewTextSize] = useState(
+    () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
+  )
 
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
@@ -230,6 +239,11 @@ export default function CreativeReview() {
   const goError = useCallback((msg) => {
     setPhase('error')
     setErrorMessage(msg)
+  }, [])
+
+  const handleReviewTextSizeChange = useCallback((size) => {
+    setReviewTextSize(size)
+    localStorage.setItem(REVIEW_TEXT_SIZE_STORAGE_KEY, size)
   }, [])
 
   // ─── 1. Upload ───
@@ -528,14 +542,35 @@ export default function CreativeReview() {
       {/* ─── Step 3: Review Result ─── */}
       {isReviewed && reviewResult && (
         <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4">
-          <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text mb-2 flex items-center gap-2">
-            <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
-            レビュー結果
-          </h3>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text flex items-center gap-2">
+              <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
+              レビュー結果
+            </h3>
+            <div className="flex items-center gap-2 self-start md:self-auto">
+              <span className="text-xs font-bold text-on-surface-variant japanese-text">文字サイズ</span>
+              <div className="inline-flex rounded-full bg-surface-container p-1">
+                {REVIEW_TEXT_SIZE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleReviewTextSizeChange(option.value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                      reviewTextSize === option.value
+                        ? 'bg-primary text-on-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container-high'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-          <div className="bg-surface-container rounded-xl p-5 text-sm text-on-surface whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">
+          <div className="bg-surface-container-lowest border border-outline-variant/15 shadow-[0_18px_36px_-24px_rgba(26,26,46,0.22)] rounded-2xl p-6 text-on-surface whitespace-pre-wrap leading-relaxed max-h-[640px] overflow-y-auto">
             {reviewMarkdown ? (
-              <MarkdownRenderer content={reviewMarkdown} />
+              <MarkdownRenderer content={reviewMarkdown} size={reviewTextSize} />
             ) : (
               <pre className="whitespace-pre-wrap text-xs leading-relaxed">
                 {JSON.stringify(reviewResult, null, 2)}
