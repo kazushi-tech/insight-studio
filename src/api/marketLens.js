@@ -201,6 +201,15 @@ export function uploadCreativeAsset(file) {
   })
 }
 
+/**
+ * 元クリエイティブ画像のダウンロード URL を組み立てる
+ * @param {string} assetId
+ * @returns {string}
+ */
+export function getCreativeAssetDownloadUrl(assetId) {
+  return `${BASE}/assets/${assetId}/download`
+}
+
 // ─── Creative Review: Review ─────────────────────────────────
 
 /**

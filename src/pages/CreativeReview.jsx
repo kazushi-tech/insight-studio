@@ -6,6 +6,7 @@ import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import {
   uploadCreativeAsset,
+  getCreativeAssetDownloadUrl,
   reviewBanner,
   reviewAdLp,
   generateBanner,
@@ -315,6 +316,49 @@ function MetaBand({ run }) {
   )
 }
 
+function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta = [], fallbackText }) {
+  const toneClasses = tone === 'after'
+    ? 'border-emerald-200 bg-emerald-50/50'
+    : 'border-slate-200 bg-slate-50/70'
+
+  return (
+    <div className={`rounded-2xl border ${toneClasses} p-4 md:p-5 space-y-4`}>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
+            tone === 'after'
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'bg-slate-200 text-slate-700'
+          }`}>
+            {label}
+          </span>
+          <h4 className="text-base font-bold text-[#1A1A2E] japanese-text">{title}</h4>
+        </div>
+        {meta.length > 0 && (
+          <p className="text-xs text-on-surface-variant">
+            {meta.filter(Boolean).join(' / ')}
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-[20px] border border-outline-variant/20 bg-white p-3 shadow-[0_24px_48px_-20px_rgba(26,26,46,0.18)] min-h-[280px] flex items-center justify-center">
+        {src ? (
+          <img
+            src={src}
+            alt={alt}
+            className="max-w-full max-h-[540px] h-auto rounded-2xl object-contain"
+          />
+        ) : (
+          <div className="text-center px-6 py-10 text-on-surface-variant">
+            <span className="material-symbols-outlined text-4xl mb-2 block text-outline-variant">image_not_supported</span>
+            <p className="text-sm japanese-text">{fallbackText}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───
 
 export default function CreativeReview() {
@@ -348,6 +392,7 @@ export default function CreativeReview() {
   const runId = reviewRun?.meta?.run_id || null
   const genImageUrl = genRun?.result?.imageUrl || null
   const genId = genRun?.result?.genId || null
+  const originalBannerUrl = previewUrl || (assetId ? getCreativeAssetDownloadUrl(assetId) : null)
 
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
@@ -755,13 +800,57 @@ export default function CreativeReview() {
             改善バナー
           </h3>
 
-          <div className="flex flex-col items-center gap-4">
-            <img
+          <p className="text-sm text-on-surface-variant japanese-text">
+            左が改善前、右が改善後です。並べて比較しながら差分を確認できます。
+          </p>
+
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] gap-5 items-stretch">
+            <BannerComparisonCard
+              label="Before"
+              title="改善前のバナー"
+              tone="before"
+              src={originalBannerUrl}
+              alt="改善前のバナー"
+              meta={[
+                fileName,
+                assetMeta?.width && assetMeta?.height ? `${assetMeta.width} × ${assetMeta.height}px` : null,
+              ]}
+              fallbackText="元バナー画像を表示できませんでした。"
+            />
+
+            <div className="hidden xl:flex items-center justify-center">
+              <div className="w-14 h-14 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
+                <span className="material-symbols-outlined text-3xl">arrow_forward_alt</span>
+              </div>
+            </div>
+
+            <BannerComparisonCard
+              label="After"
+              title="改善後のバナー"
+              tone="after"
               src={genImageUrl}
               alt="生成されたバナー"
-              className="max-w-full max-h-[500px] rounded-xl border border-outline-variant shadow-md"
+              meta={[
+                'Nano Banana2',
+                genId ? `generation ${genId}` : null,
+              ]}
+              fallbackText="改善後バナーを表示できませんでした。"
             />
-            <div className="flex gap-3">
+          </div>
+
+          <div className="flex flex-wrap gap-3 justify-center xl:justify-end">
+            {originalBannerUrl && (
+              <a
+                href={originalBannerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 bg-surface-container text-on-surface rounded-xl font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
+              >
+                <span className="material-symbols-outlined text-lg">left_panel_open</span>
+                元画像を開く
+              </a>
+            )}
+            <div className="flex flex-wrap gap-3">
               <a
                 href={genImageUrl}
                 download={`banner-${genId}.png`}

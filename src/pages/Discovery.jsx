@@ -15,6 +15,9 @@ function MetaBand({ run }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
+  const fallbackCount = Array.isArray(result?.fetched_sites)
+    ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
+    : 0
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
@@ -32,7 +35,8 @@ function MetaBand({ run }) {
         <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
       )}
       {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
-      {result?.analyzed_count != null && <span>{result.analyzed_count} 件分析</span>}
+      {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
+      {fallbackCount > 0 && <span>{fallbackCount} 件補完</span>}
       {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
   )
@@ -41,20 +45,34 @@ function MetaBand({ run }) {
 function PartialSuccessBanner({ fetchedSites }) {
   if (!fetchedSites || fetchedSites.length === 0) return null
 
-  const failed = fetchedSites.filter((s) => s.error)
-  const success = fetchedSites.filter((s) => !s.error)
+  const fallback = fetchedSites.filter((site) => site.analysis_source === 'search_result_fallback')
+  const failed = fetchedSites.filter((site) => {
+    if (site.analysis_source === 'search_result_fallback') return false
+    if (site.analysis_source === 'failed') return true
+    return Boolean(site.error)
+  })
+  const success = fetchedSites.filter((site) => !failed.includes(site) && !fallback.includes(site))
 
-  if (failed.length === 0) return null
+  if (failed.length === 0 && fallback.length === 0) return null
 
   return (
     <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 space-y-2">
       <p className="text-sm text-amber-800 font-bold flex items-center gap-2">
         <span className="material-symbols-outlined text-lg">warning</span>
-        {success.length} / {fetchedSites.length} 件の競合サイトを取得できました（{failed.length} 件失敗）
+        {success.length} / {fetchedSites.length} 件をページ取得できました
+        {fallback.length > 0 && `、${fallback.length} 件は検索結果ベースで補完分析`}
+        {failed.length > 0 && `（${failed.length} 件未分析）`}
       </p>
       <div className="text-xs text-amber-700 space-y-1">
+        {fallback.map((site, i) => (
+          <div key={`fallback-${i}`} className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm text-amber-500">info</span>
+            <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
+            <span className="text-amber-700">ページ取得に失敗したため検索結果から補完分析</span>
+          </div>
+        ))}
         {failed.map((site, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={`failed-${i}`} className="flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-red-400">close</span>
             <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
             <span className="text-amber-600">{site.error}</span>
@@ -173,54 +191,64 @@ export default function Discovery() {
           </div>
 
           <div className="grid grid-cols-3 gap-6">
-            {discoveries.map((item, i) => (
-              <div
-                key={item.url ?? item.name ?? i}
-                className={`bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group transition-transform hover:scale-[1.01] ${
-                  item.error ? 'opacity-60 ring-1 ring-red-200' : ''
-                }`}
-              >
-                <div className="h-48 bg-surface-container relative">
-                  <span className="material-symbols-outlined absolute inset-0 m-auto text-6xl text-outline-variant/50">
-                    {item.error ? 'error_outline' : 'web'}
-                  </span>
-                  {(item.score != null) && (
-                    <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center">
-                      <span className="text-[10px] font-bold text-on-surface-variant block uppercase tracking-wider">SCORE</span>
-                      <span className="text-2xl font-black text-secondary tabular-nums leading-none">{item.score}</span>
-                    </div>
-                  )}
-                  {item.error && (
-                    <div className="absolute bottom-3 left-3 right-3 bg-red-50/90 backdrop-blur px-3 py-1.5 rounded-lg">
-                      <span className="text-xs text-red-700 font-bold">取得失敗: {item.error}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <div className="flex items-start justify-between">
-                    <h4 className="font-bold text-[#1A1A2E] japanese-text">{item.title ?? item.name ?? item.url}</h4>
-                    {item.url && (
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary transition-colors">
-                        <span className="material-symbols-outlined text-lg">open_in_new</span>
-                      </a>
+            {discoveries.map((item, i) => {
+              const isFallback = item.analysis_source === 'search_result_fallback'
+              const isFailed = item.analysis_source === 'failed' || (item.error && !isFallback)
+
+              return (
+                <div
+                  key={item.url ?? item.name ?? i}
+                  className={`bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group transition-transform hover:scale-[1.01] ${
+                    isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
+                  }`}
+                >
+                  <div className="h-48 bg-surface-container relative">
+                    <span className="material-symbols-outlined absolute inset-0 m-auto text-6xl text-outline-variant/50">
+                      {isFailed ? 'error_outline' : isFallback ? 'warning' : 'web'}
+                    </span>
+                    {(item.score != null) && (
+                      <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center">
+                        <span className="text-[10px] font-bold text-on-surface-variant block uppercase tracking-wider">SCORE</span>
+                        <span className="text-2xl font-black text-secondary tabular-nums leading-none">{item.score}</span>
+                      </div>
+                    )}
+                    {isFailed && (
+                      <div className="absolute bottom-3 left-3 right-3 bg-red-50/90 backdrop-blur px-3 py-1.5 rounded-lg">
+                        <span className="text-xs text-red-700 font-bold">取得失敗: {item.error}</span>
+                      </div>
+                    )}
+                    {isFallback && (
+                      <div className="absolute bottom-3 left-3 right-3 bg-amber-50/90 backdrop-blur px-3 py-1.5 rounded-lg">
+                        <span className="text-xs text-amber-800 font-bold">検索結果スニペットから補完分析</span>
+                      </div>
                     )}
                   </div>
-                  {item.description && (
-                    <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text line-clamp-3">{item.description}</p>
-                  )}
-                  {item.domain && !item.description && (
-                    <p className="text-xs text-on-surface-variant mt-2 font-mono">{item.domain}</p>
+                  <div className="p-5">
+                    <div className="flex items-start justify-between">
+                      <h4 className="font-bold text-[#1A1A2E] japanese-text">{item.title ?? item.name ?? item.url}</h4>
+                      {item.url && (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary transition-colors">
+                          <span className="material-symbols-outlined text-lg">open_in_new</span>
+                        </a>
+                      )}
+                    </div>
+                    {item.description && (
+                      <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text line-clamp-3">{item.description}</p>
+                    )}
+                    {item.domain && !item.description && (
+                      <p className="text-xs text-on-surface-variant mt-2 font-mono">{item.domain}</p>
+                    )}
+                  </div>
+                  {item.url && !isFailed && (
+                    <div className="border-t border-outline-variant/15 px-5 py-3 text-center">
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-secondary hover:text-primary transition-colors japanese-text">
+                        {isFallback ? 'サイトを開く →' : '分析する →'}
+                      </a>
+                    </div>
                   )}
                 </div>
-                {item.url && !item.error && (
-                  <div className="border-t border-outline-variant/15 px-5 py-3 text-center">
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-secondary hover:text-primary transition-colors japanese-text">
-                      分析する →
-                    </a>
-                  </div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
