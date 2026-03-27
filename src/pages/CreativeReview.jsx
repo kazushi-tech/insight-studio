@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
+import MarkdownRenderer from '../components/MarkdownRenderer'
+import { useAuth } from '../contexts/AuthContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import {
   uploadCreativeAsset,
@@ -12,7 +14,176 @@ import {
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
 
+const RUBRIC_LABEL_MAP = {
+  visual_impact: '視覚的インパクト',
+  message_clarity: 'メッセージ明瞭性',
+  cta_effectiveness: 'CTA効果',
+  brand_consistency: 'ブランド整合性',
+  information_balance: '情報バランス',
+  hook_strength: 'フック力',
+  target_clarity: 'ターゲット明瞭性',
+  offer_clarity: 'オファー明瞭性',
+  visual_flow: '視線誘導',
+  cta_clarity: 'CTA明瞭性',
+  credibility: '信頼性',
+  information_density: '情報密度',
+  competitive_edge: '競合差別化',
+  first_view_clarity: 'ファーストビュー',
+  ad_to_lp_message_match: '広告-LP一致',
+  benefit_clarity: 'ベネフィット',
+  trust_elements: '信頼要素',
+  cta_placement: 'CTA配置',
+  drop_off_risk: '離脱リスク',
+  input_friction: '入力摩擦',
+  story_consistency: 'ストーリー一貫性',
+}
+
+function escMd(value) {
+  if (value == null) return ''
+  return String(value).trim().replace(/\\/g, '\\\\').replace(/([#[\]*_`])/g, '\\$1')
+}
+
+function escTableCell(value) {
+  const text = escMd(value).replace(/\|/g, '\\|').replace(/\r?\n+/g, ' ')
+  return text || '-'
+}
+
+function buildBullets(items, formatter) {
+  if (!Array.isArray(items) || items.length === 0) return ''
+  return items.map(formatter).join('\n')
+}
+
+function buildTable(headers, rows, alignments = []) {
+  if (!Array.isArray(rows) || rows.length === 0) return ''
+
+  const divider = headers.map((_, index) => {
+    const align = alignments[index]
+    if (align === 'right') return '---:'
+    if (align === 'center') return ':---:'
+    return '---'
+  })
+
+  return [
+    `| ${headers.join(' | ')} |`,
+    `| ${divider.join(' | ')} |`,
+    ...rows.map((row) => `| ${row.join(' | ')} |`),
+  ].join('\n')
+}
+
+function buildReviewMarkdown(review) {
+  if (!review) return ''
+  if (typeof review === 'string') return review
+
+  const sections = []
+
+  if (review.summary) {
+    sections.push(`## 要約\n${escMd(review.summary)}`)
+  }
+
+  if (review.product_identification) {
+    sections.push(`## 製品特定\n${escMd(review.product_identification)}`)
+  }
+
+  if (review.target_hypothesis) {
+    sections.push(`## ターゲット仮説\n${escMd(review.target_hypothesis)}`)
+  }
+
+  if (review.message_angle) {
+    sections.push(`## メッセージ角度\n${escMd(review.message_angle)}`)
+  }
+
+  const goodPoints = buildBullets(
+    review.good_points,
+    ({ point, reason }) => `- **${escMd(point)}**\n  ${escMd(reason)}`,
+  )
+  if (goodPoints) {
+    sections.push(`## 良い点\n${goodPoints}`)
+  }
+
+  const keepAsIs = buildBullets(
+    review.keep_as_is,
+    ({ point, reason }) => `- **${escMd(point)}**\n  ${escMd(reason)}`,
+  )
+  if (keepAsIs) {
+    sections.push(`## 現状維持\n${keepAsIs}`)
+  }
+
+  const improvements = buildBullets(
+    review.improvements,
+    ({ point, reason, action }, index) =>
+      `${index + 1}. **${escMd(point)}**\n   - 背景: ${escMd(reason)}\n   - 対応: ${escMd(action)}`,
+  )
+  if (improvements) {
+    sections.push(`## 改善提案\n${improvements}`)
+  }
+
+  const testIdeas = buildTable(
+    ['仮説', '変更変数', '期待効果'],
+    Array.isArray(review.test_ideas)
+      ? review.test_ideas.map((item) => [
+          escTableCell(item.hypothesis),
+          escTableCell(item.variable),
+          escTableCell(item.expected_impact),
+        ])
+      : [],
+  )
+  if (testIdeas) {
+    sections.push(`## テストアイデア\n${testIdeas}`)
+  }
+
+  const evidence = buildTable(
+    ['種別', '出典', '観察内容'],
+    Array.isArray(review.evidence)
+      ? review.evidence.map((item) => [
+          escTableCell(item.evidence_type),
+          escTableCell(item.evidence_source),
+          escTableCell(item.evidence_text),
+        ])
+      : [],
+  )
+  if (evidence) {
+    sections.push(`## エビデンス\n${evidence}`)
+  }
+
+  const rubricScores = buildTable(
+    ['評価軸', 'スコア', 'コメント'],
+    Array.isArray(review.rubric_scores)
+      ? review.rubric_scores.map((item) => [
+          escTableCell(RUBRIC_LABEL_MAP[item.rubric_id] || item.rubric_id),
+          escTableCell(`${item.score} / 5`),
+          escTableCell(item.comment),
+        ])
+      : [],
+    ['left', 'right', 'left'],
+  )
+  if (rubricScores) {
+    sections.push(`## ルーブリック評価\n${rubricScores}`)
+  }
+
+  const positioningInsights = buildTable(
+    ['観点', '自社', '競合', '示唆'],
+    Array.isArray(review.positioning_insights)
+      ? review.positioning_insights.map((item) => [
+          escTableCell(item.dimension),
+          escTableCell(item.our_position),
+          escTableCell(item.competitor_position),
+          escTableCell(`${item.gap_analysis} / ${item.recommendation}`),
+        ])
+      : [],
+  )
+  if (positioningInsights) {
+    sections.push(`## ポジショニング分析\n${positioningInsights}`)
+  }
+
+  if (review.markdown && sections.length === 0) {
+    return review.markdown
+  }
+
+  return sections.join('\n\n')
+}
+
 export default function CreativeReview() {
+  const { geminiKey: apiKey, setGeminiKey } = useAuth()
   // ─── state machine ───
   const [phase, setPhase] = useState('idle')
   // idle → uploading → uploaded → reviewing → reviewed → generating → generated
@@ -34,9 +205,6 @@ export default function CreativeReview() {
   // generation
   const [genImageUrl, setGenImageUrl] = useState(null)
   const [genId, setGenId] = useState(null)
-
-  // BYOK
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gemini_api_key') || '')
 
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
@@ -113,7 +281,6 @@ export default function CreativeReview() {
   const handleReview = useCallback(async () => {
     if (!assetId || !apiKey.trim()) return
 
-    localStorage.setItem('gemini_api_key', apiKey.trim())
     setPhase('reviewing')
     setErrorMessage('')
     setReviewResult(null)
@@ -183,6 +350,7 @@ export default function CreativeReview() {
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed', 'generating', 'generated'].includes(phase)
   const isReviewed = ['reviewed', 'generating', 'generated'].includes(phase)
+  const reviewMarkdown = buildReviewMarkdown(reviewResult)
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-8">
@@ -219,7 +387,7 @@ export default function CreativeReview() {
         <input
           type="password"
           value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
+          onChange={(e) => setGeminiKey(e.target.value)}
           placeholder="Gemini API キーを入力"
           className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
         />
@@ -365,19 +533,14 @@ export default function CreativeReview() {
             レビュー結果
           </h3>
 
-          {/* Score if available */}
-          {reviewResult.overall_score != null && (
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl font-extrabold text-secondary">{reviewResult.overall_score}</span>
-              <span className="text-sm text-on-surface-variant">/ 100</span>
-            </div>
-          )}
-
-          {/* Review sections */}
           <div className="bg-surface-container rounded-xl p-5 text-sm text-on-surface whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">
-            {typeof reviewResult === 'string'
-              ? reviewResult
-              : reviewResult.summary || reviewResult.markdown || JSON.stringify(reviewResult, null, 2)}
+            {reviewMarkdown ? (
+              <MarkdownRenderer content={reviewMarkdown} />
+            ) : (
+              <pre className="whitespace-pre-wrap text-xs leading-relaxed">
+                {JSON.stringify(reviewResult, null, 2)}
+              </pre>
+            )}
           </div>
 
           {runId && (

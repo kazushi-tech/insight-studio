@@ -25,3 +25,5 @@ dist-ssr
 .env
 .env.local
 .vercel
+tmp_ads_insights_repo/
+tmp_market_lens_ai_repo/
