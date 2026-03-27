@@ -256,7 +256,7 @@ export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
   const { hasGeminiKey, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
-  const { isSetupComplete, resetSetup } = useAdsSetup()
+  const { isSetupComplete, setupState, resetSetup } = useAdsSetup()
   const navigate = useNavigate()
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
@@ -364,6 +364,14 @@ export default function Layout() {
                 {isSetupComplete ? '完了' : '未完了'}
               </span>
             </div>
+            {isSetupComplete && setupState?.completedAt && (
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-on-surface-variant">最終セットアップ</span>
+                <span className="text-on-surface-variant tabular-nums">
+                  {new Date(setupState.completedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
