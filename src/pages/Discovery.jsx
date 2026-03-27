@@ -97,7 +97,7 @@ export default function Discovery() {
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div>
         <h2 className="text-4xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">Discovery Hub</h2>
-        <p className="text-on-surface-variant mt-2 text-lg">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
+        <p className="text-on-surface-variant mt-2 text-base">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
       {!hasGeminiKey && (
@@ -176,7 +176,7 @@ export default function Discovery() {
             {discoveries.map((item, i) => (
               <div
                 key={item.url ?? item.name ?? i}
-                className={`bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group ${
+                className={`bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group transition-transform hover:scale-[1.01] ${
                   item.error ? 'opacity-60 ring-1 ring-red-200' : ''
                 }`}
               >
@@ -185,9 +185,9 @@ export default function Discovery() {
                     {item.error ? 'error_outline' : 'web'}
                   </span>
                   {(item.score != null) && (
-                    <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-1 rounded-lg">
-                      <span className="text-xs font-bold text-on-surface-variant">SCORE</span>{' '}
-                      <span className="text-lg font-black text-secondary tabular-nums">{item.score}</span>
+                    <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center">
+                      <span className="text-[10px] font-bold text-on-surface-variant block uppercase tracking-wider">SCORE</span>
+                      <span className="text-2xl font-black text-secondary tabular-nums leading-none">{item.score}</span>
                     </div>
                   )}
                   {item.error && (
@@ -212,6 +212,13 @@ export default function Discovery() {
                     <p className="text-xs text-on-surface-variant mt-2 font-mono">{item.domain}</p>
                   )}
                 </div>
+                {item.url && !item.error && (
+                  <div className="border-t border-outline-variant/15 px-5 py-3 text-center">
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-secondary hover:text-primary transition-colors japanese-text">
+                      分析する →
+                    </a>
+                  </div>
+                )}
               </div>
             ))}
           </div>

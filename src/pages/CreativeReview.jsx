@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import PerformanceRadar from '../components/PerformanceRadar'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -715,6 +716,9 @@ export default function CreativeReview() {
               </div>
             </div>
           </div>
+
+          {/* Performance Radar — stitch2 diamond visualization */}
+          {reviewResult?.rubric_scores && <PerformanceRadar rubricScores={reviewResult.rubric_scores} />}
 
           {/* Section-aware review blocks — no more giant scroll box */}
           <ReviewResultDisplay review={reviewResult} size={reviewTextSize} />

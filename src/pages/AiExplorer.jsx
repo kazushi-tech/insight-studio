@@ -366,7 +366,7 @@ export default function AiExplorer() {
                 key={prompt.label}
                 onClick={() => handleSend(prompt.label)}
                 disabled={promptDisabled}
-                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-surface-container-lowest rounded-full border border-outline-variant/30 hover:border-secondary/50 hover:shadow-lg transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-white rounded-xl border border-slate-200 hover:border-secondary/50 hover:shadow-lg transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className={`material-symbols-outlined text-[18px] ${prompt.color}`}>{prompt.icon}</span>
                 <span className="japanese-text">{prompt.label}</span>
@@ -391,14 +391,14 @@ export default function AiExplorer() {
               <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-gold text-lg">smart_toy</span>
               </div>
-              <div className={`bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
+              <div className={`bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
                 <MarkdownRenderer content={message.text} className="text-sm" />
                 <p className="text-xs text-on-surface-variant mt-3">AI 考察エンジン</p>
               </div>
             </div>
           ) : (
             <div key={index} className="flex justify-end gap-4">
-              <div className="bg-primary-container text-on-primary rounded-2xl px-6 py-4 max-w-2xl">
+              <div className="bg-primary-container text-on-primary rounded-[16px] px-6 py-4 max-w-2xl">
                 <p className="text-sm leading-relaxed text-white japanese-text">{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">

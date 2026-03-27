@@ -144,26 +144,32 @@ export default function Compare() {
 
       {/* Preview Area */}
       <div className="grid grid-cols-2 gap-8">
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 min-h-[400px] flex flex-col items-center justify-center">
+        <div className="bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 min-h-[400px] flex flex-col overflow-hidden transition-transform hover:scale-[1.01]">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.15em]">INSIGHT STUDIO (CONTROL)</p>
+            <span className="text-[10px] text-outline">Desktop View</span>
+          </div>
           {urls.target ? (
-            <iframe src={urls.target} title="Target LP" className="w-full h-full min-h-[400px] rounded-lg" sandbox="allow-scripts allow-same-origin" />
+            <iframe src={urls.target} title="Target LP" className="w-full flex-1 min-h-[360px] rounded-[16px] overflow-hidden" sandbox="allow-scripts allow-same-origin" />
           ) : (
-            <>
+            <div className="flex-1 flex flex-col items-center justify-center">
               <span className="material-symbols-outlined text-6xl text-outline-variant mb-4">web</span>
               <p className="text-on-surface-variant text-sm japanese-text">自社LPのプレビューがここに表示されます</p>
-              <p className="text-xs text-outline mt-1">INSIGHT STUDIO (CONTROL)</p>
-            </>
+            </div>
           )}
         </div>
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 min-h-[400px] flex flex-col items-center justify-center">
+        <div className="bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 min-h-[400px] flex flex-col overflow-hidden transition-transform hover:scale-[1.01]">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.15em]">COMPETITOR ALPHA</p>
+            <span className="text-[10px] text-outline">Desktop View</span>
+          </div>
           {urls.compA ? (
-            <iframe src={urls.compA} title="Competitor LP" className="w-full h-full min-h-[400px] rounded-lg" sandbox="allow-scripts allow-same-origin" />
+            <iframe src={urls.compA} title="Competitor LP" className="w-full flex-1 min-h-[360px] rounded-[16px] overflow-hidden" sandbox="allow-scripts allow-same-origin" />
           ) : (
-            <>
+            <div className="flex-1 flex flex-col items-center justify-center">
               <span className="material-symbols-outlined text-6xl text-outline-variant mb-4">web</span>
               <p className="text-on-surface-variant text-sm japanese-text">競合LPのプレビューがここに表示されます</p>
-              <p className="text-xs text-outline mt-1">COMPETITOR ALPHA</p>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -175,25 +181,28 @@ export default function Compare() {
             {/* Score Panel — only shown when backend returns scores */}
             {hasScores && (
               <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-2xl text-on-secondary min-h-[300px]">
-                <p className="text-xs uppercase tracking-widest font-bold opacity-80">OVERALL STRATEGY SCORE</p>
+                <p className="text-xs uppercase tracking-[0.2em] font-bold opacity-80">OVERALL STRATEGY SCORE</p>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-7xl font-black tabular-nums">{overallScore ?? '--'}</span>
                   <span className="text-2xl font-bold opacity-60">/100</span>
                 </div>
                 <div className="mt-8 space-y-3 text-sm">
-                  {scores.ux != null && <div className="flex justify-between"><span>UXコンバージョン率</span><span className="font-bold">{scores.ux}</span></div>}
-                  {scores.conversion != null && <div className="flex justify-between"><span>コンバージョン</span><span className="font-bold">{scores.conversion}</span></div>}
-                  {scores.brand != null && <div className="flex justify-between"><span>ブランド信頼性</span><span className="font-bold">{scores.brand}</span></div>}
-                  {scores.trust != null && <div className="flex justify-between"><span>信頼性</span><span className="font-bold">{scores.trust}</span></div>}
+                  {scores.ux != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>UXコンバージョン率</span><span className="font-bold">{scores.ux}</span></div>}
+                  {scores.conversion != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>コンバージョン</span><span className="font-bold">{scores.conversion}</span></div>}
+                  {scores.brand != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>ブランド信頼性</span><span className="font-bold">{scores.brand}</span></div>}
+                  {scores.trust != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>信頼性</span><span className="font-bold">{scores.trust}</span></div>}
                   {scores.seo != null && <div className="flex justify-between"><span>SEO最適化</span><span className="font-bold">{scores.seo}</span></div>}
                 </div>
+                {result?.summary && (
+                  <p className="mt-6 text-xs leading-relaxed opacity-80">{result.summary}</p>
+                )}
               </div>
             )}
 
             {/* Report — primary display */}
             <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 min-h-[300px]`}>
               <div className="flex items-center gap-2 text-on-surface-variant mb-6">
-                <span className="material-symbols-outlined">description</span>
+                <span className="material-symbols-outlined text-secondary">description</span>
                 <span className="text-sm font-bold">分析レポート</span>
               </div>
               {extracted && (
@@ -203,7 +212,9 @@ export default function Compare() {
                 </div>
               )}
               {report ? (
-                <MarkdownRenderer content={report} />
+                <div className="pl-9 text-on-surface-variant text-sm leading-relaxed">
+                  <MarkdownRenderer content={report} />
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
                   <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>
