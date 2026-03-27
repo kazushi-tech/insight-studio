@@ -3,6 +3,9 @@ const DIRECT_MARKET_LENS_ORIGIN =
   import.meta.env.VITE_MARKET_LENS_API_ORIGIN?.replace(/\/$/, '') || ''
 const BASE = DIRECT_MARKET_LENS_ORIGIN ? `${DIRECT_MARKET_LENS_ORIGIN}/api` : '/api/ml'
 const LONG_ANALYSIS_TIMEOUT = 180000
+const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
+const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
+const STORAGE_KEY_MARKET_LENS_PROFILE_ID = 'insight-studio-market-lens-profile-id'
 
 const DISCOVERY_STAGE_LABELS = {
   brand_fetch: 'ブランドURL取得',
@@ -64,6 +67,39 @@ function buildErrorMessage(path, status, body) {
   return `Market Lens API error: ${status}`
 }
 
+function ensureMarketLensProfileId() {
+  if (typeof window === 'undefined') return 'guest-unknown'
+
+  let profileId = window.localStorage.getItem(STORAGE_KEY_MARKET_LENS_PROFILE_ID)
+  if (profileId) return profileId
+
+  profileId = window.localStorage.getItem(STORAGE_KEY_CLIENT_ID)
+  if (!profileId) {
+    profileId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    window.localStorage.setItem(STORAGE_KEY_CLIENT_ID, profileId)
+  }
+
+  window.localStorage.setItem(STORAGE_KEY_MARKET_LENS_PROFILE_ID, profileId)
+  return profileId
+}
+
+async function resolveInsightUserHeader() {
+  if (typeof window === 'undefined') return {}
+
+  const profileId = ensureMarketLensProfileId()
+  const adsToken = window.localStorage.getItem(STORAGE_KEY_ADS_TOKEN)
+  if (adsToken) {
+    return { 'X-Insight-User': `auth:${profileId}` }
+  }
+
+  return { 'X-Insight-User': `guest:${profileId}` }
+}
+
+async function buildRequestHeaders(customHeaders = {}) {
+  const identityHeaders = await resolveInsightUserHeader()
+  return { ...identityHeaders, ...customHeaders }
+}
+
 /**
  * JSON リクエスト用の共通 fetch wrapper。
  * Content-Type: application/json を自動付与する。
@@ -76,8 +112,9 @@ async function requestJson(path, options = {}) {
 
   let res
   try {
+    const headers = await buildRequestHeaders(restOptions.headers)
     res = await fetch(`${BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...restOptions.headers },
+      headers: { 'Content-Type': 'application/json', ...headers },
       ...restOptions,
       signal: controller.signal,
     })
@@ -124,7 +161,9 @@ async function requestRaw(path, options = {}) {
 
   let res
   try {
+    const headers = await buildRequestHeaders(restOptions.headers)
     res = await fetch(`${BASE}${path}`, {
+      headers,
       ...restOptions,
       signal: controller.signal,
     })
