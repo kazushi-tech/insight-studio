@@ -152,7 +152,7 @@ export default function AiExplorer() {
           message: enrichedPrompt,
           point_pack_md: reportBundle.reportMd,
           style_reference: '',
-          style_preset: 'standard',
+          style_preset: 'mixed',
           data_source: 'bq',
           bq_query_types: setupState?.queryTypes ?? [],
           conversation_history: toConversationHistory(nextMessages),
