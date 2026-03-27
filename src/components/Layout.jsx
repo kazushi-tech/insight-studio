@@ -198,6 +198,15 @@ function KeySettingsModal({ onClose }) {
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（BYOK）</label>
           <p className="text-xs text-on-surface-variant">Market Lens AI の分析機能に必要です</p>
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-secondary hover:text-secondary/80 underline underline-offset-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">open_in_new</span>
+            Google AI Studio でAPIキーを取得
+          </a>
           <input
             type="password"
             className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
