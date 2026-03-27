@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { discoveryAnalyze } from '../api/marketLens'
+import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Discovery() {
@@ -57,8 +58,8 @@ export default function Discovery() {
         >
           {loading ? (
             <>
-              <span className="material-symbols-outlined animate-spin">progress_activity</span>
-              検索中…
+              <LoadingSpinner size="sm" />
+              <span>検索中…</span>
             </>
           ) : (
             <>
@@ -70,10 +71,7 @@ export default function Discovery() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
-          <span className="material-symbols-outlined text-lg">error</span>
-          <span>{error}</span>
-        </div>
+        <ErrorBanner message={error} />
       )}
 
       {/* Discovered LPs */}

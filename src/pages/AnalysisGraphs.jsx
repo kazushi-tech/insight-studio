@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
+import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import {
@@ -122,9 +123,7 @@ export default function AnalysisGraphs() {
           disabled={loading || !isAdsAuthenticated || !setupState}
           className="px-5 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
         >
-          <span className={`material-symbols-outlined text-base ${loading ? 'animate-spin' : ''}`}>
-            {loading ? 'progress_activity' : 'sync'}
-          </span>
+          {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">sync</span>}
           再取得
         </button>
       </div>
@@ -198,16 +197,16 @@ export default function AnalysisGraphs() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
-          <span className="material-symbols-outlined text-lg">error</span>
-          <span>{error}</span>
-        </div>
+        <ErrorBanner message={error} onRetry={handleRefresh} />
       )}
 
       {loading && chartGroups.length === 0 && (
-        <div className="flex items-center justify-center py-12 gap-3 text-on-surface-variant bg-surface-container-lowest rounded-2xl">
-          <span className="material-symbols-outlined text-2xl animate-spin">progress_activity</span>
-          <span className="text-sm japanese-text">BQ グラフデータを再取得中…</span>
+        <div className="bg-surface-container-lowest rounded-2xl p-8 space-y-6">
+          <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <SkeletonBlock variant="card" />
+            <SkeletonBlock variant="card" />
+          </div>
         </div>
       )}
 

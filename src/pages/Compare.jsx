@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { scan } from '../api/marketLens'
+import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Compare() {
@@ -84,8 +85,8 @@ export default function Compare() {
         >
           {loading ? (
             <>
-              <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
-              分析中…
+              <LoadingSpinner size="sm" />
+              <span>分析中…</span>
             </>
           ) : (
             <>
@@ -97,10 +98,7 @@ export default function Compare() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
-          <span className="material-symbols-outlined text-lg">error</span>
-          <span>{error}</span>
-        </div>
+        <ErrorBanner message={error} />
       )}
 
       {/* Preview Area */}

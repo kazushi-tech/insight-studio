@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import { getScans } from '../api/marketLens'
+import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import {
@@ -261,30 +262,17 @@ export default function AiExplorer() {
     : status.startsWith('✓')
     ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
     : 'bg-surface-container border-outline-variant/30 text-on-surface-variant'
+  const statusIcon = status.startsWith('生成エラー') || status.startsWith('更新エラー')
+    ? 'error'
+    : status.startsWith('⚠️')
+    ? 'warning'
+    : status.startsWith('✓')
+    ? 'check_circle'
+    : 'info'
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="px-10 pt-8 pb-4">
-        <div className="flex flex-wrap items-start justify-between gap-6 mb-5">
-          <div className="space-y-2">
-            <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">AI考察スタジオ</h2>
-            <p className="text-sm text-on-surface-variant max-w-3xl">
-              `ads-insights` 本家の `sendChat()` と同じく、`point_pack_md`・直近会話履歴・軽量化した
-              `ai_chart_context` を `/api/neon/generate` に渡して回答を生成します。
-            </p>
-          </div>
-          <button
-            onClick={handleRefreshReport}
-            disabled={!setupState || !isAdsAuthenticated || reportLoading}
-            className="px-5 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
-          >
-            <span className={`material-symbols-outlined text-base ${reportLoading ? 'animate-spin' : ''}`}>
-              {reportLoading ? 'progress_activity' : 'sync'}
-            </span>
-            コンテキスト更新
-          </button>
-        </div>
-
+      <div className="px-10 pt-5 pb-3 space-y-3">
         {!isAdsAuthenticated && (
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800 mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
@@ -298,15 +286,13 @@ export default function AiExplorer() {
           </div>
         )}
         {reportError && (
-          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700 mb-4">
-            <span className="material-symbols-outlined text-lg">error</span>
-            <span className="japanese-text">{reportError}</span>
+          <div className="mb-4">
+            <ErrorBanner message={reportError} onRetry={handleRefreshReport} />
           </div>
         )}
         {reportLoading && !reportBundle?.reportMd && (
           <div className="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3 text-sm text-on-surface-variant mb-4">
-            <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
-            <span className="japanese-text">要点パックとグラフコンテキストを再構築しています…</span>
+            <LoadingSpinner size="sm" label="要点パックとグラフコンテキストを再構築しています…" />
           </div>
         )}
         {!reportBundle?.reportMd && (
@@ -316,103 +302,86 @@ export default function AiExplorer() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-          <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Point Pack</p>
-            <p className="mt-3 text-xl font-bold text-on-surface japanese-text">
-              {reportBundle?.reportMd ? '読み込み済み' : reportLoading ? '再構築中' : '未生成'}
-            </p>
-            <p className="mt-2 text-sm text-on-surface-variant">AI の根拠本文として送信される Markdown</p>
-          </section>
-          <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Chart Context</p>
-            <p className="mt-3 text-3xl font-extrabold text-on-surface">{chartContext?.length ?? 0}</p>
-            <p className="mt-2 text-sm text-on-surface-variant">軽量化して AI に渡す chart group 数</p>
-          </section>
-          <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Coverage</p>
-            <p className="mt-3 text-xl font-bold text-on-surface japanese-text">
-              {periodTags.length > 0 ? `${periodTags.length} 期間 / ${(setupState?.queryTypes ?? []).length} クエリ` : '未設定'}
-            </p>
-            <p className="mt-2 text-sm text-on-surface-variant">reportBundle に含まれる期間と query type</p>
-          </section>
-        </div>
-
-        {status && (
-          <div className={`flex items-center gap-3 rounded-xl border px-5 py-3 text-sm mb-5 ${statusTone}`}>
-            <span className="material-symbols-outlined text-lg">
-              {status.startsWith('生成エラー') || status.startsWith('更新エラー')
-                ? 'error'
-                : status.startsWith('⚠️')
-                ? 'warning'
-                : status.startsWith('✓')
-                ? 'check_circle'
-                : 'info'}
-            </span>
-            <span className="japanese-text">{status}</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {status && (
+              <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold ${statusTone}`}>
+                <span className="material-symbols-outlined text-base">{statusIcon}</span>
+                <span className="japanese-text">{status}</span>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Context</p>
+              <div className="flex bg-surface-container rounded-full p-0.5">
+                <button
+                  onClick={() => setContextMode('ads-only')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    contextMode === 'ads-only'
+                      ? 'bg-primary text-on-primary'
+                      : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  広告データのみ
+                </button>
+                <button
+                  onClick={() => setContextMode('ads-with-ml')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+                    contextMode === 'ads-with-ml'
+                      ? 'bg-primary text-on-primary'
+                      : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  + Market Lens
+                </button>
+              </div>
+              {contextMode === 'ads-with-ml' && (
+                <span className={`text-xs flex items-center gap-1 ${mlIndicatorTone}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${mlIndicatorDot}`} />
+                  {mlIndicatorLabel}
+                </span>
+              )}
+            </div>
           </div>
-        )}
-
-        <div className="flex items-center gap-3 mb-4">
-          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">CONTEXT</p>
-          <div className="flex bg-surface-container rounded-full p-0.5">
-            <button
-              onClick={() => setContextMode('ads-only')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                contextMode === 'ads-only'
-                  ? 'bg-primary text-on-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              広告データのみ
-            </button>
-            <button
-              onClick={() => setContextMode('ads-with-ml')}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                contextMode === 'ads-with-ml'
-                  ? 'bg-primary text-on-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              + Market Lens
-            </button>
-          </div>
-          {contextMode === 'ads-with-ml' && (
-            <span className={`text-xs flex items-center gap-1 ${mlIndicatorTone}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${mlIndicatorDot}`} />
-              {mlIndicatorLabel}
-            </span>
-          )}
+          <button
+            onClick={handleRefreshReport}
+            disabled={!setupState || !isAdsAuthenticated || reportLoading}
+            className="px-4 py-2 bg-secondary text-on-secondary rounded-full font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+          >
+            {reportLoading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-sm">sync</span>}
+            コンテキスト更新
+          </button>
         </div>
 
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
-          <p className="text-xs text-amber-700 mb-4 japanese-text">
+          <p className="text-xs text-amber-700 japanese-text">
             Market Lens の履歴 API が停止中のため、広告データのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'error' && (
-          <p className="text-xs text-red-700 mb-4 japanese-text">
+          <p className="text-xs text-red-700 japanese-text">
             Market Lens の履歴取得に失敗しました。広告データのみで回答します。
           </p>
         )}
 
-        <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">QUICK ANALYSIS</p>
-        <div className="flex gap-4">
-          {QUICK_PROMPTS.map((prompt) => (
-            <button
-              key={prompt.label}
-              onClick={() => handleSend(prompt.label)}
-              disabled={promptDisabled}
-              className="flex items-center gap-3 px-6 py-3 bg-surface-container-lowest rounded-xl border border-outline-variant/30 hover:border-secondary/50 hover:shadow-lg transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className={`material-symbols-outlined ${prompt.color}`}>{prompt.icon}</span>
-              <span className="japanese-text">{prompt.label}</span>
-            </button>
-          ))}
+        <div className="space-y-2">
+          <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Quick Analysis</p>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            {QUICK_PROMPTS.map((prompt) => (
+              <button
+                key={prompt.label}
+                onClick={() => handleSend(prompt.label)}
+                disabled={promptDisabled}
+                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-surface-container-lowest rounded-full border border-outline-variant/30 hover:border-secondary/50 hover:shadow-lg transition-all text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className={`material-symbols-outlined text-[18px] ${prompt.color}`}>{prompt.icon}</span>
+                <span className="japanese-text">{prompt.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-10 py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-10 py-6 space-y-6" aria-live="polite">
         {messages.length === 0 && (
           <div className="text-center py-20 text-on-surface-variant">
             <span className="material-symbols-outlined text-6xl text-outline-variant mb-4 block">smart_toy</span>
@@ -447,7 +416,7 @@ export default function AiExplorer() {
         {loading && (
           <div className="flex gap-4">
             <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-gold text-lg animate-spin">progress_activity</span>
+              <LoadingSpinner size="sm" />
             </div>
             <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6">
               <p className="text-sm text-on-surface-variant japanese-text">考察を生成中…</p>
@@ -472,6 +441,7 @@ export default function AiExplorer() {
             onClick={() => handleSend()}
             disabled={!input.trim() || promptDisabled}
             className="w-10 h-10 bg-secondary text-on-secondary rounded-full flex items-center justify-center hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="送信"
           >
             <span className="material-symbols-outlined">send</span>
           </button>

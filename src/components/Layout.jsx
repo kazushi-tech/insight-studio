@@ -33,7 +33,11 @@ const NAV_ITEMS = [
 function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
   if (disabled) {
     return (
-      <span
+      <a
+        href="#"
+        aria-disabled="true"
+        tabIndex={-1}
+        onClick={(e) => e.preventDefault()}
         className={`flex items-center gap-3 px-6 py-2.5 text-[15px] opacity-40 cursor-not-allowed border-l-4 border-transparent ${
           isChild ? 'pl-14' : ''
         }`}
@@ -42,7 +46,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
         <span className="japanese-text">{label}</span>
         <span className="material-symbols-outlined text-[14px] ml-auto">lock</span>
-      </span>
+      </a>
     )
   }
   return (
@@ -75,6 +79,7 @@ function SidebarGroup({ item, disabledPaths }) {
     <div>
       <button
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-4 ${
           isGroupActive
             ? 'text-gold border-gold bg-surface-container-lowest font-bold'
@@ -110,6 +115,43 @@ function KeySettingsModal({ onClose }) {
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
+  const modalRef = useRef(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (e.key !== 'Tab') return
+
+      const modal = modalRef.current
+      if (!modal) return
+      const focusable = modal.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusable.length === 0) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    modalRef.current?.querySelector('button, input')?.focus()
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   const handleSaveGemini = () => {
     setGeminiKey(localGeminiKey)
@@ -128,10 +170,17 @@ function KeySettingsModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-surface-container-lowest rounded-2xl shadow-2xl w-[480px] p-8 space-y-6" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="key-settings-title"
+        className="bg-surface-container-lowest rounded-2xl shadow-2xl w-[480px] p-8 space-y-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-bold japanese-text">API キー設定</h3>
-          <button onClick={onClose} className="text-on-surface-variant hover:text-primary">
+          <h3 id="key-settings-title" className="text-xl font-bold japanese-text">API キー設定</h3>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-primary" aria-label="閉じる">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -238,8 +287,24 @@ export default function Layout() {
     document.body.style.userSelect = 'none'
   }
 
+  const handleResizeKeyDown = useCallback((e) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      setSidebarWidth((w) => Math.max(200, w - 10))
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      setSidebarWidth((w) => Math.min(400, w + 10))
+    }
+  }, [])
+
   return (
     <div className="flex min-h-screen bg-surface">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary focus:text-on-primary focus:rounded-lg focus:font-bold focus:text-sm focus:shadow-lg"
+      >
+        メインコンテンツへスキップ
+      </a>
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full z-40 py-6 bg-surface text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth }}>
         {/* Logo */}
@@ -303,12 +368,16 @@ export default function Layout() {
         </div>
         <div
           onMouseDown={startResize}
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-secondary/30 active:bg-secondary/50 transition-colors"
+          onKeyDown={handleResizeKeyDown}
+          role="separator"
+          aria-label="サイドバーの幅を変更"
+          tabIndex={0}
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-secondary/30 active:bg-secondary/50 transition-colors focus:bg-secondary/40 focus:outline-none"
         />
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
+      <main id="main-content" className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
         {/* Top Header */}
         <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
           <div className="flex-1" />
@@ -321,6 +390,7 @@ export default function Layout() {
                   hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
                 }`}
                 title="API キー設定"
+                aria-label="API キー設定"
               >
                 <span className="material-symbols-outlined">key</span>
                 {(!hasGeminiKey || !isAdsAuthenticated) && (

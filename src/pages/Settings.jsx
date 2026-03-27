@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getConfig, saveConfig } from '../api/adsInsights'
+import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Settings() {
@@ -40,9 +41,12 @@ export default function Settings() {
     }
   }
 
-  const Toggle = ({ checked, onChange }) => (
+  const Toggle = ({ checked, onChange, label }) => (
     <button
       onClick={() => onChange(!checked)}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors ${
         checked ? 'bg-secondary' : 'bg-surface-container-high'
       }`}
@@ -73,8 +77,7 @@ export default function Settings() {
         </div>
         {configLoading ? (
           <div className="flex items-center gap-2 text-sm text-on-surface-variant py-4">
-            <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-            設定を読み込み中…
+            <LoadingSpinner size="sm" label="設定を読み込み中…" />
           </div>
         ) : (
           <>
@@ -88,7 +91,7 @@ export default function Settings() {
                   <p className="font-bold text-sm japanese-text">{setting.label}</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">{setting.desc}</p>
                 </div>
-                <Toggle checked={setting.checked} onChange={setting.onChange} />
+                <Toggle checked={setting.checked} onChange={setting.onChange} label={setting.label} />
               </div>
             ))}
           </>
@@ -96,10 +99,19 @@ export default function Settings() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
-          <span className="material-symbols-outlined text-lg">error</span>
-          <span>{error}</span>
-        </div>
+        <ErrorBanner message={error} onRetry={() => {
+          if (!isAdsAuthenticated) return
+          setConfigLoading(true)
+          setError(null)
+          getConfig()
+            .then((data) => {
+              if (data.auto_archive != null) setAutoArchive(data.auto_archive)
+              if (data.notifications != null) setNotifications(data.notifications)
+              if (data.data_sync != null) setDataSync(data.data_sync)
+            })
+            .catch((e) => setError(e.message))
+            .finally(() => setConfigLoading(false))
+        }} />
       )}
 
       {saved && (
@@ -118,8 +130,8 @@ export default function Settings() {
         >
           {saving ? (
             <>
-              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-              保存中…
+              <LoadingSpinner size="sm" />
+              <span>保存中…</span>
             </>
           ) : '設定保存'}
         </button>

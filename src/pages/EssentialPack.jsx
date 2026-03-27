@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { extractMarkdownSummary, regenerateAdsReportBundle } from '../utils/adsReports'
@@ -275,8 +276,8 @@ export default function EssentialPack() {
         >
           {loading ? (
             <>
-              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-              取得中…
+              <LoadingSpinner size="sm" />
+              <span>取得中…</span>
             </>
           ) : (
             <>
@@ -301,10 +302,7 @@ export default function EssentialPack() {
       {/* ── Main Content ── */}
       <div ref={mainRef} className="flex-1 min-w-0 p-8 space-y-6 overflow-x-hidden overflow-y-auto">
         {error && (
-          <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
-            <span className="material-symbols-outlined text-lg">error</span>
-            <span>{error}</span>
-          </div>
+          <ErrorBanner message={error} onRetry={handleRefresh} />
         )}
 
         <div className="flex items-center justify-between">
@@ -325,9 +323,11 @@ export default function EssentialPack() {
         </div>
 
         {loading && !currentReport && (
-          <div className="flex items-center justify-center py-16 gap-3 text-on-surface-variant bg-surface-container-lowest rounded-2xl">
-            <span className="material-symbols-outlined text-2xl animate-spin">progress_activity</span>
-            <span className="text-sm japanese-text">BigQuery バッチレポートを再取得中…</span>
+          <div className="bg-surface-container-lowest rounded-2xl p-8 space-y-6">
+            <div className="flex items-center gap-3">
+              <LoadingSpinner size="md" label="BigQuery バッチレポートを再取得中…" />
+            </div>
+            <SkeletonBlock variant="text" lines={8} />
           </div>
         )}
 

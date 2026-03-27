@@ -58,6 +58,7 @@ async function request(path, options = {}) {
     skipAuth = false,
     suppressAuthErrorHandler = false,
     headers: customHeaders = {},
+    timeout = 30000,
     ...fetchOptions
   } = options
 
@@ -68,10 +69,25 @@ async function request(path, options = {}) {
 
   const didSendAuth = Boolean(headers.get('Authorization'))
 
-  const res = await fetch(`${BASE}${path}`, {
-    ...fetchOptions,
-    headers,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  let res
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...fetchOptions,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    clearTimeout(timeoutId)
+    if (e.name === 'AbortError') {
+      throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
+    }
+    throw e
+  }
+  clearTimeout(timeoutId)
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const error = new Error(

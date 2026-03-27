@@ -15,10 +15,27 @@ function buildErrorMessage(path, status, body) {
 }
 
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-  })
+  const { timeout = 30000, ...restOptions } = options
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  let res
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...restOptions.headers },
+      ...restOptions,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    clearTimeout(timeoutId)
+    if (e.name === 'AbortError') {
+      throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
+    }
+    throw e
+  }
+  clearTimeout(timeoutId)
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const error = new Error(buildErrorMessage(path, res.status, body))

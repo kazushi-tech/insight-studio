@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getScans } from '../api/marketLens'
+import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 
 const STAT_CARDS = [
   {
@@ -129,14 +130,22 @@ export default function Dashboard() {
         </div>
         <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden">
           {historyLoading ? (
-            <div className="flex items-center justify-center py-16 text-on-surface-variant">
-              <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
-              読み込み中…
+            <div className="py-8 px-8 space-y-4">
+              <SkeletonBlock variant="text" lines={5} />
             </div>
           ) : historyError ? (
-            <div className="flex items-center gap-3 px-8 py-6 text-sm text-red-700">
-              <span className="material-symbols-outlined">error</span>
-              <span>{historyError}</span>
+            <div className="px-8 py-6">
+              <ErrorBanner message={historyError} onRetry={() => {
+                setHistoryLoading(true)
+                setHistoryError(null)
+                getScans()
+                  .then((data) => {
+                    const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
+                    setHistory(items)
+                  })
+                  .catch((e) => setHistoryError(e.message))
+                  .finally(() => setHistoryLoading(false))
+              }} />
             </div>
           ) : history.length === 0 ? (
             <div className="text-center py-16 text-on-surface-variant">

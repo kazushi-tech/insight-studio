@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { bqPeriods, DEFAULT_ADS_DATASET_ID } from '../api/adsInsights'
+import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { buildAdsReportBundle, generateBatchWithRetry } from '../utils/adsReports'
@@ -261,10 +262,7 @@ export default function SetupWizard() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-3 text-sm text-red-700">
-          <span className="material-symbols-outlined text-lg">error</span>
-          <span>{error}</span>
-        </div>
+        <ErrorBanner message={error} />
       )}
 
       {step === 0 && (
@@ -364,8 +362,7 @@ export default function SetupWizard() {
 
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-3 text-on-surface-variant">
-              <span className="material-symbols-outlined text-2xl animate-spin">progress_activity</span>
-              <span className="text-sm">{loadingLabel}</span>
+              <LoadingSpinner size="md" label={loadingLabel} />
             </div>
           ) : periods.length === 0 ? (
             <p className="text-on-surface-variant text-sm japanese-text">利用可能な期間がありません。</p>
@@ -445,8 +442,8 @@ export default function SetupWizard() {
         >
           {loading ? (
             <>
-              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-              処理中…
+              <LoadingSpinner size="sm" />
+              <span>処理中…</span>
             </>
           ) : (
             <>
