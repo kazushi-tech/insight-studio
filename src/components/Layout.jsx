@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+import { useUserProfile } from '../contexts/UserProfileContext'
 
 const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
 
@@ -288,6 +289,7 @@ export default function Layout() {
   const { hasGeminiKey, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup } = useAdsSetup()
+  const { displayName, avatarInitial } = useUserProfile()
   const navigate = useNavigate()
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
@@ -334,6 +336,8 @@ export default function Layout() {
       setSidebarWidth((w) => Math.min(400, w + 10))
     }
   }, [])
+
+  const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -463,12 +467,12 @@ export default function Layout() {
               </button>
             </div>
             <div className="flex items-center gap-3 pl-6 border-l border-outline-variant/30">
-              <div className="text-right">
-                <p className="text-sm font-bold text-on-surface">田中 一郎</p>
-                <p className="text-[10px] text-on-surface-variant">管理者</p>
+              <div className="text-right max-w-[160px]">
+                <p className="text-sm font-bold text-on-surface truncate" title={displayName}>{displayName}</p>
+                <p className="text-[10px] text-on-surface-variant">{profileCaption}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container">
-                田
+                {avatarInitial}
               </div>
             </div>
           </div>

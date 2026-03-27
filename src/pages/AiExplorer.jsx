@@ -5,6 +5,7 @@ import { getScans } from '../api/marketLens'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { useUserProfile } from '../contexts/UserProfileContext'
 import {
   buildAiChartContext,
   regenerateAdsReportBundle,
@@ -48,6 +49,7 @@ function toConversationHistory(messages) {
 export default function AiExplorer() {
   const { isAdsAuthenticated, geminiKey, hasGeminiKey } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
+  const { avatarInitial } = useUserProfile()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
@@ -402,7 +404,7 @@ export default function AiExplorer() {
                 <p className="text-sm leading-relaxed text-white japanese-text">{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">
-                田
+                {avatarInitial}
               </div>
             </div>
           ),

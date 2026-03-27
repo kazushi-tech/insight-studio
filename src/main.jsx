@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AdsSetupProvider } from './contexts/AdsSetupContext'
 import { AnalysisRunsProvider } from './contexts/AnalysisRunsContext'
+import { UserProfileProvider } from './contexts/UserProfileContext'
 import './index.css'
 import App from './App.jsx'
 
@@ -13,11 +14,13 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AdsSetupProvider>
-            <AnalysisRunsProvider>
-              <App />
-            </AnalysisRunsProvider>
-          </AdsSetupProvider>
+          <UserProfileProvider>
+            <AdsSetupProvider>
+              <AnalysisRunsProvider>
+                <App />
+              </AnalysisRunsProvider>
+            </AdsSetupProvider>
+          </UserProfileProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

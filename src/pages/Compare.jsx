@@ -11,6 +11,16 @@ function formatElapsed(ms) {
   return sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${sec % 60}秒`
 }
 
+function getHostname(value) {
+  if (!value) return ''
+
+  try {
+    return new URL(value).hostname
+  } catch {
+    return ''
+  }
+}
+
 function MetaBand({ run }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
@@ -68,6 +78,11 @@ export default function Compare() {
   const hasScores = overallScore != null || Object.values(scores).some((v) => v != null)
   const report = result?.report_md ?? result?.report ?? result?.analysis ?? ''
   const extracted = result?.extracted ?? null
+  const siteCards = [
+    { key: 'target', label: '自社 LP', subtitle: 'Control', url: urls.target },
+    { key: 'compA', label: '競合 A', subtitle: 'Competitor Alpha', url: urls.compA },
+    { key: 'compB', label: '競合 B', subtitle: 'Competitor Beta', url: urls.compB },
+  ].filter((site) => site.url)
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -142,37 +157,58 @@ export default function Compare() {
       {/* Meta Band */}
       {run && run.status !== 'failed' && <MetaBand run={run} />}
 
-      {/* Preview Area */}
-      <div className="grid grid-cols-2 gap-8">
-        <div className="bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 min-h-[400px] flex flex-col overflow-hidden transition-transform hover:scale-[1.01]">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.15em]">INSIGHT STUDIO (CONTROL)</p>
-            <span className="text-[10px] text-outline">Desktop View</span>
-          </div>
-          {urls.target ? (
-            <iframe src={urls.target} title="Target LP" className="w-full flex-1 min-h-[360px] rounded-[16px] overflow-hidden" sandbox="allow-scripts allow-same-origin" />
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <span className="material-symbols-outlined text-6xl text-outline-variant mb-4">web</span>
-              <p className="text-on-surface-variant text-sm japanese-text">自社LPのプレビューがここに表示されます</p>
+      {/* Analysis Targets */}
+      {siteCards.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-xl font-bold text-[#1A1A2E] japanese-text">分析対象サイト</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                埋め込みプレビューはサイト側で拒否されやすいため廃止し、分析対象だけを明示しています。
+              </p>
             </div>
-          )}
-        </div>
-        <div className="bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 min-h-[400px] flex flex-col overflow-hidden transition-transform hover:scale-[1.01]">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.15em]">COMPETITOR ALPHA</p>
-            <span className="text-[10px] text-outline">Desktop View</span>
+            <span className="text-xs text-on-surface-variant">{siteCards.length} 件を比較</span>
           </div>
-          {urls.compA ? (
-            <iframe src={urls.compA} title="Competitor LP" className="w-full flex-1 min-h-[360px] rounded-[16px] overflow-hidden" sandbox="allow-scripts allow-same-origin" />
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <span className="material-symbols-outlined text-6xl text-outline-variant mb-4">web</span>
-              <p className="text-on-surface-variant text-sm japanese-text">競合LPのプレビューがここに表示されます</p>
-            </div>
-          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {siteCards.map((site) => (
+              <div
+                key={site.key}
+                className="bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.15em]">{site.subtitle}</p>
+                    <h4 className="text-lg font-bold text-[#1A1A2E] japanese-text mt-1">{site.label}</h4>
+                  </div>
+                  <a
+                    href={site.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors"
+                    aria-label={`${site.label} を新しいタブで開く`}
+                  >
+                    <span className="material-symbols-outlined text-lg">open_in_new</span>
+                  </a>
+                </div>
+
+                <div className="rounded-xl bg-surface-container p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-bold text-on-surface">
+                    <span className="material-symbols-outlined text-secondary text-base">language</span>
+                    {getHostname(site.url) || 'URL確認待ち'}
+                  </div>
+                  <p className="text-xs text-on-surface-variant break-all">{site.url}</p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+                  <span className="material-symbols-outlined text-sm">bolt</span>
+                  実際の取得と比較分析はサーバー側で実行されます
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Result Area */}
       {result && (

@@ -1,6 +1,6 @@
+// Prefer the same-origin proxy in both dev and prod to avoid browser-side CORS drift.
 const DIRECT_MARKET_LENS_ORIGIN =
-  import.meta.env.VITE_MARKET_LENS_API_ORIGIN ||
-  (import.meta.env.PROD ? 'https://market-lens-ai.onrender.com' : '')
+  import.meta.env.VITE_MARKET_LENS_API_ORIGIN?.replace(/\/$/, '') || ''
 const BASE = DIRECT_MARKET_LENS_ORIGIN ? `${DIRECT_MARKET_LENS_ORIGIN}/api` : '/api/ml'
 const LONG_ANALYSIS_TIMEOUT = 180000
 
@@ -89,6 +89,13 @@ async function requestJson(path, options = {}) {
       }
       throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
     }
+    if (e instanceof TypeError || /Failed to fetch/i.test(String(e?.message))) {
+      throw new Error(
+        DIRECT_MARKET_LENS_ORIGIN
+          ? 'Market Lens backend に接続できませんでした。CORS 設定またはバックエンドの起動状態を確認してください。'
+          : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
+      )
+    }
     throw e
   }
   clearTimeout(timeoutId)
@@ -125,6 +132,13 @@ async function requestRaw(path, options = {}) {
     clearTimeout(timeoutId)
     if (e.name === 'AbortError') {
       throw new Error('アップロードがタイムアウトしました。ファイルサイズを確認してください。')
+    }
+    if (e instanceof TypeError || /Failed to fetch/i.test(String(e?.message))) {
+      throw new Error(
+        DIRECT_MARKET_LENS_ORIGIN
+          ? 'Market Lens backend に接続できませんでした。CORS 設定またはバックエンドの起動状態を確認してください。'
+          : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
+      )
     }
     throw e
   }

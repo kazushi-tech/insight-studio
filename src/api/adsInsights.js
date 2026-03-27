@@ -195,19 +195,6 @@ export function keyStatus() {
   return request('/key_status')
 }
 
-/** GET /api/config — 設定取得 */
-export function getConfig() {
-  return request('/config')
-}
-
-/** POST /api/config — 設定保存 */
-export function saveConfig(config) {
-  return request('/config', {
-    method: 'POST',
-    body: JSON.stringify(config),
-  })
-}
-
 /** GET /api/cases — 案件一覧 */
 export function getCases() {
   return request('/cases')
