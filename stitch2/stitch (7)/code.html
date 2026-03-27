@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#1b407f",
+              "on-secondary-container": "#63627a",
+              "on-tertiary": "#ffffff",
+              "error": "#ba1a1a",
+              "on-primary-fixed-variant": "#5b4300",
+              "outline-variant": "#d2c5b1",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#eec058",
+              "tertiary-fixed-dim": "#aec6ff",
+              "on-primary": "#ffffff",
+              "on-secondary-fixed-variant": "#45455b",
+              "surface-bright": "#f8f9fa",
+              "surface-variant": "#e1e3e4",
+              "on-tertiary-fixed": "#001a42",
+              "secondary": "#5d5c74",
+              "surface-container-lowest": "#ffffff",
+              "inverse-on-surface": "#f0f1f2",
+              "on-secondary-fixed": "#1a1a2e",
+              "outline": "#807664",
+              "primary": "#795900",
+              "surface": "#f8f9fa",
+              "primary-container": "#d4a843",
+              "on-primary-container": "#553e00",
+              "inverse-surface": "#2e3132",
+              "tertiary": "#3c5d9d",
+              "tertiary-container": "#8eaef4",
+              "on-error-container": "#93000a",
+              "on-surface": "#191c1d",
+              "surface-container-highest": "#e1e3e4",
+              "secondary-fixed-dim": "#c6c4df",
+              "inverse-primary": "#eec058",
+              "secondary-container": "#e2e0fc",
+              "surface-container-high": "#e7e8e9",
+              "on-secondary": "#ffffff",
+              "on-surface-variant": "#4e4636",
+              "on-tertiary-fixed-variant": "#214584",
+              "error-container": "#ffdad6",
+              "surface-dim": "#d9dadb",
+              "surface-tint": "#795900",
+              "surface-container": "#edeeef",
+              "primary-fixed": "#ffdf9f",
+              "secondary-fixed": "#e2e0fc",
+              "on-primary-fixed": "#261a00",
+              "on-background": "#191c1d",
+              "tertiary-fixed": "#d8e2ff",
+              "surface-container-low": "#f3f4f5",
+              "background": "#f8f9fa"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        font-family: 'Manrope', sans-serif;
+        background-color: #F8F9FA;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(20px);
+      }
+    </style>
+</head>
+<body class="text-on-surface antialiased">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 z-50 bg-[#F8F9FA] flex flex-col h-full py-6">
+<div class="px-6 mb-10">
+<h1 class="text-lg font-bold text-[#1A1A2E]">Insight Studio</h1>
+<p class="text-xs text-secondary tracking-wider uppercase opacity-70">Digital Librarian</p>
+</div>
+<nav class="flex-1">
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">ダッシュボード</span>
+</a>
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="view_quilt">view_quilt</span>
+<span class="text-sm font-medium">競合LP分析</span>
+</a>
+<!-- Active State: 広告考察 -->
+<a class="border-l-4 border-[#D4A843] bg-white text-[#1A1A2E] font-bold py-3 px-6 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined text-[#D4A843]" data-icon="insights">insights</span>
+<span class="text-sm">広告考察</span>
+</a>
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span class="text-sm font-medium">レポート</span>
+</a>
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-sm font-medium">設定</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="flex items-center gap-3 p-3 rounded-2xl bg-surface-container-low">
+<img alt="田中 一郎" class="w-10 h-10 rounded-full border-2 border-white shadow-sm" data-alt="close-up portrait of a professional Japanese man with short dark hair in a clean minimalist office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkrpXmboBXCUwVIBvdvnaOO4PnF5SvYFGfbz5ICH0JWMostorY4MVMdme2jhv-jjDMTlhW_tMINcYMKFeFVX95IkgyT5rH8UiRNIRl-qSmn5OMgRsJhbuUb3CxGqyJJNNbN_veWkcTBh77DUuj7QSyNRkrJ9tHEfEtKGpOfTg-w-ogdw6Lio1buZCrcbn-NeYTwvfbgRsYrUxDNNBTmOp8DGuGvqOl3ABhdWy2q0lnv5NSTyU8_oQzzQ-7ZUjlG6e-0nEkfRTlbx6v"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate text-on-secondary-fixed">田中 一郎</p>
+<p class="text-[10px] text-secondary truncate">マーケティング部長</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 z-40 h-16 bg-white/80 backdrop-blur-xl flex justify-between items-center w-[calc(100%-16rem)] ml-64 px-8 shadow-sm shadow-[#1A1A2E]/5">
+<div class="flex items-center gap-4">
+<h2 class="text-xl font-extrabold text-[#1A1A2E] tracking-tighter">広告パフォーマンス分析グラフ</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group">
+<span class="material-symbols-outlined text-secondary hover:text-primary cursor-pointer transition-colors" data-icon="search">search</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-secondary hover:bg-surface-container-low p-2 rounded-full transition-all" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined text-secondary hover:bg-surface-container-low p-2 rounded-full transition-all" data-icon="help">help</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 pb-12 px-12 min-h-screen">
+<div class="max-w-7xl mx-auto">
+<!-- Filters & Stats Row -->
+<div class="flex flex-wrap items-end justify-between gap-6 mb-12">
+<div class="flex gap-4">
+<div class="bg-surface-container-lowest px-4 py-2 rounded-2xl border-none shadow-sm flex items-center gap-3">
+<span class="text-xs font-bold text-secondary">期間:</span>
+<span class="text-sm font-medium text-on-secondary-fixed">直近30日間</span>
+<span class="material-symbols-outlined text-xs" data-icon="expand_more">expand_more</span>
+</div>
+<div class="bg-surface-container-lowest px-4 py-2 rounded-2xl border-none shadow-sm flex items-center gap-3">
+<span class="text-xs font-bold text-secondary">チャネル:</span>
+<span class="text-sm font-medium text-on-secondary-fixed">すべての広告</span>
+<span class="material-symbols-outlined text-xs" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<div class="flex gap-8">
+<div class="text-right">
+<p class="text-xs font-bold text-secondary mb-1">総インプレッション</p>
+<p class="text-2xl font-extrabold text-on-secondary-fixed">1,284,092</p>
+</div>
+<div class="text-right">
+<p class="text-xs font-bold text-secondary mb-1">平均CTR</p>
+<p class="text-2xl font-extrabold text-[#D4A843]">2.48%</p>
+</div>
+</div>
+</div>
+<!-- Bento Grid of Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- CTR Trend Line Chart -->
+<div class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h3 class="text-lg font-bold text-on-secondary-fixed">CTR推移</h3>
+<p class="text-sm text-secondary">日次クリック率の変動</p>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="more_vert">more_vert</span>
+</div>
+<div class="h-64 flex items-end gap-2 relative">
+<!-- Simulated Line Chart with SVG -->
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none">
+<path d="M0,150 Q50,130 100,160 T200,80 T300,100 T400,40 T500,60" fill="none" stroke="#D4A843" stroke-linecap="round" stroke-width="3"></path>
+<circle cx="200" cy="80" fill="#D4A843" r="4"></circle>
+</svg>
+<div class="absolute bottom-0 w-full flex justify-between text-[10px] text-secondary px-2">
+<span>01 Jan</span><span>08 Jan</span><span>15 Jan</span><span>22 Jan</span><span>29 Jan</span>
+</div>
+</div>
+</div>
+<!-- Conversion Volume Bar Chart -->
+<div class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h3 class="text-lg font-bold text-on-secondary-fixed">コンバージョン数</h3>
+<p class="text-sm text-secondary">週次の成果発生推移</p>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="more_vert">more_vert</span>
+</div>
+<div class="h-64 flex items-end justify-between gap-4 px-2">
+<div class="w-full bg-surface-container-low rounded-t-lg relative group h-[40%]">
+<div class="absolute inset-0 bg-primary-container opacity-20 group-hover:opacity-100 transition-all rounded-t-lg"></div>
+</div>
+<div class="w-full bg-surface-container-low rounded-t-lg relative group h-[65%]">
+<div class="absolute inset-0 bg-primary-container opacity-20 group-hover:opacity-100 transition-all rounded-t-lg"></div>
+</div>
+<div class="w-full bg-surface-container-low rounded-t-lg relative group h-[55%]">
+<div class="absolute inset-0 bg-primary-container opacity-20 group-hover:opacity-100 transition-all rounded-t-lg"></div>
+</div>
+<div class="w-full bg-surface-container-low rounded-t-lg relative group h-[90%]">
+<div class="absolute inset-0 bg-primary-container opacity-100 transition-all rounded-t-lg"></div>
+</div>
+<div class="w-full bg-surface-container-low rounded-t-lg relative group h-[75%]">
+<div class="absolute inset-0 bg-primary-container opacity-20 group-hover:opacity-100 transition-all rounded-t-lg"></div>
+</div>
+</div>
+<div class="flex justify-between text-[10px] text-secondary mt-4 px-2">
+<span>第1週</span><span>第2週</span><span>第3週</span><span>第4週</span><span>第5週</span>
+</div>
+</div>
+<!-- ROI Rankings Horizontal Bar Chart -->
+<div class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h3 class="text-lg font-bold text-on-secondary-fixed">ROIランキング</h3>
+<p class="text-sm text-secondary">キャンペーン別投資対効果</p>
+</div>
+<span class="material-symbols-outlined text-secondary" data-icon="filter_list">filter_list</span>
+</div>
+<div class="space-y-6">
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span>春の特大セール A</span>
+<span>342%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-[#D4A843] to-[#EEC058] w-[85%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span>SNS限定キャンペーン</span>
+<span>218%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-[#D4A843] to-[#EEC058] w-[60%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span>リターゲティング広告</span>
+<span>184%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-[#D4A843] to-[#EEC058] w-[45%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-xs font-bold">
+<span>リスティング(指名)</span>
+<span>156%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-low rounded-full overflow-hidden">
+<div class="h-full bg-gradient-to-r from-[#D4A843] to-[#EEC058] w-[35%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Demographic Split Donut Chart -->
+<div class="bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
+<div class="flex justify-between items-start mb-10">
+<div>
+<h3 class="text-lg font-bold text-on-secondary-fixed">デモグラフィック分析</h3>
+<p class="text-sm text-secondary">年齢層別のアプローチ比率</p>
+</div>
+<div class="bg-surface-container-low px-3 py-1 rounded-full">
+<span class="text-[10px] font-bold text-secondary">ユーザー層別</span>
+</div>
+</div>
+<div class="flex items-center gap-12">
+<div class="relative w-48 h-48">
+<!-- Simulated Donut Chart -->
+<svg class="w-full h-full transform -rotate-90">
+<circle cx="50%" cy="50%" fill="transparent" r="40%" stroke="#F3F4F5" stroke-width="20"></circle>
+<circle cx="50%" cy="50%" fill="transparent" r="40%" stroke="#D4A843" stroke-dasharray="251" stroke-dashoffset="100" stroke-linecap="round" stroke-width="20"></circle>
+<circle cx="50%" cy="50%" fill="transparent" r="40%" stroke="#1A1A2E" stroke-dasharray="251" stroke-dashoffset="200" stroke-linecap="round" stroke-width="20"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-2xl font-extrabold text-on-secondary-fixed">100%</span>
+<span class="text-[10px] text-secondary font-bold">合計分布</span>
+</div>
+</div>
+<div class="flex-1 space-y-4">
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-[#D4A843]"></div>
+<div class="flex-1">
+<p class="text-xs font-bold">20代 - 30代</p>
+<p class="text-[10px] text-secondary">45% (構成比)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-[#1A1A2E]"></div>
+<div class="flex-1">
+<p class="text-xs font-bold">40代 - 50代</p>
+<p class="text-[10px] text-secondary">35% (構成比)</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-3 h-3 rounded-full bg-surface-variant"></div>
+<div class="flex-1">
+<p class="text-xs font-bold">その他</p>
+<p class="text-[10px] text-secondary">20% (構成比)</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Detailed Action Table Section -->
+<div class="mt-12 bg-surface-container-lowest rounded-2xl p-8 shadow-sm">
+<div class="flex justify-between items-center mb-8">
+<h3 class="text-lg font-bold text-on-secondary-fixed">クリエイティブ別詳細データ</h3>
+<button class="bg-surface-container-low text-secondary text-sm font-bold py-2 px-6 rounded-xl hover:bg-surface-variant transition-colors">CSVエクスポート</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="text-[10px] font-bold text-secondary border-b border-surface-container-low">
+<th class="pb-4 uppercase tracking-wider">クリエイティブ名</th>
+<th class="pb-4 uppercase tracking-wider text-right">インプレッション</th>
+<th class="pb-4 uppercase tracking-wider text-right">クリック数</th>
+<th class="pb-4 uppercase tracking-wider text-right">CTR</th>
+<th class="pb-4 uppercase tracking-wider text-right">CV数</th>
+<th class="pb-4 uppercase tracking-wider text-right">ステータス</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+<tr class="group hover:bg-surface-container-low/50 transition-colors">
+<td class="py-5">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-container-low overflow-hidden">
+<img alt="Ad Creative 1" class="w-full h-full object-cover" data-alt="professional digital marketing banner featuring clean typography and gold abstract shapes on a deep navy background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCVi8N43JWJOY-9VQXV5uUMdgDak4bHrM7QxUYKNsHeVIKtxibjgfZQaMm_HAQ56nR91OYwzvb2hm0g71cvSUgjLctFUbvQQ_a_kXKEq76dSRw4ZPTiJhy4V69v7bZp8NRggGEdpIKcLXW_XPoDKUfRYzLqu1kwvhSgWB-_80QapV2FtsqZR3lG3ir3WE8_ZDP08nHiCxKpnRsuV0A29kVQLf2RJ9gev1WFhRvOHiUuli7L3ceT-V1VbHtUEN_wJ11Utuo5_yDHdfH"/>
+</div>
+<div>
+<p class="text-sm font-bold text-on-secondary-fixed">2024_Spring_Banner_01</p>
+<p class="text-[10px] text-secondary italic">Google Display Network</p>
+</div>
+</div>
+</td>
+<td class="py-5 text-right text-sm font-medium">452,001</td>
+<td class="py-5 text-right text-sm font-medium">12,431</td>
+<td class="py-5 text-right text-sm font-bold text-[#D4A843]">2.75%</td>
+<td class="py-5 text-right text-sm font-medium">184</td>
+<td class="py-5 text-right">
+<span class="inline-block px-2 py-1 rounded bg-green-100 text-green-700 text-[10px] font-bold">配信中</span>
+</td>
+</tr>
+<tr class="group hover:bg-surface-container-low/50 transition-colors">
+<td class="py-5">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-lg bg-surface-container-low overflow-hidden">
+<img alt="Ad Creative 2" class="w-full h-full object-cover" data-alt="vibrant social media advertisement image with warm sunlight and happy young adults using digital devices" src="https://lh3.googleusercontent.com/aida-public/AB6AXuArq-Z_YHO9hN5WlKIQ1w53rl_xe6ENhSGUIuGm0mksacy_AoV4B-MwwPN4bYJgldsjlkK_RyA337EcVOeKk_IiPqq_2_NzlYifdpuuq1xEh3gYSvsPCWdOdtqQaCZy9lDvn_TCU2-cL1fQjoQKxCk3i4wfmLsSTHF9S0PiTmQ3kdsToOuHjbWsh3rd4fKFyyt4QpKO8yZcs7CAuzJGK1T-Y_D86QNg5o-7hcG9mp66AcJHisoxiVCq5ci_3EvSdF3DxBu8BwwVAWgx"/>
+</div>
+<div>
+<p class="text-sm font-bold text-on-secondary-fixed">Retargeting_Video_Short</p>
+<p class="text-[10px] text-secondary italic">Instagram Stories</p>
+</div>
+</div>
+</td>
+<td class="py-5 text-right text-sm font-medium">231,988</td>
+<td class="py-5 text-right text-sm font-medium">5,102</td>
+<td class="py-5 text-right text-sm font-bold text-[#D4A843]">2.20%</td>
+<td class="py-5 text-right text-sm font-medium">92</td>
+<td class="py-5 text-right">
+<span class="inline-block px-2 py-1 rounded bg-surface-variant text-secondary text-[10px] font-bold">停止中</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (FAB) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-gradient-to-br from-[#D4A843] to-[#EEC058] text-[#261A00] rounded-2xl shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform z-50">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+</body></html>

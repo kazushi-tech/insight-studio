@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio - AI考察エクスプローラー</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#1b407f",
+              "on-secondary-container": "#63627a",
+              "on-tertiary": "#ffffff",
+              "error": "#ba1a1a",
+              "on-primary-fixed-variant": "#5b4300",
+              "outline-variant": "#d2c5b1",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#eec058",
+              "tertiary-fixed-dim": "#aec6ff",
+              "on-primary": "#ffffff",
+              "on-secondary-fixed-variant": "#45455b",
+              "surface-bright": "#f8f9fa",
+              "surface-variant": "#e1e3e4",
+              "on-tertiary-fixed": "#001a42",
+              "secondary": "#5d5c74",
+              "surface-container-lowest": "#ffffff",
+              "inverse-on-surface": "#f0f1f2",
+              "on-secondary-fixed": "#1a1a2e",
+              "outline": "#807664",
+              "primary": "#795900",
+              "surface": "#f8f9fa",
+              "primary-container": "#d4a843",
+              "on-primary-container": "#553e00",
+              "inverse-surface": "#2e3132",
+              "tertiary": "#3c5d9d",
+              "tertiary-container": "#8eaef4",
+              "on-error-container": "#93000a",
+              "on-surface": "#191c1d",
+              "surface-container-highest": "#e1e3e4",
+              "secondary-fixed-dim": "#c6c4df",
+              "inverse-primary": "#eec058",
+              "secondary-container": "#e2e0fc",
+              "surface-container-high": "#e7e8e9",
+              "on-secondary": "#ffffff",
+              "on-surface-variant": "#4e4636",
+              "on-tertiary-fixed-variant": "#214584",
+              "error-container": "#ffdad6",
+              "surface-dim": "#d9dadb",
+              "surface-tint": "#795900",
+              "surface-container": "#edeeef",
+              "primary-fixed": "#ffdf9f",
+              "secondary-fixed": "#e2e0fc",
+              "on-primary-fixed": "#261a00",
+              "on-background": "#191c1d",
+              "tertiary-fixed": "#d8e2ff",
+              "surface-container-low": "#f3f4f5",
+              "background": "#f8f9fa"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        font-family: 'Manrope', sans-serif;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #e1e3e4;
+        border-radius: 10px;
+      }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased overflow-hidden">
+<!-- SideNavBar Component -->
+<aside class="fixed left-0 top-0 h-screen w-64 z-50 bg-[#F8F9FA] flex flex-col h-full py-6 shadow-none font-['Manrope'] antialiased">
+<div class="px-6 mb-10 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<div>
+<h1 class="text-lg font-bold text-[#1A1A2E]">Insight Studio</h1>
+<p class="text-[10px] text-secondary tracking-widest uppercase">Digital Librarian</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">ダッシュボード</span>
+</a>
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="view_quilt">view_quilt</span>
+<span class="text-sm font-medium">競合LP分析</span>
+</a>
+<a class="border-l-4 border-[#D4A843] bg-white text-[#1A1A2E] font-bold py-3 px-6 flex items-center gap-3 group transition-all" href="#">
+<span class="material-symbols-outlined text-[#D4A843]" data-icon="insights" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span class="text-sm">広告考察</span>
+</a>
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="assessment">assessment</span>
+<span class="text-sm font-medium">レポート</span>
+</a>
+<a class="text-[#5D5C74] py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="settings">settings</span>
+<span class="text-sm font-medium">設定</span>
+</a>
+</nav>
+<div class="mt-auto px-6">
+<div class="p-4 bg-surface-container-low rounded-2xl flex items-center gap-3 border border-outline-variant/10">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest">
+<img alt="田中 一郎" data-alt="Professional portrait of a Japanese male marketing executive in a clean business casual attire, soft studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7HF1Yg7_kZhuIb9xJVPyzMadDRfirMM6V2j91OD3m-l_sWZ8a2N8Zd2eYkdbtdXiW7EToQqz28TeD-plfT6ESyVt5Kz9Ri35MLSOFR3tROrhBujbycP89LO_7UnQVCsSuYLZAC89bm7rXW7bCSINNH6HRoncZQC75pucUqoYcE5EPi6Qv3iwywGLZG16kD4Sib3GWqHTNc3UNw8XvTKdI-GOBqNqJacVacGu5U8W07U3e08ZWn1xiGgHS3rDhkHzLdkSGiAMxx9p_"/>
+</div>
+<div class="overflow-hidden">
+<p class="text-xs font-bold text-on-secondary-fixed truncate">田中 一郎</p>
+<p class="text-[10px] text-secondary truncate">Premium Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar Component -->
+<header class="fixed top-0 right-0 z-40 h-16 bg-white/80 backdrop-blur-xl flex justify-between items-center w-[calc(100%-16rem)] ml-64 px-8 shadow-sm shadow-[#1A1A2E]/5 font-['Manrope'] text-sm tracking-tight font-medium">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary" data-icon="auto_awesome">auto_awesome</span>
+<h2 class="text-lg font-extrabold text-[#1A1A2E] tracking-tighter">AI考察エクスプローラー</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center bg-surface-container-low rounded-full px-4 py-1.5 gap-2 border border-outline-variant/10">
+<span class="material-symbols-outlined text-secondary text-sm" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-xs w-48 text-on-surface" placeholder="考察履歴を検索" type="text"/>
+</div>
+<div class="flex items-center gap-3">
+<button class="p-2 text-secondary hover:bg-[#F3F4F5] rounded-full transition-colors duration-200 active:scale-90">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-secondary hover:bg-[#F3F4F5] rounded-full transition-colors duration-200 active:scale-90">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 h-[calc(100vh-4rem)] p-8 overflow-hidden flex flex-col">
+<!-- Header Actions / Quick Prompts -->
+<section class="mb-8 flex flex-col gap-4">
+<p class="text-xs font-semibold text-secondary uppercase tracking-[0.2em] ml-1">Quick Analysis</p>
+<div class="flex gap-4">
+<button class="bg-surface-container-lowest hover:bg-white hover:shadow-md border border-outline-variant/20 px-6 py-4 rounded-2xl flex items-center gap-3 transition-all duration-300 group">
+<div class="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500">
+<span class="material-symbols-outlined text-lg" data-icon="warning">warning</span>
+</div>
+<span class="text-sm font-bold text-on-secondary-fixed">リスクを要約して</span>
+</button>
+<button class="bg-surface-container-lowest hover:bg-white hover:shadow-md border border-outline-variant/20 px-6 py-4 rounded-2xl flex items-center gap-3 transition-all duration-300 group">
+<div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+<span class="material-symbols-outlined text-lg" data-icon="lightbulb">lightbulb</span>
+</div>
+<span class="text-sm font-bold text-on-secondary-fixed">ROI改善のアイデア</span>
+</button>
+<button class="bg-surface-container-lowest hover:bg-white hover:shadow-md border border-outline-variant/20 px-6 py-4 rounded-2xl flex items-center gap-3 transition-all duration-300 group">
+<div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined text-lg" data-icon="compare_arrows">compare_arrows</span>
+</div>
+<span class="text-sm font-bold text-on-secondary-fixed">先月と比較して</span>
+</button>
+</div>
+</section>
+<!-- AI Interaction Area -->
+<section class="flex-1 flex flex-col bg-surface-container-lowest rounded-[1.5rem] shadow-sm overflow-hidden relative border border-outline-variant/10">
+<div class="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-10">
+<!-- AI Message 1 (Intro) -->
+<div class="flex gap-6 max-w-4xl">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-xl bg-[#1A1A2E] flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+</div>
+<div class="space-y-4">
+<div class="bg-surface-container-low p-6 rounded-2xl rounded-tl-none text-on-surface leading-relaxed shadow-sm">
+<p class="font-bold text-[#1A1A2E] mb-2">Insight AI 分析レポート</p>
+<p class="text-sm mb-4">最新の広告パフォーマンスデータを分析しました。以下の3点が重要な考察ポイントです。</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+<div class="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/5">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-primary-container text-lg" data-icon="trending_up">trending_up</span>
+<h4 class="text-xs font-extrabold text-on-secondary-fixed">コンバージョン効率の向上</h4>
+</div>
+<p class="text-[13px] text-secondary leading-relaxed">クリエイティブBのCTRが前週比で18%向上。特定のターゲット層においてエンゲージメントが集中しています。</p>
+</div>
+<div class="bg-white p-5 rounded-xl shadow-sm border border-outline-variant/5">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-red-400 text-lg" data-icon="monetization_on">monetization_on</span>
+<h4 class="text-xs font-extrabold text-on-secondary-fixed">CPAの上昇傾向</h4>
+</div>
+<p class="text-[13px] text-secondary leading-relaxed">リターゲティング広告のCPAが目標値を5%上回っています。フリークエンシーの最適化が必要です。</p>
+</div>
+</div>
+</div>
+<p class="text-[10px] text-secondary/60 ml-1">AI 考察エンジン v2.4 • ちょうど今</p>
+</div>
+</div>
+<!-- User Message Placeholder -->
+<div class="flex flex-row-reverse gap-6 max-w-4xl ml-auto">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container/20">
+<img alt="User" data-alt="Portrait of a smiling professional in a modern office environment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWJii4Cg5Nf2tpCv-WWa2feH5bKHuol7dq0C5s4C_LbAd2Ah8x-1NFHv0bSs8FLxBsBv_xgm-s75r0bB_edyuTp28k35gVMQ6kpbUqvPZ1s8ZtZJXkhI_F5SA0bMqAH7Af1XvEpwkpsTnLN3twSNYLZ6-h9TMQXObvXgHJvFwlZCLuauwtCi8TD-a2t1MM1jxrBzRNmGwmTW8Y-GJtZOBPwWmqpEEv1TFmpOQRLZObUKBivY77tn6Py5x21BNx7eTpPnPkF_uwvjpy"/>
+</div>
+</div>
+<div class="space-y-4 flex flex-col items-end">
+<div class="bg-primary-container text-on-primary-fixed-variant p-5 rounded-2xl rounded-tr-none shadow-sm">
+<p class="text-sm font-medium">ROIをさらに改善するための具体的なアクションプランを提案してください。</p>
+</div>
+<p class="text-[10px] text-secondary/60 mr-1">10:42 AM</p>
+</div>
+</div>
+<!-- AI Detailed Response Area -->
+<div class="flex gap-6 max-w-4xl">
+<div class="flex-shrink-0">
+<div class="w-10 h-10 rounded-xl bg-[#1A1A2E] flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+</div>
+</div>
+<div class="space-y-4 flex-1">
+<div class="bg-surface-container-low p-8 rounded-2xl rounded-tl-none shadow-sm">
+<h3 class="text-base font-bold text-[#1A1A2E] mb-6 flex items-center gap-2">
+<span class="w-2 h-6 bg-primary-container rounded-full"></span>
+                                ROI改善に向けた戦略的ロードマップ
+                            </h3>
+<div class="space-y-8">
+<div class="flex gap-4">
+<div class="text-primary-container font-black text-2xl opacity-40">01</div>
+<div class="space-y-2">
+<h4 class="text-sm font-bold text-on-secondary-fixed">入札戦略の動的調整</h4>
+<p class="text-[13px] text-secondary leading-relaxed">過去30日間のコンバージョン発生時間帯を分析した結果、19時〜23時の時間帯に入札比率を25%引き上げることで、同一予算内でさらなる獲得が期待できます。</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="text-primary-container font-black text-2xl opacity-40">02</div>
+<div class="space-y-2">
+<h4 class="text-sm font-bold text-on-secondary-fixed">LPファーストビューのA/Bテスト</h4>
+<p class="text-[13px] text-secondary leading-relaxed">現在のLP離脱率が42%と高めです。クリエイティブBの「実績重視」の訴求をLPのヒーローエリアに適用することで、親和性を高め直帰率を改善します。</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="text-primary-container font-black text-2xl opacity-40">03</div>
+<div class="space-y-2">
+<h4 class="text-sm font-bold text-on-secondary-fixed">除外オーディエンスの精査</h4>
+<p class="text-[13px] text-secondary leading-relaxed">既に成約済みのユーザーリストをリアルタイム同期し、無駄なリターゲティング費用を削減。推定月間12万円のコストカットが可能です。</p>
+</div>
+</div>
+</div>
+<div class="mt-8 p-5 bg-white rounded-xl border border-primary-container/10 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-primary/5 rounded-full">
+<span class="material-symbols-outlined text-primary-container" data-icon="assignment">assignment</span>
+</div>
+<div>
+<p class="text-[11px] text-secondary font-bold uppercase tracking-wider">Generated Asset</p>
+<p class="text-sm font-bold text-[#1A1A2E]">詳細アクションプラン.pdf</p>
+</div>
+</div>
+<button class="px-4 py-2 bg-surface-container-low hover:bg-surface-container-high text-primary-container rounded-lg text-xs font-bold transition-colors">
+                                    ダウンロード
+                                </button>
+</div>
+</div>
+<div class="flex items-center gap-4 ml-1">
+<button class="flex items-center gap-1 text-[11px] font-bold text-secondary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="thumb_up">thumb_up</span>
+                                役に立った
+                            </button>
+<button class="flex items-center gap-1 text-[11px] font-bold text-secondary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="thumb_down">thumb_down</span>
+                                改善を希望
+                            </button>
+<button class="flex items-center gap-1 text-[11px] font-bold text-secondary hover:text-primary-container transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
+                                再生成
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Input Field -->
+<div class="p-6 bg-surface-container-low border-t border-outline-variant/10">
+<div class="max-w-4xl mx-auto relative group">
+<textarea class="w-full bg-white text-on-surface border-none rounded-2xl py-5 pl-6 pr-20 focus:ring-2 focus:ring-primary-container/20 shadow-lg text-sm transition-all resize-none overflow-hidden placeholder:text-secondary/50 font-medium" placeholder="AIにデータについて質問する..." rows="1"></textarea>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+<button class="p-2 text-secondary hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="attachment">attachment</span>
+</button>
+<button class="w-10 h-10 bg-gradient-to-br from-[#D4A843] to-[#EEC058] text-on-primary-fixed rounded-xl flex items-center justify-center shadow-lg shadow-primary-container/20 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="send" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+<div class="mt-4 flex justify-center gap-8 text-[10px] text-secondary font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="lock">lock</span> エンタープライズ品質の暗号化</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" data-icon="verified_user">verified_user</span> 学習データとしての利用はされません</span>
+</div>
+</div>
+</section>
+</main>
+</body></html>

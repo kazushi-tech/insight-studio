@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-container": "#1b407f",
+              "on-secondary-container": "#63627a",
+              "on-tertiary": "#ffffff",
+              "error": "#ba1a1a",
+              "on-primary-fixed-variant": "#5b4300",
+              "outline-variant": "#d2c5b1",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#eec058",
+              "tertiary-fixed-dim": "#aec6ff",
+              "on-primary": "#ffffff",
+              "on-secondary-fixed-variant": "#45455b",
+              "surface-bright": "#f8f9fa",
+              "surface-variant": "#e1e3e4",
+              "on-tertiary-fixed": "#001a42",
+              "secondary": "#5d5c74",
+              "surface-container-lowest": "#ffffff",
+              "inverse-on-surface": "#f0f1f2",
+              "on-secondary-fixed": "#1a1a2e",
+              "outline": "#807664",
+              "primary": "#795900",
+              "surface": "#f8f9fa",
+              "primary-container": "#d4a843",
+              "on-primary-container": "#553e00",
+              "inverse-surface": "#2e3132",
+              "tertiary": "#3c5d9d",
+              "tertiary-container": "#8eaef4",
+              "on-error-container": "#93000a",
+              "on-surface": "#191c1d",
+              "surface-container-highest": "#e1e3e4",
+              "secondary-fixed-dim": "#c6c4df",
+              "inverse-primary": "#eec058",
+              "secondary-container": "#e2e0fc",
+              "surface-container-high": "#e7e8e9",
+              "on-secondary": "#ffffff",
+              "on-surface-variant": "#4e4636",
+              "on-tertiary-fixed-variant": "#214584",
+              "error-container": "#ffdad6",
+              "surface-dim": "#d9dadb",
+              "surface-tint": "#795900",
+              "surface-container": "#edeeef",
+              "primary-fixed": "#ffdf9f",
+              "secondary-fixed": "#e2e0fc",
+              "on-primary-fixed": "#261a00",
+              "on-background": "#191c1d",
+              "tertiary-fixed": "#d8e2ff",
+              "surface-container-low": "#f3f4f5",
+              "background": "#f8f9fa"
+            },
+            fontFamily: {
+              "headline": ["Manrope", "sans-serif"],
+              "body": ["Manrope", "sans-serif"],
+              "label": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body {
+        font-family: 'Manrope', sans-serif;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #e1e3e4;
+        border-radius: 10px;
+      }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- SideNavBar (Authority Source: JSON) -->
+<aside class="fixed left-0 top-0 h-screen w-64 z-50 bg-[#F8F9FA] dark:bg-slate-950 flex flex-col h-full py-6 font-['Manrope'] antialiased">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">insights</span>
+</div>
+<div>
+<h1 class="text-lg font-bold text-[#1A1A2E] dark:text-white leading-tight">Insight Studio</h1>
+<p class="text-[10px] text-secondary tracking-widest uppercase opacity-70">Digital Librarian</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-[#5D5C74] dark:text-slate-400 py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] dark:hover:bg-slate-800 transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="dashboard">dashboard</span>
+<span class="text-sm font-medium">ダッシュボード</span>
+</a>
+<a class="text-[#5D5C74] dark:text-slate-400 py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] dark:hover:bg-slate-800 transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="view_quilt">view_quilt</span>
+<span class="text-sm font-medium">競合LP分析</span>
+</a>
+<!-- Active State: 広告考察 -->
+<a class="border-l-4 border-[#D4A843] bg-white dark:bg-slate-900 text-[#1A1A2E] dark:text-white font-bold py-3 px-6 flex items-center gap-3 transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="insights" style="font-variation-settings: 'FILL' 1;">insights</span>
+<span class="text-sm">広告考察</span>
+</a>
+<a class="text-[#5D5C74] dark:text-slate-400 py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] dark:hover:bg-slate-800 transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="assessment">assessment</span>
+<span class="text-sm font-medium">レポート</span>
+</a>
+<a class="text-[#5D5C74] dark:text-slate-400 py-3 px-6 flex items-center gap-3 border-l-4 border-transparent hover:bg-[#F3F4F5] dark:hover:bg-slate-800 transition-all duration-300 group" href="#">
+<span class="material-symbols-outlined group-hover:translate-x-1 transition-transform" data-icon="settings">settings</span>
+<span class="text-sm font-medium">設定</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/10">
+<div class="flex items-center gap-3">
+<img alt="田中 一郎" class="w-8 h-8 rounded-full object-cover" data-alt="professional corporate headshot of a middle-aged Japanese businessman Tanaka Ichiro in a modern office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAl02nML0X6nndrXNbv0-rH1GpXNaAV4kWw2wGKToz3FPL-cYmlBJBWUrkDzvBQXW0_5909T_ugLJR4q0YtFFbdavKhkvvigB2eUv6byAJ3OtJjTBaCDAeIX6suPnbrUYu3tZPo1I0Z_kktol5GbausCcZxMGBa8cAMHFD2_LqDlQze0kXaWvefY6-bKLIXcnL3bM3YQ0lSlfTGdG3dBmePpE1CFU_BbGA737Sak3HuL5dpVGhgdWSCfAq1tFv8iL07XaVCqGvvoqP"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">田中 一郎</p>
+<p class="text-[10px] text-secondary truncate">Standard Plan</p>
+</div>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar (Authority Source: JSON) -->
+<header class="fixed top-0 right-0 z-40 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl flex justify-between items-center w-[calc(100%-16rem)] ml-64 px-8 no-border shadow-sm shadow-[#1A1A2E]/5 font-['Manrope'] text-sm tracking-tight font-medium">
+<div class="flex items-center gap-8">
+<h2 class="text-xl font-extrabold text-[#1A1A2E] dark:text-white tracking-tighter">Setup Wizard</h2>
+<div class="flex items-center gap-1 bg-surface-container-low rounded-full p-1">
+<button class="px-6 py-1.5 rounded-full text-[#5D5C74] hover:bg-[#F3F4F5] transition-colors duration-200">EXCEL</button>
+<button class="px-6 py-1.5 rounded-full bg-primary-container text-on-primary-container font-bold shadow-sm">BIGQUERY</button>
+<button class="px-6 py-1.5 rounded-full text-[#5D5C74] hover:bg-[#F3F4F5] transition-colors duration-200">統合</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-[#F3F4F5] dark:hover:bg-slate-800 transition-colors duration-200 scale-95 active:scale-90 text-secondary">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-[#F3F4F5] dark:hover:bg-slate-800 transition-colors duration-200 scale-95 active:scale-90 text-secondary">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen">
+<div class="p-12 max-w-7xl mx-auto">
+<!-- Wizard Stepper -->
+<div class="mb-16">
+<div class="flex items-center justify-between relative max-w-4xl mx-auto">
+<!-- Progress Line -->
+<div class="absolute top-1/2 left-0 w-full h-1 bg-surface-container-high -translate-y-1/2 -z-10 rounded-full"></div>
+<div class="absolute top-1/2 left-0 w-1/3 h-1 bg-primary-container -translate-y-1/2 -z-10 rounded-full"></div>
+<!-- Step 1: Active -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold shadow-lg shadow-primary-container/20 ring-4 ring-white">
+                            1
+                        </div>
+<span class="text-sm font-bold text-on-secondary-fixed">クエリタイプ選択</span>
+</div>
+<!-- Step 2 -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-white border-2 border-surface-container-high text-secondary flex items-center justify-center font-bold">
+                            2
+                        </div>
+<span class="text-sm font-medium text-secondary">期間選択</span>
+</div>
+<!-- Step 3 -->
+<div class="flex flex-col items-center gap-3">
+<div class="w-12 h-12 rounded-full bg-white border-2 border-surface-container-high text-secondary flex items-center justify-center font-bold">
+                            3
+                        </div>
+<span class="text-sm font-medium text-secondary">レポート生成</span>
+</div>
+</div>
+</div>
+<!-- Wizard Section Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h3 class="text-3xl font-extrabold text-on-secondary-fixed tracking-tight">クエリタイプを選択</h3>
+<p class="text-secondary mt-2">分析したいデータ項目を選択してください（複数選択可能）</p>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-xl text-sm font-bold text-secondary border border-outline-variant/30 hover:bg-surface-container-low transition-colors">
+                        全解除
+                    </button>
+<button class="px-6 py-2.5 rounded-xl text-sm font-bold text-primary border border-primary/20 hover:bg-primary-fixed/30 transition-colors">
+                        全選択
+                    </button>
+</div>
+</div>
+<!-- 3-Column Grid of Query Types -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- PV分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-primary-container shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input checked="" class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container" data-icon="trending_up">trending_up</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">PV分析</h4>
+<p class="text-xs text-secondary leading-relaxed">ページビューの推移とトレンドを可視化します。</p>
+</div>
+</div>
+</label>
+<!-- 流入分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-blue-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-500" data-icon="input">input</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">流入分析</h4>
+<p class="text-xs text-secondary leading-relaxed">チャネル別の流入元とトラフィック質を特定します。</p>
+</div>
+</div>
+</label>
+<!-- CV分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-emerald-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input checked="" class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-emerald-500" data-icon="track_changes">track_changes</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">CV分析</h4>
+<p class="text-xs text-secondary leading-relaxed">コンバージョン経路と成果への寄与を分析します。</p>
+</div>
+</div>
+</label>
+<!-- 検索クエリ分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-purple-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-500" data-icon="search">search</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">検索クエリ分析</h4>
+<p class="text-xs text-secondary leading-relaxed">キーワードのニーズとパフォーマンスを網羅。</p>
+</div>
+</div>
+</label>
+<!-- 異常検知 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-error shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-error" data-icon="report_problem">report_problem</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">異常検知</h4>
+<p class="text-xs text-secondary leading-relaxed">数値の急激な変化や乖離を自動で検出します。</p>
+</div>
+</div>
+</label>
+<!-- LP分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-cyan-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-cyan-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-cyan-500" data-icon="web">web</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">LP分析</h4>
+<p class="text-xs text-secondary leading-relaxed">ランディングページの離脱率と有効性を判定。</p>
+</div>
+</div>
+</label>
+<!-- デバイス分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-slate-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-600" data-icon="devices">devices</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">デバイス分析</h4>
+<p class="text-xs text-secondary leading-relaxed">PC・SP・Tabの利用動向と差異を確認します。</p>
+</div>
+</div>
+</label>
+<!-- 時間帯分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-indigo-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-indigo-500" data-icon="schedule">schedule</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">時間帯分析</h4>
+<p class="text-xs text-secondary leading-relaxed">成果が出やすい曜日や時間帯の傾向を把握。</p>
+</div>
+</div>
+</label>
+<!-- ユーザー属性 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-pink-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-pink-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-pink-500" data-icon="groups">groups</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">ユーザー属性</h4>
+<p class="text-xs text-secondary leading-relaxed">年齢・性別・地域などのデモグラフィック情報。</p>
+</div>
+</div>
+</label>
+<!-- エンゲージメント時間 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-teal-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-500" data-icon="timer">timer</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">エンゲージメント時間</h4>
+<p class="text-xs text-secondary leading-relaxed">サイト滞在時間やユーザーの熱量を測定。</p>
+</div>
+</div>
+</label>
+<!-- オークション圧分析 Card -->
+<label class="group relative bg-surface-container-lowest p-6 rounded-[16px] border-l-4 border-orange-400 shadow-sm hover:shadow-md transition-all cursor-pointer">
+<input class="absolute top-6 right-6 w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container" type="checkbox"/>
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-orange-500" data-icon="gavel">gavel</span>
+</div>
+<div class="pr-8">
+<h4 class="font-bold text-on-secondary-fixed mb-1">オークション圧分析</h4>
+<p class="text-xs text-secondary leading-relaxed">競合他社の入札動向と表示機会損失を分析。</p>
+</div>
+</div>
+</label>
+<!-- Selected Items Summary Footer -->
+<div class="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center mt-12 pb-24">
+<div class="flex gap-4">
+<button class="px-12 py-4 rounded-xl font-bold bg-surface-container-high text-secondary hover:bg-surface-variant transition-all scale-100 active:scale-95">
+                            戻る
+                        </button>
+<button class="px-12 py-4 rounded-xl font-bold bg-gradient-to-br from-[#D4A843] to-[#EEC058] text-[#261A00] shadow-lg shadow-primary-container/30 hover:shadow-xl transition-all scale-100 active:scale-95 flex items-center gap-2">
+                            次へ
+                            <span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Visual Anchor: Floating Help Context -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 rounded-full bg-[#1A1A2E] text-white flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">
+<span class="material-symbols-outlined" data-icon="contact_support">contact_support</span>
+</button>
+</div>
+</body></html>

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Creative Review - Insight Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-bright": "#f8f9fa",
+              "surface-container-high": "#e7e8e9",
+              "inverse-surface": "#2e3132",
+              "on-primary-container": "#83829b",
+              "surface-container-highest": "#e1e3e4",
+              "background": "#f8f9fa",
+              "on-background": "#191c1d",
+              "on-tertiary-fixed": "#231b02",
+              "inverse-primary": "#c6c4df",
+              "surface-container-low": "#f3f4f5",
+              "on-secondary-container": "#755700",
+              "primary": "#00000b",
+              "surface": "#f8f9fa",
+              "surface-container": "#edeeef",
+              "secondary": "#795900",
+              "error-container": "#ffdad6",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#c6c4df",
+              "tertiary-fixed-dim": "#d5c59d",
+              "surface-dim": "#d9dadb",
+              "tertiary-fixed": "#f2e1b7",
+              "on-primary-fixed-variant": "#45455b",
+              "tertiary-container": "#b9aa83",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#261a00",
+              "secondary-fixed": "#ffdf9f",
+              "primary-container": "#1a1a2e",
+              "on-primary-fixed": "#1a1a2e",
+              "surface-tint": "#5d5c74",
+              "surface-container-lowest": "#ffffff",
+              "inverse-on-surface": "#f0f1f2",
+              "outline-variant": "#c8c5cd",
+              "tertiary": "#695d3c",
+              "on-tertiary-container": "#493f20",
+              "on-surface-variant": "#47464c",
+              "on-secondary": "#ffffff",
+              "primary-fixed": "#e2e0fc",
+              "on-secondary-fixed-variant": "#5b4300",
+              "secondary-container": "#fece65",
+              "outline": "#78767d",
+              "on-primary": "#ffffff",
+              "on-error-container": "#93000a",
+              "on-surface": "#191c1d",
+              "error": "#ba1a1a",
+              "secondary-fixed-dim": "#eec058",
+              "on-tertiary-fixed-variant": "#514627",
+              "surface-variant": "#e1e3e4"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .radar-grid {
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+        }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .letter-spacing-jp { letter-spacing: 0.05em; }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface antialiased">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full z-40 py-6 w-[240px] bg-slate-50 dark:bg-slate-900 font-manrope text-sm antialiased tracking-wide">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-primary-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-[#D4A843] text-lg">insights</span>
+</div>
+<div>
+<h1 class="text-xl font-bold text-[#1A1A2E] dark:text-white tracking-tighter">Insight Studio</h1>
+<p class="text-[10px] text-on-surface-variant leading-none">Ad Ops &amp; Analysis</p>
+</div>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>ダッシュボード</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#D4A843] border-l-4 border-[#D4A843] bg-white dark:bg-slate-800 font-bold" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span>競合LP分析</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span>広告考察</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span>レポート</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>設定</span>
+</a>
+</nav>
+<div class="absolute bottom-8 px-4 w-full">
+<button class="w-full py-3 px-4 bg-primary text-on-primary rounded-xl font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-all scale-98 active:opacity-80">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+<span>新規プロジェクト</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[240px] min-h-screen">
+<!-- TopAppBar -->
+<header class="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-secondary transition-colors">search</span>
+<input class="w-full bg-surface-container-high border-none rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-[#D4A843]/40 text-sm" placeholder="競合URLまたはプロジェクトを検索..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="light_mode">light_mode</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-6 border-l border-outline-variant/30">
+<div class="text-right">
+<p class="text-sm font-bold text-on-surface">田中 一郎</p>
+<p class="text-[10px] text-on-surface-variant">Senior Analyst</p>
+</div>
+<img alt="田中 一郎" class="w-10 h-10 rounded-full object-cover border-2 border-surface-container" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCnDit2AFfdf14SYlMYU2lZhGFczQn-pmoUEMZwWoFF-qpap9WGyu8cwZu3TjJR2X5tMV_sR7sdOmyD6QdH7qQMJnRHl4ecDK_HYatHPfr9OsxMGk54F-KBzes6W7dMAw3tZYC3sJFrygmaLylusIxQeN-irqZoizLj34OS5vyuD_WhxnB2aN4xISXclIdhHJV2_2B3_twh-9MR7alSzgadZDxt8gT3e-BBEIRGvDB8JgHSYFUqAJdNvRWl08qsRn3E_l7sY7SbWmAV"/>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-8 max-w-[1400px] mx-auto">
+<!-- Page Header -->
+<div class="mb-10 flex justify-between items-end">
+<div>
+<nav class="flex items-center gap-2 text-xs text-on-surface-variant mb-2">
+<span>競合LP分析</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-secondary font-medium">クリエイティブ・レビュー</span>
+</nav>
+<h2 class="text-3xl font-black tracking-tight text-primary-container leading-tight">
+                        Creative Review &amp; Scoring<br/>
+<span class="text-on-surface-variant font-medium text-lg tracking-normal">Project ID: LUX-2024-081</span>
+</h2>
+</div>
+<div class="flex gap-3">
+<button class="px-5 py-2.5 rounded-xl border border-outline-variant font-semibold text-sm hover:bg-surface-container transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">download</span>
+                        PDF書き出し
+                    </button>
+<button class="px-5 py-2.5 rounded-xl bg-secondary text-white font-semibold text-sm hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-secondary/20">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">bolt</span>
+                        AI再分析を実行
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Side: LP Preview -->
+<div class="col-span-12 lg:col-span-7 h-[850px] relative rounded-[16px] overflow-hidden shadow-2xl shadow-primary-container/5 group">
+<div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/40 z-10"></div>
+<div class="absolute top-6 left-6 z-20 flex gap-2">
+<span class="px-3 py-1 bg-white/90 backdrop-blur rounded-full text-[10px] font-bold tracking-widest text-primary uppercase shadow-sm">Analysis Target</span>
+<span class="px-3 py-1 bg-secondary/90 backdrop-blur rounded-full text-[10px] font-bold tracking-widest text-white uppercase shadow-sm">Luxury Cosmetics</span>
+</div>
+<img alt="Luxury Cosmetics LP Preview" class="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105" data-alt="Modern Japanese luxury cosmetic landing page design featuring minimalist white marble aesthetic with elegant serif typography and gold accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjfZXeKAtArnMf9SluFo6KLTBr6vDe8GIp8WA09OyrklpnrZwDem8XMAxvOpGR5RMuxDDJYMNadydanTKJ4ThXSBbFR1l_3JgqWbFDHOEfjlSXnLdPlkCCj__sk_uPX3YTFb_Vz_pychg2JQK_rXv4CXpK1EafvAPF8wfxBJ0N9_MX3NuYGS-PW-fYZfqb-M43ycp5G8REJf6RQIH1MM-GcQwQuPnh7zfEVnek2xn5xJore5_0MAQfFAGkrQiADq0eCoJKggiWEXGZ"/>
+<div class="absolute bottom-6 left-6 right-6 z-20 text-white flex justify-between items-center">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-3xl">open_in_full</span>
+<div>
+<p class="text-[10px] font-medium opacity-80">URL Source</p>
+<p class="text-sm font-bold">brand-luxury-beauty.jp/collection/premium</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Analytics Panel -->
+<div class="col-span-12 lg:col-span-5 flex flex-col gap-6">
+<!-- Radar Chart Card -->
+<div class="bg-surface-container-lowest p-8 rounded-[16px] shadow-md relative overflow-hidden">
+<div class="flex justify-between items-start mb-8">
+<div>
+<h3 class="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
+<p class="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
+</div>
+<div class="bg-primary-container text-white px-3 py-2 rounded-lg text-center min-w-[60px]">
+<p class="text-[10px] font-medium opacity-70">Total Score</p>
+<p class="text-xl font-black tabular-nums">84</p>
+</div>
+</div>
+<!-- Radar Chart Placeholder (Styled UI) -->
+<div class="relative w-64 h-64 mx-auto mb-6 flex items-center justify-center">
+<!-- Labels -->
+<div class="absolute -top-4 left-1/2 -translate-x-1/2 font-bold text-xs letter-spacing-jp">構成 (Composition)</div>
+<div class="absolute top-1/2 -right-10 -translate-y-1/2 font-bold text-xs letter-spacing-jp">デザイン (Design)</div>
+<div class="absolute -bottom-4 left-1/2 -translate-x-1/2 font-bold text-xs letter-spacing-jp">CTA</div>
+<div class="absolute top-1/2 -left-10 -translate-y-1/2 font-bold text-xs letter-spacing-jp">信頼性 (Trustworthiness)</div>
+<!-- Visualization -->
+<div class="w-full h-full border border-outline-variant/30 rotate-45 flex items-center justify-center p-8">
+<div class="w-full h-full border border-outline-variant/30 flex items-center justify-center p-8">
+<div class="w-full h-full border border-outline-variant/30"></div>
+</div>
+</div>
+<!-- Radar Data Shape -->
+<div class="absolute inset-0 flex items-center justify-center p-4">
+<div class="w-full h-full bg-[#D4A843]/20 border-2 border-[#D4A843]" style="clip-path: polygon(50% 10%, 90% 50%, 50% 85%, 15% 50%);"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-8">
+<div class="bg-surface p-3 rounded-xl">
+<p class="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Conversion rate est.</p>
+<p class="text-lg font-black tabular-nums text-primary">3.24%</p>
+</div>
+<div class="bg-surface p-3 rounded-xl">
+<p class="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Avg. Time on Page</p>
+<p class="text-lg font-black tabular-nums text-primary">02:45</p>
+</div>
+</div>
+</div>
+<!-- Analysis Reports Card -->
+<div class="bg-surface-container-lowest p-8 rounded-[16px] shadow-md flex-1">
+<h3 class="font-black text-xl text-primary tracking-tight mb-6">分析レポート</h3>
+<div class="space-y-6">
+<!-- Section: Layout -->
+<div class="group">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<h4 class="font-bold text-sm tracking-wide">レイアウト構造</h4>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant px-2 py-0.5 bg-surface rounded">Score: 9/10</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed letter-spacing-jp">
+                                    ファーストビューから商品ベネフィットへの遷移が非常にスムーズ。Zパターンを意識した視線誘導が確立されており、情報の優先順位が明確。
+                                </p>
+</div>
+<!-- Section: Visual Identity -->
+<div class="group">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<h4 class="font-bold text-sm tracking-wide">視覚的アイデンティティ</h4>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant px-2 py-0.5 bg-surface rounded">Score: 8/10</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed letter-spacing-jp">
+                                    高級感を演出する「引き算の美学」が徹底されている。配色比率（白80%, 黒15%, 金5%）が黄金比に近く、ターゲット層への心理的訴求力が高い。
+                                </p>
+</div>
+<!-- Section: Copywriting -->
+<div class="group">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<h4 class="font-bold text-sm tracking-wide">コピーライティング戦略</h4>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant px-2 py-0.5 bg-surface rounded">Score: 7/10</span>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed letter-spacing-jp">
+                                    ベネフィットの言語化は優れているが、クロージングコピーがやや弱い。「今選ぶ理由」の提示に改善の余地あり。
+                                </p>
+</div>
+</div>
+</div>
+<!-- Recommendation Card -->
+<div class="bg-surface-container-lowest p-6 rounded-[16px] shadow-md border-2 border-[#D4A843]/30 relative">
+<div class="absolute top-0 right-6 -translate-y-1/2 bg-[#D4A843] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-[#D4A843]/20">
+                            Professional Advice
+                        </div>
+<h4 class="font-bold text-sm mb-4 flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-[#D4A843] text-lg">workspace_premium</span>
+                            田中一郎への推奨事項
+                        </h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#D4A843] text-sm mt-0.5">check_circle</span>
+<p class="text-xs font-medium text-on-surface leading-tight">CTAボタン周辺に「限定感」を強調するマイクロコピーの追加。</p>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#D4A843] text-sm mt-0.5">check_circle</span>
+<p class="text-xs font-medium text-on-surface leading-tight">スマートフォン閲覧時の「追従バナー」の視認性向上（透明度調整）。</p>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-[#D4A843] text-sm mt-0.5">check_circle</span>
+<p class="text-xs font-medium text-on-surface leading-tight">30代後半〜40代を意識したフォントサイズへの一部拡張。</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual FAB (Suppressing as per mandate on Details/Analysis screens) -->
+<!-- Suppressed based on "Task-Focused / Analysis" sub-page logic -->
+</body></html>

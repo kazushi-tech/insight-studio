@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-bright": "#f8f9fa",
+              "surface-container-high": "#e7e8e9",
+              "inverse-surface": "#2e3132",
+              "on-primary-container": "#83829b",
+              "surface-container-highest": "#e1e3e4",
+              "background": "#f8f9fa",
+              "on-background": "#191c1d",
+              "on-tertiary-fixed": "#231b02",
+              "inverse-primary": "#c6c4df",
+              "surface-container-low": "#f3f4f5",
+              "on-secondary-container": "#755700",
+              "primary": "#00000b",
+              "surface": "#f8f9fa",
+              "surface-container": "#edeeef",
+              "secondary": "#795900",
+              "error-container": "#ffdad6",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#c6c4df",
+              "tertiary-fixed-dim": "#d5c59d",
+              "surface-dim": "#d9dadb",
+              "tertiary-fixed": "#f2e1b7",
+              "on-primary-fixed-variant": "#45455b",
+              "tertiary-container": "#b9aa83",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed": "#261a00",
+              "secondary-fixed": "#ffdf9f",
+              "primary-container": "#1a1a2e",
+              "on-primary-fixed": "#1a1a2e",
+              "surface-tint": "#5d5c74",
+              "surface-container-lowest": "#ffffff",
+              "inverse-on-surface": "#f0f1f2",
+              "outline-variant": "#c8c5cd",
+              "tertiary": "#695d3c",
+              "on-tertiary-container": "#493f20",
+              "on-surface-variant": "#47464c",
+              "on-secondary": "#ffffff",
+              "primary-fixed": "#e2e0fc",
+              "on-secondary-fixed-variant": "#5b4300",
+              "secondary-container": "#fece65",
+              "outline": "#78767d",
+              "on-primary": "#ffffff",
+              "on-error-container": "#93000a",
+              "on-surface": "#191c1d",
+              "error": "#ba1a1a",
+              "secondary-fixed-dim": "#eec058",
+              "on-tertiary-fixed-variant": "#514627",
+              "surface-variant": "#e1e3e4"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Manrope', sans-serif; letter-spacing: 0.02em; }
+        .japanese-text { letter-spacing: 0.05em; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface antialiased">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full z-40 py-6 w-[240px] bg-slate-50 dark:bg-slate-900 border-none font-manrope text-sm antialiased tracking-wide">
+<div class="px-6 mb-10">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xl font-bold text-[#1A1A2E] dark:text-white tracking-tighter">Insight Studio</span>
+</div>
+<p class="text-[10px] text-on-surface-variant opacity-70">Ad Ops &amp; Analysis</p>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>ダッシュボード</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span>競合LP分析</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span>広告考察</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#1A1A2E] dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="assessment">assessment</span>
+<span>レポート</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-[#D4A843] border-l-4 border-[#D4A843] bg-white dark:bg-slate-800 font-bold" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>設定</span>
+</a>
+</nav>
+<div class="mt-auto px-4 pt-10">
+<button class="w-full py-3 px-4 bg-primary text-on-primary rounded-xl text-xs font-bold transition-transform active:scale-95">
+                新規プロジェクト
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-[240px] min-h-screen">
+<!-- TopAppBar -->
+<header class="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-64 group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-full text-sm focus:ring-2 focus:ring-[#D4A843]/40 transition-all" placeholder="設定を検索..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-on-surface-variant hover:text-[#D4A843] transition-colors">
+<span class="material-symbols-outlined" data-icon="light_mode">light_mode</span>
+</button>
+<button class="text-on-surface-variant hover:text-[#D4A843] transition-colors relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-secondary rounded-full"></span>
+</button>
+<div class="flex items-center gap-3 pl-4 border-l border-outline-variant/30">
+<div class="text-right">
+<p class="text-xs font-bold leading-none">田中 一郎</p>
+<p class="text-[10px] text-on-surface-variant leading-none mt-1">Senior Manager</p>
+</div>
+<img alt="田中 一郎" class="w-8 h-8 rounded-full object-cover" data-alt="professional headshot of a middle-aged Japanese businessman in a tailored navy suit with a clean office background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpHxAY-qipj0XVrkJ0OhNaaw8OzTEbX-4QWM0kOJSZNUBLwggSD9kW1JoY7G456wcrxvA3RhEGRTbzuaX-aV5DDcAtMOeEO-aNGpIXHc-LfH8pAc89VVQTMKqvK_PVxMZv13VQj_jGjZhpoANPc7UPU4OoBQivMtTNh7y9pOzEpoyd6CFIEy7_3IyCzeAxlgnD08RkdEkc_LYzpTQBNGYRdzKo1hTfdGvztOaVSVplQyT7FPNFKsM4diyrw8nr_HFc7QfSEIT4Kl9M"/>
+</div>
+</div>
+</header>
+<!-- Editorial Content Area -->
+<div class="p-12 max-w-7xl mx-auto">
+<div class="mb-12">
+<h1 class="text-4xl font-black text-primary tracking-tight mb-2 japanese-text">設定 &amp; レポート管理</h1>
+<p class="text-on-surface-variant japanese-text">システム環境設定と生成済みレポートの履歴を確認できます。</p>
+</div>
+<div class="grid grid-cols-12 gap-8">
+<!-- Left Column: Settings & Profile -->
+<div class="col-span-12 lg:col-span-7 flex flex-col gap-8">
+<!-- Admin Profile Section -->
+<section class="bg-surface-container-lowest rounded-[16px] p-8 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)]">
+<h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="person">person</span>
+                            管理者プロフィール
+                        </h2>
+<div class="flex items-start gap-8">
+<div class="relative group">
+<img alt="田中 一郎" class="w-24 h-24 rounded-2xl object-cover shadow-sm" data-alt="close-up of a professional Japanese executive in a formal suit with soft natural lighting and minimalist background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDTA4W2-U6kKB1GN5kqClgZDmUnKc6G6WumLgwmkj9OQLJG86DBIGKv7hhbOq2V2Vy87T2gyL1Y3tRP7lfeCJYmBAChmJS504NqZilUGMV2Cu2blBSVE8gzSskspPAnAiuJzoLndlYet0dC5STYdlwov2qzgLepInz2t7JSvkVdULYuCR5c17rAFgOPmYJkSPGVkYuQxXVJXw1doDZwwksDhitotZPQHgZzKfcdcM4QAJTcCCvsXLEl4Hj1X8Ph7nq2hLjKBYTQ-Fgi"/>
+<button class="absolute -bottom-2 -right-2 bg-white p-1.5 rounded-full shadow-md text-on-surface-variant hover:text-secondary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+<div class="flex-1 grid grid-cols-2 gap-6">
+<div>
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">氏名</label>
+<p class="text-lg font-bold">田中 一郎</p>
+</div>
+<div>
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">役職</label>
+<p class="text-lg font-bold">Senior Manager</p>
+</div>
+<div class="col-span-2">
+<label class="block text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">メールアドレス</label>
+<p class="text-on-surface">ichiro.tanaka@insight-studio.jp</p>
+</div>
+</div>
+</div>
+</section>
+<!-- System Preferences -->
+<section class="bg-surface-container-lowest rounded-[16px] p-8 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)]">
+<h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="tune">tune</span>
+                            システム環境設定
+                        </h2>
+<div class="space-y-6">
+<div class="flex items-center justify-between py-2">
+<div>
+<p class="font-bold japanese-text">自動アーカイブ</p>
+<p class="text-xs text-on-surface-variant mt-0.5">30日以上経過したレポートを自動的にアーカイブします。</p>
+</div>
+<button class="w-12 h-6 bg-secondary rounded-full relative transition-colors">
+<span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></span>
+</button>
+</div>
+<div class="flex items-center justify-between py-2 border-t border-surface-container">
+<div>
+<p class="font-bold japanese-text">通知設定</p>
+<p class="text-xs text-on-surface-variant mt-0.5">分析完了時にメール通知を受け取ります。</p>
+</div>
+<button class="w-12 h-6 bg-secondary rounded-full relative transition-colors">
+<span class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></span>
+</button>
+</div>
+<div class="flex items-center justify-between py-2 border-t border-surface-container">
+<div>
+<p class="font-bold japanese-text">データ連携</p>
+<p class="text-xs text-on-surface-variant mt-0.5">外部広告プラットフォームとのAPI連携を許可します。</p>
+</div>
+<button class="w-12 h-6 bg-surface-container-high rounded-full relative transition-colors">
+<span class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></span>
+</button>
+</div>
+</div>
+</section>
+<!-- Security Section -->
+<section class="bg-surface-container-lowest rounded-[16px] p-8 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)]">
+<h2 class="text-lg font-bold mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="security">security</span>
+                            セキュリティ
+                        </h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl bg-surface border-none flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="database">storage</span>
+</div>
+<div>
+<p class="text-xs font-bold text-on-surface-variant">BigQuery連携設定</p>
+<p class="text-sm font-bold text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="check_circle">check_circle</span>
+                                        Connected
+                                    </p>
+</div>
+</div>
+<div class="p-4 rounded-xl bg-surface border-none flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-xl" data-icon="verified_user">verified_user</span>
+</div>
+<div>
+<p class="text-xs font-bold text-on-surface-variant">二要素認証</p>
+<p class="text-sm font-bold text-secondary flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="verified">verified</span>
+                                        Active
+                                    </p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: Report History -->
+<div class="col-span-12 lg:col-span-5">
+<section class="bg-surface-container-lowest rounded-[16px] p-8 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] sticky top-24">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-lg font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" data-icon="history">history</span>
+                                レポート履歴
+                            </h2>
+<button class="text-xs text-on-surface-variant hover:text-secondary transition-colors font-bold">すべて見る</button>
+</div>
+<div class="space-y-4">
+<!-- Report Item 1 -->
+<div class="group p-4 rounded-xl border border-transparent hover:bg-surface transition-all">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 bg-surface-container flex items-center justify-center rounded-lg text-secondary">
+<span class="material-symbols-outlined text-2xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-sm mb-1 group-hover:text-secondary transition-colors">Q4 競合分析レポート</p>
+<span class="text-[10px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded uppercase font-bold">pdf</span>
+</div>
+<p class="text-xs text-on-surface-variant">生成日: 2023.12.28 | 12.4 MB</p>
+<div class="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-[10px] font-bold px-3 py-1 bg-primary text-on-primary rounded-md">ダウンロード</button>
+<button class="text-[10px] font-bold px-3 py-1 bg-surface-container-high rounded-md">表示</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Report Item 2 -->
+<div class="group p-4 rounded-xl border border-transparent hover:bg-surface transition-all">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 bg-surface-container flex items-center justify-center rounded-lg text-secondary">
+<span class="material-symbols-outlined text-2xl" data-icon="description">description</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-sm mb-1 group-hover:text-secondary transition-colors">広告運用パフォーマンス月報</p>
+<span class="text-[10px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded uppercase font-bold">xlsx</span>
+</div>
+<p class="text-xs text-on-surface-variant">生成日: 2023.12.01 | 4.2 MB</p>
+<div class="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-[10px] font-bold px-3 py-1 bg-primary text-on-primary rounded-md">ダウンロード</button>
+<button class="text-[10px] font-bold px-3 py-1 bg-surface-container-high rounded-md">表示</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Report Item 3 -->
+<div class="group p-4 rounded-xl border border-transparent hover:bg-surface transition-all">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 bg-surface-container flex items-center justify-center rounded-lg text-secondary">
+<span class="material-symbols-outlined text-2xl" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<p class="font-bold text-sm mb-1 group-hover:text-secondary transition-colors">LP改善案サマリー</p>
+<span class="text-[10px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded uppercase font-bold">pdf</span>
+</div>
+<p class="text-xs text-on-surface-variant">生成日: 2023.11.15 | 8.7 MB</p>
+<div class="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="text-[10px] font-bold px-3 py-1 bg-primary text-on-primary rounded-md">ダウンロード</button>
+<button class="text-[10px] font-bold px-3 py-1 bg-surface-container-high rounded-md">表示</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-8 border-t border-surface-container">
+<div class="p-4 rounded-xl bg-secondary/5 border border-secondary/10">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-secondary" data-icon="cloud_done">cloud_done</span>
+<p class="text-xs font-bold text-secondary">ストレージ使用状況</p>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[65%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] text-on-surface-variant font-bold">
+<span>6.5 GB 使用済み</span>
+<span>10 GB 利用可能</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Bottom Action Footer -->
+<div class="mt-12 flex justify-end gap-4">
+<button class="px-8 py-3 rounded-xl font-bold text-on-surface-variant hover:bg-surface-container-high transition-all">キャンセル</button>
+<button class="px-10 py-3 rounded-xl font-bold bg-primary text-on-primary shadow-lg shadow-primary/10 transition-transform active:scale-95 japanese-text">設定保存</button>
+</div>
+</div>
+</main>
+</body></html>
