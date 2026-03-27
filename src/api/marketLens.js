@@ -27,8 +27,11 @@ function buildErrorMessage(path, status, body) {
     if (status === 404) return detail || '競合サイトが見つかりませんでした。別のURLで試してください。'
     if (status === 422) return detail || 'URLの形式が正しくありません。'
     if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
+    if (status === 500 && stageLabel) return `${stageLabel}でサーバーエラーが発生しました。しばらく待って再試行してください。`
+    if (status === 500) return detail || 'バックエンドでサーバーエラーが発生しました。対象サイトの構造が複雑か、一時的な負荷の可能性があります。しばらく待って再試行してください。'
     if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${detail}`
     if (status === 502) return detail || '競合分析パイプラインでエラーが発生しました。'
+    if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
     if (detail) return detail
     return `Discovery API error: ${status}`
   }
@@ -51,6 +54,9 @@ function buildErrorMessage(path, status, body) {
     if (path.includes('/generation')) return 'バナー生成リクエストが不正です。先にレビューを完了してください。'
     return 'リクエストの形式が正しくありません。入力内容を確認してください。'
   }
+
+  if (status === 500) return detail || 'バックエンドでサーバーエラーが発生しました。しばらく待って再試行してください。'
+  if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
 
   return `Market Lens API error: ${status}`
 }
