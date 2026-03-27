@@ -55,6 +55,12 @@ function computeAxes(rubricScores) {
   return { axes, totalScore }
 }
 
+function ScoreColor({ score }) {
+  if (score >= 4) return 'text-emerald-600'
+  if (score >= 3) return 'text-amber-600'
+  return 'text-rose-500'
+}
+
 export default function PerformanceRadar({ rubricScores }) {
   const computed = computeAxes(rubricScores)
   if (!computed) return null
@@ -62,98 +68,109 @@ export default function PerformanceRadar({ rubricScores }) {
   const { axes, totalScore } = computed
 
   // Convert axis values (0-5) to percentages (0-100) for polygon positioning
-  // top = composition, right = design, bottom = cta, left = trust
-  const topPct = (axes.composition / 5) * 40     // max 40% from center
+  const topPct = (axes.composition / 5) * 40
   const rightPct = (axes.design / 5) * 40
   const bottomPct = (axes.cta / 5) * 40
   const leftPct = (axes.trust / 5) * 40
 
   const clipPath = `polygon(50% ${50 - topPct}%, ${50 + rightPct}% 50%, 50% ${50 + bottomPct}%, ${50 - leftPct}% 50%)`
 
+  const totalColor = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+
   return (
     <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] relative overflow-hidden">
       {/* Header */}
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
           <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
         </div>
-        <div className="bg-primary-container text-white px-3 py-2 rounded-lg text-center min-w-[60px]">
-          <p className="text-[10px] font-medium opacity-70">Total Score</p>
-          <p className="text-xl font-black tabular-nums">{totalScore}</p>
+        <div className={`${totalColor} text-white px-4 py-2.5 rounded-xl text-center min-w-[72px]`}>
+          <p className="text-[10px] font-medium opacity-80">Total Score</p>
+          <p className="text-2xl font-black tabular-nums leading-tight">{totalScore}</p>
         </div>
       </div>
 
-      {/* Diamond Visualization */}
-      <div className="relative w-64 h-64 mx-auto mb-6 flex items-center justify-center">
-        {/* Axis Labels */}
-        <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-center">
-          <span className="font-bold text-xs text-on-surface">
-            {AXIS_GROUPS.composition.label}
-          </span>
-          <span className="text-[10px] text-on-surface-variant ml-1">
-            ({AXIS_GROUPS.composition.sublabel})
-          </span>
-        </div>
-        <div className="absolute top-1/2 -right-12 -translate-y-1/2 text-center">
-          <span className="font-bold text-xs text-on-surface">
-            {AXIS_GROUPS.design.label}
-          </span>
-          <span className="text-[10px] text-on-surface-variant ml-1">
-            ({AXIS_GROUPS.design.sublabel})
-          </span>
-        </div>
-        <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 font-bold text-xs text-on-surface">
-          {AXIS_GROUPS.cta.label}
-        </div>
-        <div className="absolute top-1/2 -left-12 -translate-y-1/2 text-center">
-          <span className="font-bold text-xs text-on-surface">
-            {AXIS_GROUPS.trust.label}
-          </span>
-          <span className="text-[10px] text-on-surface-variant ml-1">
-            ({AXIS_GROUPS.trust.sublabel})
-          </span>
-        </div>
+      {/* Main layout: Radar + Score cards side by side */}
+      <div className="flex items-start gap-8">
+        {/* Diamond Visualization */}
+        <div className="relative w-72 h-72 mx-auto flex-shrink-0 flex items-center justify-center">
+          {/* Axis Labels with scores */}
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-center">
+            <div className={`text-lg font-black tabular-nums ${ScoreColor({ score: axes.composition })}`}>
+              {axes.composition.toFixed(1)}
+            </div>
+            <span className="font-bold text-xs text-on-surface">構成</span>
+          </div>
+          <div className="absolute top-1/2 -right-16 -translate-y-1/2 text-center">
+            <div className={`text-lg font-black tabular-nums ${ScoreColor({ score: axes.design })}`}>
+              {axes.design.toFixed(1)}
+            </div>
+            <span className="font-bold text-xs text-on-surface">デザイン</span>
+          </div>
+          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-center">
+            <span className="font-bold text-xs text-on-surface">CTA</span>
+            <div className={`text-lg font-black tabular-nums ${ScoreColor({ score: axes.cta })}`}>
+              {axes.cta.toFixed(1)}
+            </div>
+          </div>
+          <div className="absolute top-1/2 -left-14 -translate-y-1/2 text-center">
+            <div className={`text-lg font-black tabular-nums ${ScoreColor({ score: axes.trust })}`}>
+              {axes.trust.toFixed(1)}
+            </div>
+            <span className="font-bold text-xs text-on-surface">信頼性</span>
+          </div>
 
-        {/* 3-layer concentric diamond grid */}
-        <div className="w-full h-full border border-outline-variant/30 rotate-45 flex items-center justify-center p-8">
-          <div className="w-full h-full border border-outline-variant/30 flex items-center justify-center p-8">
-            <div className="w-full h-full border border-outline-variant/30" />
+          {/* 3-layer concentric diamond grid */}
+          <div className="w-full h-full border border-outline-variant/30 rotate-45 flex items-center justify-center p-8">
+            <div className="w-full h-full border border-outline-variant/30 flex items-center justify-center p-8">
+              <div className="w-full h-full border border-outline-variant/30" />
+            </div>
+          </div>
+
+          {/* Data shape overlay */}
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div
+              className="w-full h-full bg-[#D4A843]/20 border-2 border-[#D4A843]"
+              style={{ clipPath }}
+            />
           </div>
         </div>
 
-        {/* Data shape overlay */}
-        <div className="absolute inset-0 flex items-center justify-center p-4">
-          <div
-            className="w-full h-full bg-[#D4A843]/20 border-2 border-[#D4A843]"
-            style={{ clipPath }}
-          />
-        </div>
+        {/* Score breakdown cards */}
+        <div className="flex-1 grid grid-cols-2 gap-3 min-w-0">
+          {AXIS_ORDER.map((key) => {
+            const group = AXIS_GROUPS[key]
+            const score = axes[key]
+            const pct = (score / 5) * 100
+            const barColor = score >= 4 ? 'bg-emerald-500' : score >= 3 ? 'bg-amber-400' : 'bg-rose-400'
+            return (
+              <div key={key} className="bg-surface-container/50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-on-surface japanese-text">{group.label}</span>
+                  <span className={`text-base font-black tabular-nums ${ScoreColor({ score })}`}>
+                    {score.toFixed(1)}<span className="text-on-surface-variant font-normal text-[10px]">/5</span>
+                  </span>
+                </div>
+                <div className="h-2 bg-surface-container rounded-full overflow-hidden">
+                  <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                </div>
+                {group.sublabel && (
+                  <p className="text-[10px] text-on-surface-variant mt-1.5">{group.sublabel}</p>
+                )}
+              </div>
+            )
+          })}
 
-        {/* Axis score badges */}
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full text-[10px] font-black text-secondary tabular-nums mt-[-4px]">
-          {axes.composition.toFixed(1)}
-        </div>
-        <div className="absolute top-1/2 -right-1 translate-x-full -translate-y-1/2 text-[10px] font-black text-secondary tabular-nums ml-1">
-          {axes.design.toFixed(1)}
-        </div>
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 translate-y-full text-[10px] font-black text-secondary tabular-nums mt-1">
-          {axes.cta.toFixed(1)}
-        </div>
-        <div className="absolute top-1/2 -left-1 -translate-x-full -translate-y-1/2 text-[10px] font-black text-secondary tabular-nums mr-1">
-          {axes.trust.toFixed(1)}
-        </div>
-      </div>
-
-      {/* Bottom metric cards */}
-      <div className="grid grid-cols-2 gap-4 mt-8">
-        <div className="bg-surface p-3 rounded-xl">
-          <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Conversion rate est.</p>
-          <p className="text-lg font-black tabular-nums text-primary">—</p>
-        </div>
-        <div className="bg-surface p-3 rounded-xl">
-          <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Avg. Time on Page</p>
-          <p className="text-lg font-black tabular-nums text-primary">—</p>
+          {/* Estimation cards */}
+          <div className="bg-surface-container/50 rounded-xl p-4">
+            <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Conversion Rate Est.</p>
+            <p className="text-base font-black tabular-nums text-primary">—</p>
+          </div>
+          <div className="bg-surface-container/50 rounded-xl p-4">
+            <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Avg. Time on Page</p>
+            <p className="text-base font-black tabular-nums text-primary">—</p>
+          </div>
         </div>
       </div>
     </div>
