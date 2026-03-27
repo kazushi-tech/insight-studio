@@ -7,7 +7,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import {
   buildAiChartContext,
-  getChartPeriodTags,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
@@ -121,10 +120,6 @@ export default function AiExplorer() {
 
   const chartContext = useMemo(
     () => buildAiChartContext(reportBundle?.chartGroups ?? []),
-    [reportBundle?.chartGroups],
-  )
-  const periodTags = useMemo(
-    () => getChartPeriodTags(reportBundle?.chartGroups ?? []),
     [reportBundle?.chartGroups],
   )
 
@@ -381,7 +376,7 @@ export default function AiExplorer() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-10 py-6 space-y-6" aria-live="polite">
+      <div className="flex-1 overflow-y-auto px-10 pt-3 pb-6 space-y-6" aria-live="polite">
         {messages.length === 0 && (
           <div className="text-center py-20 text-on-surface-variant">
             <span className="material-symbols-outlined text-6xl text-outline-variant mb-4 block">smart_toy</span>
