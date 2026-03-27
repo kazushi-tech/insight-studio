@@ -6,6 +6,7 @@ const LONG_ANALYSIS_TIMEOUT = 180000
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
 const STORAGE_KEY_MARKET_LENS_PROFILE_ID = 'insight-studio-market-lens-profile-id'
+const STORAGE_KEY_MARKET_LENS_SCAN_HISTORY_PREFIX = 'insight-studio-market-lens-scan-history'
 
 const DISCOVERY_STAGE_LABELS = {
   brand_fetch: 'ブランドURL取得',
@@ -83,16 +84,57 @@ function ensureMarketLensProfileId() {
   return profileId
 }
 
-async function resolveInsightUserHeader() {
-  if (typeof window === 'undefined') return {}
+function getCurrentHistoryScope() {
+  if (typeof window === 'undefined') return ''
 
   const profileId = ensureMarketLensProfileId()
   const adsToken = window.localStorage.getItem(STORAGE_KEY_ADS_TOKEN)
   if (adsToken) {
-    return { 'X-Insight-User': `auth:${profileId}` }
+    return `auth:${profileId}`
   }
 
-  return { 'X-Insight-User': `guest:${profileId}` }
+  return `guest:${profileId}`
+}
+
+function getTrackedScanStorageKey() {
+  return `${STORAGE_KEY_MARKET_LENS_SCAN_HISTORY_PREFIX}:${getCurrentHistoryScope()}`
+}
+
+function loadTrackedScanIds() {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(getTrackedScanStorageKey()) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((value) => typeof value === 'string' && value.trim()) : []
+  } catch {
+    return []
+  }
+}
+
+function saveTrackedScanIds(runIds) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(getTrackedScanStorageKey(), JSON.stringify(runIds.slice(0, 50)))
+}
+
+function rememberTrackedScan(runId) {
+  if (!runId || typeof window === 'undefined') return
+
+  const nextIds = [runId, ...loadTrackedScanIds().filter((value) => value !== runId)]
+  saveTrackedScanIds(nextIds)
+}
+
+function filterTrackedScans(items) {
+  if (!Array.isArray(items)) return []
+
+  const trackedIds = new Set(loadTrackedScanIds())
+  if (trackedIds.size === 0) return []
+
+  return items.filter((item) => trackedIds.has(item?.run_id || item?.id))
+}
+
+async function resolveInsightUserHeader() {
+  const scope = getCurrentHistoryScope()
+  return scope ? { 'X-Insight-User': scope } : {}
 }
 
 async function buildRequestHeaders(customHeaders = {}) {
@@ -202,6 +244,9 @@ export function scan(urls, apiKey) {
     method: 'POST',
     body: JSON.stringify({ urls, api_key: apiKey }),
     timeout: LONG_ANALYSIS_TIMEOUT,
+  }).then((data) => {
+    rememberTrackedScan(data?.run_id)
+    return data
   })
 }
 
@@ -215,8 +260,16 @@ export function discoveryAnalyze(url, apiKey) {
 }
 
 /** GET /api/scans — スキャン履歴 */
-export function getScans() {
-  return requestJson('/scans')
+export async function getScans() {
+  const data = await requestJson('/scans')
+  const items = data?.scans ?? data?.history ?? data?.results ?? (Array.isArray(data) ? data : [])
+  const filteredItems = filterTrackedScans(items)
+
+  if (Array.isArray(data)) return filteredItems
+  if (Array.isArray(data?.scans)) return { ...data, scans: filteredItems }
+  if (Array.isArray(data?.history)) return { ...data, history: filteredItems }
+  if (Array.isArray(data?.results)) return { ...data, results: filteredItems }
+  return filteredItems
 }
 
 /** GET /api/health */
