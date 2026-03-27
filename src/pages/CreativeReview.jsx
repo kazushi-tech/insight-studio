@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { useAuth } from '../contexts/AuthContext'
+import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import {
   uploadCreativeAsset,
@@ -44,179 +45,326 @@ const RUBRIC_LABEL_MAP = {
   story_consistency: 'ストーリー一貫性',
 }
 
-function escMd(value) {
-  if (value == null) return ''
-  return String(value).trim().replace(/\\/g, '\\\\').replace(/([#[\]*_`])/g, '\\$1')
+// ─── Section-aware Review Blocks ───
+
+function SectionCard({ icon, title, badge, badgeColor, borderColor, bgColor, children }) {
+  return (
+    <div className={`rounded-2xl border ${borderColor || 'border-outline-variant/15'} ${bgColor || 'bg-surface-container-lowest'} p-6 space-y-3`}>
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined text-lg" style={{ color: 'inherit' }}>{icon}</span>
+        <h4 className="text-base font-bold japanese-text text-on-surface">{title}</h4>
+        {badge && (
+          <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor || 'bg-slate-100 text-slate-600'}`}>
+            {badge}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  )
 }
 
-function escTableCell(value) {
-  const text = escMd(value).replace(/\|/g, '\\|').replace(/\r?\n+/g, ' ')
-  return text || '-'
+function SummarySection({ review, size }) {
+  const text = review?.summary
+  if (!text) return null
+  return (
+    <SectionCard icon="summarize" title="要約" borderColor="border-slate-200" bgColor="bg-slate-50/50">
+      <MarkdownRenderer content={text} size={size} />
+    </SectionCard>
+  )
 }
 
-function buildBullets(items, formatter) {
-  if (!Array.isArray(items) || items.length === 0) return ''
-  return items.map(formatter).join('\n')
+function NeutralInfoSection({ review, size }) {
+  const parts = []
+  if (review?.product_identification) parts.push(`### 製品特定\n${review.product_identification}`)
+  if (review?.target_hypothesis) parts.push(`### ターゲット仮説\n${review.target_hypothesis}`)
+  if (review?.message_angle) parts.push(`### メッセージ角度\n${review.message_angle}`)
+  if (parts.length === 0) return null
+
+  return (
+    <SectionCard icon="info" title="基本情報" borderColor="border-slate-200" bgColor="bg-white">
+      <MarkdownRenderer content={parts.join('\n\n')} size={size} />
+    </SectionCard>
+  )
 }
 
-function buildTable(headers, rows, alignments = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return ''
+function GoodPointsSection({ review, size }) {
+  const items = [...(review?.good_points || []), ...(review?.keep_as_is || [])]
+  if (items.length === 0) return null
 
-  const divider = headers.map((_, index) => {
-    const align = alignments[index]
-    if (align === 'right') return '---:'
-    if (align === 'center') return ':---:'
-    return '---'
-  })
+  const md = items
+    .map(({ point, reason }) => `- **${point}**\n  ${reason}`)
+    .join('\n')
 
-  return [
-    `| ${headers.join(' | ')} |`,
-    `| ${divider.join(' | ')} |`,
-    ...rows.map((row) => `| ${row.join(' | ')} |`),
+  return (
+    <SectionCard
+      icon="thumb_up"
+      title="良い点・維持すべき点"
+      badge={`${items.length} 件`}
+      badgeColor="bg-emerald-100 text-emerald-700"
+      borderColor="border-emerald-200"
+      bgColor="bg-emerald-50/40"
+    >
+      <div className="text-emerald-900">
+        <MarkdownRenderer content={md} size={size} />
+      </div>
+    </SectionCard>
+  )
+}
+
+function ImprovementsSection({ review, size }) {
+  const items = review?.improvements
+  if (!Array.isArray(items) || items.length === 0) return null
+
+  const md = items
+    .map(({ point, reason, action }, i) =>
+      `${i + 1}. **${point}**\n   - 背景: ${reason}\n   - 対応: ${action}`)
+    .join('\n')
+
+  return (
+    <SectionCard
+      icon="build"
+      title="改善提案"
+      badge={`${items.length} 件`}
+      badgeColor="bg-amber-100 text-amber-700"
+      borderColor="border-amber-200"
+      bgColor="bg-amber-50/40"
+    >
+      <div className="text-amber-900">
+        <MarkdownRenderer content={md} size={size} />
+      </div>
+    </SectionCard>
+  )
+}
+
+function TestIdeasSection({ review, size }) {
+  const items = review?.test_ideas
+  if (!Array.isArray(items) || items.length === 0) return null
+
+  const md = [
+    '| 仮説 | 変更変数 | 期待効果 |',
+    '| --- | --- | --- |',
+    ...items.map((item) =>
+      `| ${esc(item.hypothesis)} | ${esc(item.variable)} | ${esc(item.expected_impact)} |`
+    ),
   ].join('\n')
+
+  return (
+    <SectionCard
+      icon="science"
+      title="テストアイデア"
+      badge={`${items.length} 件`}
+      badgeColor="bg-rose-100 text-rose-700"
+      borderColor="border-rose-200"
+      bgColor="bg-rose-50/30"
+    >
+      <MarkdownRenderer content={md} size={size} />
+    </SectionCard>
+  )
 }
 
-function buildReviewMarkdown(review) {
-  if (!review) return ''
-  if (typeof review === 'string') return review
+function EvidenceSection({ review, size }) {
+  const items = review?.evidence
+  if (!Array.isArray(items) || items.length === 0) return null
 
-  const sections = []
+  const md = [
+    '| 種別 | 出典 | 観察内容 |',
+    '| --- | --- | --- |',
+    ...items.map((item) =>
+      `| ${esc(item.evidence_type)} | ${esc(item.evidence_source)} | ${esc(item.evidence_text)} |`
+    ),
+  ].join('\n')
 
-  if (review.summary) {
-    sections.push(`## 要約\n${escMd(review.summary)}`)
-  }
-
-  if (review.product_identification) {
-    sections.push(`## 製品特定\n${escMd(review.product_identification)}`)
-  }
-
-  if (review.target_hypothesis) {
-    sections.push(`## ターゲット仮説\n${escMd(review.target_hypothesis)}`)
-  }
-
-  if (review.message_angle) {
-    sections.push(`## メッセージ角度\n${escMd(review.message_angle)}`)
-  }
-
-  const goodPoints = buildBullets(
-    review.good_points,
-    ({ point, reason }) => `- **${escMd(point)}**\n  ${escMd(reason)}`,
+  return (
+    <SectionCard icon="fact_check" title="エビデンス" borderColor="border-slate-200" bgColor="bg-white">
+      <MarkdownRenderer content={md} size={size} />
+    </SectionCard>
   )
-  if (goodPoints) {
-    sections.push(`## 良い点\n${goodPoints}`)
-  }
-
-  const keepAsIs = buildBullets(
-    review.keep_as_is,
-    ({ point, reason }) => `- **${escMd(point)}**\n  ${escMd(reason)}`,
-  )
-  if (keepAsIs) {
-    sections.push(`## 現状維持\n${keepAsIs}`)
-  }
-
-  const improvements = buildBullets(
-    review.improvements,
-    ({ point, reason, action }, index) =>
-      `${index + 1}. **${escMd(point)}**\n   - 背景: ${escMd(reason)}\n   - 対応: ${escMd(action)}`,
-  )
-  if (improvements) {
-    sections.push(`## 改善提案\n${improvements}`)
-  }
-
-  const testIdeas = buildTable(
-    ['仮説', '変更変数', '期待効果'],
-    Array.isArray(review.test_ideas)
-      ? review.test_ideas.map((item) => [
-          escTableCell(item.hypothesis),
-          escTableCell(item.variable),
-          escTableCell(item.expected_impact),
-        ])
-      : [],
-  )
-  if (testIdeas) {
-    sections.push(`## テストアイデア\n${testIdeas}`)
-  }
-
-  const evidence = buildTable(
-    ['種別', '出典', '観察内容'],
-    Array.isArray(review.evidence)
-      ? review.evidence.map((item) => [
-          escTableCell(item.evidence_type),
-          escTableCell(item.evidence_source),
-          escTableCell(item.evidence_text),
-        ])
-      : [],
-  )
-  if (evidence) {
-    sections.push(`## エビデンス\n${evidence}`)
-  }
-
-  const rubricScores = buildTable(
-    ['評価軸', 'スコア', 'コメント'],
-    Array.isArray(review.rubric_scores)
-      ? review.rubric_scores.map((item) => [
-          escTableCell(RUBRIC_LABEL_MAP[item.rubric_id] || item.rubric_id),
-          escTableCell(`${item.score} / 5`),
-          escTableCell(item.comment),
-        ])
-      : [],
-    ['left', 'right', 'left'],
-  )
-  if (rubricScores) {
-    sections.push(`## ルーブリック評価\n${rubricScores}`)
-  }
-
-  const positioningInsights = buildTable(
-    ['観点', '自社', '競合', '示唆'],
-    Array.isArray(review.positioning_insights)
-      ? review.positioning_insights.map((item) => [
-          escTableCell(item.dimension),
-          escTableCell(item.our_position),
-          escTableCell(item.competitor_position),
-          escTableCell(`${item.gap_analysis} / ${item.recommendation}`),
-        ])
-      : [],
-  )
-  if (positioningInsights) {
-    sections.push(`## ポジショニング分析\n${positioningInsights}`)
-  }
-
-  if (review.markdown && sections.length === 0) {
-    return review.markdown
-  }
-
-  return sections.join('\n\n')
 }
+
+function RubricSection({ review }) {
+  const items = review?.rubric_scores
+  if (!Array.isArray(items) || items.length === 0) return null
+
+  const avgScore = items.length > 0
+    ? (items.reduce((sum, item) => sum + (item.score || 0), 0) / items.length).toFixed(1)
+    : null
+
+  return (
+    <SectionCard
+      icon="analytics"
+      title="ルーブリック評価"
+      badge={avgScore ? `平均 ${avgScore} / 5` : null}
+      badgeColor="bg-secondary/10 text-secondary"
+      borderColor="border-secondary/20"
+      bgColor="bg-surface-container-lowest"
+    >
+      <div className="grid grid-cols-2 gap-3">
+        {items.map((item) => {
+          const label = RUBRIC_LABEL_MAP[item.rubric_id] || item.rubric_id
+          const score = item.score || 0
+          const pct = (score / 5) * 100
+          const barColor = score >= 4 ? 'bg-emerald-500' : score >= 3 ? 'bg-amber-400' : 'bg-rose-400'
+          return (
+            <div key={item.rubric_id} className="bg-surface-container/40 rounded-xl px-4 py-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-on-surface japanese-text">{label}</span>
+                <span className="text-sm font-black tabular-nums text-on-surface">{score}<span className="text-on-surface-variant font-normal text-xs">/5</span></span>
+              </div>
+              <div className="h-1.5 bg-surface-container rounded-full overflow-hidden">
+                <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+              </div>
+              {item.comment && <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">{item.comment}</p>}
+            </div>
+          )
+        })}
+      </div>
+    </SectionCard>
+  )
+}
+
+function PositioningSection({ review, size }) {
+  const items = review?.positioning_insights
+  if (!Array.isArray(items) || items.length === 0) return null
+
+  const md = [
+    '| 観点 | 自社 | 競合 | 示唆 |',
+    '| --- | --- | --- | --- |',
+    ...items.map((item) =>
+      `| ${esc(item.dimension)} | ${esc(item.our_position)} | ${esc(item.competitor_position)} | ${esc(item.gap_analysis)} / ${esc(item.recommendation)} |`
+    ),
+  ].join('\n')
+
+  return (
+    <SectionCard icon="compare_arrows" title="ポジショニング分析" borderColor="border-slate-200" bgColor="bg-white">
+      <MarkdownRenderer content={md} size={size} />
+    </SectionCard>
+  )
+}
+
+function esc(value) {
+  if (value == null) return '-'
+  return String(value).trim().replace(/\|/g, '\\|').replace(/\r?\n+/g, ' ') || '-'
+}
+
+function ReviewResultDisplay({ review, size }) {
+  if (!review) return null
+
+  // If string (raw markdown), fall back to MarkdownRenderer
+  if (typeof review === 'string') {
+    return <MarkdownRenderer content={review} size={size} />
+  }
+
+  // If structured review with no recognized fields, fall back to markdown or JSON
+  const hasStructured = review.summary || review.good_points || review.improvements ||
+    review.rubric_scores || review.test_ideas || review.evidence
+
+  if (!hasStructured && review.markdown) {
+    return <MarkdownRenderer content={review.markdown} size={size} />
+  }
+
+  if (!hasStructured) {
+    return (
+      <pre className="whitespace-pre-wrap text-xs leading-relaxed text-on-surface-variant">
+        {JSON.stringify(review, null, 2)}
+      </pre>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <SummarySection review={review} size={size} />
+      <NeutralInfoSection review={review} size={size} />
+      <GoodPointsSection review={review} size={size} />
+      <ImprovementsSection review={review} size={size} />
+      <TestIdeasSection review={review} size={size} />
+      <EvidenceSection review={review} size={size} />
+      <RubricSection review={review} />
+      <PositioningSection review={review} size={size} />
+    </div>
+  )
+}
+
+// ─── Meta Band ───
+
+function formatElapsed(ms) {
+  if (!ms) return null
+  const sec = Math.round(ms / 1000)
+  return sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${sec % 60}秒`
+}
+
+function MetaBand({ run }) {
+  if (!run || run.status === 'idle') return null
+  const elapsed = run.status !== 'running' && run.startedAt ? Date.now() - run.startedAt : null
+
+  return (
+    <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+      <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
+        <span className={`w-1.5 h-1.5 rounded-full ${
+          run.status === 'running' ? 'bg-amber-400 animate-pulse' :
+          run.status === 'completed' ? 'bg-emerald-500' :
+          'bg-red-400'
+        }`} />
+        {run.status === 'running' ? 'レビュー中…' : run.status === 'completed' ? 'レビュー完了' : 'エラー'}
+      </span>
+      {run.meta?.run_id && <span className="text-outline font-mono">run: {run.meta.run_id}</span>}
+      {elapsed && <span>{formatElapsed(elapsed)}</span>}
+    </div>
+  )
+}
+
+// ─── Main Component ───
 
 export default function CreativeReview() {
   const { geminiKey: apiKey, setGeminiKey } = useAuth()
-  // ─── state machine ───
-  const [phase, setPhase] = useState('idle')
-  // idle → uploading → uploaded → reviewing → reviewed → generating → generated
-  // any → error (with errorMessage)
+  const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
+
+  const reviewRun = getRun('creative-review')
+  const genRun = getRun('banner-generation')
+
+  // ─── local state (upload form — not long-running, doesn't need run store) ───
+  const [phase, setPhase] = useState(() => {
+    if (genRun?.status === 'completed') return 'generated'
+    if (genRun?.status === 'running') return 'generating'
+    if (reviewRun?.status === 'completed') return 'reviewed'
+    if (reviewRun?.status === 'running') return 'reviewing'
+    if (reviewRun?.input?.assetId) return 'uploaded'
+    return 'idle'
+  })
 
   const [errorMessage, setErrorMessage] = useState('')
-  const [previewUrl, setPreviewUrl] = useState(null)
-  const [fileName, setFileName] = useState('')
-  const [assetId, setAssetId] = useState(null)
-  const [assetMeta, setAssetMeta] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(() => reviewRun?.input?.previewUrl || null)
+  const [fileName, setFileName] = useState(() => reviewRun?.input?.fileName || '')
+  const [assetId, setAssetId] = useState(() => reviewRun?.input?.assetId || null)
+  const [assetMeta, setAssetMeta] = useState(() => reviewRun?.input?.assetMeta || null)
 
-  // review
-  const [brandInfo, setBrandInfo] = useState('')
-  const [operatorMemo, setOperatorMemo] = useState('')
-  const [lpUrl, setLpUrl] = useState('')
-  const [reviewResult, setReviewResult] = useState(null)
-  const [runId, setRunId] = useState(null)
+  const [brandInfo, setBrandInfo] = useState(() => reviewRun?.input?.brandInfo || '')
+  const [operatorMemo, setOperatorMemo] = useState(() => reviewRun?.input?.operatorMemo || '')
+  const [lpUrl, setLpUrl] = useState(() => reviewRun?.input?.lpUrl || '')
 
-  // generation
-  const [genImageUrl, setGenImageUrl] = useState(null)
-  const [genId, setGenId] = useState(null)
+  const reviewResult = reviewRun?.result?.review || reviewRun?.result || null
+  const runId = reviewRun?.meta?.run_id || null
+  const genImageUrl = genRun?.result?.imageUrl || null
+  const genId = genRun?.result?.genId || null
+
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
   )
 
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
+
+  // Sync phase from run store on mount
+  useEffect(() => {
+    if (reviewRun?.status === 'failed') {
+      setPhase('error')
+      setErrorMessage(reviewRun.error)
+    }
+    if (genRun?.status === 'failed') {
+      setPhase('error')
+      setErrorMessage(genRun.error)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── helpers ───
   const resetAll = useCallback(() => {
@@ -229,12 +377,10 @@ export default function CreativeReview() {
     setBrandInfo('')
     setOperatorMemo('')
     setLpUrl('')
-    setReviewResult(null)
-    setRunId(null)
-    setGenImageUrl(null)
-    setGenId(null)
+    clearRun('creative-review')
+    clearRun('banner-generation')
     if (fileInputRef.current) fileInputRef.current.value = ''
-  }, [])
+  }, [clearRun])
 
   const goError = useCallback((msg) => {
     setPhase('error')
@@ -254,7 +400,6 @@ export default function CreativeReview() {
       return
     }
 
-    // local preview
     const reader = new FileReader()
     reader.onload = (e) => setPreviewUrl(e.target.result)
     reader.readAsDataURL(file)
@@ -297,10 +442,12 @@ export default function CreativeReview() {
 
     setPhase('reviewing')
     setErrorMessage('')
-    setReviewResult(null)
-    setRunId(null)
-    setGenImageUrl(null)
-    setGenId(null)
+    clearRun('banner-generation')
+
+    startRun('creative-review', {
+      assetId, brandInfo, operatorMemo, lpUrl,
+      previewUrl, fileName, assetMeta,
+    })
 
     try {
       const payload = {
@@ -318,13 +465,13 @@ export default function CreativeReview() {
       }
 
       const review = envelope.review || envelope
-      setReviewResult(review)
-      if (envelope.run_id) setRunId(envelope.run_id)
+      completeRun('creative-review', { review, envelope }, { run_id: envelope.run_id })
       setPhase('reviewed')
     } catch (err) {
+      failRun('creative-review', err.message)
       goError(`レビュー失敗: ${err.message}`)
     }
-  }, [assetId, apiKey, brandInfo, operatorMemo, lpUrl, goError])
+  }, [assetId, apiKey, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, startRun, completeRun, failRun, clearRun, goError])
 
   // ─── 3. Generation ───
   const handleGenerate = useCallback(async () => {
@@ -332,14 +479,13 @@ export default function CreativeReview() {
 
     setPhase('generating')
     setErrorMessage('')
-    setGenImageUrl(null)
+
+    startRun('banner-generation', { runId })
 
     try {
       const result = await generateBanner({ review_run_id: runId }, apiKey.trim())
       const gId = result.id
-      setGenId(gId)
 
-      // poll
       let status = result.status
       for (let i = 0; i < POLL_MAX && (status === 'pending' || status === 'generating'); i++) {
         await new Promise((r) => setTimeout(r, POLL_INTERVAL))
@@ -349,7 +495,8 @@ export default function CreativeReview() {
       }
 
       if (status === 'completed') {
-        setGenImageUrl(getGenerationImageUrl(gId))
+        const imageUrl = getGenerationImageUrl(gId)
+        completeRun('banner-generation', { imageUrl, genId: gId })
         setPhase('generated')
       } else if (status === 'failed') {
         throw new Error('バナー生成に失敗しました。')
@@ -357,14 +504,14 @@ export default function CreativeReview() {
         throw new Error('生成がタイムアウトしました。しばらく後にお試しください。')
       }
     } catch (err) {
+      failRun('banner-generation', err.message)
       goError(`生成失敗: ${err.message}`)
     }
-  }, [runId, apiKey, goError])
+  }, [runId, apiKey, startRun, completeRun, failRun, goError])
 
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed', 'generating', 'generated'].includes(phase)
   const isReviewed = ['reviewed', 'generating', 'generated'].includes(phase)
-  const reviewMarkdown = buildReviewMarkdown(reviewResult)
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-8">
@@ -392,6 +539,9 @@ export default function CreativeReview() {
         />
       )}
 
+      {/* Meta Band */}
+      {reviewRun && <MetaBand run={reviewRun} />}
+
       {/* ─── API Key ─── */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6">
         <label className="flex items-center gap-2 text-sm font-bold text-on-surface japanese-text mb-3">
@@ -415,7 +565,6 @@ export default function CreativeReview() {
           バナー画像アップロード
         </h3>
 
-        {/* Drop zone - show only in idle or error with no asset */}
         {(!isUploaded && phase !== 'uploading') && (
           <div
             ref={dropZoneRef}
@@ -438,7 +587,6 @@ export default function CreativeReview() {
           </div>
         )}
 
-        {/* Uploading spinner */}
         {phase === 'uploading' && (
           <div className="flex flex-col items-center py-8 gap-3">
             {previewUrl && <img src={previewUrl} alt="プレビュー" className="w-48 h-auto rounded-xl opacity-60" />}
@@ -446,7 +594,6 @@ export default function CreativeReview() {
           </div>
         )}
 
-        {/* Upload complete — preview + meta */}
         {isUploaded && (
           <div className="flex gap-6 items-start">
             {previewUrl && (
@@ -539,9 +686,9 @@ export default function CreativeReview() {
         </div>
       )}
 
-      {/* ─── Step 3: Review Result ─── */}
+      {/* ─── Step 3: Review Result (section-aware blocks) ─── */}
       {isReviewed && reviewResult && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4">
+        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text flex items-center gap-2">
               <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
@@ -568,15 +715,8 @@ export default function CreativeReview() {
             </div>
           </div>
 
-          <div className="bg-surface-container-lowest border border-outline-variant/15 shadow-[0_18px_36px_-24px_rgba(26,26,46,0.22)] rounded-2xl p-6 text-on-surface whitespace-pre-wrap leading-relaxed max-h-[640px] overflow-y-auto">
-            {reviewMarkdown ? (
-              <MarkdownRenderer content={reviewMarkdown} size={reviewTextSize} />
-            ) : (
-              <pre className="whitespace-pre-wrap text-xs leading-relaxed">
-                {JSON.stringify(reviewResult, null, 2)}
-              </pre>
-            )}
-          </div>
+          {/* Section-aware review blocks — no more giant scroll box */}
+          <ReviewResultDisplay review={reviewResult} size={reviewTextSize} />
 
           {runId && (
             <p className="text-xs text-on-surface-variant/50 font-mono">run_id: {runId}</p>

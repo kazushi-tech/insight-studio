@@ -1,8 +1,39 @@
 const BASE = '/api/ml'
 const LONG_ANALYSIS_TIMEOUT = 180000
 
+const DISCOVERY_STAGE_LABELS = {
+  brand_fetch: 'ブランドURL取得',
+  search: '競合検索',
+  fetch_competitors: '競合サイト取得',
+  analyze: '比較分析',
+}
+
+function extractStage(detail) {
+  if (!detail) return null
+  const match = detail.match(/stage=(\w+)/)
+  return match ? match[1] : null
+}
+
 function buildErrorMessage(path, status, body) {
-  if (body?.detail) return body.detail
+  const detail = body?.detail
+
+  // Discovery stage-aware error mapping
+  if (path.includes('/discovery')) {
+    const stage = extractStage(detail)
+    const stageLabel = stage ? DISCOVERY_STAGE_LABELS[stage] || stage : null
+
+    if (status === 400) return detail || 'Gemini API キーが必要です。設定画面から入力してください。'
+    if (status === 401) return detail || 'Gemini API キーが無効です。正しいキーを入力してください。'
+    if (status === 404) return detail || '競合サイトが見つかりませんでした。別のURLで試してください。'
+    if (status === 422) return detail || 'URLの形式が正しくありません。'
+    if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
+    if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${detail}`
+    if (status === 502) return detail || '競合分析パイプラインでエラーが発生しました。'
+    if (detail) return detail
+    return `Discovery API error: ${status}`
+  }
+
+  if (detail) return detail
 
   if (status === 404) {
     if (path.includes('/assets')) return 'アセットが見つかりません。再アップロードしてください。'
@@ -59,6 +90,7 @@ async function requestJson(path, options = {}) {
     error.status = res.status
     error.body = body
     error.path = path
+    error.stage = extractStage(body?.detail)
     throw error
   }
   return res.json()

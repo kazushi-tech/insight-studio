@@ -1,39 +1,80 @@
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { scan } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
+import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+
+function formatElapsed(ms) {
+  if (!ms) return null
+  const sec = Math.round(ms / 1000)
+  return sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${sec % 60}秒`
+}
+
+function MetaBand({ run }) {
+  if (!run || run.status === 'idle') return null
+  const result = run.result
+  const elapsed = run.status !== 'running' && run.startedAt ? Date.now() - run.startedAt : null
+
+  return (
+    <div className="flex items-center gap-4 text-xs text-on-surface-variant">
+      <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
+        <span className={`w-1.5 h-1.5 rounded-full ${
+          run.status === 'running' ? 'bg-amber-400 animate-pulse' :
+          run.status === 'completed' ? 'bg-emerald-500' :
+          'bg-red-400'
+        }`} />
+        {run.status === 'running' ? '分析中…' : run.status === 'completed' ? '完了' : 'エラー'}
+      </span>
+      {result?.run_id && <span className="text-outline font-mono">run: {result.run_id}</span>}
+      {result?.status && result.status !== run.status && (
+        <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{result.status}</span>
+      )}
+      {elapsed && <span>{formatElapsed(elapsed)}</span>}
+    </div>
+  )
+}
 
 export default function Compare() {
   const { geminiKey, hasGeminiKey } = useAuth()
-  const [urls, setUrls] = useState({ target: '', compA: '', compB: '' })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [result, setResult] = useState(null)
+  const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
+  const run = getRun('compare')
+  const [urls, setUrls] = useState(() => run?.input?.urls || { target: '', compA: '', compB: '' })
+
+  // Sync urls from run input when remounting
+  useEffect(() => {
+    if (run?.input?.urls && !urls.target && !urls.compA) {
+      setUrls(run.input.urls)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loading = run?.status === 'running'
+  const error = run?.status === 'failed' ? run.error : null
+  const result = run?.result || null
   const canSubmit = urls.target && (urls.compA || urls.compB) && hasGeminiKey && !loading
 
-  async function handleScan() {
-    setError(null)
-    setLoading(true)
+  const handleScan = useCallback(async () => {
+    startRun('compare', { urls })
+
     try {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
       const data = await scan(urlList, geminiKey)
-      setResult(data)
+      completeRun('compare', data, { run_id: data.run_id })
     } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
+      failRun('compare', e.message)
     }
-  }
+  }, [urls, geminiKey, startRun, completeRun, failRun])
+
+  const handleRetry = useCallback(() => {
+    clearRun('compare')
+  }, [clearRun])
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
   const hasScores = overallScore != null || Object.values(scores).some((v) => v != null)
   const report = result?.report_md ?? result?.report ?? result?.analysis ?? ''
   const extracted = result?.extracted ?? null
-  const scanStatus = result?.status ?? null
-  const runId = result?.run_id ?? null
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -102,8 +143,11 @@ export default function Compare() {
       </div>
 
       {error && (
-        <ErrorBanner message={error} />
+        <ErrorBanner message={error} onRetry={handleRetry} />
       )}
+
+      {/* Meta Band */}
+      {run && run.status !== 'failed' && <MetaBand run={run} />}
 
       {/* Preview Area */}
       <div className="grid grid-cols-2 gap-8">
@@ -134,19 +178,6 @@ export default function Compare() {
       {/* Result Area */}
       {result && (
         <div className="space-y-8">
-          {/* Status Banner */}
-          {(scanStatus || runId) && (
-            <div className="flex items-center gap-4 text-xs text-on-surface-variant">
-              {scanStatus && (
-                <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
-                  <span className={`w-1.5 h-1.5 rounded-full ${scanStatus === 'completed' ? 'bg-emerald-500' : 'bg-amber-400 animate-pulse'}`} />
-                  {scanStatus}
-                </span>
-              )}
-              {runId && <span className="text-outline">run: {runId}</span>}
-            </div>
-          )}
-
           <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
             {/* Score Panel — only shown when backend returns scores */}
             {hasScores && (

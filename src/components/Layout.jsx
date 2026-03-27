@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 
 const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
 
@@ -252,6 +253,36 @@ function KeySettingsModal({ onClose }) {
   )
 }
 
+const RUN_KIND_LABELS = {
+  compare: 'LP比較分析',
+  discovery: '競合発見',
+  'creative-review': 'クリエイティブレビュー',
+  'banner-generation': 'バナー生成',
+}
+
+function BackgroundIndicator() {
+  const { getRunningKinds } = useAnalysisRuns()
+  const runningKinds = getRunningKinds()
+  if (runningKinds.length === 0) return null
+
+  return (
+    <div className="px-6 mb-3">
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
+          <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+          バックグラウンド実行中
+        </div>
+        {runningKinds.map((kind) => (
+          <div key={kind} className="flex items-center gap-2 text-xs text-amber-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            {RUN_KIND_LABELS[kind] || kind}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
   const { hasGeminiKey, isAdsAuthenticated } = useAuth()
@@ -339,6 +370,9 @@ export default function Layout() {
             )
           )}
         </nav>
+
+        {/* Background Running Indicator */}
+        <BackgroundIndicator />
 
         {/* Connection Status */}
         <div className="px-6 mb-3">

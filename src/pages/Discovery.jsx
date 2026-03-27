@@ -1,35 +1,105 @@
-import { useState } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { discoveryAnalyze } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
+import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+
+function formatElapsed(ms) {
+  if (!ms) return null
+  const sec = Math.round(ms / 1000)
+  return sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${sec % 60}秒`
+}
+
+function MetaBand({ run }) {
+  if (!run || run.status === 'idle') return null
+  const result = run.result
+  const elapsed = run.status !== 'running' && run.startedAt ? Date.now() - run.startedAt : null
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
+      {/* Status */}
+      <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
+        <span className={`w-1.5 h-1.5 rounded-full ${
+          run.status === 'running' ? 'bg-amber-400 animate-pulse' :
+          run.status === 'completed' ? 'bg-emerald-500' :
+          'bg-red-400'
+        }`} />
+        {run.status === 'running' ? '分析中…' : run.status === 'completed' ? '完了' : 'エラー'}
+      </span>
+      {result?.search_id && <span className="text-outline font-mono">search: {result.search_id}</span>}
+      {result?.industry && (
+        <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
+      )}
+      {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
+      {result?.analyzed_count != null && <span>{result.analyzed_count} 件分析</span>}
+      {elapsed && <span>{formatElapsed(elapsed)}</span>}
+    </div>
+  )
+}
+
+function PartialSuccessBanner({ fetchedSites }) {
+  if (!fetchedSites || fetchedSites.length === 0) return null
+
+  const failed = fetchedSites.filter((s) => s.error)
+  const success = fetchedSites.filter((s) => !s.error)
+
+  if (failed.length === 0) return null
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 space-y-2">
+      <p className="text-sm text-amber-800 font-bold flex items-center gap-2">
+        <span className="material-symbols-outlined text-lg">warning</span>
+        {success.length} / {fetchedSites.length} 件の競合サイトを取得できました（{failed.length} 件失敗）
+      </p>
+      <div className="text-xs text-amber-700 space-y-1">
+        {failed.map((site, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm text-red-400">close</span>
+            <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
+            <span className="text-amber-600">{site.error}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function Discovery() {
   const { geminiKey, hasGeminiKey } = useAuth()
-  const [url, setUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [result, setResult] = useState(null)
-  const [discoveries, setDiscoveries] = useState([])
+  const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
+  const run = getRun('discovery')
+  const [url, setUrl] = useState(() => run?.input?.url || '')
+  const abortRef = useRef(null)
+
+  // Sync URL from run input when remounting
+  useEffect(() => {
+    if (run?.input?.url && !url) {
+      setUrl(run.input.url)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loading = run?.status === 'running'
+  const error = run?.status === 'failed' ? run.error : null
+  const result = run?.result || null
+  const discoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
   const canSubmit = url && hasGeminiKey && !loading
 
-  async function handleDiscover() {
-    setError(null)
-    setLoading(true)
-    setResult(null)
-    setDiscoveries([])
+  const handleDiscover = useCallback(async () => {
+    startRun('discovery', { url })
+
     try {
       const data = await discoveryAnalyze(url, geminiKey)
-      setResult(data)
-      const items = data.fetched_sites ?? data.competitors ?? data.results ?? (Array.isArray(data) ? data : [data])
-      setDiscoveries(items)
+      completeRun('discovery', data, { search_id: data.search_id })
     } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
+      failRun('discovery', e.message)
     }
-  }
+  }, [url, geminiKey, startRun, completeRun, failRun])
+
+  const handleRetry = useCallback(() => {
+    clearRun('discovery')
+  }, [clearRun])
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -77,18 +147,23 @@ export default function Discovery() {
 
       <p className="text-xs text-on-surface-variant japanese-text">競合探索と比較分析には 30〜90 秒ほどかかることがあります。</p>
 
+      {/* Meta Band */}
+      <MetaBand run={run} />
+
+      {/* Error */}
       {error && (
-        <ErrorBanner message={error} />
+        <ErrorBanner message={error} onRetry={handleRetry} />
       )}
 
+      {/* Partial Success Banner */}
+      {result?.fetched_sites && <PartialSuccessBanner fetchedSites={result.fetched_sites} />}
+
+      {/* Report */}
       {result?.report_md && (
         <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 space-y-5">
-          <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
-            <span className="px-3 py-1 rounded-full bg-surface-container font-bold">
-              {result.industry || '業界未分類'}
-            </span>
-            <span>{result.candidate_count ?? discoveries.length} 件候補</span>
-            <span>{result.analyzed_count ?? discoveries.length} 件分析</span>
+          <div className="flex items-center gap-2 text-on-surface-variant mb-4">
+            <span className="material-symbols-outlined">description</span>
+            <span className="text-sm font-bold">分析レポート</span>
           </div>
           <MarkdownRenderer content={result.report_md} />
         </div>
@@ -109,16 +184,23 @@ export default function Discovery() {
             {discoveries.map((item, i) => (
               <div
                 key={item.url ?? item.name ?? i}
-                className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group"
+                className={`bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group ${
+                  item.error ? 'opacity-60 ring-1 ring-red-200' : ''
+                }`}
               >
                 <div className="h-48 bg-surface-container relative">
                   <span className="material-symbols-outlined absolute inset-0 m-auto text-6xl text-outline-variant/50">
-                    web
+                    {item.error ? 'error_outline' : 'web'}
                   </span>
                   {(item.score != null) && (
                     <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-1 rounded-lg">
                       <span className="text-xs font-bold text-on-surface-variant">SCORE</span>{' '}
                       <span className="text-lg font-black text-secondary tabular-nums">{item.score}</span>
+                    </div>
+                  )}
+                  {item.error && (
+                    <div className="absolute bottom-3 left-3 right-3 bg-red-50/90 backdrop-blur px-3 py-1.5 rounded-lg">
+                      <span className="text-xs text-red-700 font-bold">取得失敗: {item.error}</span>
                     </div>
                   )}
                 </div>
@@ -134,6 +216,9 @@ export default function Discovery() {
                   {item.description && (
                     <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text line-clamp-3">{item.description}</p>
                   )}
+                  {item.domain && !item.description && (
+                    <p className="text-xs text-on-surface-variant mt-2 font-mono">{item.domain}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -141,7 +226,7 @@ export default function Discovery() {
         </div>
       )}
 
-      {!loading && discoveries.length === 0 && (
+      {!loading && discoveries.length === 0 && !result && !error && (
         <div className="text-center py-20 text-on-surface-variant">
           <span className="material-symbols-outlined text-6xl text-outline-variant mb-4 block">explore</span>
           <p className="text-lg font-bold japanese-text">URLを入力して競合を発見しましょう</p>
