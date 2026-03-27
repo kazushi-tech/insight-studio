@@ -14,7 +14,7 @@ const NAV_ITEMS = [
     children: [
       { to: '/compare', label: 'LP比較分析' },
       { to: '/discovery', label: '競合発見' },
-      { to: '/creative-review', label: 'クリエイティブ診断', badge: '停止中' },
+      { to: '/creative-review', label: 'クリエイティブ診断' },
     ],
   },
   {
@@ -22,9 +22,9 @@ const NAV_ITEMS = [
     icon: 'insights',
     children: [
       { to: '/ads/wizard', label: 'セットアップ' },
-      { to: '/ads/pack', label: '要点パック' },
-      { to: '/ads/graphs', label: 'グラフ' },
-      { to: '/ads/ai', label: 'AI考察' },
+      { to: '/ads/pack', label: '要点パック', requiresSetup: true },
+      { to: '/ads/graphs', label: 'グラフ', requiresSetup: true },
+      { to: '/ads/ai', label: 'AI考察', requiresSetup: true },
     ],
   },
   { to: '/settings', icon: 'settings', label: '設定' },
@@ -45,7 +45,14 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       >
         {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
         <span className="japanese-text">{label}</span>
-        <span className="material-symbols-outlined text-[14px] ml-auto">lock</span>
+        {badge ? (
+          <>
+            <span className="ml-auto text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">{badge}</span>
+            <span className="material-symbols-outlined text-[14px] ml-2">lock</span>
+          </>
+        ) : (
+          <span className="material-symbols-outlined text-[14px] ml-auto">lock</span>
+        )}
       </a>
     )
   }
@@ -101,7 +108,7 @@ function SidebarGroup({ item, disabledPaths }) {
               label={child.label}
               isChild
               disabled={disabledPaths?.includes(child.to)}
-              badge={child.badge}
+              badge={disabledPaths?.includes(child.to) && child.requiresSetup ? '要設定' : child.badge}
             />
           ))}
         </div>
@@ -348,6 +355,13 @@ export default function Layout() {
               <span className={`flex items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
                 {isAdsAuthenticated ? '接続済' : '未接続'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-on-surface-variant">考察セットアップ</span>
+              <span className={`flex items-center gap-1 font-bold ${isSetupComplete ? 'text-emerald-600' : 'text-amber-700'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isSetupComplete ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                {isSetupComplete ? '完了' : '未完了'}
               </span>
             </div>
           </div>
