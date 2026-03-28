@@ -117,7 +117,7 @@ export default function Compare() {
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">link</span>
               <input
-                className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
+                className="w-full bg-surface-container-low rounded-[0.75rem] py-3 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
                 placeholder={placeholder}
                 value={urls[key]}
                 onChange={(e) => setUrls({ ...urls, [key]: e.target.value })}
@@ -216,7 +216,7 @@ export default function Compare() {
           <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
             {/* Score Panel — only shown when backend returns scores */}
             {hasScores && (
-              <div className="col-span-4 bg-gradient-to-br from-primary-container to-[#2a2a4e] p-8 rounded-xl text-white min-h-[300px]">
+              <div className="col-span-4 bg-gradient-to-br from-primary-container to-[#2a2a4e] p-8 rounded-[0.75rem] text-white min-h-[300px]">
                 <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/70">OVERALL STRATEGY SCORE</p>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-7xl font-black tabular-nums text-gold">{overallScore ?? '--'}</span>

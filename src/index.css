@@ -359,27 +359,3 @@
   vertical-align: middle;
 }
 
-:root[data-theme='dark'] .bg-white {
-  background-color: var(--color-surface-container-lowest) !important;
-}
-
-:root[data-theme='dark'] .bg-white\/80 {
-  background-color: rgb(20 25 32 / 80%) !important;
-}
-
-:root[data-theme='dark'] .bg-slate-50 {
-  background-color: var(--color-surface) !important;
-}
-
-:root[data-theme='dark'] .border-slate-100 {
-  border-color: var(--color-outline-variant) !important;
-}
-
-:root[data-theme='dark'] .hover\:bg-slate-100:hover,
-:root[data-theme='dark'] .hover\:bg-white:hover {
-  background-color: var(--color-surface-container) !important;
-}
-
-:root[data-theme='dark'] .text-\[\#1A1A2E\] {
-  color: var(--color-on-surface) !important;
-}

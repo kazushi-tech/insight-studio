@@ -315,7 +315,7 @@ export default function EssentialPack() {
               <span className="material-symbols-outlined text-lg">download</span>
               レポート出力
             </button>
-            <button className="px-4 py-2 bg-gold text-primary-container rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-all">
+            <button className="px-4 py-2 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-all">
               <span className="material-symbols-outlined text-lg">share</span>
               共有
             </button>
@@ -323,7 +323,7 @@ export default function EssentialPack() {
         </div>
 
         {loading && !currentReport && (
-          <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
+          <div className="bg-surface-container-lowest rounded-[0.75rem] p-8 space-y-6">
             <div className="flex items-center gap-3">
               <LoadingSpinner size="md" label="BigQuery バッチレポートを再取得中…" />
             </div>

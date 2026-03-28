@@ -130,7 +130,7 @@ function getComponents(size = 'normal') {
     },
     li: ({ children }) => <li>{children}</li>,
     table: ({ children }) => (
-      <div className="my-4 max-w-full overflow-x-auto rounded-[0.75rem]">
+      <div className="my-5 max-w-full overflow-x-auto rounded-[0.75rem]">
         <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
           {children}
         </table>

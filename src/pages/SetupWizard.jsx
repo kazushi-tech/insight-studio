@@ -287,9 +287,9 @@ export default function SetupWizard() {
               <button
                 key={queryType.label}
                 onClick={() => toggle(index)}
-                className={`p-5 rounded-xl text-left transition-all border overflow-hidden relative ${
+                className={`p-5 rounded-[0.75rem] text-left transition-all border overflow-hidden relative ${
                   selected.has(index)
-                    ? 'border-gold bg-gold/5 ring-1 ring-gold/30'
+                    ? 'border-secondary bg-secondary/5 ring-1 ring-secondary/30'
                     : 'border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
                 }`}
               >
@@ -298,7 +298,7 @@ export default function SetupWizard() {
                     <span className={`material-symbols-outlined text-2xl ${queryType.color}`}>{queryType.icon}</span>
                     <span className="font-bold text-on-surface japanese-text">{queryType.label}</span>
                   </div>
-                  {selected.has(index) && <span className="material-symbols-outlined text-gold">check_circle</span>}
+                  {selected.has(index) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
                 </div>
                 <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text">{queryType.desc}</p>
                 <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${queryType.color.replace('text-', 'bg-')}`} />
@@ -439,7 +439,7 @@ export default function SetupWizard() {
         <button
           onClick={handleNext}
           disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated}
-          className="px-10 py-3 bg-gold text-primary-container rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed"
+          className="px-10 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

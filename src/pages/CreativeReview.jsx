@@ -56,7 +56,7 @@ function SectionCard({ icon, title, badge, badgeColor, borderColor, bgColor, chi
         <span className="material-symbols-outlined text-lg" style={{ color: 'inherit' }}>{icon}</span>
         <h4 className="text-base font-bold japanese-text text-on-surface">{title}</h4>
         {badge && (
-          <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor || 'bg-slate-100 text-slate-600'}`}>
+          <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeColor || 'bg-surface-container text-on-surface-variant'}`}>
             {badge}
           </span>
         )}
@@ -70,7 +70,7 @@ function SummarySection({ review, size }) {
   const text = review?.summary
   if (!text) return null
   return (
-    <SectionCard icon="summarize" title="要約" borderColor="border-slate-200" bgColor="bg-slate-50/50">
+    <SectionCard icon="summarize" title="要約" borderColor="border-outline-variant/20" bgColor="bg-surface-container-low/50">
       <MarkdownRenderer content={text} size={size} />
     </SectionCard>
   )
@@ -84,7 +84,7 @@ function NeutralInfoSection({ review, size }) {
   if (parts.length === 0) return null
 
   return (
-    <SectionCard icon="info" title="基本情報" borderColor="border-slate-200" bgColor="bg-white">
+    <SectionCard icon="info" title="基本情報" borderColor="border-outline-variant/20" bgColor="bg-surface-container-lowest">
       <MarkdownRenderer content={parts.join('\n\n')} size={size} />
     </SectionCard>
   )
@@ -178,7 +178,7 @@ function EvidenceSection({ review, size }) {
   ].join('\n')
 
   return (
-    <SectionCard icon="fact_check" title="エビデンス" borderColor="border-slate-200" bgColor="bg-white">
+    <SectionCard icon="fact_check" title="エビデンス" borderColor="border-outline-variant/20" bgColor="bg-surface-container-lowest">
       <MarkdownRenderer content={md} size={size} />
     </SectionCard>
   )
@@ -238,7 +238,7 @@ function PositioningSection({ review, size }) {
   ].join('\n')
 
   return (
-    <SectionCard icon="compare_arrows" title="ポジショニング分析" borderColor="border-slate-200" bgColor="bg-white">
+    <SectionCard icon="compare_arrows" title="ポジショニング分析" borderColor="border-outline-variant/20" bgColor="bg-surface-container-lowest">
       <MarkdownRenderer content={md} size={size} />
     </SectionCard>
   )
@@ -319,7 +319,7 @@ function MetaBand({ run }) {
 function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta = [], fallbackText }) {
   const toneClasses = tone === 'after'
     ? 'border-emerald-200 bg-emerald-50/50'
-    : 'border-slate-200 bg-slate-50/70'
+    : 'border-outline-variant/20 bg-surface-container-low/70'
 
   return (
     <div className={`rounded-[0.75rem] border ${toneClasses} p-4 md:p-5 space-y-4`}>
@@ -328,7 +328,7 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
           <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
             tone === 'after'
               ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-slate-200 text-slate-700'
+              : 'bg-surface-container-high text-on-surface-variant'
           }`}>
             {label}
           </span>
@@ -341,7 +341,7 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
         )}
       </div>
 
-      <div className="rounded-xl border border-outline-variant/20 bg-white p-3 panel-card-hover min-h-[280px] flex items-center justify-center">
+      <div className="rounded-[0.75rem] border border-outline-variant/20 bg-surface-container-lowest p-3 panel-card-hover min-h-[280px] flex items-center justify-center">
         {src ? (
           <img
             src={src}
@@ -715,7 +715,7 @@ export default function CreativeReview() {
           <button
             onClick={handleReview}
             disabled={!apiKey.trim() || phase === 'reviewing'}
-            className="px-6 py-3 bg-gold text-primary-container rounded-xl font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {phase === 'reviewing' ? (
               <LoadingSpinner size="sm" label="レビュー中…" />
@@ -854,7 +854,7 @@ export default function CreativeReview() {
               <a
                 href={genImageUrl}
                 download={`banner-${genId}.png`}
-                className="px-5 py-2.5 bg-gold text-primary-container rounded-xl font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
+                className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
               >
                 <span className="material-symbols-outlined text-lg">download</span>
                 ダウンロード
@@ -877,7 +877,7 @@ export default function CreativeReview() {
 
       {/* ─── Flow Guide (idle only) ─── */}
       {phase === 'idle' && (
-        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8">
           <h3 className="text-lg font-bold text-on-surface japanese-text mb-6 flex items-center gap-2">
             <span className="material-symbols-outlined text-secondary">info</span>
             使い方

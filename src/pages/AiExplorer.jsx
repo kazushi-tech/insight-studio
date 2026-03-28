@@ -390,7 +390,7 @@ export default function AiExplorer() {
         {messages.map((message, index) =>
           isAssistantMessage(message) ? (
             <div key={index} className="flex gap-4">
-              <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 bg-primary-container rounded-[0.75rem] flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-gold text-lg">smart_toy</span>
               </div>
               <div className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
@@ -412,7 +412,7 @@ export default function AiExplorer() {
 
         {loading && (
           <div className="flex gap-4">
-            <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-primary-container rounded-[0.75rem] flex items-center justify-center shrink-0">
               <LoadingSpinner size="sm" />
             </div>
             <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
