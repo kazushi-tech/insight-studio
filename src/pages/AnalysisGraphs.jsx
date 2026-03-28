@@ -120,11 +120,9 @@ export default function AnalysisGraphs() {
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="space-y-2">
-          <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
+          <h2 className="text-[2.75rem] font-extrabold text-on-surface tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
           <p className="text-sm text-on-surface-variant max-w-3xl">
-            `ads-insights` の `/api/bq/generate_batch` が返した `chart_data.groups` を、本家の `ChartGridView`
-            / `ChartGroupComponent` の考え方に寄せて可視化しています。`全期間まとめ` では同一タイトルのグラフを
-            period ごとに束ねて比較表示します。
+            選択した期間・クエリタイプごとのパフォーマンスをグラフで可視化します。全期間まとめでは同一指標を期間横断で比較できます。
           </p>
         </div>
         <button
@@ -139,24 +137,24 @@ export default function AnalysisGraphs() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Scope</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">対象期間</p>
           <p className="mt-3 text-xl font-bold text-on-surface japanese-text">{activeScopeLabel}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">period filter に応じて raw groups を切り替えています。</p>
+          <p className="mt-2 text-sm text-on-surface-variant">現在表示中の分析対象期間</p>
         </section>
         <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Groups</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">グラフ数</p>
           <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.groupCount}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">表示中の chart group 数</p>
+          <p className="mt-2 text-sm text-on-surface-variant">表示中のグラフ数</p>
         </section>
         <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Datasets</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">データ系列</p>
           <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.datasetCount}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">系列数の合計</p>
+          <p className="mt-2 text-sm text-on-surface-variant">データ系列の合計数</p>
         </section>
         <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Mix</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">タイプ内訳</p>
           <p className="mt-3 text-xl font-bold text-on-surface">{summary.mixLabel}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">チャートタイプの内訳</p>
+          <p className="mt-2 text-sm text-on-surface-variant">チャートタイプの構成</p>
         </section>
       </div>
 
@@ -195,12 +193,12 @@ export default function AnalysisGraphs() {
 
         {periodFilter === 'all' && periodTags.length > 1 && (
           <p className="text-sm text-on-surface-variant japanese-text">
-            同じタイトルのグラフは period ごとに datasets を束ねて比較できるようにしています。
+            同一指標のグラフを期間ごとに並べて比較表示しています。
           </p>
         )}
         {periodFilter === 'latest' && periodTags.length > 0 && (
           <p className="text-sm text-on-surface-variant japanese-text">
-            最新期間として <span className="font-bold text-on-surface">{periodTags[periodTags.length - 1]}</span> を表示中です。
+            最新期間 <span className="font-bold text-on-surface">{periodTags[periodTags.length - 1]}</span> を表示中です。
           </p>
         )}
       </div>
@@ -212,7 +210,7 @@ export default function AnalysisGraphs() {
       {loading && chartGroups.length === 0 && (
         <div className="bg-surface-container-lowest rounded-[0.75rem] p-8 space-y-6">
           <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
             <SkeletonBlock variant="card" />
             <SkeletonBlock variant="card" />
           </div>
@@ -224,13 +222,13 @@ export default function AnalysisGraphs() {
           <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
           <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
           <p className="text-sm text-on-surface-variant japanese-text">
-            reference app と同じく Wizard の `chart_data.groups` を使います。まずセットアップを完了するか、上の再取得を試してください。
+            セットアップウィザードを完了するか、上の「再取得」ボタンを押してデータを読み込んでください。
           </p>
         </div>
       )}
 
       {filteredGroups.length > 0 && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
           {filteredGroups.map((group, groupIndex) => (
             <ChartGroupCard
               key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}

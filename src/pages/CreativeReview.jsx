@@ -605,14 +605,13 @@ export default function CreativeReview() {
         <p className="text-xs text-on-surface-variant mt-2">レビューとバナー生成に同じAPIキーが使用されます。ブラウザに保存されます。</p>
       </div>
 
-      {/* ─── Step 1: Upload ─── */}
-      <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
-        <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
-          <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
-          バナー画像アップロード
-        </h3>
-
-        {(!isUploaded && phase !== 'uploading') && (
+      {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
+      {(!isUploaded && phase !== 'uploading') && (
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
+          <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
+            <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
+            バナー画像アップロード
+          </h3>
           <div
             ref={dropZoneRef}
             onClick={() => fileInputRef.current?.click()}
@@ -632,246 +631,259 @@ export default function CreativeReview() {
               className="hidden"
             />
           </div>
-        )}
+        </div>
+      )}
 
-        {phase === 'uploading' && (
+      {phase === 'uploading' && (
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
           <div className="flex flex-col items-center py-8 gap-3">
             {previewUrl && <img src={previewUrl} alt="プレビュー" className="w-48 h-auto rounded-xl opacity-60" />}
             <LoadingSpinner label="アップロード中…" />
           </div>
-        )}
+        </div>
+      )}
 
-        {isUploaded && (
-          <div className="flex gap-6 items-start">
-            {previewUrl && (
-              <img src={previewUrl} alt="アップロード済み画像" className="w-56 h-auto rounded-xl border border-outline-variant shadow-sm" />
-            )}
-            <div className="flex-1 space-y-2">
-              <p className="text-sm font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-green-600 text-lg">check_circle</span>
-                {fileName}
-              </p>
-              {assetMeta && (
-                <div className="text-xs text-on-surface-variant space-y-0.5">
-                  {assetMeta.width && assetMeta.height && <p>{assetMeta.width} × {assetMeta.height}px</p>}
-                  {assetMeta.mime_type && <p>{assetMeta.mime_type}</p>}
-                  {assetMeta.size_bytes && <p>{(assetMeta.size_bytes / 1024).toFixed(1)} KB</p>}
-                </div>
-              )}
-              <p className="text-xs text-on-surface-variant/50 font-mono">asset_id: {assetId}</p>
-              <button
-                onClick={resetAll}
-                className="mt-2 px-4 py-1.5 text-xs bg-surface-container hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant font-bold"
-              >
-                別の画像をアップロード
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ─── Step 2: Review Input ─── */}
+      {/* ─── Two-column layout (Stitch 2): Left preview + Right analysis ─── */}
       {isUploaded && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
-          <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
-            <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">2</span>
-            レビュー設定
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">ブランド情報（任意）</label>
-              <input
-                type="text"
-                value={brandInfo}
-                onChange={(e) => setBrandInfo(e.target.value)}
-                placeholder="例: 化粧品ブランドA、ターゲット20代女性"
-                className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">LP URL（任意 — 入力するとLP統合レビュー）</label>
-              <input
-                type="url"
-                value={lpUrl}
-                onChange={(e) => setLpUrl(e.target.value)}
-                placeholder="https://example.com/lp"
-                className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-on-surface-variant mb-1">運用メモ（任意）</label>
-            <textarea
-              value={operatorMemo}
-              onChange={(e) => setOperatorMemo(e.target.value)}
-              placeholder="レビューで注目してほしいポイントなど"
-              rows={2}
-              className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary resize-none"
-            />
-          </div>
-
-          <button
-            onClick={handleReview}
-            disabled={!apiKey.trim() || phase === 'reviewing'}
-            className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {phase === 'reviewing' ? (
-              <LoadingSpinner size="sm" label="レビュー中…" />
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">rate_review</span>
-                {lpUrl.trim() ? '広告+LP統合レビューを実行' : 'バナーレビューを実行'}
-              </>
-            )}
-          </button>
-
-          {!apiKey.trim() && (
-            <p className="text-xs text-amber-600">Gemini API キーを入力してください。</p>
-          )}
-        </div>
-      )}
-
-      {/* ─── Step 3: Review Result (section-aware blocks) ─── */}
-      {isReviewed && reviewResult && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h3 className="text-lg font-bold text-on-surface japanese-text flex items-center gap-2">
-              <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
-              レビュー結果
-            </h3>
-            <div className="flex items-center gap-2 self-start md:self-auto">
-              <span className="text-xs font-bold text-on-surface-variant japanese-text">文字サイズ</span>
-              <div className="inline-flex rounded-full bg-surface-container p-1">
-                {REVIEW_TEXT_SIZE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => handleReviewTextSizeChange(option.value)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                      reviewTextSize === option.value
-                        ? 'bg-primary text-on-primary'
-                        : 'text-on-surface-variant hover:bg-surface-container-high'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Performance Radar — stitch2 diamond visualization */}
-          {reviewResult?.rubric_scores && <PerformanceRadar rubricScores={reviewResult.rubric_scores} />}
-
-          {/* Section-aware review blocks — no more giant scroll box */}
-          <ReviewResultDisplay review={reviewResult} size={reviewTextSize} />
-
-          {runId && (
-            <p className="text-xs text-on-surface-variant/50 font-mono">run_id: {runId}</p>
-          )}
-
-          {/* Generation button */}
-          {runId && (
-            <button
-              onClick={handleGenerate}
-              disabled={!apiKey.trim() || phase === 'generating'}
-              className="px-6 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {phase === 'generating' ? (
-                <LoadingSpinner size="sm" label="改善バナーを生成中…" />
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-lg">auto_fix_high</span>
-                  改善バナーを生成（Nano Banana2）
-                </>
+        <div className="grid grid-cols-12 gap-10">
+          {/* Left: sticky preview */}
+          <div className="col-span-5 sticky top-24 self-start space-y-4">
+            <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
+              <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
+                <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
+                アップロード画像
+              </h3>
+              {previewUrl && (
+                <img src={previewUrl} alt="アップロード済み画像" className="w-full h-auto rounded-xl border border-outline-variant shadow-sm mb-4" />
               )}
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* ─── Step 4: Generated Banner ─── */}
-      {phase === 'generated' && genImageUrl && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
-          <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
-            <span className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-sm font-extrabold">4</span>
-            改善バナー
-          </h3>
-
-          <p className="text-sm text-on-surface-variant japanese-text">
-            左が改善前、右が改善後です。並べて比較しながら差分を確認できます。
-          </p>
-
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] gap-5 items-stretch">
-            <BannerComparisonCard
-              label="Before"
-              title="改善前のバナー"
-              tone="before"
-              src={originalBannerUrl}
-              alt="改善前のバナー"
-              meta={[
-                fileName,
-                assetMeta?.width && assetMeta?.height ? `${assetMeta.width} × ${assetMeta.height}px` : null,
-              ]}
-              fallbackText="元バナー画像を表示できませんでした。"
-            />
-
-            <div className="hidden xl:flex items-center justify-center">
-              <div className="w-14 h-14 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
-                <span className="material-symbols-outlined text-3xl">arrow_forward_alt</span>
+              <div className="space-y-2">
+                <p className="text-sm font-bold text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-green-600 text-lg">check_circle</span>
+                  {fileName}
+                </p>
+                {assetMeta && (
+                  <div className="text-xs text-on-surface-variant space-y-0.5">
+                    {assetMeta.width && assetMeta.height && <p>{assetMeta.width} × {assetMeta.height}px</p>}
+                    {assetMeta.mime_type && <p>{assetMeta.mime_type}</p>}
+                    {assetMeta.size_bytes && <p>{(assetMeta.size_bytes / 1024).toFixed(1)} KB</p>}
+                  </div>
+                )}
+                <p className="text-xs text-on-surface-variant/50 font-mono">asset_id: {assetId}</p>
+                <button
+                  onClick={resetAll}
+                  className="mt-2 px-4 py-1.5 text-xs bg-surface-container hover:bg-surface-container-high rounded-lg transition-colors text-on-surface-variant font-bold"
+                >
+                  別の画像をアップロード
+                </button>
               </div>
             </div>
-
-            <BannerComparisonCard
-              label="After"
-              title="改善後のバナー"
-              tone="after"
-              src={genImageUrl}
-              alt="生成されたバナー"
-              meta={[
-                'Nano Banana2',
-                genId ? `generation ${genId}` : null,
-              ]}
-              fallbackText="改善後バナーを表示できませんでした。"
-            />
           </div>
 
-          <div className="flex flex-wrap gap-3 justify-center xl:justify-end">
-            {originalBannerUrl && (
-              <a
-                href={originalBannerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
-              >
-                <span className="material-symbols-outlined text-lg">left_panel_open</span>
-                元画像を開く
-              </a>
-            )}
-            <div className="flex flex-wrap gap-3">
-              <a
-                href={genImageUrl}
-                download={`banner-${genId}.png`}
-                className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
-              >
-                <span className="material-symbols-outlined text-lg">download</span>
-                ダウンロード
-              </a>
+          {/* Right: review settings, results, generation */}
+          <div className="col-span-7 space-y-8">
+            {/* ─── Step 2: Review Input ─── */}
+            <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
+              <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
+                <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">2</span>
+                レビュー設定
+              </h3>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">ブランド情報（任意）</label>
+                  <input
+                    type="text"
+                    value={brandInfo}
+                    onChange={(e) => setBrandInfo(e.target.value)}
+                    placeholder="例: 化粧品ブランドA、ターゲット20代女性"
+                    className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface-variant mb-1">LP URL（任意 — 入力するとLP統合レビュー）</label>
+                  <input
+                    type="url"
+                    value={lpUrl}
+                    onChange={(e) => setLpUrl(e.target.value)}
+                    placeholder="https://example.com/lp"
+                    className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface-variant mb-1">運用メモ（任意）</label>
+                <textarea
+                  value={operatorMemo}
+                  onChange={(e) => setOperatorMemo(e.target.value)}
+                  placeholder="レビューで注目してほしいポイントなど"
+                  rows={2}
+                  className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary resize-none"
+                />
+              </div>
+
               <button
-                onClick={resetAll}
-                className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
+                onClick={handleReview}
+                disabled={!apiKey.trim() || phase === 'reviewing'}
+                className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-lg">restart_alt</span>
-                新しいレビューを開始
+                {phase === 'reviewing' ? (
+                  <LoadingSpinner size="sm" label="レビュー中…" />
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg">rate_review</span>
+                    {lpUrl.trim() ? '広告+LP統合レビューを実行' : 'バナーレビューを実行'}
+                  </>
+                )}
               </button>
-            </div>
-          </div>
 
-          {genId && (
-            <p className="text-xs text-on-surface-variant/50 font-mono text-center">generation_id: {genId}</p>
-          )}
+              {!apiKey.trim() && (
+                <p className="text-xs text-amber-600">Gemini API キーを入力してください。</p>
+              )}
+            </div>
+
+            {/* ─── Step 3: Review Result (section-aware blocks) ─── */}
+            {isReviewed && reviewResult && (
+              <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <h3 className="text-lg font-bold text-on-surface japanese-text flex items-center gap-2">
+                    <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
+                    レビュー結果
+                  </h3>
+                  <div className="flex items-center gap-2 self-start md:self-auto">
+                    <span className="text-xs font-bold text-on-surface-variant japanese-text">文字サイズ</span>
+                    <div className="inline-flex rounded-full bg-surface-container p-1">
+                      {REVIEW_TEXT_SIZE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => handleReviewTextSizeChange(option.value)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                            reviewTextSize === option.value
+                              ? 'bg-primary text-on-primary'
+                              : 'text-on-surface-variant hover:bg-surface-container-high'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Radar — stitch2 diamond visualization */}
+                {reviewResult?.rubric_scores && <PerformanceRadar rubricScores={reviewResult.rubric_scores} />}
+
+                {/* Section-aware review blocks — no more giant scroll box */}
+                <ReviewResultDisplay review={reviewResult} size={reviewTextSize} />
+
+                {runId && (
+                  <p className="text-xs text-on-surface-variant/50 font-mono">run_id: {runId}</p>
+                )}
+
+                {/* Generation button */}
+                {runId && (
+                  <button
+                    onClick={handleGenerate}
+                    disabled={!apiKey.trim() || phase === 'generating'}
+                    className="px-6 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {phase === 'generating' ? (
+                      <LoadingSpinner size="sm" label="改善バナーを生成中…" />
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-lg">auto_fix_high</span>
+                        改善バナーを生成（Nano Banana2）
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ─── Step 4: Generated Banner ─── */}
+            {phase === 'generated' && genImageUrl && (
+              <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
+                <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
+                  <span className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-sm font-extrabold">4</span>
+                  改善バナー
+                </h3>
+
+                <p className="text-sm text-on-surface-variant japanese-text">
+                  左が改善前、右が改善後です。並べて比較しながら差分を確認できます。
+                </p>
+
+                <div className="grid grid-cols-1 gap-5 items-stretch">
+                  <BannerComparisonCard
+                    label="Before"
+                    title="改善前のバナー"
+                    tone="before"
+                    src={originalBannerUrl}
+                    alt="改善前のバナー"
+                    meta={[
+                      fileName,
+                      assetMeta?.width && assetMeta?.height ? `${assetMeta.width} × ${assetMeta.height}px` : null,
+                    ]}
+                    fallbackText="元バナー画像を表示できませんでした。"
+                  />
+
+                  <div className="flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
+                      <span className="material-symbols-outlined text-3xl">arrow_downward_alt</span>
+                    </div>
+                  </div>
+
+                  <BannerComparisonCard
+                    label="After"
+                    title="改善後のバナー"
+                    tone="after"
+                    src={genImageUrl}
+                    alt="生成されたバナー"
+                    meta={[
+                      'Nano Banana2',
+                      genId ? `generation ${genId}` : null,
+                    ]}
+                    fallbackText="改善後バナーを表示できませんでした。"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-3 justify-end">
+                  {originalBannerUrl && (
+                    <a
+                      href={originalBannerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
+                    >
+                      <span className="material-symbols-outlined text-lg">left_panel_open</span>
+                      元画像を開く
+                    </a>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    <a
+                      href={genImageUrl}
+                      download={`banner-${genId}.png`}
+                      className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
+                    >
+                      <span className="material-symbols-outlined text-lg">download</span>
+                      ダウンロード
+                    </a>
+                    <button
+                      onClick={resetAll}
+                      className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
+                    >
+                      <span className="material-symbols-outlined text-lg">restart_alt</span>
+                      新しいレビューを開始
+                    </button>
+                  </div>
+                </div>
+
+                {genId && (
+                  <p className="text-xs text-on-surface-variant/50 font-mono text-center">generation_id: {genId}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

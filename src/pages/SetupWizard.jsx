@@ -287,12 +287,13 @@ export default function SetupWizard() {
               <button
                 key={queryType.label}
                 onClick={() => toggle(index)}
-                className={`p-5 rounded-[0.75rem] text-left transition-all border overflow-hidden relative ${
+                className={`p-5 pl-7 rounded-[0.75rem] text-left transition-all overflow-hidden relative ${
                   selected.has(index)
-                    ? 'border-secondary bg-secondary/5 ring-1 ring-secondary/30'
-                    : 'border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
+                    ? 'border-2 border-secondary shadow-lg bg-secondary/5'
+                    : 'border border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
                 }`}
               >
+                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${queryType.color.replace('text-', 'bg-')}`} />
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <span className={`material-symbols-outlined text-2xl ${queryType.color}`}>{queryType.icon}</span>
@@ -301,7 +302,6 @@ export default function SetupWizard() {
                   {selected.has(index) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
                 </div>
                 <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text">{queryType.desc}</p>
-                <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${queryType.color.replace('text-', 'bg-')}`} />
               </button>
             ))}
           </div>
@@ -428,7 +428,7 @@ export default function SetupWizard() {
         </div>
       )}
 
-      <div className="flex justify-center gap-4 pt-4">
+      <div className="flex justify-center gap-4 pt-10 border-t border-outline-variant/20">
         <button
           onClick={handleBack}
           disabled={step === 0}

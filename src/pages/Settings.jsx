@@ -164,11 +164,14 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-10 max-w-[920px] mx-auto space-y-8">
+    <div className="p-10 max-w-6xl mx-auto space-y-8">
       <div className="space-y-2">
-        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">設定</h2>
+        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">設定・レポート管理</h2>
         <p className="text-on-surface-variant text-sm japanese-text">プロフィールや接続設定を管理できます。不要なダミー設定は表示していません。</p>
       </div>
+
+      <div className="grid grid-cols-12 gap-8 items-start">
+      <div className="col-span-7 space-y-8">
 
       <SettingsCard
         icon="person"
@@ -332,6 +335,36 @@ export default function Settings() {
           <Toggle checked={isDark} onChange={toggleTheme} label="ダークモード" />
         </div>
       </SettingsCard>
+
+      </div>{/* end col-span-7 */}
+
+      <div className="col-span-5 sticky top-24">
+        <section className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-secondary">history</span>
+              <h3 className="text-lg font-bold japanese-text">レポート履歴</h3>
+            </div>
+            <p className="text-sm text-on-surface-variant japanese-text">過去に生成したレポートの一覧です。</p>
+          </div>
+          <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
+            <span className="material-symbols-outlined text-5xl text-outline-variant mb-3">description</span>
+            <p className="text-sm font-bold japanese-text">レポート履歴はまだありません</p>
+            <p className="text-xs mt-1 japanese-text">AI考察エンジンでレポートを生成すると、ここに履歴が表示されます。</p>
+          </div>
+        </section>
+      </div>
+
+      </div>{/* end grid-cols-12 */}
+
+      <div className="mt-16 pt-8 border-t border-outline-variant/10 flex justify-end gap-4">
+        <button className="px-6 py-3 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all">
+          キャンセル
+        </button>
+        <button className="px-6 py-3 bg-gradient-to-r from-gold to-amber-500 text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all">
+          保存する
+        </button>
+      </div>
     </div>
   )
 }

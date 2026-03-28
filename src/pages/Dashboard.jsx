@@ -7,23 +7,42 @@ import { useAuth } from '../contexts/AuthContext'
 import { getChartPeriodTags, getDisplayChartGroups, isMeaningfulChartGroup } from '../utils/adsReports'
 import { SkeletonBlock, ErrorBanner } from '../components/ui'
 
-function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
+const SPARKLINE_HEIGHTS = ['40%', '65%', '45%', '80%', '55%', '70%']
+
+function LiveStatCard({ icon, label, value, unit, subtitle, change, onClick }) {
   return (
     <div
       className={`bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
-      <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
-        <span className="material-symbols-outlined">{icon}</span>
+      <div className="flex items-start justify-between">
+        <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
+          <span className="material-symbols-outlined text-[20px]">{icon}</span>
+        </div>
+        {change && (
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${change.startsWith('+') ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+            {change}
+          </span>
+        )}
       </div>
       <div>
         <p className="text-on-surface-variant text-sm font-bold japanese-text">{label}</p>
         <div className="flex items-baseline gap-2 mt-1">
-          <span className="text-3xl font-bold text-primary tabular-nums">{value}</span>
+          <span className="text-[30px] font-bold text-primary tabular-nums leading-none">{value}</span>
           {unit && <span className="text-sm text-on-surface-variant font-medium">{unit}</span>}
         </div>
       </div>
       {subtitle && <p className="text-xs text-on-surface-variant">{subtitle}</p>}
+      {/* Mini sparkline bar chart */}
+      <div className="h-12 flex items-end gap-1.5">
+        {SPARKLINE_HEIGHTS.map((h, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-sm bg-gold"
+            style={{ height: h, opacity: 0.25 + (i / SPARKLINE_HEIGHTS.length) * 0.55 }}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -315,192 +334,238 @@ export default function Dashboard() {
   const latestDate = latestScan?.date ?? latestScan?.created_at ?? null
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-12">
-      {/* Welcome Header */}
-      <div className="flex justify-between items-end">
-        <div>
-          <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">ダッシュボード</h2>
-          <p className="text-on-surface-variant mt-2 text-lg">現在の分析状況の概要です</p>
-        </div>
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate('/compare')}
-            className="button-primary"
-          >
-            <span className="material-symbols-outlined text-lg">bolt</span>
-            新規LP比較
-          </button>
-        </div>
+    <div className="p-10 max-w-[1400px] mx-auto space-y-10">
+      {/* Page Header — title + subtitle only */}
+      <div>
+        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">ダッシュボード</h2>
+        <p className="text-on-surface-variant mt-2 text-lg">現在の分析状況の概要です</p>
       </div>
 
-      {/* Live Status Cards */}
-      <div className="grid grid-cols-3 gap-8">
-        {historyLoading ? (
-          <>
-            <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
-              <SkeletonBlock variant="card" />
-            </div>
-            <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
-              <SkeletonBlock variant="card" />
-            </div>
-            <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
-              <SkeletonBlock variant="card" />
-            </div>
-          </>
-        ) : (
-          <>
-            {history.length > 0 ? (
-              <LiveStatCard
-                icon="compare"
-                label="比較分析履歴数"
-                value={history.length.toLocaleString()}
-                unit="件"
-                subtitle={latestDate ? `最新: ${latestDate}` : undefined}
-                onClick={() => navigate('/compare')}
-              />
+      {/* Asymmetric two-column layout */}
+      <div className="flex gap-8">
+        {/* ── Left data canvas ── */}
+        <div className="flex-1 flex flex-col gap-8 min-w-0">
+          {/* Stat Cards — grid-cols-3 */}
+          <div className="grid grid-cols-3 gap-6">
+            {historyLoading ? (
+              <>
+                <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
+                  <SkeletonBlock variant="card" />
+                </div>
+                <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
+                  <SkeletonBlock variant="card" />
+                </div>
+                <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
+                  <SkeletonBlock variant="card" />
+                </div>
+              </>
             ) : (
-              <EmptyStatCard
-                icon="compare"
-                label="比較分析履歴"
-                message="まだ分析がありません"
-                actionLabel="LP比較を始める"
-                onAction={() => navigate('/compare')}
-              />
+              <>
+                {history.length > 0 ? (
+                  <LiveStatCard
+                    icon="compare"
+                    label="比較分析履歴数"
+                    value={history.length.toLocaleString()}
+                    unit="件"
+                    change={history.length > 1 ? `+${history.length}` : undefined}
+                    subtitle={latestDate ? `最新: ${latestDate}` : undefined}
+                    onClick={() => navigate('/compare')}
+                  />
+                ) : (
+                  <EmptyStatCard
+                    icon="compare"
+                    label="比較分析履歴"
+                    message="まだ分析がありません"
+                    actionLabel="LP比較を始める"
+                    onAction={() => navigate('/compare')}
+                  />
+                )}
+                <LiveStatCard
+                  icon="settings_suggest"
+                  label="設定済みクエリ種別"
+                  value={setupState?.queryTypes?.length ?? 0}
+                  unit="種"
+                  subtitle={setupState ? `${setupState.periods?.length ?? 0} 期間 / ${setupState.granularity ?? '-'}` : 'セットアップ未完了'}
+                />
+                <LiveStatCard
+                  icon="key"
+                  label="API接続状況"
+                  value={[hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
+                  unit={`/ 2 接続`}
+                  subtitle={`Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
+                />
+              </>
             )}
-            <LiveStatCard
-              icon="settings_suggest"
-              label="設定済みクエリ種別"
-              value={setupState?.queryTypes?.length ?? 0}
-              unit="種"
-              subtitle={setupState ? `${setupState.periods?.length ?? 0} 期間 / ${setupState.granularity ?? '-'}` : 'セットアップ未完了'}
-            />
-            <LiveStatCard
-              icon="key"
-              label="API接続状況"
-              value={[hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
-              unit={`/ 2 接続`}
-              subtitle={`Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
-            />
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Recent Analysis Results */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-on-surface japanese-text">最近の分析結果</h3>
-          {history.length > 0 && (
-            <button
-              onClick={() => navigate('/compare')}
-              className="text-sm font-bold text-secondary flex items-center gap-1 hover:underline"
-            >
-              すべて表示
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
-          )}
-        </div>
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover overflow-hidden">
-          {historyLoading ? (
-            <div className="py-8 px-8 space-y-4">
-              <SkeletonBlock variant="text" lines={5} />
+          {/* Recent Analysis Table */}
+          <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover overflow-hidden">
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+              <h3 className="text-lg font-bold text-on-surface japanese-text">最近の分析結果</h3>
+              {history.length > 0 && (
+                <button
+                  onClick={() => navigate('/compare')}
+                  className="text-sm font-bold text-secondary flex items-center gap-1 hover:underline"
+                >
+                  すべて表示
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              )}
             </div>
-          ) : historyError ? (
-            <div className="px-8 py-6">
-              <ErrorBanner message={historyError} onRetry={fetchHistory} />
-            </div>
-          ) : history.length === 0 ? (
-            <div className="text-center py-16 text-on-surface-variant">
-              <span className="material-symbols-outlined text-4xl text-outline-variant mb-2 block">history</span>
-              <p className="text-sm japanese-text">分析履歴がまだありません</p>
-              <button
-                onClick={() => navigate('/compare')}
-                className="mt-4 text-sm font-bold text-secondary hover:underline flex items-center gap-1 mx-auto"
-              >
-                LP比較分析を始める
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-surface-container text-on-surface-variant">
-                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider japanese-text">案件名</th>
-                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">URL</th>
-                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">更新日</th>
-                  <th className="py-5 px-8 font-bold text-xs uppercase tracking-wider">スコア</th>
-                  <th className="py-5 px-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {history.slice(0, 10).map((item, i) => (
-                  <tr key={item.id ?? i} className="hover:bg-surface-container-low transition-colors group">
-                    <td className="py-5 px-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
-                          <span className="material-symbols-outlined text-lg">web</span>
-                        </div>
-                        <span className="font-bold text-on-surface japanese-text">{item.name ?? item.title ?? `分析 #${i + 1}`}</span>
-                      </div>
-                    </td>
-                    <td className="py-5 px-8 text-sm text-on-surface-variant truncate max-w-[200px]">{item.url ?? item.urls?.[0] ?? '-'}</td>
-                    <td className="py-5 px-8 text-sm text-on-surface-variant tabular-nums">{item.date ?? item.created_at ?? '-'}</td>
-                    <td className="py-5 px-8">
-                      {item.score != null ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          {item.score}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-on-surface-variant">--</span>
-                      )}
-                    </td>
-                    <td className="py-5 px-8 text-right">
-                      <button className="w-10 h-10 rounded-lg hover:bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-all">
-                        <span className="material-symbols-outlined">more_vert</span>
-                      </button>
-                    </td>
+            {historyLoading ? (
+              <div className="py-8 px-8 space-y-4">
+                <SkeletonBlock variant="text" lines={5} />
+              </div>
+            ) : historyError ? (
+              <div className="px-8 py-6">
+                <ErrorBanner message={historyError} onRetry={fetchHistory} />
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-16 text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl text-outline-variant mb-2 block">history</span>
+                <p className="text-sm japanese-text">分析履歴がまだありません</p>
+                <button
+                  onClick={() => navigate('/compare')}
+                  className="mt-4 text-sm font-bold text-secondary hover:underline flex items-center gap-1 mx-auto"
+                >
+                  LP比較分析を始める
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container text-on-surface-variant">
+                    <th className="py-4 px-6 font-bold text-xs uppercase tracking-wider japanese-text">案件名</th>
+                    <th className="py-4 px-6 font-bold text-xs uppercase tracking-wider">URL</th>
+                    <th className="py-4 px-6 font-bold text-xs uppercase tracking-wider">更新日</th>
+                    <th className="py-4 px-6 font-bold text-xs uppercase tracking-wider">スコア</th>
+                    <th className="py-4 px-6"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.slice(0, 10).map((item, i) => (
+                    <tr key={item.id ?? i} className="hover:bg-surface-container-low transition-colors group">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
+                            <span className="material-symbols-outlined text-lg">web</span>
+                          </div>
+                          <span className="font-bold text-on-surface japanese-text">{item.name ?? item.title ?? `分析 #${i + 1}`}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-on-surface-variant truncate max-w-[180px]">{item.url ?? item.urls?.[0] ?? '-'}</td>
+                      <td className="py-4 px-6 text-sm text-on-surface-variant tabular-nums">{item.date ?? item.created_at ?? '-'}</td>
+                      <td className="py-4 px-6">
+                        {item.score != null ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-on-surface tabular-nums">{item.score}</span>
+                            <div className="w-20 h-2 bg-surface-container rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, item.score)}%` }} />
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-on-surface-variant">--</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">完了</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Chart Overview (GA-like compact charts from reportBundle) */}
+          {reportBundle?.chartGroups?.length > 0 && (
+            <ChartOverviewSection
+              chartGroups={reportBundle.chartGroups}
+              periodTags={getChartPeriodTags(reportBundle.chartGroups)}
+              onDrillDown={() => navigate('/ads/graphs')}
+            />
           )}
-        </div>
-      </div>
 
-      {/* Chart Overview (GA-like compact charts from reportBundle) */}
-      {reportBundle?.chartGroups?.length > 0 && (
-        <ChartOverviewSection
-          chartGroups={reportBundle.chartGroups}
-          periodTags={getChartPeriodTags(reportBundle.chartGroups)}
-          onDrillDown={() => navigate('/ads/graphs')}
-        />
-      )}
-
-      {/* Bottom Section: Setup Status + Creative Review CTA */}
-      <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-5">
+          {/* Setup Status Card */}
           <SetupStatusCard
             setupState={setupState}
             reportBundle={reportBundle}
             isAdsAuthenticated={isAdsAuthenticated}
             onNavigate={navigate}
           />
-        </div>
-        <div className="col-span-7 bg-primary-container p-8 rounded-[0.75rem] flex flex-col justify-between overflow-hidden relative h-[280px]">
-          <div className="relative z-10">
-            <h4 className="text-2xl font-black text-white japanese-text">AI 広告クリエイティブ診断</h4>
-            <p className="text-white/60 mt-2 max-w-md">
-              最新のAIモデルが広告クリエイティブとLPの連動性を分析し、改善バナーを自動生成します。
-            </p>
-            <button
-              onClick={() => navigate('/creative-review')}
-              className="button-primary mt-8"
-            >
-              診断を始める
-              <span className="material-symbols-outlined">east</span>
-            </button>
+
+          {/* Trend Keywords placeholder */}
+          <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
+            <h3 className="text-lg font-bold text-on-surface japanese-text mb-4">トレンドキーワード</h3>
+            <div className="flex flex-wrap gap-2">
+              {['LP改善', 'CVR最適化', 'CPA削減', 'ファーストビュー', 'CTA配置', '離脱率', 'A/Bテスト'].map((kw) => (
+                <span key={kw} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-surface-container text-on-surface-variant">
+                  {kw}
+                  <span className="text-xs text-outline-variant tabular-nums">+{Math.floor(Math.random() * 30 + 5)}</span>
+                </span>
+              ))}
+            </div>
           </div>
-          <div className="absolute right-0 top-0 h-full w-1/2 opacity-10 bg-gradient-to-l from-gold/30 to-transparent" />
+        </div>
+
+        {/* ── Right sidebar actions (w-[280px]) ── */}
+        <div className="w-[280px] flex flex-col gap-6 shrink-0">
+          {/* Quick Actions Card */}
+          <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border">
+            <h4 className="text-sm font-bold text-on-surface-variant mb-4 japanese-text">クイックアクション</h4>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => navigate('/compare')}
+                className="button-primary w-full justify-center"
+              >
+                <span className="material-symbols-outlined text-lg">bolt</span>
+                新規LP比較
+              </button>
+              <button
+                onClick={() => navigate('/creative-review')}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-on-surface border border-outline-variant/30 hover:bg-surface-container transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">auto_fix_high</span>
+                クリエイティブ診断
+              </button>
+              <button
+                onClick={() => navigate('/ads/wizard')}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">settings</span>
+                レポート設定
+              </button>
+            </div>
+          </div>
+
+          {/* Activity Feed */}
+          <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border">
+            <h4 className="text-sm font-bold text-on-surface-variant mb-5 japanese-text">最近のアクティビティ</h4>
+            <div className="relative pl-5">
+              {/* Vertical timeline line */}
+              <div className="absolute left-[7px] top-1 bottom-1 w-0.5 bg-outline-variant/30" />
+              <div className="space-y-5">
+                {[
+                  { icon: 'compare', text: 'LP比較分析を実行', sub: '新規案件の比較結果を生成', time: '2時間前' },
+                  { icon: 'bar_chart', text: '広告レポート更新', sub: '月次データを自動取得', time: '5時間前' },
+                  { icon: 'auto_fix_high', text: 'クリエイティブ診断', sub: 'バナー改善案を3件提案', time: '1日前' },
+                  { icon: 'settings', text: 'セットアップ完了', sub: 'クエリ種別を追加設定', time: '3日前' },
+                ].map((item, i) => (
+                  <div key={i} className="relative flex gap-3">
+                    {/* Dot marker */}
+                    <div className="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-surface-container-lowest border-2 border-gold shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-on-surface japanese-text leading-snug">{item.text}</p>
+                      <p className="text-xs text-on-surface-variant mt-0.5">{item.sub}</p>
+                      <p className="text-[11px] text-outline-variant mt-1 tabular-nums">{item.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

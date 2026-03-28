@@ -249,8 +249,8 @@ export default function EssentialPack() {
                   }}
                   className={`block px-3 py-1.5 text-xs rounded-lg transition-all leading-snug ${
                     openSections[s.id]
-                      ? 'text-on-surface font-bold border-l-2 border-gold bg-surface-container-low/60'
-                      : 'text-on-surface-variant border-l-2 border-transparent hover:bg-surface-container'
+                      ? 'bg-surface-container-lowest text-on-surface font-bold shadow-sm'
+                      : 'text-on-surface-variant hover:bg-surface-container'
                   } ${s.kind === 'summary' ? 'font-bold' : ''}`}
                 >
                   {s.heading}
@@ -348,7 +348,9 @@ export default function EssentialPack() {
               <div
                 key={section.id}
                 id={section.id}
-                className="rounded-[0.75rem] border border-outline-variant/10 scroll-mt-20 overflow-x-hidden"
+                className={`rounded-[0.75rem] border border-outline-variant/10 scroll-mt-20 overflow-x-hidden transition-opacity ${
+                  !openSections[section.id] && section.kind !== 'summary' ? 'opacity-75 hover:opacity-100' : ''
+                }`}
               >
                 {section.kind === 'summary' ? (
                   /* Summary: 常に開いた状態、ボタンなし */
@@ -368,7 +370,14 @@ export default function EssentialPack() {
                           : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container/40'
                       }`}
                     >
-                      <span className="font-bold text-sm">{section.heading}</span>
+                      <span className="flex items-center gap-3">
+                        <span className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          openSections[section.id] ? 'bg-secondary/10 text-secondary' : 'bg-surface-container text-on-surface-variant'
+                        }`}>
+                          <span className="material-symbols-outlined text-lg">article</span>
+                        </span>
+                        <span className="font-bold text-sm">{section.heading}</span>
+                      </span>
                       <span
                         className="material-symbols-outlined text-base transition-transform duration-200"
                         style={{ transform: openSections[section.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}

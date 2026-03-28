@@ -114,8 +114,8 @@ export default function Discovery() {
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div>
-        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
-        <p className="text-on-surface-variant mt-2 text-base">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
+        <h2 className="text-[2.75rem] font-extrabold text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
+        <p className="text-secondary max-w-2xl mt-2">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
       {!hasGeminiKey && (
@@ -126,36 +126,37 @@ export default function Discovery() {
       )}
 
       {/* URL Input */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
-          <input
-            className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
-            placeholder="競合他社のURLを入力"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-          />
+      <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
+            <input
+              className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
+              placeholder="競合他社のURLを入力"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          </div>
+          <button
+            className="button-primary py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!canSubmit}
+            onClick={handleDiscover}
+          >
+            {loading ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>検索中…</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined">search</span>
+                競合を発見
+              </>
+            )}
+          </button>
         </div>
-        <button
-          className="button-primary py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={!canSubmit}
-          onClick={handleDiscover}
-        >
-          {loading ? (
-            <>
-              <LoadingSpinner size="sm" />
-              <span>検索中…</span>
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined">search</span>
-              競合を発見
-            </>
-          )}
-        </button>
+        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析には 30〜90 秒ほどかかることがあります。</p>
       </div>
-
-      <p className="text-xs text-on-surface-variant japanese-text">競合探索と比較分析には 30〜90 秒ほどかかることがあります。</p>
 
       {/* Meta Band */}
       <MetaBand run={run} />
@@ -183,14 +184,14 @@ export default function Discovery() {
       {discoveries.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-on-surface flex items-center gap-2 japanese-text">
+            <h3 className="text-2xl font-bold text-on-surface flex items-center gap-3 japanese-text">
               <span className="material-symbols-outlined text-secondary">verified</span>
               発見されたLP一覧
+              <span className="inline-flex items-center justify-center px-3 py-0.5 bg-secondary/10 text-secondary text-sm font-bold rounded-full">{discoveries.length}</span>
             </h3>
-            <span className="text-sm text-on-surface-variant">{discoveries.length} 件</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-3 gap-8">
             {discoveries.map((item, i) => {
               const isFallback = item.analysis_source === 'search_result_fallback'
               const isFailed = item.analysis_source === 'failed' || (item.error && !isFallback)
@@ -198,16 +199,16 @@ export default function Discovery() {
               return (
                 <div
                   key={item.url ?? item.name ?? i}
-                  className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover overflow-hidden ${
+                  className={`bg-surface-container-lowest rounded-[0.75rem] overflow-hidden hover:shadow-xl transition-shadow ${
                     isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
                   }`}
                 >
-                  <div className="h-48 bg-surface-container relative">
+                  <div className="h-48 bg-surface-container relative aspect-[4/3]">
                     <span className="material-symbols-outlined absolute inset-0 m-auto text-6xl text-outline-variant/50">
                       {isFailed ? 'error_outline' : isFallback ? 'warning' : 'web'}
                     </span>
                     {(item.score != null) && (
-                      <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center">
+                      <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center shadow-md">
                         <span className="text-[10px] font-bold text-on-surface-variant block uppercase tracking-wider">SCORE</span>
                         <span className="text-2xl font-black text-secondary tabular-nums leading-none">{item.score}</span>
                       </div>
@@ -240,9 +241,15 @@ export default function Discovery() {
                     )}
                   </div>
                   {item.url && !isFailed && (
-                    <div className="border-t border-outline-variant/8 px-5 py-3 text-center">
-                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-secondary hover:text-primary transition-colors japanese-text">
-                        {isFallback ? 'サイトを開く →' : '分析する →'}
+                    <div className="border-t border-outline-variant/8 px-5 py-3">
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center w-full gap-1.5 px-4 py-2 bg-secondary/10 text-secondary text-xs font-bold rounded-lg hover:bg-secondary/20 transition-colors japanese-text"
+                      >
+                        {isFallback ? 'サイトを開く' : '分析する'}
+                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </a>
                     </div>
                   )}

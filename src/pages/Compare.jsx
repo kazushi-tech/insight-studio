@@ -89,8 +89,8 @@ export default function Compare() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">LP比較・競合分析</h2>
-          <p className="text-on-surface-variant mt-2 text-lg">自社と競合のLPを並列比較し、AIが戦略的な改善点を提示します</p>
+          <h2 className="text-[2.75rem] font-extrabold text-on-surface tracking-tight japanese-text">LP比較・競合分析</h2>
+          <p className="text-secondary max-w-2xl mt-2">自社と競合のLPを並列比較し、AIが戦略的な改善点を提示します</p>
         </div>
         <span className="inline-flex items-center gap-2 px-4 py-2 bg-surface-container rounded-full text-sm font-bold text-secondary">
           <span className="material-symbols-outlined text-sm">auto_awesome</span>
@@ -106,25 +106,27 @@ export default function Compare() {
       )}
 
       {/* URL Inputs */}
-      <div className="grid grid-cols-3 gap-6">
-        {[
-          { key: 'target', label: '自社URL (Target)', placeholder: 'https://your-site.jp/lp01' },
-          { key: 'compA', label: '競合URL A (Competitor)', placeholder: 'https://competitor-a.com/landing' },
-          { key: 'compB', label: '競合URL B (Competitor)', placeholder: 'https://competitor-b.com/campaign' },
-        ].map(({ key, label, placeholder }) => (
-          <div key={key}>
-            <label className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">link</span>
-              <input
-                className="w-full bg-surface-container-low rounded-[0.75rem] py-3 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
-                placeholder={placeholder}
-                value={urls[key]}
-                onChange={(e) => setUrls({ ...urls, [key]: e.target.value })}
-              />
+      <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
+        <div className="grid grid-cols-3 gap-6">
+          {[
+            { key: 'target', label: '自社URL (Target)', placeholder: 'https://your-site.jp/lp01' },
+            { key: 'compA', label: '競合URL A (Competitor)', placeholder: 'https://competitor-a.com/landing' },
+            { key: 'compB', label: '競合URL B (Competitor)', placeholder: 'https://competitor-b.com/campaign' },
+          ].map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <label className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">link</span>
+                <input
+                  className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
+                  placeholder={placeholder}
+                  value={urls[key]}
+                  onChange={(e) => setUrls({ ...urls, [key]: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-end">
@@ -213,51 +215,53 @@ export default function Compare() {
       {/* Result Area */}
       {result && (
         <div className="space-y-8">
-          <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
-            {/* Score Panel — only shown when backend returns scores */}
-            {hasScores && (
-              <div className="col-span-4 bg-gradient-to-br from-primary-container to-[#2a2a4e] p-8 rounded-[0.75rem] text-white min-h-[300px]">
-                <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/70">OVERALL STRATEGY SCORE</p>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-7xl font-black tabular-nums text-gold">{overallScore ?? '--'}</span>
-                  <span className="text-2xl font-bold text-white/50">/100</span>
+          {/* Score Header — full-width prominent score display */}
+          {hasScores && (
+            <div className="bg-gradient-to-br from-primary-container to-[#2a2a4e] p-8 rounded-[0.75rem] text-white">
+              <div className="flex items-center gap-10">
+                <div className="shrink-0">
+                  <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/70">OVERALL STRATEGY SCORE</p>
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="text-7xl font-black tabular-nums text-gold">{overallScore ?? '--'}</span>
+                    <span className="text-2xl font-bold text-white/50">/100</span>
+                  </div>
                 </div>
-                <div className="mt-8 space-y-3 text-sm">
-                  {scores.ux != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>UXコンバージョン率</span><span className="font-bold">{scores.ux}</span></div>}
-                  {scores.conversion != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>コンバージョン</span><span className="font-bold">{scores.conversion}</span></div>}
-                  {scores.brand != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>ブランド信頼性</span><span className="font-bold">{scores.brand}</span></div>}
-                  {scores.trust != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>信頼性</span><span className="font-bold">{scores.trust}</span></div>}
-                  {scores.seo != null && <div className="flex justify-between"><span>SEO最適化</span><span className="font-bold">{scores.seo}</span></div>}
+                <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
+                  {scores.ux != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">UXコンバージョン率</span><span className="text-2xl font-bold">{scores.ux}</span></div>}
+                  {scores.conversion != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">コンバージョン</span><span className="text-2xl font-bold">{scores.conversion}</span></div>}
+                  {scores.brand != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">ブランド信頼性</span><span className="text-2xl font-bold">{scores.brand}</span></div>}
+                  {scores.trust != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">信頼性</span><span className="text-2xl font-bold">{scores.trust}</span></div>}
+                  {scores.seo != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">SEO最適化</span><span className="text-2xl font-bold">{scores.seo}</span></div>}
                 </div>
-                {result?.summary && (
-                  <p className="mt-6 text-xs leading-relaxed opacity-80">{result.summary}</p>
-                )}
               </div>
-            )}
-
-            {/* Report — primary display */}
-            <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px]`}>
-              <div className="flex items-center gap-2 text-on-surface-variant mb-6">
-                <span className="material-symbols-outlined text-secondary">description</span>
-                <span className="text-sm font-bold">分析レポート</span>
-              </div>
-              {extracted && (
-                <div className="mb-6 p-4 bg-surface-container rounded-[0.75rem] text-sm space-y-2">
-                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">抽出データ</p>
-                  <pre className="text-xs text-on-surface-variant whitespace-pre-wrap overflow-x-auto">{typeof extracted === 'string' ? extracted : JSON.stringify(extracted, null, 2)}</pre>
-                </div>
-              )}
-              {report ? (
-                <div className="pl-9 text-on-surface-variant text-sm leading-relaxed">
-                  <MarkdownRenderer content={report} />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>
-                  <p className="text-sm japanese-text">分析が完了しましたが、レポートデータが含まれていません。</p>
-                </div>
+              {result?.summary && (
+                <p className="mt-6 text-xs leading-relaxed opacity-80 max-w-3xl">{result.summary}</p>
               )}
             </div>
+          )}
+
+          {/* Report — primary display with gold left accent */}
+          <div className={`max-w-4xl mx-auto bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-gold' : ''}`}>
+            <div className="flex items-center gap-2 text-on-surface-variant mb-6">
+              <span className="material-symbols-outlined text-secondary">description</span>
+              <span className="text-sm font-bold">分析レポート</span>
+            </div>
+            {extracted && (
+              <div className="mb-6 p-4 bg-surface-container rounded-[0.75rem] text-sm space-y-2">
+                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">抽出データ</p>
+                <pre className="text-xs text-on-surface-variant whitespace-pre-wrap overflow-x-auto">{typeof extracted === 'string' ? extracted : JSON.stringify(extracted, null, 2)}</pre>
+              </div>
+            )}
+            {report ? (
+              <div className="pl-9 text-on-surface-variant text-sm leading-relaxed">
+                <MarkdownRenderer content={report} />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>
+                <p className="text-sm japanese-text">分析が完了しましたが、レポートデータが含まれていません。</p>
+              </div>
+            )}
           </div>
         </div>
       )}

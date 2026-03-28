@@ -362,15 +362,15 @@ export default function AiExplorer() {
 
         <div className="space-y-2">
           <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Quick Analysis</p>
-          <div className="flex gap-3 overflow-x-auto pb-1">
+          <div className="grid grid-cols-3 gap-6">
             {QUICK_PROMPTS.map((prompt) => (
               <button
                 key={prompt.label}
                 onClick={() => handleSend(prompt.label)}
                 disabled={promptDisabled}
-                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-surface-container-lowest rounded-[0.75rem] ghost-border hover:border-secondary/40 transition-colors text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex flex-col items-start gap-3 p-5 rounded-xl bg-surface-container-lowest ghost-border hover:shadow-[0_10px_30px_rgba(25,29,30,0.06)] transition-shadow text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className={`material-symbols-outlined text-[18px] ${prompt.color}`}>{prompt.icon}</span>
+                <span className={`material-symbols-outlined text-[22px] ${prompt.color}`}>{prompt.icon}</span>
                 <span className="japanese-text">{prompt.label}</span>
               </button>
             ))}
@@ -381,26 +381,30 @@ export default function AiExplorer() {
       <div className="flex-1 overflow-y-auto px-10 pt-3 pb-6 space-y-6" aria-live="polite">
         {messages.length === 0 && (
           <div className="text-center py-20 text-on-surface-variant">
-            <span className="material-symbols-outlined text-6xl text-outline-variant mb-4 block">smart_toy</span>
-            <p className="text-lg font-bold japanese-text">AI考察エンジン</p>
-            <p className="text-sm mt-1">要点パックとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
+            <div className="w-16 h-16 bg-gold/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-4xl text-gold">auto_awesome</span>
+            </div>
+            <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI 考察エンジン</p>
+            <p className="text-sm mt-2">要点パックとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
           </div>
         )}
 
         {messages.map((message, index) =>
           isAssistantMessage(message) ? (
             <div key={index} className="flex gap-4">
-              <div className="w-10 h-10 bg-primary-container rounded-[0.75rem] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-gold text-lg">smart_toy</span>
+              <div className="w-10 h-10 bg-gold/20 rounded-full flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-gold text-lg">auto_awesome</span>
               </div>
-              <div className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
-                <MarkdownRenderer content={message.text} className="text-sm" />
-                <p className="text-xs text-on-surface-variant mt-3">AI 考察エンジン</p>
+              <div>
+                <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
+                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
+                  <MarkdownRenderer content={message.text} className="text-sm" />
+                </div>
               </div>
             </div>
           ) : (
             <div key={index} className="flex justify-end gap-4">
-              <div className="bg-primary-container text-on-primary rounded-[0.75rem] px-6 py-4 max-w-2xl">
+              <div className="bg-primary-container text-on-primary rounded-2xl rounded-tr-none px-6 py-4 max-w-2xl">
                 <p className="text-sm leading-relaxed text-on-primary japanese-text">{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">
@@ -412,11 +416,14 @@ export default function AiExplorer() {
 
         {loading && (
           <div className="flex gap-4">
-            <div className="w-10 h-10 bg-primary-container rounded-[0.75rem] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-gold/20 rounded-full flex items-center justify-center shrink-0">
               <LoadingSpinner size="sm" />
             </div>
-            <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
-              <p className="text-sm text-on-surface-variant japanese-text">考察を生成中…</p>
+            <div>
+              <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
+              <div className="bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6">
+                <p className="text-sm text-on-surface-variant japanese-text">考察を生成中…</p>
+              </div>
             </div>
           </div>
         )}
@@ -424,8 +431,8 @@ export default function AiExplorer() {
         <div ref={chatEndRef} />
       </div>
 
-      <div className="px-10 pb-6 pt-2">
-        <div className="flex items-center gap-3 bg-surface-container-lowest rounded-[0.75rem] ghost-border px-6 py-3">
+      <div className="px-10 pb-6 pt-2 backdrop-blur-sm">
+        <div className="flex items-center gap-3 rounded-full bg-surface-container px-6 py-2">
           <input
             className="flex-1 bg-transparent outline-none text-sm"
             placeholder="AIにデータについて質問する..."
