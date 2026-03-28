@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import Chart from 'chart.js/auto'
 import { useTheme } from '../../contexts/ThemeContext'
-import { resolveChartType, CHART_TYPE_LABELS } from '../../utils/chartTypeInference'
+import { resolveChartPresentation, CHART_TYPE_LABELS } from '../../utils/chartTypeInference'
 
 const PALETTE = [
   '#2563eb',
@@ -72,7 +72,7 @@ function formatAxisValue(value) {
   return numeric.toLocaleString('ja-JP')
 }
 
-function buildPreviewItems(group, effectiveChartType) {
+function buildPreviewItems(group, effectiveChartType, doughnutUsePercent) {
   const labels = Array.isArray(group?.labels) ? group.labels : []
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
 
@@ -87,7 +87,7 @@ function buildPreviewItems(group, effectiveChartType) {
       .slice(0, 3)
     if (segments.length === 0) return []
     return [
-      `上位: ${segments.map((s) => `${s.label} ${s.value.toFixed(1)}%`).join(' / ')}`,
+      `上位: ${segments.map((s) => `${s.label} ${formatValue(s.value, doughnutUsePercent)}`).join(' / ')}`,
     ]
   }
 
@@ -261,8 +261,10 @@ export default function ChartGroupCard({ group }) {
   const chartRef = useRef(null)
   const labels = Array.isArray(group?.labels) ? group.labels : []
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
-  const effectiveChartType = useMemo(() => resolveChartType(group), [group])
-  const previewItems = useMemo(() => buildPreviewItems(group, effectiveChartType), [group, effectiveChartType])
+  const presentation = useMemo(() => resolveChartPresentation(group), [group])
+  const effectiveChartType = presentation.chartType
+  const doughnutUsePercent = presentation.usePercent
+  const previewItems = useMemo(() => buildPreviewItems(group, effectiveChartType, doughnutUsePercent), [group, effectiveChartType, doughnutUsePercent])
   const hasRenderableData = labels.length > 0 && datasets.some((dataset) => Array.isArray(dataset?.data))
 
   useEffect(() => {
@@ -345,7 +347,7 @@ export default function ChartGroupCard({ group }) {
                     label(context) {
                       const lbl = context.label || ''
                       const val = context.parsed
-                      return `${lbl}: ${formatValue(val, true)}`
+                      return `${lbl}: ${formatValue(val, doughnutUsePercent)}`
                     },
                   },
                 },
@@ -415,7 +417,7 @@ export default function ChartGroupCard({ group }) {
       chartRef.current?.destroy()
       chartRef.current = null
     }
-  }, [group, effectiveChartType, hasRenderableData, theme])
+  }, [group, effectiveChartType, doughnutUsePercent, hasRenderableData, theme])
 
   return (
     <article className="bg-surface-container-lowest rounded-[0.75rem] ghost-border p-6 panel-card-hover">

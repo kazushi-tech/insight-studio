@@ -71,6 +71,7 @@ export default function AnalysisGraphs() {
       (sum, group) => sum + (Array.isArray(group?.datasets) ? group.datasets.length : 0),
       0,
     )
+    // Summary counts use rendered (effective) type, not raw backend type
     const typeCounts = {}
     for (const group of filteredGroups) {
       const etype = resolveChartType(group)
