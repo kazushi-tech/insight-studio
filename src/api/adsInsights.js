@@ -82,7 +82,12 @@ async function request(path, options = {}) {
   } catch (e) {
     clearTimeout(timeoutId)
     if (e.name === 'AbortError') {
-      throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
+      const sec = Math.round(timeout / 1000)
+      throw new Error(
+        sec >= 60
+          ? `リクエストが ${sec} 秒でタイムアウトしました。AI生成の処理に時間がかかっている、またはバックエンドのコールドスタートが原因の可能性があります。しばらく待ってから再試行してください。`
+          : 'リクエストがタイムアウトしました。ネットワーク接続を確認してください。'
+      )
     }
     throw e
   }
@@ -168,17 +173,18 @@ export function generateInsights(payload) {
   })
 }
 
-/** POST /api/neon/generate — Point Pack 기반 AI考察 */
+/** POST /api/neon/generate — Point Pack ベース AI考察 */
 export function neonGenerate(payload, apiKey) {
   const headers = {
     Accept: 'application/json',
-    ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
+    ...(apiKey ? { 'X-API-Key': apiKey, 'X-Gemini-API-Key': apiKey } : {}),
   }
 
   return request('/neon/generate', {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
+    timeout: 120000,
   })
 }
 

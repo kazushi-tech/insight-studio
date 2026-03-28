@@ -5,6 +5,7 @@ const AuthContext = createContext(null)
 
 const STORAGE_KEY_TOKEN = 'is_ads_token'
 const STORAGE_KEY_GEMINI = 'is_gemini_key'
+const STORAGE_KEY_CLAUDE = 'is_claude_key'
 
 export function AuthProvider({ children }) {
   const onLogoutCallbacksRef = useRef(new Set())
@@ -13,11 +14,29 @@ export function AuthProvider({ children }) {
     if (saved) setToken(saved)
     return saved
   })
+
+  // Claude API key — 分析・類推系 (Compare, Discovery, CreativeReview review, AiExplorer)
+  const [claudeKey, setClaudeKeyState] = useState(
+    () => localStorage.getItem(STORAGE_KEY_CLAUDE) || ''
+  )
+
+  // Gemini API key — 画像生成用 (CreativeReview generation / Nano Banana2)
+  // Legacy: 既存の is_gemini_key をそのまま画像生成用として扱う
   const [geminiKey, setGeminiKeyState] = useState(
     () => localStorage.getItem(STORAGE_KEY_GEMINI) || ''
   )
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  const setClaudeKey = useCallback((key) => {
+    setClaudeKeyState(key)
+    if (key) {
+      localStorage.setItem(STORAGE_KEY_CLAUDE, key)
+    } else {
+      localStorage.removeItem(STORAGE_KEY_CLAUDE)
+    }
+  }, [])
 
   const setGeminiKey = useCallback((key) => {
     setGeminiKeyState(key)
@@ -63,13 +82,21 @@ export function AuthProvider({ children }) {
 
   const value = {
     adsToken,
+    // Claude key — 分析用
+    claudeKey,
+    setClaudeKey,
+    hasClaudeKey: !!claudeKey,
+    // Gemini key — 画像生成用 (legacy互換)
     geminiKey,
     setGeminiKey,
+    hasGeminiKey: !!geminiKey,
+    // 便利フラグ: 分析系が使える状態か
+    hasAnalysisKey: !!claudeKey,
+    // Ads auth
     loginAds,
     logoutAds,
     onAdsLogout,
     isAdsAuthenticated: !!adsToken,
-    hasGeminiKey: !!geminiKey,
     loading,
     error,
   }

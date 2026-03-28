@@ -84,7 +84,7 @@ function PartialSuccessBanner({ fetchedSites }) {
 }
 
 export default function Discovery() {
-  const { geminiKey, hasGeminiKey } = useAuth()
+  const { claudeKey, hasClaudeKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('discovery')
@@ -94,18 +94,18 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
   const discoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
-  const canSubmit = url && hasGeminiKey && !loading
+  const canSubmit = url && hasClaudeKey && !loading
 
   const handleDiscover = useCallback(async () => {
     startRun('discovery', { url })
 
     try {
-      const data = await discoveryAnalyze(url, geminiKey)
+      const data = await discoveryAnalyze(url, claudeKey)
       completeRun('discovery', data, { search_id: data.search_id })
     } catch (e) {
       failRun('discovery', e.message)
     }
-  }, [url, geminiKey, startRun, completeRun, failRun])
+  }, [url, claudeKey, startRun, completeRun, failRun])
 
   const handleRetry = useCallback(() => {
     clearRun('discovery')
@@ -118,10 +118,10 @@ export default function Discovery() {
         <p className="text-secondary max-w-2xl mt-2">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
-      {!hasGeminiKey && (
+      {!hasClaudeKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
+          <span className="japanese-text">Claude API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
         </div>
       )}
 

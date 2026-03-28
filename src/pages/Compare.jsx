@@ -46,7 +46,7 @@ function MetaBand({ run }) {
 }
 
 export default function Compare() {
-  const { geminiKey, hasGeminiKey } = useAuth()
+  const { claudeKey, hasClaudeKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('compare')
@@ -55,19 +55,19 @@ export default function Compare() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const canSubmit = urls.target && (urls.compA || urls.compB) && hasGeminiKey && !loading
+  const canSubmit = urls.target && (urls.compA || urls.compB) && hasClaudeKey && !loading
 
   const handleScan = useCallback(async () => {
     startRun('compare', { urls })
 
     try {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
-      const data = await scan(urlList, geminiKey)
+      const data = await scan(urlList, claudeKey)
       completeRun('compare', data, { run_id: data.run_id })
     } catch (e) {
       failRun('compare', e.message)
     }
-  }, [urls, geminiKey, startRun, completeRun, failRun])
+  }, [urls, claudeKey, startRun, completeRun, failRun])
 
   const handleRetry = useCallback(() => {
     clearRun('compare')
@@ -98,10 +98,10 @@ export default function Compare() {
         </span>
       </div>
 
-      {!hasGeminiKey && (
+      {!hasClaudeKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
+          <span className="japanese-text">Claude API キーが未設定です。Anthropic Console のAPIキーアイコンから設定してください。</span>
         </div>
       )}
 

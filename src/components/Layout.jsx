@@ -120,7 +120,8 @@ function SidebarGroup({ item, disabledPaths }) {
 }
 
 function KeySettingsModal({ onClose }) {
-  const { geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
+  const { claudeKey, setClaudeKey, geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
+  const [localClaudeKey, setLocalClaudeKey] = useState(claudeKey)
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
@@ -162,9 +163,12 @@ function KeySettingsModal({ onClose }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  const handleSaveClaude = () => {
+    setClaudeKey(localClaudeKey)
+  }
+
   const handleSaveGemini = () => {
     setGeminiKey(localGeminiKey)
-    onClose()
   }
 
   const handleAdsLogin = async () => {
@@ -194,10 +198,40 @@ function KeySettingsModal({ onClose }) {
           </button>
         </div>
 
+        {/* Claude Key */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（分析用）</label>
+          <p className="text-xs text-on-surface-variant">LP比較分析・競合発見・AI考察・クリエイティブレビューに使用します</p>
+          <a
+            href="https://console.anthropic.com/settings/keys"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-secondary hover:text-secondary/80 underline underline-offset-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">open_in_new</span>
+            Anthropic Console でAPIキーを取得
+          </a>
+          <input
+            type="password"
+            className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+            placeholder="sk-ant-..."
+            value={localClaudeKey}
+            onChange={(e) => setLocalClaudeKey(e.target.value)}
+          />
+          <button
+            onClick={handleSaveClaude}
+            className="px-5 py-2 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
+          >
+            保存
+          </button>
+        </div>
+
+        <hr className="border-surface-container" />
+
         {/* Gemini Key */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（BYOK）</label>
-          <p className="text-xs text-on-surface-variant">Market Lens AI の分析機能に必要です</p>
+          <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
+          <p className="text-xs text-on-surface-variant">バナー自動生成（Nano Banana2）に使用します</p>
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
@@ -295,7 +329,7 @@ function BackgroundIndicator() {
 
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
-  const { hasGeminiKey, isAdsAuthenticated } = useAuth()
+  const { hasClaudeKey, hasGeminiKey, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
@@ -391,6 +425,13 @@ export default function Layout() {
         <div className="px-6 mb-3">
           <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
+              <span className="text-white/50">Claude API</span>
+              <span className={`flex items-center gap-1 font-bold ${hasClaudeKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasClaudeKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                {hasClaudeKey ? '設定済' : '未設定'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-white/50">Gemini API</span>
               <span className={`flex items-center gap-1 font-bold ${hasGeminiKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasGeminiKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
@@ -456,13 +497,13 @@ export default function Layout() {
               <button
                 onClick={() => setShowKeyModal(true)}
                 className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative ${
-                  hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
+                  hasClaudeKey && hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
                 }`}
                 title="API キー設定"
                 aria-label="API キー設定"
               >
                 <span className="material-symbols-outlined">key</span>
-                {(!hasGeminiKey || !isAdsAuthenticated) && (
+                {(!hasClaudeKey || !hasGeminiKey || !isAdsAuthenticated) && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full" />
                 )}
               </button>

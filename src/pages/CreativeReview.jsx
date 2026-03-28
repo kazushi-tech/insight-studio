@@ -362,7 +362,7 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
 // ─── Main Component ───
 
 export default function CreativeReview() {
-  const { geminiKey: apiKey, setGeminiKey } = useAuth()
+  const { claudeKey, hasClaudeKey, geminiKey, hasGeminiKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const reviewRun = getRun('creative-review')
@@ -485,7 +485,7 @@ export default function CreativeReview() {
 
   // ─── 2. Review ───
   const handleReview = useCallback(async () => {
-    if (!assetId || !apiKey.trim()) return
+    if (!assetId || !claudeKey.trim()) return
 
     setPhase('reviewing')
     setErrorMessage('')
@@ -506,9 +506,9 @@ export default function CreativeReview() {
       let envelope
       if (lpUrl.trim()) {
         payload.landing_page = { url: lpUrl.trim() }
-        envelope = await reviewAdLp(payload, apiKey.trim())
+        envelope = await reviewAdLp(payload, claudeKey.trim())
       } else {
-        envelope = await reviewBanner(payload, apiKey.trim())
+        envelope = await reviewBanner(payload, claudeKey.trim())
       }
 
       const review = envelope.review || envelope
@@ -518,11 +518,11 @@ export default function CreativeReview() {
       failRun('creative-review', err.message)
       goError(`レビュー失敗: ${err.message}`)
     }
-  }, [assetId, apiKey, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, startRun, completeRun, failRun, clearRun, goError])
+  }, [assetId, claudeKey, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, startRun, completeRun, failRun, clearRun, goError])
 
   // ─── 3. Generation ───
   const handleGenerate = useCallback(async () => {
-    if (!runId || !apiKey.trim()) return
+    if (!runId || !geminiKey.trim()) return
 
     setPhase('generating')
     setErrorMessage('')
@@ -530,7 +530,7 @@ export default function CreativeReview() {
     startRun('banner-generation', { runId })
 
     try {
-      const result = await generateBanner({ review_run_id: runId }, apiKey.trim())
+      const result = await generateBanner({ review_run_id: runId }, geminiKey.trim())
       const gId = result.id
 
       let status = result.status
@@ -554,7 +554,7 @@ export default function CreativeReview() {
       failRun('banner-generation', err.message)
       goError(`生成失敗: ${err.message}`)
     }
-  }, [runId, apiKey, startRun, completeRun, failRun, goError])
+  }, [runId, geminiKey, startRun, completeRun, failRun, goError])
 
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed', 'generating', 'generated'].includes(phase)
@@ -589,21 +589,23 @@ export default function CreativeReview() {
       {/* Meta Band */}
       {reviewRun && <MetaBand run={reviewRun} />}
 
-      {/* ─── API Key ─── */}
-      <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
-        <label className="flex items-center gap-2 text-sm font-bold text-on-surface japanese-text mb-3">
-          <span className="material-symbols-outlined text-secondary text-lg">key</span>
-          Gemini API キー（BYOK）
-        </label>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setGeminiKey(e.target.value)}
-          placeholder="Gemini API キーを入力"
-          className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-        />
-        <p className="text-xs text-on-surface-variant mt-2">レビューとバナー生成に同じAPIキーが使用されます。ブラウザに保存されます。</p>
-      </div>
+      {/* ─── API Key Status ─── */}
+      {(!hasClaudeKey || !hasGeminiKey) && (
+        <div className="space-y-3">
+          {!hasClaudeKey && (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+              <span className="material-symbols-outlined text-lg">warning</span>
+              <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
+            </div>
+          )}
+          {!hasGeminiKey && (
+            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+              <span className="material-symbols-outlined text-lg">warning</span>
+              <span className="japanese-text">画像生成用 Gemini API キーが未設定です。設定画面から設定してください。</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
       {(!isUploaded && phase !== 'uploading') && (
@@ -724,7 +726,7 @@ export default function CreativeReview() {
 
               <button
                 onClick={handleReview}
-                disabled={!apiKey.trim() || phase === 'reviewing'}
+                disabled={!claudeKey.trim() || phase === 'reviewing'}
                 className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {phase === 'reviewing' ? (
@@ -737,8 +739,8 @@ export default function CreativeReview() {
                 )}
               </button>
 
-              {!apiKey.trim() && (
-                <p className="text-xs text-amber-600">Gemini API キーを入力してください。</p>
+              {!claudeKey.trim() && (
+                <p className="text-xs text-amber-600">Claude API キーを設定してください。</p>
               )}
             </div>
 
@@ -785,7 +787,7 @@ export default function CreativeReview() {
                 {runId && (
                   <button
                     onClick={handleGenerate}
-                    disabled={!apiKey.trim() || phase === 'generating'}
+                    disabled={!geminiKey.trim() || phase === 'generating'}
                     className="px-6 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {phase === 'generating' ? (

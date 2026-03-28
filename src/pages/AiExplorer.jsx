@@ -47,7 +47,7 @@ function toConversationHistory(messages) {
 }
 
 export default function AiExplorer() {
-  const { isAdsAuthenticated, geminiKey, hasGeminiKey } = useAuth()
+  const { isAdsAuthenticated, claudeKey, hasClaudeKey } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const { avatarInitial } = useUserProfile()
   const [input, setInput] = useState('')
@@ -126,7 +126,7 @@ export default function AiExplorer() {
   )
 
   const promptDisabled =
-    !isAdsAuthenticated || !hasGeminiKey || !reportBundle?.reportMd || loading || reportLoading
+    !isAdsAuthenticated || !hasClaudeKey || !reportBundle?.reportMd || loading || reportLoading
 
   async function handleSend(text) {
     const prompt = (text ?? input).trim()
@@ -149,7 +149,8 @@ export default function AiExplorer() {
       const data = await neonGenerate(
         {
           mode: 'question',
-          model: 'gemini-2.5-flash',
+          model: 'claude-sonnet-4-6',
+          provider: 'anthropic',
           temperature: 0.7,
           message: enrichedPrompt,
           point_pack_md: reportBundle.reportMd,
@@ -160,7 +161,7 @@ export default function AiExplorer() {
           conversation_history: toConversationHistory(nextMessages),
           ai_chart_context: chartContext,
         },
-        geminiKey,
+        claudeKey,
       )
 
       const normalized = normalizeAdsPayload(data)
@@ -276,10 +277,10 @@ export default function AiExplorer() {
             <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
-        {!hasGeminiKey && (
+        {!hasClaudeKey && (
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
+            <span className="japanese-text">Claude API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
           </div>
         )}
         {reportError && (

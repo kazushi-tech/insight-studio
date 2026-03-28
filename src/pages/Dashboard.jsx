@@ -309,7 +309,7 @@ export default function Dashboard() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState(null)
   const { setupState, reportBundle } = useAdsSetup()
-  const { isAdsAuthenticated, hasGeminiKey } = useAuth()
+  const { isAdsAuthenticated, hasClaudeKey, hasGeminiKey } = useAuth()
   const navigate = useNavigate()
 
   const fetchHistory = () => {
@@ -390,9 +390,9 @@ export default function Dashboard() {
                 <LiveStatCard
                   icon="key"
                   label="API接続状況"
-                  value={[hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
-                  unit={`/ 2 接続`}
-                  subtitle={`Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
+                  value={[hasClaudeKey, hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
+                  unit={`/ 3 接続`}
+                  subtitle={`Claude: ${hasClaudeKey ? '設定済' : '未設定'} / Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
                 />
               </>
             )}
