@@ -103,12 +103,12 @@ function getComponents(size = 'normal') {
       )
     },
     pre: ({ children }) => (
-      <pre className={`overflow-x-auto rounded-xl bg-surface-container p-4 ${preset.pre} text-on-surface-variant`}>
+      <pre className={`overflow-x-auto rounded-[0.75rem] bg-surface-container p-4 ${preset.pre} text-on-surface-variant`}>
         {children}
       </pre>
     ),
     blockquote: ({ children }) => (
-      <blockquote className={`border-l-3 border-secondary/50 bg-surface-container-low/50 pl-4 pr-3 py-3 rounded-r-lg ${preset.quote} text-on-surface-variant italic`}>
+      <blockquote className={`border-l-3 border-secondary/50 bg-surface-container-low/50 pl-4 pr-3 py-3 rounded-r-[0.5rem] ${preset.quote} text-on-surface-variant italic`}>
         {children}
       </blockquote>
     ),
@@ -130,7 +130,7 @@ function getComponents(size = 'normal') {
     },
     li: ({ children }) => <li>{children}</li>,
     table: ({ children }) => (
-      <div className="my-4 max-w-full overflow-x-auto rounded-xl border border-outline-variant/10">
+      <div className="my-4 max-w-full overflow-x-auto rounded-[0.75rem]">
         <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
           {children}
         </table>
@@ -148,7 +148,7 @@ function getComponents(size = 'normal') {
       const columnClass = getColumnClass(text, cellIndex)
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : 'text-left'
       return (
-        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/15 ${align} ${columnClass}`}>
+        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/10 ${align} ${columnClass}`}>
           {children}
         </th>
       )
@@ -173,7 +173,7 @@ function getComponents(size = 'normal') {
       return (
         <td
           title={text}
-          className={`px-3.5 py-2.5 border-b border-outline-variant/8 align-top ${align} ${
+          className={`px-3.5 py-2.5 align-top ${align} ${
             numeric ? 'text-right font-mono tabular-nums whitespace-nowrap' : ''
           } ${!numeric ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : ''}`}
         >

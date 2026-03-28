@@ -50,6 +50,10 @@
 
   --color-gold: #D4A843;
   --color-gold-dim: #EEC058;
+
+  --color-tertiary-text: #5c5344;
+  --color-success: #2e7d32;
+  --color-warning: #e65100;
 }
 
 :root[data-theme='dark'] {
@@ -99,6 +103,10 @@
 
   --color-inverse-surface: #edf2f7;
   --color-inverse-on-surface: #161b22;
+
+  --color-tertiary-text: #b0a48e;
+  --color-success: #66bb6a;
+  --color-warning: #ffb74d;
 }
 
 @layer base {
@@ -228,6 +236,51 @@
   .focus-ring:focus-visible {
     outline: 2px solid var(--color-secondary);
     outline-offset: 2px;
+  }
+
+  .select-surface {
+    background-color: var(--color-surface-container);
+    border: 1px solid var(--color-outline-variant);
+    border-radius: 0.75rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-on-surface);
+    outline: none;
+    cursor: pointer;
+    transition: box-shadow 150ms ease;
+  }
+
+  .select-surface:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-secondary);
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background-color: var(--color-surface-container);
+    color: var(--color-on-surface-variant);
+  }
+
+  .metric-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background-color: var(--color-surface-container);
+    color: var(--color-on-surface-variant);
+  }
+
+  .ghost-border {
+    border: 1px solid color-mix(in srgb, var(--color-outline-variant) 15%, transparent);
   }
 
   .skeleton-sweep {

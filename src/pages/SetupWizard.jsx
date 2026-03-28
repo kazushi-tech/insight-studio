@@ -233,7 +233,7 @@ export default function SetupWizard() {
       </div>
 
       {!isAdsAuthenticated && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
         </div>
@@ -273,10 +273,10 @@ export default function SetupWizard() {
               <p className="text-on-surface-variant mt-1 text-sm">分析したいデータ項目を選択してください（複数選択可能）</p>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setSelected(new Set())} className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all">
+              <button onClick={() => setSelected(new Set())} className="px-4 py-2 border border-outline-variant/50 rounded-[0.75rem] text-sm font-bold hover:bg-surface-container transition-all">
                 全解除
               </button>
-              <button onClick={() => setSelected(new Set(QUERY_TYPES.map((_, index) => index)))} className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all">
+              <button onClick={() => setSelected(new Set(QUERY_TYPES.map((_, index) => index)))} className="px-4 py-2 border border-outline-variant/50 rounded-[0.75rem] text-sm font-bold hover:bg-surface-container transition-all">
                 全選択
               </button>
             </div>
@@ -287,7 +287,7 @@ export default function SetupWizard() {
               <button
                 key={queryType.label}
                 onClick={() => toggle(index)}
-                className={`p-5 rounded-xl text-left transition-all border-2 ${
+                className={`p-5 rounded-[0.75rem] text-left transition-all border-2 ${
                   selected.has(index)
                     ? 'border-secondary bg-secondary/5'
                     : 'border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
@@ -323,7 +323,7 @@ export default function SetupWizard() {
                 <button
                   onClick={() => setSelectedPeriods(new Set())}
                   disabled={loading}
-                  className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all"
+                  className="px-4 py-2 border border-outline-variant/50 rounded-[0.75rem] text-sm font-bold hover:bg-surface-container transition-all"
                 >
                   全解除
                 </button>
@@ -335,7 +335,7 @@ export default function SetupWizard() {
                     setSelectedPeriods(new Set(allValues))
                   }}
                   disabled={loading}
-                  className="px-4 py-2 border border-outline-variant/50 rounded-xl text-sm font-bold hover:bg-surface-container transition-all"
+                  className="px-4 py-2 border border-outline-variant/50 rounded-[0.75rem] text-sm font-bold hover:bg-surface-container transition-all"
                 >
                   全選択
                 </button>
@@ -369,7 +369,7 @@ export default function SetupWizard() {
           ) : (
             <div className="space-y-4">
               {generatedPeriods.size > 0 && (
-                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
                   <span className="material-symbols-outlined text-lg">info</span>
                   <span className="japanese-text">
                     前回の処理で {generatedPeriods.size} 期間は生成済みです。再試行すると未完了分のみ送信します。
@@ -389,7 +389,7 @@ export default function SetupWizard() {
                     <button
                       key={index}
                       onClick={() => togglePeriod(value)}
-                      className={`p-5 rounded-xl text-left transition-all border-2 ${
+                      className={`p-5 rounded-[0.75rem] text-left transition-all border-2 ${
                         selectedPeriods.has(value)
                           ? 'border-secondary bg-secondary/5'
                           : 'border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
@@ -431,14 +431,14 @@ export default function SetupWizard() {
         <button
           onClick={handleBack}
           disabled={step === 0}
-          className="px-10 py-3 border border-outline-variant/50 rounded-xl font-bold text-sm hover:bg-surface-container transition-all disabled:opacity-50"
+          className="px-10 py-3 border border-outline-variant/50 rounded-[0.75rem] font-bold text-sm hover:bg-surface-container transition-all disabled:opacity-50"
         >
           戻る
         </button>
         <button
           onClick={handleNext}
           disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated}
-          className="px-10 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-10 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

@@ -99,7 +99,7 @@ export default function Compare() {
       </div>
 
       {!hasGeminiKey && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
         </div>
@@ -174,7 +174,7 @@ export default function Compare() {
             {siteCards.map((site) => (
               <div
                 key={site.key}
-                className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-4"
+                className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -192,7 +192,7 @@ export default function Compare() {
                   </a>
                 </div>
 
-                <div className="rounded-xl bg-surface-container p-4 space-y-2">
+                <div className="rounded-[0.75rem] bg-surface-container p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-bold text-on-surface">
                     <span className="material-symbols-outlined text-secondary text-base">language</span>
                     {getHostname(site.url) || 'URL確認待ち'}
@@ -216,7 +216,7 @@ export default function Compare() {
           <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
             {/* Score Panel — only shown when backend returns scores */}
             {hasScores && (
-              <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-xl text-on-secondary min-h-[300px]">
+              <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-[0.75rem] text-on-secondary min-h-[300px]">
                 <p className="text-xs uppercase tracking-[0.2em] font-bold opacity-80">OVERALL STRATEGY SCORE</p>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-7xl font-black tabular-nums">{overallScore ?? '--'}</span>
@@ -236,13 +236,13 @@ export default function Compare() {
             )}
 
             {/* Report — primary display */}
-            <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-xl panel-card-hover p-8 min-h-[300px]`}>
+            <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px]`}>
               <div className="flex items-center gap-2 text-on-surface-variant mb-6">
                 <span className="material-symbols-outlined text-secondary">description</span>
                 <span className="text-sm font-bold">分析レポート</span>
               </div>
               {extracted && (
-                <div className="mb-6 p-4 bg-surface-container rounded-xl text-sm space-y-2">
+                <div className="mb-6 p-4 bg-surface-container rounded-[0.75rem] text-sm space-y-2">
                   <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">抽出データ</p>
                   <pre className="text-xs text-on-surface-variant whitespace-pre-wrap overflow-x-auto">{typeof extracted === 'string' ? extracted : JSON.stringify(extracted, null, 2)}</pre>
                 </div>
@@ -264,7 +264,7 @@ export default function Compare() {
 
       {/* Empty State — before any scan */}
       {!result && !error && !loading && (
-        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 min-h-[200px]">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[200px]">
           <div className="flex items-center gap-2 text-on-surface-variant mb-6">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>

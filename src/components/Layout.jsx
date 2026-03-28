@@ -184,7 +184,7 @@ function KeySettingsModal({ onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="key-settings-title"
-        className="bg-surface-container-lowest rounded-xl shadow-2xl w-[480px] p-8 space-y-6"
+        className="bg-surface-container-lowest rounded-xl shadow-lg w-[480px] p-8 space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -277,7 +277,7 @@ function BackgroundIndicator() {
 
   return (
     <div className="px-6 mb-3">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5">
+      <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] p-3 space-y-1.5">
         <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
           <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
           バックグラウンド実行中
@@ -429,9 +429,9 @@ export default function Layout() {
               resetSetup()
               navigate('/ads/wizard', { state: { resetAt: Date.now() } })
             }}
-            className="w-full py-3 border border-outline-variant/50 text-on-surface rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors text-sm"
+            className="w-full py-2.5 text-on-surface-variant rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors text-xs focus-ring"
           >
-            <span className="material-symbols-outlined text-lg">replay</span>
+            <span className="material-symbols-outlined text-base">replay</span>
             <span>新しいセットアップ</span>
           </button>
         </div>
@@ -441,14 +441,14 @@ export default function Layout() {
           role="separator"
           aria-label="サイドバーの幅を変更"
           tabIndex={0}
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-outline-variant/40 active:bg-outline-variant/60 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-2 focus-visible:outline-secondary"
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-outline-variant/40 active:bg-outline-variant/60 transition-colors focus-ring"
         />
       </aside>
 
       {/* Main Content */}
       <main id="main-content" className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
         {/* Top Header */}
-        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-outline-variant/15">
+        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface/90 backdrop-blur-xl border-b border-outline-variant/10">
           <div className="flex-1" />
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">

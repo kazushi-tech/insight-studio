@@ -10,10 +10,10 @@ import { SkeletonBlock, ErrorBanner } from '../components/ui'
 function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
   return (
     <div
-      className={`bg-surface-container-lowest p-6 rounded-xl panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
+      className={`bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
-      <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary">
+      <div className="w-12 h-12 rounded-[0.75rem] bg-surface-container flex items-center justify-center text-primary">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
       <div>
@@ -30,8 +30,8 @@ function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
 
 function EmptyStatCard({ icon, label, message, actionLabel, onAction }) {
   return (
-    <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover flex flex-col gap-4">
-      <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-outline-variant">
+    <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover flex flex-col gap-4">
+      <div className="w-12 h-12 rounded-[0.75rem] bg-surface-container flex items-center justify-center text-outline-variant">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
       <div>
@@ -111,7 +111,7 @@ function CompactChartCard({ group, onClick }) {
 
   return (
     <div
-      className="bg-surface-container-lowest p-5 rounded-xl panel-card-hover cursor-pointer"
+      className="bg-surface-container-lowest p-5 rounded-[0.75rem] panel-card-hover cursor-pointer"
       onClick={onClick}
     >
       <p className="text-xs font-bold text-on-surface-variant japanese-text truncate mb-1">{group?.title || '無題'}</p>
@@ -189,9 +189,9 @@ function ChartOverviewSection({ chartGroups, periodTags, onDrillDown }) {
 function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
   if (!isAdsAuthenticated) {
     return (
-      <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
+      <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+          <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 flex items-center justify-center text-amber-600">
             <span className="material-symbols-outlined">lock</span>
           </div>
           <h4 className="text-lg font-bold japanese-text">広告考察</h4>
@@ -203,9 +203,9 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
 
   if (!setupState) {
     return (
-      <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
+      <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+          <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 flex items-center justify-center text-amber-600">
             <span className="material-symbols-outlined">settings_suggest</span>
           </div>
           <h4 className="text-lg font-bold japanese-text">広告考察セットアップ</h4>
@@ -228,9 +228,9 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
     : null
 
   return (
-    <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
+    <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+        <div className="w-10 h-10 rounded-[0.75rem] bg-emerald-50 flex items-center justify-center text-emerald-600">
           <span className="material-symbols-outlined">check_circle</span>
         </div>
         <h4 className="text-lg font-bold japanese-text">広告考察セットアップ</h4>
@@ -337,13 +337,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-3 gap-8">
         {historyLoading ? (
           <>
-            <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
+            <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
               <SkeletonBlock variant="card" />
             </div>
-            <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
+            <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
               <SkeletonBlock variant="card" />
             </div>
-            <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
+            <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
               <SkeletonBlock variant="card" />
             </div>
           </>
@@ -399,7 +399,7 @@ export default function Dashboard() {
             </button>
           )}
         </div>
-        <div className="bg-surface-container-lowest rounded-xl panel-card-hover overflow-hidden">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover overflow-hidden">
           {historyLoading ? (
             <div className="py-8 px-8 space-y-4">
               <SkeletonBlock variant="text" lines={5} />
@@ -455,7 +455,7 @@ export default function Dashboard() {
                       )}
                     </td>
                     <td className="py-5 px-8 text-right">
-                      <button className="w-10 h-10 rounded-lg hover:bg-white flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-all">
+                      <button className="w-10 h-10 rounded-lg hover:bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-all">
                         <span className="material-symbols-outlined">more_vert</span>
                       </button>
                     </td>
@@ -486,7 +486,7 @@ export default function Dashboard() {
             onNavigate={navigate}
           />
         </div>
-        <div className="col-span-7 bg-surface-container p-8 rounded-xl flex flex-col justify-between overflow-hidden relative group h-[280px]">
+        <div className="col-span-7 bg-surface-container p-8 rounded-[0.75rem] flex flex-col justify-between overflow-hidden relative h-[280px]">
           <div className="relative z-10">
             <h4 className="text-2xl font-black text-primary japanese-text">AI 広告クリエイティブ診断</h4>
             <p className="text-on-surface-variant mt-2 max-w-md">
@@ -500,7 +500,7 @@ export default function Dashboard() {
               <span className="material-symbols-outlined">east</span>
             </button>
           </div>
-          <div className="absolute right-0 top-0 h-full w-1/2 opacity-20 group-hover:opacity-30 transition-opacity bg-gradient-to-l from-primary-container/30 to-transparent" />
+          <div className="absolute right-0 top-0 h-full w-1/2 opacity-15 bg-gradient-to-l from-primary-container/30 to-transparent" />
         </div>
       </div>
     </div>

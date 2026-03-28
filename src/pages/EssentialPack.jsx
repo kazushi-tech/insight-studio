@@ -193,7 +193,7 @@ export default function EssentialPack() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] overflow-x-hidden">
       {/* ── Sticky Left Nav ── */}
-      <div className="w-[260px] min-w-[260px] bg-surface-container-lowest border-r border-surface-container p-5 space-y-5 sticky top-16 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
+      <div className="w-[260px] min-w-[260px] bg-surface-container-lowest border-r border-outline-variant/10 p-5 space-y-5 sticky top-16 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
         {/* 期間プルダウン */}
         {periodReports.length > 1 && (
           <div>
@@ -262,7 +262,7 @@ export default function EssentialPack() {
 
         {/* 認証警告 */}
         {!isAdsAuthenticated && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+          <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] px-4 py-3 text-xs text-amber-800">
             <span className="material-symbols-outlined text-sm align-middle mr-1">warning</span>
             考察スタジオへのログインが必要です
           </div>
@@ -272,7 +272,7 @@ export default function EssentialPack() {
         <button
           onClick={handleRefresh}
           disabled={loading || !isAdsAuthenticated || !setupState}
-          className="w-full py-2.5 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2.5 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>
@@ -289,7 +289,7 @@ export default function EssentialPack() {
 
         {/* サマリーカード */}
         {insightSummary && (
-          <div className="bg-secondary p-4 rounded-xl text-on-secondary">
+          <div className="bg-secondary p-4 rounded-[0.75rem] text-on-secondary">
             <div className="flex items-center gap-2 mb-1">
               <span className="material-symbols-outlined text-sm">description</span>
               <span className="font-bold text-xs">SUMMARY</span>
@@ -332,7 +332,7 @@ export default function EssentialPack() {
         )}
 
         {!loading && !error && !currentReport && (
-          <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 text-center space-y-3">
+          <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 text-center space-y-3">
             <span className="material-symbols-outlined text-5xl text-outline-variant">description</span>
             <h3 className="text-xl font-bold japanese-text">レポート本文がまだありません</h3>
             <p className="text-sm text-on-surface-variant japanese-text">
@@ -348,7 +348,7 @@ export default function EssentialPack() {
               <div
                 key={section.id}
                 id={section.id}
-                className="rounded-xl border border-outline-variant/20 shadow-[0_4px_12px_-4px_rgba(26,26,46,0.06)] scroll-mt-20 overflow-x-hidden"
+                className="rounded-[0.75rem] border border-outline-variant/10 scroll-mt-20 overflow-x-hidden"
               >
                 {section.kind === 'summary' ? (
                   /* Summary: 常に開いた状態、ボタンなし */
@@ -377,7 +377,7 @@ export default function EssentialPack() {
                       </span>
                     </button>
                     {openSections[section.id] && (
-                      <div className="p-6 border-t border-outline-variant/10">
+                      <div className="p-6 border-t border-outline-variant/8">
                         <MarkdownRenderer content={section.md} />
                       </div>
                     )}
@@ -390,7 +390,7 @@ export default function EssentialPack() {
 
         {/* ── 単一セクション表示 (accordion 不要時) ── */}
         {currentReport && !useAccordion && (
-          <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 space-y-6">
+          <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 space-y-6">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-secondary">article</span>
               <h3 className="text-xl font-bold japanese-text">

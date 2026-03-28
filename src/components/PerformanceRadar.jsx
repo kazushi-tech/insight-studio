@@ -75,14 +75,14 @@ export default function PerformanceRadar({ rubricScores }) {
   const totalBg = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
 
   return (
-    <div className="bg-surface-container-lowest p-8 rounded-xl panel-card-hover">
+    <div className="bg-surface-container-lowest p-8 rounded-[0.75rem] panel-card-hover">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div>
           <h3 className="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
           <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
         </div>
-        <div className={`${totalBg} text-white px-4 py-2.5 rounded-xl text-center min-w-[72px]`}>
+        <div className={`${totalBg} text-white px-4 py-2.5 rounded-[0.75rem] text-center min-w-[72px]`}>
           <p className="text-[10px] font-medium opacity-80">Total Score</p>
           <p className="text-2xl font-black tabular-nums leading-tight">{totalScore}</p>
         </div>
@@ -134,7 +134,7 @@ export default function PerformanceRadar({ rubricScores }) {
           const score = axes[key]
           const pct = (score / 5) * 100
           return (
-            <div key={key} className="bg-surface-container/50 rounded-xl p-4 text-center">
+            <div key={key} className="bg-surface-container/50 rounded-[0.75rem] p-4 text-center">
               <p className="text-xs font-bold text-on-surface japanese-text mb-2">{group.label}</p>
               <p className={`text-2xl font-black tabular-nums ${scoreColor(score)}`}>
                 {score.toFixed(1)}
@@ -150,11 +150,11 @@ export default function PerformanceRadar({ rubricScores }) {
 
       {/* Estimation metrics */}
       <div className="grid grid-cols-2 gap-3 mt-3">
-        <div className="bg-surface-container/50 rounded-xl p-4">
+        <div className="bg-surface-container/50 rounded-[0.75rem] p-4">
           <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Conversion Rate Est.</p>
           <p className="text-base font-black tabular-nums text-primary">—</p>
         </div>
-        <div className="bg-surface-container/50 rounded-xl p-4">
+        <div className="bg-surface-container/50 rounded-[0.75rem] p-4">
           <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Avg. Time on Page</p>
           <p className="text-base font-black tabular-nums text-primary">—</p>
         </div>

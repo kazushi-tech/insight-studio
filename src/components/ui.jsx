@@ -33,7 +33,7 @@ export function SkeletonBlock({ variant = 'rect', width, height, lines = 3 }) {
 
   if (variant === 'card') {
     return (
-      <div className="bg-surface-container rounded-xl p-6 space-y-4" aria-hidden="true">
+      <div className="bg-surface-container rounded-[0.75rem] p-6 space-y-4" aria-hidden="true">
         <div className="h-4 skeleton-sweep w-1/3" />
         <div className="h-3 skeleton-sweep w-full" />
         <div className="h-3 skeleton-sweep w-2/3" />
@@ -52,13 +52,13 @@ export function SkeletonBlock({ variant = 'rect', width, height, lines = 3 }) {
 
 export function ErrorBanner({ message, onRetry }) {
   return (
-    <div role="alert" className="flex items-center gap-3 bg-error-container/40 border border-error/20 rounded-xl px-5 py-3 text-sm text-on-error-container">
+    <div role="alert" className="flex items-center gap-3 bg-error-container/40 border border-error/20 rounded-[0.75rem] px-5 py-3 text-sm text-on-error-container">
       <span className="material-symbols-outlined text-lg">error</span>
       <span className="flex-1">{message}</span>
       {onRetry && (
         <button
           onClick={onRetry}
-          className="shrink-0 px-4 py-1.5 text-error font-bold text-xs hover:underline transition-colors focus-ring"
+          className="shrink-0 px-4 py-1.5 text-error font-bold text-xs hover:bg-error/5 rounded-lg transition-colors focus-ring"
         >
           再試行
         </button>

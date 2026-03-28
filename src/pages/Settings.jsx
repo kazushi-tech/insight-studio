@@ -6,7 +6,7 @@ import { useUserProfile } from '../contexts/UserProfileContext'
 
 function SettingsCard({ icon, title, description, children }) {
   return (
-    <section className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-6">
+    <section className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-6">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-secondary">{icon}</span>
@@ -26,8 +26,8 @@ function Toggle({ checked, onChange, label }) {
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2 ${
-        checked ? 'bg-secondary' : 'bg-surface-container-high'
+      className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors focus-ring ${
+        checked ? 'bg-secondary' : 'bg-outline-variant'
       }`}
     >
       <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : ''}`} />
@@ -49,7 +49,7 @@ function InlineNotice({ tone = 'success', children }) {
   const icon = tone === 'error' ? 'error' : 'check_circle'
 
   return (
-    <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${toneClass}`}>
+    <div className={`flex items-center gap-3 rounded-[0.75rem] border px-4 py-3 text-sm ${toneClass}`}>
       <span className="material-symbols-outlined text-lg">{icon}</span>
       <span className="japanese-text">{children}</span>
     </div>
@@ -182,7 +182,7 @@ export default function Settings() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
               id="display-name"
-              className="flex-1 bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+              className="flex-1 bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
               value={localDisplayName}
               maxLength={20}
               onChange={(e) => setLocalDisplayName(e.target.value)}
@@ -190,7 +190,7 @@ export default function Settings() {
             />
             <button
               onClick={handleProfileSave}
-              className="px-6 py-3 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+              className="px-6 py-3 bg-primary text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
             >
               保存
             </button>
@@ -209,7 +209,7 @@ export default function Settings() {
         <div className="space-y-4">
           {hasGeminiKey && !editingGemini ? (
             <>
-              <div className="rounded-xl bg-surface-container px-4 py-3">
+              <div className="rounded-[0.75rem] bg-surface-container px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Saved Key</p>
                 <p className="font-mono text-sm text-on-surface">{maskSecret(geminiKey)}</p>
               </div>
@@ -219,13 +219,13 @@ export default function Settings() {
                     setEditingGemini(true)
                     setGeminiError(null)
                   }}
-                  className="px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+                  className="px-5 py-2.5 bg-primary text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
                 >
                   変更
                 </button>
                 <button
                   onClick={handleGeminiDelete}
-                  className="px-5 py-2.5 bg-error-container/40 text-error rounded-xl font-bold text-sm hover:bg-error-container/60 transition-colors"
+                  className="px-5 py-2.5 bg-error-container/40 text-error rounded-[0.75rem] font-bold text-sm hover:bg-error-container/60 transition-colors"
                 >
                   削除
                 </button>
@@ -235,7 +235,7 @@ export default function Settings() {
             <div className="space-y-3">
               <input
                 type="password"
-                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                className="w-full bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="AIza..."
                 value={geminiInput}
                 onChange={(e) => setGeminiInput(e.target.value)}
@@ -244,7 +244,7 @@ export default function Settings() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleGeminiSave}
-                  className="px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+                  className="px-5 py-2.5 bg-primary text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
                 >
                   保存
                 </button>
@@ -255,7 +255,7 @@ export default function Settings() {
                       setGeminiInput(geminiKey)
                       setGeminiError(null)
                     }}
-                    className="px-5 py-2.5 bg-surface-container text-on-surface rounded-xl font-bold text-sm hover:bg-surface-container-high transition-all"
+                    className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
                   >
                     キャンセル
                   </button>
@@ -274,7 +274,7 @@ export default function Settings() {
         description="考察スタジオとの接続を管理します。ログイン状態はこのブラウザに保持されます。"
       >
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-xl bg-surface-container px-4 py-3">
+          <div className="flex items-center justify-between rounded-[0.75rem] bg-surface-container px-4 py-3">
             <div>
               <p className="text-sm font-bold japanese-text">考察スタジオ</p>
               <p className="text-xs text-on-surface-variant">{isAdsAuthenticated ? '現在接続中です。' : '現在は未接続です。'}</p>
@@ -290,7 +290,7 @@ export default function Settings() {
           {isAdsAuthenticated ? (
             <button
               onClick={handleAdsLogout}
-              className="px-5 py-2.5 bg-error-container/40 text-error rounded-xl font-bold text-sm hover:bg-error-container/60 transition-colors"
+              className="px-5 py-2.5 bg-error-container/40 text-error rounded-[0.75rem] font-bold text-sm hover:bg-error-container/60 transition-colors"
             >
               切断する
             </button>
@@ -298,7 +298,7 @@ export default function Settings() {
             <div className="space-y-3">
               <input
                 type="password"
-                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                className="w-full bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="パスワードを入力"
                 value={adsPassword}
                 onChange={(e) => setAdsPassword(e.target.value)}
@@ -307,7 +307,7 @@ export default function Settings() {
               <button
                 onClick={handleAdsLogin}
                 disabled={loading || !adsPassword.trim()}
-                className="px-5 py-2.5 bg-secondary text-on-secondary rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50"
+                className="px-5 py-2.5 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50"
               >
                 {loading ? 'ログイン中…' : 'ログイン'}
               </button>

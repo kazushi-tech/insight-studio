@@ -56,7 +56,7 @@ function PartialSuccessBanner({ fetchedSites }) {
   if (failed.length === 0 && fallback.length === 0) return null
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 space-y-2">
+    <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 space-y-2">
       <p className="text-sm text-amber-800 font-bold flex items-center gap-2">
         <span className="material-symbols-outlined text-lg">warning</span>
         {success.length} / {fetchedSites.length} 件をページ取得できました
@@ -119,7 +119,7 @@ export default function Discovery() {
       </div>
 
       {!hasGeminiKey && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800">
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
         </div>
@@ -130,7 +130,7 @@ export default function Discovery() {
         <div className="relative flex-1">
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
           <input
-            className="w-full bg-surface-container-lowest rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all border border-outline-variant/15"
+            className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
             placeholder="競合他社のURLを入力"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -170,7 +170,7 @@ export default function Discovery() {
 
       {/* Report */}
       {result?.report_md && (
-        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 space-y-5">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 space-y-5">
           <div className="flex items-center gap-2 text-on-surface-variant mb-4">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>
@@ -198,7 +198,7 @@ export default function Discovery() {
               return (
                 <div
                   key={item.url ?? item.name ?? i}
-                  className={`bg-surface-container-lowest rounded-xl panel-card-hover overflow-hidden group ${
+                  className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover overflow-hidden ${
                     isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
                   }`}
                 >
@@ -240,7 +240,7 @@ export default function Discovery() {
                     )}
                   </div>
                   {item.url && !isFailed && (
-                    <div className="border-t border-outline-variant/15 px-5 py-3 text-center">
+                    <div className="border-t border-outline-variant/8 px-5 py-3 text-center">
                       <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-secondary hover:text-primary transition-colors japanese-text">
                         {isFallback ? 'サイトを開く →' : '分析する →'}
                       </a>

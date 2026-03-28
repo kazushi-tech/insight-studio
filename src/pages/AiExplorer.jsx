@@ -271,13 +271,13 @@ export default function AiExplorer() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="px-10 pt-5 pb-3 space-y-3">
         {!isAdsAuthenticated && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800 mb-4">
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
             <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
         {!hasGeminiKey && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 text-sm text-amber-800 mb-4">
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
             <span className="japanese-text">Gemini API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
           </div>
@@ -288,12 +288,12 @@ export default function AiExplorer() {
           </div>
         )}
         {reportLoading && !reportBundle?.reportMd && (
-          <div className="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3 text-sm text-on-surface-variant mb-4">
+          <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant mb-4">
             <LoadingSpinner size="sm" label="要点パックとグラフコンテキストを再構築しています…" />
           </div>
         )}
         {!reportBundle?.reportMd && (
-          <div className="flex items-center gap-3 bg-surface-container rounded-xl px-5 py-3 text-sm text-on-surface-variant mb-4">
+          <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant mb-4">
             <span className="material-symbols-outlined text-lg">info</span>
             <span className="japanese-text">`ads-insights` repo 準拠では、要点パック生成後にその `point_pack_md` を使って考察を生成します。先にセットアップを完了してください。</span>
           </div>
@@ -342,7 +342,7 @@ export default function AiExplorer() {
           <button
             onClick={handleRefreshReport}
             disabled={!setupState || !isAdsAuthenticated || reportLoading}
-            className="px-4 py-2 bg-secondary text-on-secondary rounded-full font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+            className="px-4 py-2 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
           >
             {reportLoading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-sm">sync</span>}
             コンテキスト更新
@@ -368,7 +368,7 @@ export default function AiExplorer() {
                 key={prompt.label}
                 onClick={() => handleSend(prompt.label)}
                 disabled={promptDisabled}
-                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-surface-container-lowest rounded-xl border border-outline-variant/20 hover:border-secondary/40 transition-colors text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex shrink-0 items-center gap-2 px-4 py-2.5 bg-surface-container-lowest rounded-[0.75rem] ghost-border hover:border-secondary/40 transition-colors text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className={`material-symbols-outlined text-[18px] ${prompt.color}`}>{prompt.icon}</span>
                 <span className="japanese-text">{prompt.label}</span>
@@ -393,14 +393,14 @@ export default function AiExplorer() {
               <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-gold text-lg">smart_toy</span>
               </div>
-              <div className={`bg-surface-container-lowest rounded-xl panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
+              <div className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
                 <MarkdownRenderer content={message.text} className="text-sm" />
                 <p className="text-xs text-on-surface-variant mt-3">AI 考察エンジン</p>
               </div>
             </div>
           ) : (
             <div key={index} className="flex justify-end gap-4">
-              <div className="bg-primary-container text-on-primary rounded-xl px-6 py-4 max-w-2xl">
+              <div className="bg-primary-container text-on-primary rounded-[0.75rem] px-6 py-4 max-w-2xl">
                 <p className="text-sm leading-relaxed text-on-primary japanese-text">{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">
@@ -415,7 +415,7 @@ export default function AiExplorer() {
             <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center shrink-0">
               <LoadingSpinner size="sm" />
             </div>
-            <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-6">
+            <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
               <p className="text-sm text-on-surface-variant japanese-text">考察を生成中…</p>
             </div>
           </div>
@@ -425,7 +425,7 @@ export default function AiExplorer() {
       </div>
 
       <div className="px-10 pb-6 pt-2">
-        <div className="flex items-center gap-3 bg-surface-container-lowest rounded-xl panel-card-hover px-6 py-3">
+        <div className="flex items-center gap-3 bg-surface-container-lowest rounded-[0.75rem] ghost-border px-6 py-3">
           <input
             className="flex-1 bg-transparent outline-none text-sm"
             placeholder="AIにデータについて質問する..."
