@@ -368,9 +368,8 @@ export default function Layout() {
   }, [handleMouseMove, handleMouseUp])
 
   useEffect(() => {
-    if (!localStorage.getItem('insight-studio-guide-seen')) {
+    if (localStorage.getItem('insight-studio-guide-seen') !== '1') {
       setShowGuide(true)
-      localStorage.setItem('insight-studio-guide-seen', '1')
     }
   }, [])
 

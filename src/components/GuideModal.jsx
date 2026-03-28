@@ -9,8 +9,13 @@ const GUIDE_PAGES = [
   { src: '/guide/page6-tips.png', title: 'Tips & ショートカット' },
 ]
 
+const STORAGE_KEY = 'insight-studio-guide-seen'
+
 export default function GuideModal({ onClose }) {
   const [page, setPage] = useState(0)
+  const [dontShowAgain, setDontShowAgain] = useState(
+    () => localStorage.getItem(STORAGE_KEY) === '1'
+  )
   const modalRef = useRef(null)
 
   const goNext = useCallback(() => setPage((p) => Math.min(p + 1, GUIDE_PAGES.length - 1)), [])
@@ -107,20 +112,38 @@ export default function GuideModal({ onClose }) {
             前へ
           </button>
 
-          {/* Dots */}
-          <div className="flex items-center gap-2">
-            {GUIDE_PAGES.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                aria-label={`ページ ${i + 1}`}
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  i === page
-                    ? 'bg-secondary scale-110'
-                    : 'bg-outline-variant/40 hover:bg-outline-variant/70'
-                }`}
+          {/* Center: dots + don't show again */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2">
+              {GUIDE_PAGES.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i)}
+                  aria-label={`ページ ${i + 1}`}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    i === page
+                      ? 'bg-secondary scale-110'
+                      : 'bg-outline-variant/40 hover:bg-outline-variant/70'
+                  }`}
+                />
+              ))}
+            </div>
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => {
+                  setDontShowAgain(e.target.checked)
+                  if (e.target.checked) {
+                    localStorage.setItem(STORAGE_KEY, '1')
+                  } else {
+                    localStorage.removeItem(STORAGE_KEY)
+                  }
+                }}
+                className="w-3.5 h-3.5 rounded accent-secondary"
               />
-            ))}
+              <span className="text-[11px] text-on-surface-variant japanese-text">次回から表示しない</span>
+            </label>
           </div>
 
           <button
