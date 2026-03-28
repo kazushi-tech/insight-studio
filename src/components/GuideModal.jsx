@@ -1,0 +1,146 @@
+import { useState, useEffect, useRef, useCallback } from 'react'
+
+const GUIDE_PAGES = [
+  { src: '/guide/page1-welcome.png', title: 'Insight Studio へようこそ' },
+  { src: '/guide/page2-api-setup.png', title: 'APIキーの設定' },
+  { src: '/guide/page3-lp-analysis.png', title: 'LP比較 & 競合発見' },
+  { src: '/guide/page4-ads-insight.png', title: '広告分析ワークフロー' },
+  { src: '/guide/page5-creative.png', title: 'クリエイティブレビュー' },
+  { src: '/guide/page6-tips.png', title: 'Tips & ショートカット' },
+]
+
+export default function GuideModal({ onClose }) {
+  const [page, setPage] = useState(0)
+  const modalRef = useRef(null)
+
+  const goNext = useCallback(() => setPage((p) => Math.min(p + 1, GUIDE_PAGES.length - 1)), [])
+  const goPrev = useCallback(() => setPage((p) => Math.max(p - 1, 0)), [])
+
+  useEffect(() => {
+    const prev = document.activeElement
+    modalRef.current?.focus()
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key === 'ArrowRight') { goNext(); return }
+      if (e.key === 'ArrowLeft') { goPrev(); return }
+
+      // Focus trap
+      if (e.key === 'Tab') {
+        const focusable = modalRef.current?.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (!focusable?.length) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      prev?.focus()
+    }
+  }, [onClose, goNext, goPrev])
+
+  const current = GUIDE_PAGES[page]
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="使い方ガイド"
+        tabIndex={-1}
+        className="bg-surface-container-lowest rounded-xl shadow-lg w-[900px] max-w-[92vw] max-h-[90vh] flex flex-col outline-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-secondary">menu_book</span>
+            <h3 className="text-lg font-bold japanese-text">{current.title}</h3>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-on-surface-variant">
+              {page + 1} / {GUIDE_PAGES.length}
+            </span>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+              aria-label="閉じる"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Image Content */}
+        <div className="flex-1 overflow-y-auto px-6 pb-4">
+          <img
+            src={current.src}
+            alt={current.title}
+            className="w-full rounded-[0.75rem] object-contain"
+            draggable={false}
+          />
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
+          <button
+            onClick={goPrev}
+            disabled={page === 0}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed text-on-surface-variant"
+          >
+            <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+            前へ
+          </button>
+
+          {/* Dots */}
+          <div className="flex items-center gap-2">
+            {GUIDE_PAGES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                aria-label={`ページ ${i + 1}`}
+                className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  i === page
+                    ? 'bg-secondary scale-110'
+                    : 'bg-outline-variant/40 hover:bg-outline-variant/70'
+                }`}
+              />
+            ))}
+          </div>
+
+          <button
+            onClick={page === GUIDE_PAGES.length - 1 ? onClose : goNext}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-surface-container text-on-surface-variant"
+          >
+            {page === GUIDE_PAGES.length - 1 ? (
+              <>
+                完了
+                <span className="material-symbols-outlined text-[18px]">check</span>
+              </>
+            ) : (
+              <>
+                次へ
+                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

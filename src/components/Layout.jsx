@@ -5,6 +5,8 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
+import { getAnalysisProviderLabel } from '../utils/analysisProvider'
+import GuideModal from './GuideModal'
 
 const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
 
@@ -329,7 +331,8 @@ function BackgroundIndicator() {
 
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
-  const { hasClaudeKey, hasGeminiKey, isAdsAuthenticated } = useAuth()
+  const [showGuide, setShowGuide] = useState(false)
+  const { hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
@@ -364,6 +367,13 @@ export default function Layout() {
     }
   }, [handleMouseMove, handleMouseUp])
 
+  useEffect(() => {
+    if (!localStorage.getItem('insight-studio-guide-seen')) {
+      setShowGuide(true)
+      localStorage.setItem('insight-studio-guide-seen', '1')
+    }
+  }, [])
+
   const startResize = () => {
     isResizing.current = true
     document.body.style.cursor = 'col-resize'
@@ -381,6 +391,7 @@ export default function Layout() {
   }, [])
 
   const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
+  const analysisProviderLabel = getAnalysisProviderLabel(analysisProvider)
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -424,6 +435,13 @@ export default function Layout() {
         {/* Connection Status */}
         <div className="px-6 mb-3">
           <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-white/50">分析エンジン</span>
+              <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                {analysisProviderLabel}
+              </span>
+            </div>
             <div className="flex items-center justify-between">
               <span className="text-white/50">Claude API</span>
               <span className={`flex items-center gap-1 font-bold ${hasClaudeKey ? 'text-emerald-400' : 'text-white/40'}`}>
@@ -497,15 +515,23 @@ export default function Layout() {
               <button
                 onClick={() => setShowKeyModal(true)}
                 className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative ${
-                  hasClaudeKey && hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
+                  hasAnalysisKey && hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
                 }`}
                 title="API キー設定"
                 aria-label="API キー設定"
               >
                 <span className="material-symbols-outlined">key</span>
-                {(!hasClaudeKey || !hasGeminiKey || !isAdsAuthenticated) && (
+                {(!hasAnalysisKey || !hasGeminiKey || !isAdsAuthenticated) && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full" />
                 )}
+              </button>
+              <button
+                onClick={() => setShowGuide(true)}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                title="使い方ガイド"
+                aria-label="使い方ガイドを開く"
+              >
+                <span className="material-symbols-outlined">menu_book</span>
               </button>
               <button
                 onClick={toggleTheme}
@@ -536,6 +562,8 @@ export default function Layout() {
 
       {/* Key Settings Modal */}
       {showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
+      {/* Guide Modal */}
+      {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
     </div>
   )
 }
