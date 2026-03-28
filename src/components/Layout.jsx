@@ -40,7 +40,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         aria-disabled="true"
         tabIndex={-1}
         onClick={(e) => e.preventDefault()}
-        className={`flex items-center gap-3 px-6 py-2.5 text-[15px] opacity-40 cursor-not-allowed border-l-4 border-transparent ${
+        className={`flex items-center gap-3 px-6 py-2.5 text-[15px] text-white/30 cursor-not-allowed border-l-4 border-transparent ${
           isChild ? 'pl-14' : ''
         }`}
         title="セットアップを完了してください"
@@ -49,7 +49,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         <span className="japanese-text">{label}</span>
         {badge ? (
           <>
-            <span className="ml-auto text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">{badge}</span>
+            <span className="ml-auto text-[10px] font-bold text-amber-300/80 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>
             <span className="material-symbols-outlined text-[14px] ml-2">lock</span>
           </>
         ) : (
@@ -63,18 +63,18 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-[-2px] ${
+        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-[-2px] ${
           isChild ? 'pl-14' : ''
         } ${
           isActive
-            ? 'text-on-surface font-bold border-l-2 border-gold bg-surface-container-low/60'
-            : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'
+            ? 'text-white font-bold border-l-2 border-gold bg-white/8'
+            : 'text-white/60 hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent'
         }`
       }
     >
       {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
       <span className="japanese-text">{label}</span>
-      {badge && <span className="ml-auto text-[10px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">{badge}</span>}
+      {badge && <span className="ml-auto text-[10px] font-bold text-amber-300 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>}
     </NavLink>
   )
 }
@@ -89,10 +89,10 @@ function SidebarGroup({ item, disabledPaths }) {
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-[-2px] ${
+        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-[-2px] ${
           isGroupActive
-            ? 'text-on-surface border-gold bg-surface-container-low/60 font-bold'
-            : 'text-on-surface-variant hover:bg-surface-container border-transparent'
+            ? 'text-white border-gold bg-white/8 font-bold'
+            : 'text-white/60 hover:text-white/80 hover:bg-white/5 border-transparent'
         }`}
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -216,7 +216,7 @@ function KeySettingsModal({ onClose }) {
           />
           <button
             onClick={handleSaveGemini}
-            className="px-5 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+            className="px-5 py-2 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
           >
             保存
           </button>
@@ -277,13 +277,13 @@ function BackgroundIndicator() {
 
   return (
     <div className="px-6 mb-3">
-      <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] p-3 space-y-1.5">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 space-y-1.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
           <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
           バックグラウンド実行中
         </div>
         {runningKinds.map((kind) => (
-          <div key={kind} className="flex items-center gap-2 text-xs text-amber-700">
+          <div key={kind} className="flex items-center gap-2 text-xs text-amber-300/70">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             {RUN_KIND_LABELS[kind] || kind}
           </div>
@@ -357,17 +357,17 @@ export default function Layout() {
         メインコンテンツへスキップ
       </a>
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 bg-surface text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth }}>
+      <aside className="fixed left-0 top-0 h-full z-40 py-6 bg-primary-container text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth }}>
         {/* Logo */}
         <div className="px-6 mb-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-gold">
+          <div className="w-10 h-10 bg-gold/15 rounded-xl flex items-center justify-center text-gold">
             <span className="material-symbols-outlined text-2xl">insights</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-on-surface tracking-tighter leading-tight">
+            <h1 className="text-xl font-bold text-white tracking-tighter leading-tight">
               Insight Studio
             </h1>
-            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">
+            <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
               Ad Ops &amp; Analysis
             </p>
           </div>
@@ -389,32 +389,32 @@ export default function Layout() {
 
         {/* Connection Status */}
         <div className="px-6 mb-3">
-          <div className="bg-surface-container-lowest rounded-xl p-3 space-y-2 text-xs">
+          <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-on-surface-variant">Gemini API</span>
-              <span className={`flex items-center gap-1 font-bold ${hasGeminiKey ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${hasGeminiKey ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
+              <span className="text-white/50">Gemini API</span>
+              <span className={`flex items-center gap-1 font-bold ${hasGeminiKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasGeminiKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
                 {hasGeminiKey ? '設定済' : '未設定'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-on-surface-variant">考察スタジオ</span>
-              <span className={`flex items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-500' : 'bg-outline-variant'}`} />
+              <span className="text-white/50">考察スタジオ</span>
+              <span className={`flex items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-400' : 'bg-white/20'}`} />
                 {isAdsAuthenticated ? '接続済' : '未接続'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-on-surface-variant">考察セットアップ</span>
-              <span className={`flex items-center gap-1 font-bold ${isSetupComplete ? 'text-emerald-600' : 'text-amber-700'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isSetupComplete ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              <span className="text-white/50">考察セットアップ</span>
+              <span className={`flex items-center gap-1 font-bold ${isSetupComplete ? 'text-emerald-400' : 'text-amber-400'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isSetupComplete ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                 {isSetupComplete ? '完了' : '未完了'}
               </span>
             </div>
             {isSetupComplete && setupState?.completedAt && (
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-on-surface-variant">最終セットアップ</span>
-                <span className="text-on-surface-variant tabular-nums">
+                <span className="text-white/40">最終セットアップ</span>
+                <span className="text-white/40 tabular-nums">
                   {new Date(setupState.completedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
@@ -429,7 +429,7 @@ export default function Layout() {
               resetSetup()
               navigate('/ads/wizard', { state: { resetAt: Date.now() } })
             }}
-            className="w-full py-2.5 text-on-surface-variant rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors text-xs focus-ring"
+            className="w-full py-2.5 text-white/50 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-white/5 hover:text-white/70 transition-colors text-xs focus-ring"
           >
             <span className="material-symbols-outlined text-base">replay</span>
             <span>新しいセットアップ</span>
@@ -441,7 +441,7 @@ export default function Layout() {
           role="separator"
           aria-label="サイドバーの幅を変更"
           tabIndex={0}
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-outline-variant/40 active:bg-outline-variant/60 transition-colors focus-ring"
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-white/20 active:bg-white/30 transition-colors focus-ring"
         />
       </aside>
 

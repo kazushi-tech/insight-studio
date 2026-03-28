@@ -216,11 +216,11 @@ export default function Compare() {
           <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
             {/* Score Panel — only shown when backend returns scores */}
             {hasScores && (
-              <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-[0.75rem] text-on-secondary min-h-[300px]">
-                <p className="text-xs uppercase tracking-[0.2em] font-bold opacity-80">OVERALL STRATEGY SCORE</p>
+              <div className="col-span-4 bg-gradient-to-br from-primary-container to-[#2a2a4e] p-8 rounded-xl text-white min-h-[300px]">
+                <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/70">OVERALL STRATEGY SCORE</p>
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-7xl font-black tabular-nums">{overallScore ?? '--'}</span>
-                  <span className="text-2xl font-bold opacity-60">/100</span>
+                  <span className="text-7xl font-black tabular-nums text-gold">{overallScore ?? '--'}</span>
+                  <span className="text-2xl font-bold text-white/50">/100</span>
                 </div>
                 <div className="mt-8 space-y-3 text-sm">
                   {scores.ux != null && <div className="flex justify-between border-b border-white/20 pb-2"><span>UXコンバージョン率</span><span className="font-bold">{scores.ux}</span></div>}

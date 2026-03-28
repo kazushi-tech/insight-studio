@@ -190,7 +190,7 @@ export default function Settings() {
             />
             <button
               onClick={handleProfileSave}
-              className="px-6 py-3 bg-primary text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
+              className="px-6 py-3 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
             >
               保存
             </button>
@@ -219,7 +219,7 @@ export default function Settings() {
                     setEditingGemini(true)
                     setGeminiError(null)
                   }}
-                  className="px-5 py-2.5 bg-primary text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
+                  className="px-5 py-2.5 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
                 >
                   変更
                 </button>
@@ -244,7 +244,7 @@ export default function Settings() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleGeminiSave}
-                  className="px-5 py-2.5 bg-primary text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
+                  className="px-5 py-2.5 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
                 >
                   保存
                 </button>

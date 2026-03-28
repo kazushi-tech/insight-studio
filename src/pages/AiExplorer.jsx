@@ -437,7 +437,7 @@ export default function AiExplorer() {
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || promptDisabled}
-            className="w-10 h-10 bg-secondary text-on-secondary rounded-full flex items-center justify-center hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 h-10 bg-gold text-primary-container rounded-full flex items-center justify-center hover:opacity-88 transition-all disabled:opacity-45 disabled:cursor-not-allowed"
             aria-label="送信"
           >
             <span className="material-symbols-outlined">send</span>

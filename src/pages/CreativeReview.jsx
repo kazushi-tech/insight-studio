@@ -715,7 +715,7 @@ export default function CreativeReview() {
           <button
             onClick={handleReview}
             disabled={!apiKey.trim() || phase === 'reviewing'}
-            className="px-6 py-3 bg-primary text-on-primary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-gold text-primary-container rounded-xl font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {phase === 'reviewing' ? (
               <LoadingSpinner size="sm" label="レビュー中…" />
@@ -854,7 +854,7 @@ export default function CreativeReview() {
               <a
                 href={genImageUrl}
                 download={`banner-${genId}.png`}
-                className="px-5 py-2.5 bg-primary text-on-primary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-90 transition-all text-sm"
+                className="px-5 py-2.5 bg-gold text-primary-container rounded-xl font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
               >
                 <span className="material-symbols-outlined text-lg">download</span>
                 ダウンロード

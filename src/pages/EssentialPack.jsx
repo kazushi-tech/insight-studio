@@ -315,7 +315,7 @@ export default function EssentialPack() {
               <span className="material-symbols-outlined text-lg">download</span>
               レポート出力
             </button>
-            <button className="px-4 py-2 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all">
+            <button className="px-4 py-2 bg-gold text-primary-container rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-all">
               <span className="material-symbols-outlined text-lg">share</span>
               共有
             </button>

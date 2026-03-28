@@ -10,10 +10,10 @@ import { SkeletonBlock, ErrorBanner } from '../components/ui'
 function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
   return (
     <div
-      className={`bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
-      <div className="w-12 h-12 rounded-[0.75rem] bg-surface-container flex items-center justify-center text-primary">
+      <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
       <div>
@@ -30,8 +30,8 @@ function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
 
 function EmptyStatCard({ icon, label, message, actionLabel, onAction }) {
   return (
-    <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover flex flex-col gap-4">
-      <div className="w-12 h-12 rounded-[0.75rem] bg-surface-container flex items-center justify-center text-outline-variant">
+    <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 panel-card-hover flex flex-col gap-4">
+      <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-outline-variant">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
       <div>
@@ -486,10 +486,10 @@ export default function Dashboard() {
             onNavigate={navigate}
           />
         </div>
-        <div className="col-span-7 bg-surface-container p-8 rounded-[0.75rem] flex flex-col justify-between overflow-hidden relative h-[280px]">
+        <div className="col-span-7 bg-primary-container p-8 rounded-xl flex flex-col justify-between overflow-hidden relative h-[280px]">
           <div className="relative z-10">
-            <h4 className="text-2xl font-black text-primary japanese-text">AI 広告クリエイティブ診断</h4>
-            <p className="text-on-surface-variant mt-2 max-w-md">
+            <h4 className="text-2xl font-black text-white japanese-text">AI 広告クリエイティブ診断</h4>
+            <p className="text-white/60 mt-2 max-w-md">
               最新のAIモデルが広告クリエイティブとLPの連動性を分析し、改善バナーを自動生成します。
             </p>
             <button
@@ -500,7 +500,7 @@ export default function Dashboard() {
               <span className="material-symbols-outlined">east</span>
             </button>
           </div>
-          <div className="absolute right-0 top-0 h-full w-1/2 opacity-15 bg-gradient-to-l from-primary-container/30 to-transparent" />
+          <div className="absolute right-0 top-0 h-full w-1/2 opacity-10 bg-gradient-to-l from-gold/30 to-transparent" />
         </div>
       </div>
     </div>
