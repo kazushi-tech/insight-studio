@@ -1,6 +1,8 @@
+import { useId } from 'react'
+
 /**
  * PerformanceRadar — stitch2 準拠ダイヤモンド型レーダー + スコアカード
- * 純粋CSS実装 (Chart.js不使用)
+ * SVG 実装で低スコア時でも形状と軸差分が読み取りやすいようにする
  */
 
 const AXIS_GROUPS = {
@@ -24,6 +26,40 @@ const AXIS_GROUPS = {
 
 const AXIS_ORDER = ['composition', 'design', 'cta', 'trust']
 
+const RADAR_GEOMETRY = {
+  size: 320,
+  center: 160,
+  radius: 118,
+  levels: [0.25, 0.5, 0.75, 1],
+}
+
+const AXIS_META = {
+  composition: {
+    label: '構成',
+    vector: [0, -1],
+    labelClassName: 'top-4 left-1/2 -translate-x-1/2 -translate-y-full text-center',
+  },
+  design: {
+    label: 'デザイン',
+    vector: [1, 0],
+    labelClassName: 'top-1/2 right-4 translate-x-full -translate-y-1/2 text-left',
+  },
+  cta: {
+    label: 'CTA',
+    vector: [0, 1],
+    labelClassName: 'bottom-4 left-1/2 -translate-x-1/2 translate-y-full text-center',
+  },
+  trust: {
+    label: '信頼性',
+    vector: [-1, 0],
+    labelClassName: 'top-1/2 left-4 -translate-x-full -translate-y-1/2 text-right',
+  },
+}
+
+function clampScore(score) {
+  return Math.max(0, Math.min(5, score ?? 0))
+}
+
 function computeAxes(rubricScores) {
   if (!Array.isArray(rubricScores) || rubricScores.length === 0) return null
 
@@ -39,7 +75,7 @@ function computeAxes(rubricScores) {
   for (const key of AXIS_ORDER) {
     const group = AXIS_GROUPS[key]
     const scores = group.ids.map((id) => scoreMap[id]).filter((v) => v != null)
-    axes[key] = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0
+    axes[key] = scores.length > 0 ? clampScore(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
     totalSum += scores.reduce((a, b) => a + b, 0)
     totalCount += scores.length
   }
@@ -60,87 +96,210 @@ function barColor(score) {
   return 'bg-rose-400'
 }
 
+function axisPoint(axisKey, scale = 1) {
+  const [dx, dy] = AXIS_META[axisKey].vector
+  const radius = RADAR_GEOMETRY.radius * scale
+
+  return {
+    x: RADAR_GEOMETRY.center + (dx * radius),
+    y: RADAR_GEOMETRY.center + (dy * radius),
+  }
+}
+
+function diamondPoints(scaleByAxis) {
+  return AXIS_ORDER.map((axisKey) => {
+    const scale = typeof scaleByAxis === 'number'
+      ? scaleByAxis
+      : clampScore(scaleByAxis[axisKey]) / 5
+    const point = axisPoint(axisKey, scale)
+    return `${point.x} ${point.y}`
+  }).join(' ')
+}
+
 export default function PerformanceRadar({ rubricScores }) {
   const computed = computeAxes(rubricScores)
   if (!computed) return null
 
   const { axes, totalScore } = computed
-
-  const topPct = (axes.composition / 5) * 40
-  const rightPct = (axes.design / 5) * 40
-  const bottomPct = (axes.cta / 5) * 40
-  const leftPct = (axes.trust / 5) * 40
-
-  const clipPath = `polygon(50% ${50 - topPct}%, ${50 + rightPct}% 50%, 50% ${50 + bottomPct}%, ${50 - leftPct}% 50%)`
+  const chartId = useId().replace(/:/g, '')
+  const fillId = `performance-radar-fill-${chartId}`
+  const glowId = `performance-radar-glow-${chartId}`
   const totalBg = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+  const axisEntries = AXIS_ORDER.map((key) => ({
+    key,
+    label: AXIS_GROUPS[key].label,
+    score: axes[key],
+  }))
+  const strongestAxis = axisEntries.reduce((best, current) => current.score > best.score ? current : best)
+  const weakestAxis = axisEntries.reduce((worst, current) => current.score < worst.score ? current : worst)
+  const radarPolygonPoints = diamondPoints(axes)
 
   return (
-    <div className="bg-surface-container-lowest p-8 rounded-[0.75rem] panel-card-hover">
+    <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/15 p-6 md:p-8 panel-card-hover">
       {/* Header */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
           <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
         </div>
-        <div className={`${totalBg} text-white px-4 py-2.5 rounded-[0.75rem] text-center min-w-[72px]`}>
+        <div className={`${totalBg} text-white px-4 py-3 rounded-[0.75rem] text-center min-w-[92px] shadow-sm`}>
           <p className="text-[10px] font-medium opacity-80">Total Score</p>
-          <p className="text-2xl font-black tabular-nums leading-tight">{totalScore}</p>
+          <p className="text-3xl font-black tabular-nums leading-none">{totalScore}</p>
+          <p className="text-[10px] font-bold opacity-70 mt-1">out of 100</p>
         </div>
       </div>
 
-      {/* Diamond — centered, generous spacing */}
-      <div className="relative w-56 h-56 mx-auto my-12 flex items-center justify-center">
-        {/* Top: 構成 */}
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
-          <span className={`text-xl font-black tabular-nums ${scoreColor(axes.composition)}`}>{axes.composition.toFixed(1)}</span>
-          <p className="text-[11px] font-bold text-on-surface mt-0.5">構成</p>
-        </div>
-        {/* Right: デザイン */}
-        <div className="absolute top-1/2 -right-20 -translate-y-1/2 text-center whitespace-nowrap">
-          <span className={`text-xl font-black tabular-nums ${scoreColor(axes.design)}`}>{axes.design.toFixed(1)}</span>
-          <p className="text-[11px] font-bold text-on-surface mt-0.5">デザイン</p>
-        </div>
-        {/* Bottom: CTA */}
-        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
-          <p className="text-[11px] font-bold text-on-surface mb-0.5">CTA</p>
-          <span className={`text-xl font-black tabular-nums ${scoreColor(axes.cta)}`}>{axes.cta.toFixed(1)}</span>
-        </div>
-        {/* Left: 信頼性 */}
-        <div className="absolute top-1/2 -left-20 -translate-y-1/2 text-center whitespace-nowrap">
-          <span className={`text-xl font-black tabular-nums ${scoreColor(axes.trust)}`}>{axes.trust.toFixed(1)}</span>
-          <p className="text-[11px] font-bold text-on-surface mt-0.5">信頼性</p>
-        </div>
-
-        {/* 3-layer concentric diamond grid */}
-        <div className="w-full h-full border border-outline-variant/30 rotate-45 flex items-center justify-center p-7">
-          <div className="w-full h-full border border-outline-variant/30 flex items-center justify-center p-7">
-            <div className="w-full h-full border border-outline-variant/30" />
-          </div>
-        </div>
-
-        {/* Data shape */}
-        <div className="absolute inset-0 flex items-center justify-center p-3">
+      {/* Diamond */}
+      <div className="mt-10">
+        <div className="relative mx-auto w-full max-w-[28rem] aspect-square">
           <div
-            className="w-full h-full bg-[#D4A843]/20 border-2 border-[#D4A843]"
-            style={{ clipPath }}
+            className="absolute inset-12 rounded-full blur-3xl pointer-events-none"
+            style={{ background: 'radial-gradient(circle, rgba(212, 168, 67, 0.18) 0%, rgba(212, 168, 67, 0) 72%)' }}
           />
+          <svg
+            viewBox={`0 0 ${RADAR_GEOMETRY.size} ${RADAR_GEOMETRY.size}`}
+            className="absolute inset-0 h-full w-full overflow-visible"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id={fillId} x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="var(--color-secondary-fixed-dim)" stopOpacity="0.48" />
+                <stop offset="100%" stopColor="var(--color-gold)" stopOpacity="0.16" />
+              </linearGradient>
+              <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
+                <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="var(--color-gold)" floodOpacity="0.18" />
+              </filter>
+            </defs>
+
+            <polygon
+              points={diamondPoints(1)}
+              fill="var(--color-secondary-fixed-dim)"
+              opacity="0.04"
+            />
+
+            {RADAR_GEOMETRY.levels.map((level) => (
+              <polygon
+                key={level}
+                points={diamondPoints(level)}
+                fill="none"
+                stroke="var(--color-outline-variant)"
+                strokeWidth={level === 1 ? 1.5 : 1}
+                opacity={level === 1 ? 0.34 : 0.22}
+              />
+            ))}
+
+            {AXIS_ORDER.map((axisKey) => {
+              const outerPoint = axisPoint(axisKey, 1)
+              const currentPoint = axisPoint(axisKey, clampScore(axes[axisKey]) / 5)
+
+              return (
+                <g key={axisKey}>
+                  <line
+                    x1={RADAR_GEOMETRY.center}
+                    y1={RADAR_GEOMETRY.center}
+                    x2={outerPoint.x}
+                    y2={outerPoint.y}
+                    stroke="var(--color-outline-variant)"
+                    strokeWidth="1"
+                    opacity="0.22"
+                  />
+                  <line
+                    x1={RADAR_GEOMETRY.center}
+                    y1={RADAR_GEOMETRY.center}
+                    x2={currentPoint.x}
+                    y2={currentPoint.y}
+                    stroke="var(--color-gold)"
+                    strokeWidth="2"
+                    opacity="0.38"
+                  />
+                </g>
+              )
+            })}
+
+            <circle
+              cx={RADAR_GEOMETRY.center}
+              cy={RADAR_GEOMETRY.center}
+              r="28"
+              fill="var(--color-secondary-fixed-dim)"
+              opacity="0.08"
+            />
+
+            <polygon
+              points={radarPolygonPoints}
+              fill={`url(#${fillId})`}
+              stroke="var(--color-gold)"
+              strokeWidth="2.75"
+              strokeLinejoin="round"
+              filter={`url(#${glowId})`}
+            />
+
+            {AXIS_ORDER.map((axisKey) => {
+              const point = axisPoint(axisKey, clampScore(axes[axisKey]) / 5)
+
+              return (
+                <g key={`${axisKey}-marker`}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="5.5"
+                    fill="var(--color-surface-container-lowest)"
+                    stroke="var(--color-gold)"
+                    strokeWidth="2.5"
+                  />
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="2.4"
+                    fill="var(--color-gold)"
+                  />
+                </g>
+              )
+            })}
+
+            <circle
+              cx={RADAR_GEOMETRY.center}
+              cy={RADAR_GEOMETRY.center}
+              r="4.5"
+              fill="var(--color-primary-container)"
+              opacity="0.9"
+            />
+          </svg>
+
+          {AXIS_ORDER.map((axisKey) => {
+            const meta = AXIS_META[axisKey]
+            const score = axes[axisKey]
+
+            return (
+              <div key={axisKey} className={`absolute ${meta.labelClassName} pointer-events-none`}>
+                <p className="text-[10px] font-black tracking-[0.16em] text-on-surface-variant/75 uppercase whitespace-nowrap">
+                  {meta.label}
+                </p>
+                <p className={`text-2xl md:text-[2rem] font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
+                  {score.toFixed(1)}
+                </p>
+              </div>
+            )
+          })}
         </div>
       </div>
 
       {/* Score breakdown grid */}
-      <div className="grid grid-cols-4 gap-3 mt-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-10">
         {AXIS_ORDER.map((key) => {
           const group = AXIS_GROUPS[key]
           const score = axes[key]
           const pct = (score / 5) * 100
           return (
-            <div key={key} className="bg-surface-container/50 rounded-[0.75rem] p-4 text-center">
-              <p className="text-xs font-bold text-on-surface japanese-text mb-2">{group.label}</p>
-              <p className={`text-2xl font-black tabular-nums ${scoreColor(score)}`}>
-                {score.toFixed(1)}
-                <span className="text-on-surface-variant font-normal text-xs">/5</span>
-              </p>
-              <div className="h-1.5 bg-surface-container rounded-full overflow-hidden mt-2">
+            <div key={key} className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
+              <p className="text-xs font-bold text-on-surface japanese-text">{group.label}</p>
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <p className={`text-3xl font-black tabular-nums leading-none ${scoreColor(score)}`}>
+                  {score.toFixed(1)}
+                  <span className="text-on-surface-variant font-medium text-xs ml-0.5">/5</span>
+                </p>
+                <span className="text-[11px] font-bold text-on-surface-variant tabular-nums">{Math.round(pct)}%</span>
+              </div>
+              <div className="h-2 bg-surface-container-high rounded-full overflow-hidden mt-3">
                 <div className={`h-full ${barColor(score)} rounded-full transition-all`} style={{ width: `${pct}%` }} />
               </div>
             </div>
@@ -148,15 +307,33 @@ export default function PerformanceRadar({ rubricScores }) {
         })}
       </div>
 
-      {/* Estimation metrics */}
-      <div className="grid grid-cols-2 gap-3 mt-3">
-        <div className="bg-surface-container/50 rounded-[0.75rem] p-4">
-          <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Conversion Rate Est.</p>
-          <p className="text-base font-black tabular-nums text-primary">—</p>
+      {/* Derived summary */}
+      <div className="grid gap-3 mt-3 sm:grid-cols-2">
+        <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
+          <p className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Strongest Axis</p>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-base font-black text-primary japanese-text">{strongestAxis.label}</p>
+              <p className="text-xs text-on-surface-variant">現状で最も機能している評価軸</p>
+            </div>
+            <p className={`text-2xl font-black tabular-nums whitespace-nowrap ${scoreColor(strongestAxis.score)}`}>
+              {strongestAxis.score.toFixed(1)}
+              <span className="text-on-surface-variant font-medium text-xs ml-0.5">/5</span>
+            </p>
+          </div>
         </div>
-        <div className="bg-surface-container/50 rounded-[0.75rem] p-4">
-          <p className="text-[10px] font-bold text-on-surface-variant mb-1 uppercase tracking-wider">Avg. Time on Page</p>
-          <p className="text-base font-black tabular-nums text-primary">—</p>
+        <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
+          <p className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Needs Attention</p>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-base font-black text-primary japanese-text">{weakestAxis.label}</p>
+              <p className="text-xs text-on-surface-variant">改善優先度が最も高い評価軸</p>
+            </div>
+            <p className={`text-2xl font-black tabular-nums whitespace-nowrap ${scoreColor(weakestAxis.score)}`}>
+              {weakestAxis.score.toFixed(1)}
+              <span className="text-on-surface-variant font-medium text-xs ml-0.5">/5</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
