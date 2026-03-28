@@ -9,6 +9,7 @@ import {
   getDisplayChartGroups,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
+import { resolveChartType, CHART_TYPE_LABELS } from '../utils/chartTypeInference'
 
 export default function AnalysisGraphs() {
   const { isAdsAuthenticated } = useAuth()
@@ -70,14 +71,21 @@ export default function AnalysisGraphs() {
       (sum, group) => sum + (Array.isArray(group?.datasets) ? group.datasets.length : 0),
       0,
     )
-    const lineCount = filteredGroups.filter((group) => group?.chartType === 'line').length
-    const barCount = filteredGroups.filter((group) => group?.chartType === 'bar_horizontal').length
+    const typeCounts = {}
+    for (const group of filteredGroups) {
+      const etype = resolveChartType(group)
+      typeCounts[etype] = (typeCounts[etype] || 0) + 1
+    }
+    const orderedTypes = ['line', 'area', 'bar_horizontal', 'doughnut']
+    const mixLabel = orderedTypes
+      .filter((type) => typeCounts[type] > 0)
+      .map((type) => `${typeCounts[type]} ${CHART_TYPE_LABELS[type]}`)
+      .join(' / ')
 
     return {
       groupCount: filteredGroups.length,
       datasetCount,
-      lineCount,
-      barCount,
+      mixLabel: mixLabel || '-',
     }
   }, [filteredGroups])
 
@@ -121,7 +129,7 @@ export default function AnalysisGraphs() {
         <button
           onClick={handleRefresh}
           disabled={loading || !isAdsAuthenticated || !setupState}
-          className="px-5 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+          className="px-5 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
         >
           {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">sync</span>}
           再取得
@@ -129,29 +137,29 @@ export default function AnalysisGraphs() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Scope</p>
           <p className="mt-3 text-xl font-bold text-on-surface japanese-text">{activeScopeLabel}</p>
           <p className="mt-2 text-sm text-on-surface-variant">period filter に応じて raw groups を切り替えています。</p>
         </section>
-        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Groups</p>
           <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.groupCount}</p>
           <p className="mt-2 text-sm text-on-surface-variant">表示中の chart group 数</p>
         </section>
-        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Datasets</p>
           <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.datasetCount}</p>
           <p className="mt-2 text-sm text-on-surface-variant">系列数の合計</p>
         </section>
-        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Mix</p>
-          <p className="mt-3 text-xl font-bold text-on-surface">{summary.lineCount} line / {summary.barCount} bar</p>
-          <p className="mt-2 text-sm text-on-surface-variant">line と horizontal bar の内訳</p>
+          <p className="mt-3 text-xl font-bold text-on-surface">{summary.mixLabel}</p>
+          <p className="mt-2 text-sm text-on-surface-variant">チャートタイプの内訳</p>
         </section>
       </div>
 
-      <div className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover space-y-4">
+      <div className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="graph-period-filter" className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
             Display Period
@@ -160,7 +168,7 @@ export default function AnalysisGraphs() {
             id="graph-period-filter"
             value={periodFilter}
             onChange={(e) => setPeriodFilter(e.target.value)}
-            className="min-w-[220px] rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 text-sm font-semibold text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+            className="min-w-[220px] select-surface"
           >
             <option value="latest">最新期間</option>
             <option value="all">全期間まとめ</option>
@@ -201,7 +209,7 @@ export default function AnalysisGraphs() {
       )}
 
       {loading && chartGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] p-8 space-y-6">
           <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <SkeletonBlock variant="card" />
@@ -211,7 +219,7 @@ export default function AnalysisGraphs() {
       )}
 
       {!loading && !error && filteredGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 text-center space-y-3">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 text-center space-y-3">
           <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
           <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
           <p className="text-sm text-on-surface-variant japanese-text">
