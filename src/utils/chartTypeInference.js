@@ -7,9 +7,9 @@ export const CHART_TYPE_LABELS = {
   area: 'Area',
 }
 
-// Strong percent signals — "構成" alone is too weak and matches count-based composition
-const STRONG_PERCENT_KEYWORDS = /構成比|割合|比率|シェア|%|％|share|ratio/i
-const RANKING_KEYWORDS = /top|ランキング|地域別|os別|検索|クエリ|lp/i
+const PERCENT_KEYWORDS = /構成|構成比|割合|比率|シェア|%|％|share|ratio/i
+const RANKING_KEYWORDS = /top\s*\d|ランキング|地域別|os別|検索|クエリ|lp分析/i
+const AREA_KEYWORDS = /推移|日別|月別|週別|トレンド|trend/i
 
 function normalizeNumeric(value) {
   if (value == null || value === '') return null
@@ -21,103 +21,84 @@ function normalizeNumeric(value) {
   return null
 }
 
-/**
- * Check if a group has strong percent signal in title or dataset label.
- */
-function hasStrongPercentSignal(group, dataset) {
-  const title = String(group?.title ?? '')
-  const datasetLabel = String(dataset?.label ?? '')
-  return STRONG_PERCENT_KEYWORDS.test(title) || STRONG_PERCENT_KEYWORDS.test(datasetLabel)
+function textOf(group, dataset) {
+  return `${group?.title ?? ''} ${dataset?.label ?? ''}`
 }
 
-/**
- * Check if a group has ranking-related keywords that should NOT be doughnut.
- */
+function hasPercentSignal(group, dataset) {
+  return PERCENT_KEYWORDS.test(textOf(group, dataset))
+}
+
 function hasRankingSignal(group, dataset) {
-  const title = String(group?.title ?? '')
-  const datasetLabel = String(dataset?.label ?? '')
-  return RANKING_KEYWORDS.test(title) || RANKING_KEYWORDS.test(datasetLabel)
+  return RANKING_KEYWORDS.test(textOf(group, dataset))
 }
 
-/**
- * Check if the renderer can safely draw this group as a doughnut.
- * Requirements: single dataset, at least 2 valid data points, labels match data.
- */
+function hasAreaSignal(group) {
+  return AREA_KEYWORDS.test(String(group?.title ?? ''))
+}
+
 function canRenderDoughnut(group) {
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
-  const labels = Array.isArray(group?.labels) ? group.labels : []
-
   if (datasets.length !== 1) return false
-
-  const dataset = datasets[0]
-  const data = Array.isArray(dataset?.data) ? dataset.data : []
+  const data = Array.isArray(datasets[0]?.data) ? datasets[0].data : []
   const numericValues = data.map(normalizeNumeric).filter((v) => v != null)
-
-  if (numericValues.length < 2) return false
-  if (labels.length < numericValues.length) return false
-
-  return true
+  return numericValues.length >= 2
 }
 
 /**
- * Check if a bar_horizontal group qualifies for doughnut promotion.
- * Strict conditions: single dataset, 2-6 labels, sum ~100, all values 0-100,
- * strong percent keyword present, no ranking keyword.
+ * Doughnut promotion from bar_horizontal.
+ * Relaxed: single dataset, 2–8 labels, non-negative values, no ranking keywords.
  */
 function isPromotableDoughnut(group) {
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
   const labels = Array.isArray(group?.labels) ? group.labels : []
 
   if (datasets.length !== 1) return false
-  if (labels.length < 2 || labels.length > 6) return false
+  if (labels.length < 2 || labels.length > 8) return false
 
   const dataset = datasets[0]
+  if (hasRankingSignal(group, dataset)) return false
+
   const data = Array.isArray(dataset?.data) ? dataset.data : []
   const numericValues = data.map(normalizeNumeric).filter((v) => v != null)
 
   if (numericValues.length < 2) return false
+  if (numericValues.some((v) => v < 0)) return false
 
-  // All values must be in 0–100 range
-  if (numericValues.some((v) => v < 0 || v > 100)) return false
+  return true
+}
 
-  // Sum must be ~100 (98–102)
-  const sum = numericValues.reduce((a, b) => a + b, 0)
-  if (sum < 98 || sum > 102) return false
+/**
+ * Area promotion from single-dataset line with time-series title.
+ */
+function isPromotableArea(group) {
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const labels = Array.isArray(group?.labels) ? group.labels : []
 
-  // Must have strong percent signal (not just "構成")
-  if (!hasStrongPercentSignal(group, dataset)) return false
-
-  // Must NOT have ranking signal
-  if (hasRankingSignal(group, dataset)) return false
+  if (datasets.length !== 1) return false
+  if (labels.length < 3) return false
+  if (!hasAreaSignal(group)) return false
 
   return true
 }
 
 /**
  * Returns presentation metadata for a chart group.
- * chartType: the effective type to render
- * usePercent: whether values should be formatted with %
- * promotionSource: 'raw' if backend-provided, 'promoted' if frontend-inferred
  */
 export function resolveChartPresentation(group) {
   const raw = group?.chartType ?? 'line'
   const dataset = Array.isArray(group?.datasets) ? group.datasets[0] : null
 
-  // Explicit doughnut from backend — only pass through if renderer can handle it
+  // Explicit doughnut from backend
   if (raw === 'doughnut') {
     if (canRenderDoughnut(group)) {
       return {
         chartType: 'doughnut',
-        usePercent: hasStrongPercentSignal(group, dataset),
+        usePercent: hasPercentSignal(group, dataset),
         promotionSource: 'raw',
       }
     }
-    // Fallback: render as bar_horizontal (closer semantics than line)
-    return {
-      chartType: 'bar_horizontal',
-      usePercent: false,
-      promotionSource: 'raw',
-    }
+    return { chartType: 'bar_horizontal', usePercent: false, promotionSource: 'raw' }
   }
 
   // Explicit area from backend
@@ -125,13 +106,18 @@ export function resolveChartPresentation(group) {
     return { chartType: 'area', usePercent: false, promotionSource: 'raw' }
   }
 
-  // Strict doughnut promotion from bar_horizontal
+  // Doughnut promotion from bar_horizontal
   if (raw === 'bar_horizontal' && isPromotableDoughnut(group)) {
     return {
       chartType: 'doughnut',
-      usePercent: true, // promoted doughnut always percent (sum ~100 guaranteed)
+      usePercent: hasPercentSignal(group, dataset),
       promotionSource: 'promoted',
     }
+  }
+
+  // Area promotion from single-dataset line with time-series title
+  if (raw === 'line' && isPromotableArea(group)) {
+    return { chartType: 'area', usePercent: false, promotionSource: 'promoted' }
   }
 
   // Known types pass through
@@ -145,7 +131,6 @@ export function resolveChartPresentation(group) {
 
 /**
  * Thin wrapper — returns just the effective chart type.
- * Used by AnalysisGraphs summary where only the type matters.
  */
 export function resolveChartType(group) {
   return resolveChartPresentation(group).chartType
