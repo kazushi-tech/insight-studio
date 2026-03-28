@@ -114,7 +114,7 @@ export default function Discovery() {
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div>
-        <h2 className="text-4xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">Discovery Hub</h2>
+        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
         <p className="text-on-surface-variant mt-2 text-base">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
@@ -130,14 +130,14 @@ export default function Discovery() {
         <div className="relative flex-1">
           <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
           <input
-            className="w-full bg-surface-container-lowest rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40 transition-all shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]"
+            className="w-full bg-surface-container-lowest rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all border border-outline-variant/15"
             placeholder="競合他社のURLを入力"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
         </div>
         <button
-          className="px-8 py-4 bg-primary text-on-primary rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-primary/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="button-primary py-4 disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={!canSubmit}
           onClick={handleDiscover}
         >
@@ -170,7 +170,7 @@ export default function Discovery() {
 
       {/* Report */}
       {result?.report_md && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 space-y-5">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 space-y-5">
           <div className="flex items-center gap-2 text-on-surface-variant mb-4">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>
@@ -183,7 +183,7 @@ export default function Discovery() {
       {discoveries.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-[#1A1A2E] flex items-center gap-2 japanese-text">
+            <h3 className="text-2xl font-bold text-on-surface flex items-center gap-2 japanese-text">
               <span className="material-symbols-outlined text-secondary">verified</span>
               発見されたLP一覧
             </h3>
@@ -198,7 +198,7 @@ export default function Discovery() {
               return (
                 <div
                   key={item.url ?? item.name ?? i}
-                  className={`bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden group transition-transform hover:scale-[1.01] ${
+                  className={`bg-surface-container-lowest rounded-xl panel-card-hover overflow-hidden group ${
                     isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
                   }`}
                 >
@@ -225,7 +225,7 @@ export default function Discovery() {
                   </div>
                   <div className="p-5">
                     <div className="flex items-start justify-between">
-                      <h4 className="font-bold text-[#1A1A2E] japanese-text">{item.title ?? item.name ?? item.url}</h4>
+                      <h4 className="font-bold text-on-surface japanese-text">{item.title ?? item.name ?? item.url}</h4>
                       {item.url && (
                         <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary transition-colors">
                           <span className="material-symbols-outlined text-lg">open_in_new</span>

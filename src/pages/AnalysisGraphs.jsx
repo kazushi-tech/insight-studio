@@ -111,7 +111,7 @@ export default function AnalysisGraphs() {
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="space-y-2">
-          <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
+          <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
           <p className="text-sm text-on-surface-variant max-w-3xl">
             `ads-insights` の `/api/bq/generate_batch` が返した `chart_data.groups` を、本家の `ChartGridView`
             / `ChartGroupComponent` の考え方に寄せて可視化しています。`全期間まとめ` では同一タイトルのグラフを
@@ -129,29 +129,29 @@ export default function AnalysisGraphs() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Scope</p>
           <p className="mt-3 text-xl font-bold text-on-surface japanese-text">{activeScopeLabel}</p>
           <p className="mt-2 text-sm text-on-surface-variant">period filter に応じて raw groups を切り替えています。</p>
         </section>
-        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Groups</p>
           <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.groupCount}</p>
           <p className="mt-2 text-sm text-on-surface-variant">表示中の chart group 数</p>
         </section>
-        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Datasets</p>
           <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.datasetCount}</p>
           <p className="mt-2 text-sm text-on-surface-variant">系列数の合計</p>
         </section>
-        <section className="rounded-[24px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+        <section className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover">
           <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">Mix</p>
           <p className="mt-3 text-xl font-bold text-on-surface">{summary.lineCount} line / {summary.barCount} bar</p>
           <p className="mt-2 text-sm text-on-surface-variant">line と horizontal bar の内訳</p>
         </section>
       </div>
 
-      <div className="rounded-[28px] bg-surface-container-lowest border border-outline-variant/20 p-5 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] space-y-4">
+      <div className="rounded-xl bg-surface-container-lowest border border-outline-variant/20 p-5 panel-card-hover space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <label htmlFor="graph-period-filter" className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
             Display Period
@@ -160,7 +160,7 @@ export default function AnalysisGraphs() {
             id="graph-period-filter"
             value={periodFilter}
             onChange={(e) => setPeriodFilter(e.target.value)}
-            className="min-w-[220px] rounded-2xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 text-sm font-semibold text-on-surface outline-none focus:ring-2 focus:ring-secondary/30"
+            className="min-w-[220px] rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 text-sm font-semibold text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary"
           >
             <option value="latest">最新期間</option>
             <option value="all">全期間まとめ</option>
@@ -201,7 +201,7 @@ export default function AnalysisGraphs() {
       )}
 
       {loading && chartGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-2xl p-8 space-y-6">
+        <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
           <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <SkeletonBlock variant="card" />
@@ -211,7 +211,7 @@ export default function AnalysisGraphs() {
       )}
 
       {!loading && !error && filteredGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 text-center space-y-3">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 text-center space-y-3">
           <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
           <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
           <p className="text-sm text-on-surface-variant japanese-text">

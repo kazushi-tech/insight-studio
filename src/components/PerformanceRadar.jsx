@@ -75,7 +75,7 @@ export default function PerformanceRadar({ rubricScores }) {
   const totalBg = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
 
   return (
-    <div className="bg-surface-container-lowest p-8 rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+    <div className="bg-surface-container-lowest p-8 rounded-xl panel-card-hover">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div>

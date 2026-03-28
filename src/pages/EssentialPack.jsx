@@ -201,7 +201,7 @@ export default function EssentialPack() {
             <select
               value={selectedPeriod}
               onChange={handlePeriodChange}
-              className="w-full px-3 py-2 text-sm bg-surface-container border border-outline-variant/30 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-secondary/30"
+              className="w-full px-3 py-2 text-sm bg-surface-container border border-outline-variant/30 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
             >
               <option value="all">全期間 ({periodReports.length})</option>
               {periodReports.map((report) => (
@@ -249,7 +249,7 @@ export default function EssentialPack() {
                   }}
                   className={`block px-3 py-1.5 text-xs rounded-lg transition-all leading-snug ${
                     openSections[s.id]
-                      ? 'text-secondary font-bold border-l-2 border-secondary bg-secondary/5'
+                      ? 'text-on-surface font-bold border-l-2 border-gold bg-surface-container-low/60'
                       : 'text-on-surface-variant border-l-2 border-transparent hover:bg-surface-container'
                   } ${s.kind === 'summary' ? 'font-bold' : ''}`}
                 >
@@ -289,7 +289,7 @@ export default function EssentialPack() {
 
         {/* サマリーカード */}
         {insightSummary && (
-          <div className="bg-secondary p-4 rounded-2xl text-on-secondary">
+          <div className="bg-secondary p-4 rounded-xl text-on-secondary">
             <div className="flex items-center gap-2 mb-1">
               <span className="material-symbols-outlined text-sm">description</span>
               <span className="font-bold text-xs">SUMMARY</span>
@@ -307,11 +307,11 @@ export default function EssentialPack() {
 
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-extrabold text-[#1A1A2E] japanese-text">広告考察レポート</h2>
+            <h2 className="text-2xl font-bold text-on-surface japanese-text">広告考察レポート</h2>
             <p className="text-xs text-on-surface-variant mt-1">report_md を表示しています</p>
           </div>
           <div className="flex gap-3">
-            <button className="px-4 py-2 bg-white border border-outline-variant/50 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-surface-container transition-all">
+            <button className="button-secondary">
               <span className="material-symbols-outlined text-lg">download</span>
               レポート出力
             </button>
@@ -323,7 +323,7 @@ export default function EssentialPack() {
         </div>
 
         {loading && !currentReport && (
-          <div className="bg-surface-container-lowest rounded-2xl p-8 space-y-6">
+          <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
             <div className="flex items-center gap-3">
               <LoadingSpinner size="md" label="BigQuery バッチレポートを再取得中…" />
             </div>
@@ -332,7 +332,7 @@ export default function EssentialPack() {
         )}
 
         {!loading && !error && !currentReport && (
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 text-center space-y-3">
+          <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 text-center space-y-3">
             <span className="material-symbols-outlined text-5xl text-outline-variant">description</span>
             <h3 className="text-xl font-bold japanese-text">レポート本文がまだありません</h3>
             <p className="text-sm text-on-surface-variant japanese-text">
@@ -348,7 +348,7 @@ export default function EssentialPack() {
               <div
                 key={section.id}
                 id={section.id}
-                className="rounded-2xl border border-outline-variant/20 shadow-[0_4px_12px_-4px_rgba(26,26,46,0.06)] scroll-mt-20 overflow-x-hidden"
+                className="rounded-xl border border-outline-variant/20 shadow-[0_4px_12px_-4px_rgba(26,26,46,0.06)] scroll-mt-20 overflow-x-hidden"
               >
                 {section.kind === 'summary' ? (
                   /* Summary: 常に開いた状態、ボタンなし */
@@ -390,7 +390,7 @@ export default function EssentialPack() {
 
         {/* ── 単一セクション表示 (accordion 不要時) ── */}
         {currentReport && !useAccordion && (
-          <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 space-y-6">
+          <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 space-y-6">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-secondary">article</span>
               <h3 className="text-xl font-bold japanese-text">

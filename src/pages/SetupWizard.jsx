@@ -228,7 +228,7 @@ export default function SetupWizard() {
   return (
     <div className="p-10 max-w-[1200px] mx-auto space-y-10">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight">Setup Wizard</h2>
+        <h2 className="text-3xl font-bold text-on-surface tracking-tight">Setup Wizard</h2>
         <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-primary/10 text-primary">BigQuery</span>
       </div>
 
@@ -253,7 +253,7 @@ export default function SetupWizard() {
             >
               {index < step ? <span className="material-symbols-outlined text-sm">check</span> : index + 1}
             </div>
-            <span className={`text-sm font-bold ${index === step ? 'text-[#1A1A2E]' : 'text-on-surface-variant'}`}>
+            <span className={`text-sm font-bold ${index === step ? 'text-on-surface' : 'text-on-surface-variant'}`}>
               {stepLabel}
             </span>
             {index < STEPS.length - 1 && <div className="w-32 h-0.5 bg-outline-variant/30 mx-4" />}
@@ -269,7 +269,7 @@ export default function SetupWizard() {
         <div>
           <div className="flex justify-between items-end mb-6">
             <div>
-              <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">クエリタイプを選択</h3>
+              <h3 className="text-2xl font-bold text-on-surface japanese-text">クエリタイプを選択</h3>
               <p className="text-on-surface-variant mt-1 text-sm">分析したいデータ項目を選択してください（複数選択可能）</p>
             </div>
             <div className="flex gap-2">
@@ -287,16 +287,16 @@ export default function SetupWizard() {
               <button
                 key={queryType.label}
                 onClick={() => toggle(index)}
-                className={`p-5 rounded-2xl text-left transition-all border-2 ${
+                className={`p-5 rounded-xl text-left transition-all border-2 ${
                   selected.has(index)
-                    ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
-                    : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
+                    ? 'border-secondary bg-secondary/5'
+                    : 'border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <span className={`material-symbols-outlined text-2xl ${queryType.color}`}>{queryType.icon}</span>
-                    <span className="font-bold text-[#1A1A2E] japanese-text">{queryType.label}</span>
+                    <span className="font-bold text-on-surface japanese-text">{queryType.label}</span>
                   </div>
                   {selected.has(index) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
                 </div>
@@ -311,7 +311,7 @@ export default function SetupWizard() {
         <div>
           <div className="flex justify-between items-end mb-6">
             <div>
-              <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">分析期間を選択</h3>
+              <h3 className="text-2xl font-bold text-on-surface japanese-text">分析期間を選択</h3>
               <p className="text-on-surface-variant mt-1 text-sm">
                 {selectedPeriods.size > 0
                   ? `${selectedPeriods.size} 件選択中`
@@ -389,16 +389,16 @@ export default function SetupWizard() {
                     <button
                       key={index}
                       onClick={() => togglePeriod(value)}
-                      className={`p-5 rounded-2xl text-left transition-all border-2 ${
+                      className={`p-5 rounded-xl text-left transition-all border-2 ${
                         selectedPeriods.has(value)
-                          ? 'border-secondary bg-secondary/5 shadow-lg shadow-secondary/10'
-                          : 'border-transparent bg-surface-container-lowest shadow-[0_24px_48px_-12px_rgba(26,26,46,0.04)] hover:shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]'
+                          ? 'border-secondary bg-secondary/5'
+                          : 'border-outline-variant/15 bg-surface-container-lowest hover:bg-surface-container-low/50'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <span className="material-symbols-outlined text-secondary">calendar_today</span>
-                          <span className="font-bold text-[#1A1A2E] japanese-text">{label}</span>
+                          <span className="font-bold text-on-surface japanese-text">{label}</span>
                         </div>
                         {selectedPeriods.has(value) && <span className="material-symbols-outlined text-secondary">check_circle</span>}
                       </div>
@@ -417,7 +417,7 @@ export default function SetupWizard() {
       {step === 2 && (
         <div className="text-center py-12">
           <span className="material-symbols-outlined text-6xl text-secondary mb-4 block">check_circle</span>
-          <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">データ読み込み完了</h3>
+          <h3 className="text-2xl font-bold text-on-surface japanese-text">データ読み込み完了</h3>
           <p className="text-on-surface-variant mt-2 japanese-text">
             {selectedPeriods.size}期間 × {selected.size}クエリタイプのレポートを生成しました。「次へ」を押して要点パックに進みましょう。
           </p>
@@ -438,7 +438,7 @@ export default function SetupWizard() {
         <button
           onClick={handleNext}
           disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated}
-          className="px-10 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-10 py-3 bg-secondary text-on-secondary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

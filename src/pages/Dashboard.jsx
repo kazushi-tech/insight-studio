@@ -10,7 +10,7 @@ import { SkeletonBlock, ErrorBanner } from '../components/ui'
 function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
   return (
     <div
-      className={`bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] flex flex-col gap-4 ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
+      className={`bg-surface-container-lowest p-6 rounded-xl panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
       onClick={onClick}
     >
       <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-primary">
@@ -19,7 +19,7 @@ function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
       <div>
         <p className="text-on-surface-variant text-sm font-bold japanese-text">{label}</p>
         <div className="flex items-baseline gap-2 mt-1">
-          <span className="text-4xl font-black text-primary tabular-nums">{value}</span>
+          <span className="text-3xl font-bold text-primary tabular-nums">{value}</span>
           {unit && <span className="text-sm text-on-surface-variant font-medium">{unit}</span>}
         </div>
       </div>
@@ -30,7 +30,7 @@ function LiveStatCard({ icon, label, value, unit, subtitle, onClick }) {
 
 function EmptyStatCard({ icon, label, message, actionLabel, onAction }) {
   return (
-    <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] flex flex-col gap-4">
+    <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover flex flex-col gap-4">
       <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-outline-variant">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
@@ -111,7 +111,7 @@ function CompactChartCard({ group, onClick }) {
 
   return (
     <div
-      className="bg-surface-container-lowest p-5 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] cursor-pointer hover:shadow-lg transition-shadow"
+      className="bg-surface-container-lowest p-5 rounded-xl panel-card-hover cursor-pointer"
       onClick={onClick}
     >
       <p className="text-xs font-bold text-on-surface-variant japanese-text truncate mb-1">{group?.title || '無題'}</p>
@@ -157,12 +157,12 @@ function ChartOverviewSection({ chartGroups, periodTags, onDrillDown }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">広告データ概要</h3>
+        <h3 className="text-2xl font-bold text-on-surface japanese-text">広告データ概要</h3>
         <div className="flex items-center gap-3">
           <select
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
-            className="text-sm font-bold text-on-surface bg-surface-container rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-secondary/40"
+            className="text-sm font-bold text-on-surface bg-surface-container rounded-lg px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-secondary"
           >
             {allOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -189,7 +189,7 @@ function ChartOverviewSection({ chartGroups, periodTags, onDrillDown }) {
 function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
   if (!isAdsAuthenticated) {
     return (
-      <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+      <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
             <span className="material-symbols-outlined">lock</span>
@@ -203,7 +203,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
 
   if (!setupState) {
     return (
-      <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+      <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
             <span className="material-symbols-outlined">settings_suggest</span>
@@ -228,7 +228,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
     : null
 
   return (
-    <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+    <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
       <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
           <span className="material-symbols-outlined">check_circle</span>
@@ -319,13 +319,13 @@ export default function Dashboard() {
       {/* Welcome Header */}
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-4xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">ダッシュボード</h2>
+          <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">ダッシュボード</h2>
           <p className="text-on-surface-variant mt-2 text-lg">現在の分析状況の概要です</p>
         </div>
         <div className="flex gap-4">
           <button
             onClick={() => navigate('/compare')}
-            className="px-6 py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-primary/20 text-sm"
+            className="button-primary"
           >
             <span className="material-symbols-outlined text-lg">bolt</span>
             新規LP比較
@@ -337,13 +337,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-3 gap-8">
         {historyLoading ? (
           <>
-            <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+            <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
               <SkeletonBlock variant="card" />
             </div>
-            <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+            <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
               <SkeletonBlock variant="card" />
             </div>
-            <div className="bg-surface-container-lowest p-6 rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)]">
+            <div className="bg-surface-container-lowest p-6 rounded-xl panel-card-hover">
               <SkeletonBlock variant="card" />
             </div>
           </>
@@ -388,7 +388,7 @@ export default function Dashboard() {
       {/* Recent Analysis Results */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-[#1A1A2E] japanese-text">最近の分析結果</h3>
+          <h3 className="text-2xl font-bold text-on-surface japanese-text">最近の分析結果</h3>
           {history.length > 0 && (
             <button
               onClick={() => navigate('/compare')}
@@ -399,7 +399,7 @@ export default function Dashboard() {
             </button>
           )}
         </div>
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] overflow-hidden">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover overflow-hidden">
           {historyLoading ? (
             <div className="py-8 px-8 space-y-4">
               <SkeletonBlock variant="text" lines={5} />
@@ -431,7 +431,7 @@ export default function Dashboard() {
                   <th className="py-5 px-8"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-surface-container/50">
+              <tbody>
                 {history.slice(0, 10).map((item, i) => (
                   <tr key={item.id ?? i} className="hover:bg-surface-container-low transition-colors group">
                     <td className="py-5 px-8">
@@ -439,7 +439,7 @@ export default function Dashboard() {
                         <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface-variant">
                           <span className="material-symbols-outlined text-lg">web</span>
                         </div>
-                        <span className="font-bold text-[#1A1A2E] japanese-text">{item.name ?? item.title ?? `分析 #${i + 1}`}</span>
+                        <span className="font-bold text-on-surface japanese-text">{item.name ?? item.title ?? `分析 #${i + 1}`}</span>
                       </div>
                     </td>
                     <td className="py-5 px-8 text-sm text-on-surface-variant truncate max-w-[200px]">{item.url ?? item.urls?.[0] ?? '-'}</td>
@@ -486,7 +486,7 @@ export default function Dashboard() {
             onNavigate={navigate}
           />
         </div>
-        <div className="col-span-7 bg-surface-container p-8 rounded-2xl flex flex-col justify-between overflow-hidden relative group h-[280px]">
+        <div className="col-span-7 bg-surface-container p-8 rounded-xl flex flex-col justify-between overflow-hidden relative group h-[280px]">
           <div className="relative z-10">
             <h4 className="text-2xl font-black text-primary japanese-text">AI 広告クリエイティブ診断</h4>
             <p className="text-on-surface-variant mt-2 max-w-md">
@@ -494,7 +494,7 @@ export default function Dashboard() {
             </p>
             <button
               onClick={() => navigate('/creative-review')}
-              className="mt-8 px-6 py-3 bg-primary text-on-primary rounded-xl font-bold transition-all hover:translate-x-1 flex items-center gap-2 text-sm"
+              className="button-primary mt-8"
             >
               診断を始める
               <span className="material-symbols-outlined">east</span>

@@ -89,7 +89,7 @@ export default function Compare() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-4xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">LP比較・競合分析</h2>
+          <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">LP比較・競合分析</h2>
           <p className="text-on-surface-variant mt-2 text-lg">自社と競合のLPを並列比較し、AIが戦略的な改善点を提示します</p>
         </div>
         <span className="inline-flex items-center gap-2 px-4 py-2 bg-surface-container rounded-full text-sm font-bold text-secondary">
@@ -117,7 +117,7 @@ export default function Compare() {
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">link</span>
               <input
-                className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40 transition-all"
+                className="w-full bg-surface-container-low rounded-xl py-3 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
                 placeholder={placeholder}
                 value={urls[key]}
                 onChange={(e) => setUrls({ ...urls, [key]: e.target.value })}
@@ -130,7 +130,7 @@ export default function Compare() {
       <div className="flex justify-end">
         <div className="flex flex-col items-end gap-2">
           <button
-            className="px-8 py-3 bg-primary text-on-primary rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-xl shadow-primary/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="button-primary disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!canSubmit}
             onClick={handleScan}
           >
@@ -162,7 +162,7 @@ export default function Compare() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-xl font-bold text-[#1A1A2E] japanese-text">分析対象サイト</h3>
+              <h3 className="text-xl font-bold text-on-surface japanese-text">分析対象サイト</h3>
               <p className="text-sm text-on-surface-variant japanese-text">
                 埋め込みプレビューはサイト側で拒否されやすいため廃止し、分析対象だけを明示しています。
               </p>
@@ -174,12 +174,12 @@ export default function Compare() {
             {siteCards.map((site) => (
               <div
                 key={site.key}
-                className="bg-surface-container-lowest rounded-[16px] shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4"
+                className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold text-on-surface-variant uppercase tracking-[0.15em]">{site.subtitle}</p>
-                    <h4 className="text-lg font-bold text-[#1A1A2E] japanese-text mt-1">{site.label}</h4>
+                    <h4 className="text-lg font-bold text-on-surface japanese-text mt-1">{site.label}</h4>
                   </div>
                   <a
                     href={site.url}
@@ -216,7 +216,7 @@ export default function Compare() {
           <div className={`grid gap-8 ${hasScores ? 'grid-cols-12' : ''}`}>
             {/* Score Panel — only shown when backend returns scores */}
             {hasScores && (
-              <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-2xl text-on-secondary min-h-[300px]">
+              <div className="col-span-4 bg-gradient-to-br from-secondary to-secondary-fixed-dim p-8 rounded-xl text-on-secondary min-h-[300px]">
                 <p className="text-xs uppercase tracking-[0.2em] font-bold opacity-80">OVERALL STRATEGY SCORE</p>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="text-7xl font-black tabular-nums">{overallScore ?? '--'}</span>
@@ -236,7 +236,7 @@ export default function Compare() {
             )}
 
             {/* Report — primary display */}
-            <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 min-h-[300px]`}>
+            <div className={`${hasScores ? 'col-span-8' : 'w-full'} bg-surface-container-lowest rounded-xl panel-card-hover p-8 min-h-[300px]`}>
               <div className="flex items-center gap-2 text-on-surface-variant mb-6">
                 <span className="material-symbols-outlined text-secondary">description</span>
                 <span className="text-sm font-bold">分析レポート</span>
@@ -264,7 +264,7 @@ export default function Compare() {
 
       {/* Empty State — before any scan */}
       {!result && !error && !loading && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8 min-h-[200px]">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8 min-h-[200px]">
           <div className="flex items-center gap-2 text-on-surface-variant mb-6">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>

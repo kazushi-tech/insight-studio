@@ -6,7 +6,7 @@ import { useUserProfile } from '../contexts/UserProfileContext'
 
 function SettingsCard({ icon, title, description, children }) {
   return (
-    <section className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-6">
+    <section className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-6">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-secondary">{icon}</span>
@@ -26,7 +26,7 @@ function Toggle({ checked, onChange, label }) {
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors ${
+      className={`w-12 h-7 rounded-full flex items-center px-1 transition-colors focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-2 ${
         checked ? 'bg-secondary' : 'bg-surface-container-high'
       }`}
     >
@@ -166,7 +166,7 @@ export default function Settings() {
   return (
     <div className="p-10 max-w-[920px] mx-auto space-y-8">
       <div className="space-y-2">
-        <h2 className="text-3xl font-extrabold text-[#1A1A2E] tracking-tight japanese-text">設定</h2>
+        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">設定</h2>
         <p className="text-on-surface-variant text-sm japanese-text">プロフィールや接続設定を管理できます。不要なダミー設定は表示していません。</p>
       </div>
 
@@ -182,7 +182,7 @@ export default function Settings() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
               id="display-name"
-              className="flex-1 bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+              className="flex-1 bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
               value={localDisplayName}
               maxLength={20}
               onChange={(e) => setLocalDisplayName(e.target.value)}
@@ -225,7 +225,7 @@ export default function Settings() {
                 </button>
                 <button
                   onClick={handleGeminiDelete}
-                  className="px-5 py-2.5 bg-red-50 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-all"
+                  className="px-5 py-2.5 bg-error-container/40 text-error rounded-xl font-bold text-sm hover:bg-error-container/60 transition-colors"
                 >
                   削除
                 </button>
@@ -235,7 +235,7 @@ export default function Settings() {
             <div className="space-y-3">
               <input
                 type="password"
-                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="AIza..."
                 value={geminiInput}
                 onChange={(e) => setGeminiInput(e.target.value)}
@@ -290,7 +290,7 @@ export default function Settings() {
           {isAdsAuthenticated ? (
             <button
               onClick={handleAdsLogout}
-              className="px-5 py-2.5 bg-red-50 text-red-700 rounded-xl font-bold text-sm hover:bg-red-100 transition-all"
+              className="px-5 py-2.5 bg-error-container/40 text-error rounded-xl font-bold text-sm hover:bg-error-container/60 transition-colors"
             >
               切断する
             </button>
@@ -298,7 +298,7 @@ export default function Settings() {
             <div className="space-y-3">
               <input
                 type="password"
-                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="パスワードを入力"
                 value={adsPassword}
                 onChange={(e) => setAdsPassword(e.target.value)}

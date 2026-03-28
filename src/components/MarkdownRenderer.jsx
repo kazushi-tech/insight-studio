@@ -103,12 +103,12 @@ function getComponents(size = 'normal') {
       )
     },
     pre: ({ children }) => (
-      <pre className={`overflow-x-auto rounded-2xl bg-surface-container p-4 ${preset.pre} text-on-surface-variant`}>
+      <pre className={`overflow-x-auto rounded-xl bg-surface-container p-4 ${preset.pre} text-on-surface-variant`}>
         {children}
       </pre>
     ),
     blockquote: ({ children }) => (
-      <blockquote className={`border-l-4 border-secondary/60 bg-surface-container-lowest pl-4 pr-3 py-3 rounded-r-xl ${preset.quote} text-on-surface-variant italic`}>
+      <blockquote className={`border-l-3 border-secondary/50 bg-surface-container-low/50 pl-4 pr-3 py-3 rounded-r-lg ${preset.quote} text-on-surface-variant italic`}>
         {children}
       </blockquote>
     ),
@@ -130,7 +130,7 @@ function getComponents(size = 'normal') {
     },
     li: ({ children }) => <li>{children}</li>,
     table: ({ children }) => (
-      <div className="my-4 max-w-full overflow-x-auto rounded-lg border border-outline-variant/20">
+      <div className="my-4 max-w-full overflow-x-auto rounded-xl border border-outline-variant/10">
         <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
           {children}
         </table>
@@ -140,7 +140,7 @@ function getComponents(size = 'normal') {
     tbody: ({ children }) => <tbody>{children}</tbody>,
     tr: ({ children, isHeader }) => {
       if (isHeader) return <tr>{children}</tr>
-      return <tr className="hover:bg-surface-container/40 transition-colors even:bg-surface-container-low/30">{children}</tr>
+      return <tr className="hover:bg-surface-container/40 transition-colors">{children}</tr>
     },
     th: ({ children, style }) => {
       const text = String(children ?? '')
@@ -148,7 +148,7 @@ function getComponents(size = 'normal') {
       const columnClass = getColumnClass(text, cellIndex)
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : 'text-left'
       return (
-        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border border-outline-variant/20 ${align} ${columnClass}`}>
+        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/15 ${align} ${columnClass}`}>
           {children}
         </th>
       )
@@ -173,7 +173,7 @@ function getComponents(size = 'normal') {
       return (
         <td
           title={text}
-          className={`px-3.5 py-2.5 border border-outline-variant/10 align-top ${align} ${
+          className={`px-3.5 py-2.5 border-b border-outline-variant/8 align-top ${align} ${
             numeric ? 'text-right font-mono tabular-nums whitespace-nowrap' : ''
           } ${!numeric ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : ''}`}
         >

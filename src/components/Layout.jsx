@@ -63,12 +63,12 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] ${
+        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-[-2px] ${
           isChild ? 'pl-14' : ''
         } ${
           isActive
-            ? 'text-gold border-l-4 border-gold bg-surface-container-lowest font-bold'
-            : 'text-on-surface hover:bg-surface-container border-l-4 border-transparent'
+            ? 'text-on-surface font-bold border-l-2 border-gold bg-surface-container-low/60'
+            : 'text-on-surface-variant hover:bg-surface-container border-l-2 border-transparent'
         }`
       }
     >
@@ -89,10 +89,10 @@ function SidebarGroup({ item, disabledPaths }) {
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-4 ${
+        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-secondary focus-visible:outline-offset-[-2px] ${
           isGroupActive
-            ? 'text-gold border-gold bg-surface-container-lowest font-bold'
-            : 'text-on-surface hover:bg-surface-container border-transparent'
+            ? 'text-on-surface border-gold bg-surface-container-low/60 font-bold'
+            : 'text-on-surface-variant hover:bg-surface-container border-transparent'
         }`}
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -184,7 +184,7 @@ function KeySettingsModal({ onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="key-settings-title"
-        className="bg-surface-container-lowest rounded-2xl shadow-2xl w-[480px] p-8 space-y-6"
+        className="bg-surface-container-lowest rounded-xl shadow-2xl w-[480px] p-8 space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -209,7 +209,7 @@ function KeySettingsModal({ onClose }) {
           </a>
           <input
             type="password"
-            className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+            className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
             placeholder="AIza..."
             value={localGeminiKey}
             onChange={(e) => setLocalGeminiKey(e.target.value)}
@@ -241,7 +241,7 @@ function KeySettingsModal({ onClose }) {
             <>
               <input
                 type="password"
-                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-secondary/40"
+                className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="パスワードを入力"
                 value={adsPassword}
                 onChange={(e) => setAdsPassword(e.target.value)}
@@ -429,7 +429,7 @@ export default function Layout() {
               resetSetup()
               navigate('/ads/wizard', { state: { resetAt: Date.now() } })
             }}
-            className="w-full py-3.5 bg-secondary text-on-secondary rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-secondary/20 text-sm"
+            className="w-full py-3 border border-outline-variant/50 text-on-surface rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-surface-container transition-colors text-sm"
           >
             <span className="material-symbols-outlined text-lg">replay</span>
             <span>新しいセットアップ</span>
@@ -441,14 +441,14 @@ export default function Layout() {
           role="separator"
           aria-label="サイドバーの幅を変更"
           tabIndex={0}
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-secondary/30 active:bg-secondary/50 transition-colors focus:bg-secondary/40 focus:outline-none"
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-outline-variant/40 active:bg-outline-variant/60 transition-colors focus-visible:bg-secondary/40 focus-visible:outline-2 focus-visible:outline-secondary"
         />
       </aside>
 
       {/* Main Content */}
       <main id="main-content" className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
         {/* Top Header */}
-        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100">
+        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-outline-variant/15">
           <div className="flex-1" />
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">

@@ -342,7 +342,7 @@ export default function ChartGroupCard({ group }) {
   }, [group, hasRenderableData, theme])
 
   return (
-    <article className="bg-surface-container-lowest rounded-[28px] border border-outline-variant/20 shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6">
+    <article className="bg-surface-container-lowest rounded-xl border border-outline-variant/10 p-6 panel-card-hover">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div className="space-y-3 min-w-0">
           <div>
@@ -383,7 +383,7 @@ export default function ChartGroupCard({ group }) {
               {previewItems.map((item, index) => (
                 <div
                   key={`${group?.title ?? 'group'}-preview-${index}`}
-                  className="rounded-2xl bg-surface-container-low px-4 py-3 text-xs text-on-surface-variant leading-6"
+                  className="rounded-xl bg-surface-container-low px-4 py-3 text-xs text-on-surface-variant leading-6"
                 >
                   {item}
                 </div>
@@ -392,7 +392,7 @@ export default function ChartGroupCard({ group }) {
           )}
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-outline-variant/50 bg-surface-container-low px-5 py-8 text-center text-sm text-on-surface-variant">
+        <div className="rounded-xl border border-dashed border-outline-variant/50 bg-surface-container-low px-5 py-8 text-center text-sm text-on-surface-variant">
           このグラフグループには描画できるデータ系列がありません。
         </div>
       )}

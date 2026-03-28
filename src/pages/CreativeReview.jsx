@@ -51,7 +51,7 @@ const RUBRIC_LABEL_MAP = {
 
 function SectionCard({ icon, title, badge, badgeColor, borderColor, bgColor, children }) {
   return (
-    <div className={`rounded-2xl border ${borderColor || 'border-outline-variant/15'} ${bgColor || 'bg-surface-container-lowest'} p-6 space-y-3`}>
+    <div className={`rounded-xl border ${borderColor || 'border-outline-variant/15'} ${bgColor || 'bg-surface-container-lowest'} p-6 space-y-3`}>
       <div className="flex items-center gap-2">
         <span className="material-symbols-outlined text-lg" style={{ color: 'inherit' }}>{icon}</span>
         <h4 className="text-base font-bold japanese-text text-on-surface">{title}</h4>
@@ -322,7 +322,7 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
     : 'border-slate-200 bg-slate-50/70'
 
   return (
-    <div className={`rounded-2xl border ${toneClasses} p-4 md:p-5 space-y-4`}>
+    <div className={`rounded-xl border ${toneClasses} p-4 md:p-5 space-y-4`}>
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
@@ -332,7 +332,7 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
           }`}>
             {label}
           </span>
-          <h4 className="text-base font-bold text-[#1A1A2E] japanese-text">{title}</h4>
+          <h4 className="text-base font-bold text-on-surface japanese-text">{title}</h4>
         </div>
         {meta.length > 0 && (
           <p className="text-xs text-on-surface-variant">
@@ -341,12 +341,12 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
         )}
       </div>
 
-      <div className="rounded-[20px] border border-outline-variant/20 bg-white p-3 shadow-[0_24px_48px_-20px_rgba(26,26,46,0.18)] min-h-[280px] flex items-center justify-center">
+      <div className="rounded-xl border border-outline-variant/20 bg-white p-3 panel-card-hover min-h-[280px] flex items-center justify-center">
         {src ? (
           <img
             src={src}
             alt={alt}
-            className="max-w-full max-h-[540px] h-auto rounded-2xl object-contain"
+            className="max-w-full max-h-[540px] h-auto rounded-xl object-contain"
           />
         ) : (
           <div className="text-center px-6 py-10 text-on-surface-variant">
@@ -570,7 +570,7 @@ export default function CreativeReview() {
             <span className="material-symbols-outlined text-sm">chevron_right</span>
             <span className="text-secondary font-bold">クリエイティブ・レビュー</span>
           </div>
-          <h2 className="text-4xl font-extrabold text-[#1A1A2E] tracking-tight">Creative Review & Banner Generation</h2>
+          <h2 className="text-3xl font-bold text-on-surface tracking-tight">Creative Review & Banner Generation</h2>
           <p className="text-on-surface-variant text-sm mt-1">バナー画像をアップロード → AIレビュー → 改善バナー自動生成</p>
         </div>
       </div>
@@ -590,7 +590,7 @@ export default function CreativeReview() {
       {reviewRun && <MetaBand run={reviewRun} />}
 
       {/* ─── API Key ─── */}
-      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6">
+      <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-6">
         <label className="flex items-center gap-2 text-sm font-bold text-on-surface japanese-text mb-3">
           <span className="material-symbols-outlined text-secondary text-lg">key</span>
           Gemini API キー（BYOK）
@@ -600,14 +600,14 @@ export default function CreativeReview() {
           value={apiKey}
           onChange={(e) => setGeminiKey(e.target.value)}
           placeholder="Gemini API キーを入力"
-          className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+          className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
         />
         <p className="text-xs text-on-surface-variant mt-2">レビューとバナー生成に同じAPIキーが使用されます。ブラウザに保存されます。</p>
       </div>
 
       {/* ─── Step 1: Upload ─── */}
-      <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6">
-        <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text mb-4 flex items-center gap-2">
+      <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-6">
+        <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
           <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
           バナー画像アップロード
         </h3>
@@ -672,8 +672,8 @@ export default function CreativeReview() {
 
       {/* ─── Step 2: Review Input ─── */}
       {isUploaded && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4">
-          <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text mb-2 flex items-center gap-2">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-4">
+          <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
             <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">2</span>
             レビュー設定
           </h3>
@@ -686,7 +686,7 @@ export default function CreativeReview() {
                 value={brandInfo}
                 onChange={(e) => setBrandInfo(e.target.value)}
                 placeholder="例: 化粧品ブランドA、ターゲット20代女性"
-                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
               />
             </div>
             <div>
@@ -696,7 +696,7 @@ export default function CreativeReview() {
                 value={lpUrl}
                 onChange={(e) => setLpUrl(e.target.value)}
                 placeholder="https://example.com/lp"
-                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40"
+                className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
               />
             </div>
           </div>
@@ -708,7 +708,7 @@ export default function CreativeReview() {
               onChange={(e) => setOperatorMemo(e.target.value)}
               placeholder="レビューで注目してほしいポイントなど"
               rows={2}
-              className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus:outline-none focus:ring-2 focus:ring-secondary/40 resize-none"
+              className="w-full px-4 py-2.5 rounded-xl border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary resize-none"
             />
           </div>
 
@@ -735,9 +735,9 @@ export default function CreativeReview() {
 
       {/* ─── Step 3: Review Result (section-aware blocks) ─── */}
       {isReviewed && reviewResult && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-5">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text flex items-center gap-2">
+            <h3 className="text-lg font-bold text-on-surface japanese-text flex items-center gap-2">
               <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
               レビュー結果
             </h3>
@@ -794,8 +794,8 @@ export default function CreativeReview() {
 
       {/* ─── Step 4: Generated Banner ─── */}
       {phase === 'generated' && genImageUrl && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-6 space-y-4">
-          <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text mb-2 flex items-center gap-2">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-6 space-y-4">
+          <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
             <span className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-sm font-extrabold">4</span>
             改善バナー
           </h3>
@@ -877,8 +877,8 @@ export default function CreativeReview() {
 
       {/* ─── Flow Guide (idle only) ─── */}
       {phase === 'idle' && (
-        <div className="bg-surface-container-lowest rounded-2xl shadow-[0_24px_48px_-12px_rgba(26,26,46,0.08)] p-8">
-          <h3 className="text-lg font-bold text-[#1A1A2E] japanese-text mb-6 flex items-center gap-2">
+        <div className="bg-surface-container-lowest rounded-xl panel-card-hover p-8">
+          <h3 className="text-lg font-bold text-on-surface japanese-text mb-6 flex items-center gap-2">
             <span className="material-symbols-outlined text-secondary">info</span>
             使い方
           </h3>
