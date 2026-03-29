@@ -117,11 +117,11 @@ export default function AnalysisGraphs() {
   }
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-10">
+    <div className="p-10 max-w-[1400px] mx-auto space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div className="space-y-2">
-          <h2 className="text-[2.75rem] font-extrabold text-on-surface tracking-tight japanese-text">広告パフォーマンス分析グラフ</h2>
-          <p className="text-sm text-on-surface-variant max-w-3xl">
+          <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">広告考察：グラフ</h2>
+          <p className="text-sm text-on-surface-variant max-w-3xl japanese-text">
             選択した期間・クエリタイプごとのパフォーマンスをグラフで可視化します。全期間まとめでは同一指標を期間横断で比較できます。
           </p>
         </div>
@@ -136,25 +136,41 @@ export default function AnalysisGraphs() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">対象期間</p>
-          <p className="mt-3 text-xl font-bold text-on-surface japanese-text">{activeScopeLabel}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">現在表示中の分析対象期間</p>
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
+          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">date_range</span>
+          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">対象期間</p>
+            <p className="mt-1 text-lg font-bold text-on-surface japanese-text truncate">{activeScopeLabel}</p>
+          </div>
         </section>
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">グラフ数</p>
-          <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.groupCount}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">表示中のグラフ数</p>
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
+          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">bar_chart</span>
+          </span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">グラフ数</p>
+            <p className="mt-1 text-3xl font-extrabold text-on-surface tabular-nums">{summary.groupCount}</p>
+          </div>
         </section>
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">データ系列</p>
-          <p className="mt-3 text-3xl font-extrabold text-on-surface">{summary.datasetCount}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">データ系列の合計数</p>
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
+          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">stacked_line_chart</span>
+          </span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">データ系列</p>
+            <p className="mt-1 text-3xl font-extrabold text-on-surface tabular-nums">{summary.datasetCount}</p>
+          </div>
         </section>
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover">
-          <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">タイプ内訳</p>
-          <p className="mt-3 text-xl font-bold text-on-surface">{summary.mixLabel}</p>
-          <p className="mt-2 text-sm text-on-surface-variant">チャートタイプの構成</p>
+        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
+          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-xl">donut_small</span>
+          </span>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">タイプ内訳</p>
+            <p className="mt-1 text-lg font-bold text-on-surface">{summary.mixLabel}</p>
+          </div>
         </section>
       </div>
 
@@ -210,7 +226,7 @@ export default function AnalysisGraphs() {
       {loading && chartGroups.length === 0 && (
         <div className="bg-surface-container-lowest rounded-[0.75rem] p-8 space-y-6">
           <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             <SkeletonBlock variant="card" />
             <SkeletonBlock variant="card" />
           </div>
@@ -228,7 +244,7 @@ export default function AnalysisGraphs() {
       )}
 
       {filteredGroups.length > 0 && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {filteredGroups.map((group, groupIndex) => (
             <ChartGroupCard
               key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}

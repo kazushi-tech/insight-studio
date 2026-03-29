@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
+import KpiGrid from '../components/ads/KpiGrid'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { extractMarkdownSummary, regenerateAdsReportBundle } from '../utils/adsReports'
+import { extractKpis } from '../utils/kpiExtractor'
 
 /* ── reference 準拠: h1 セクション分割 + 重複 id 回避 ── */
 function splitMarkdownByTopLevelSections(markdown) {
@@ -47,6 +49,26 @@ function splitMarkdownByTopLevelSections(markdown) {
 
   flush()
   return sections
+}
+
+function SectionContent({ section }) {
+  const kpis = useMemo(() => extractKpis(section.md), [section.md])
+  const isSummary = section.kind === 'summary'
+
+  return (
+    <div className={isSummary ? 'bg-surface-container-lowest p-6' : ''}>
+      {isSummary && (
+        <div className="flex items-center gap-3 mb-4">
+          <span className="w-9 h-9 rounded-lg bg-gold/10 text-gold flex items-center justify-center">
+            <span className="material-symbols-outlined text-lg">summarize</span>
+          </span>
+          <h3 className="text-lg font-bold text-on-surface japanese-text">{section.heading}</h3>
+        </div>
+      )}
+      <KpiGrid kpis={kpis} />
+      <MarkdownRenderer content={section.md} variant="essential-pack" />
+    </div>
+  )
 }
 
 export default function EssentialPack() {
@@ -305,20 +327,14 @@ export default function EssentialPack() {
           <ErrorBanner message={error} onRetry={handleRefresh} />
         )}
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-on-surface japanese-text">広告考察レポート</h2>
-            <p className="text-xs text-on-surface-variant mt-1">report_md を表示しています</p>
-          </div>
-          <div className="flex gap-3">
-            <button className="button-secondary">
-              <span className="material-symbols-outlined text-lg">download</span>
-              レポート出力
-            </button>
-            <button className="px-4 py-2 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-all">
-              <span className="material-symbols-outlined text-lg">share</span>
-              共有
-            </button>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">要点パック (Essential Pack)</h2>
+            <p className="text-sm text-on-surface-variant japanese-text">
+              {setupState?.granularity === 'monthly' ? '月次' : setupState?.granularity === 'weekly' ? '週次' : setupState?.granularity === 'daily' ? '日次' : ''}パフォーマンス・サマリーレポート
+              {selectedPeriod !== 'all' && ` — ${selectedPeriod}`}
+              {selectedPeriod === 'all' && periodReports.length > 1 && ` — 複数期間サマリー (${periodReports.length}期間)`}
+            </p>
           </div>
         </div>
 
@@ -348,35 +364,32 @@ export default function EssentialPack() {
               <div
                 key={section.id}
                 id={section.id}
-                className={`rounded-[0.75rem] border border-outline-variant/10 scroll-mt-20 overflow-x-hidden transition-opacity ${
-                  !openSections[section.id] && section.kind !== 'summary' ? 'opacity-75 hover:opacity-100' : ''
+                className={`rounded-[0.75rem] ghost-border scroll-mt-20 overflow-x-hidden transition-all ${
+                  !openSections[section.id] && section.kind !== 'summary' ? 'opacity-80 hover:opacity-100' : ''
                 }`}
               >
                 {section.kind === 'summary' ? (
                   /* Summary: 常に開いた状態、ボタンなし */
-                  <div className="p-6">
-                    <h3 className="text-lg font-bold text-on-surface japanese-text mb-4">{section.heading}</h3>
-                    <MarkdownRenderer content={section.md} />
-                  </div>
+                  <SectionContent section={section} />
                 ) : (
                   /* Report: 開閉可能 accordion */
                   <>
                     <button
                       onClick={() => toggleSection(section.id)}
                       aria-expanded={!!openSections[section.id]}
-                      className={`w-full flex items-center justify-between px-6 py-4 text-left transition-colors ${
+                      className={`w-full flex items-center justify-between px-6 py-4 text-left transition-colors rounded-t-[0.75rem] ${
                         openSections[section.id]
-                          ? 'bg-secondary/5 text-secondary'
-                          : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container/40'
+                          ? 'bg-surface-container-lowest text-on-surface'
+                          : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
                       }`}
                     >
                       <span className="flex items-center gap-3">
-                        <span className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          openSections[section.id] ? 'bg-secondary/10 text-secondary' : 'bg-surface-container text-on-surface-variant'
+                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                          openSections[section.id] ? 'bg-gold/10 text-gold' : 'bg-surface-container text-on-surface-variant'
                         }`}>
                           <span className="material-symbols-outlined text-lg">article</span>
                         </span>
-                        <span className="font-bold text-sm">{section.heading}</span>
+                        <span className="font-bold text-sm japanese-text">{section.heading}</span>
                       </span>
                       <span
                         className="material-symbols-outlined text-base transition-transform duration-200"
@@ -386,8 +399,8 @@ export default function EssentialPack() {
                       </span>
                     </button>
                     {openSections[section.id] && (
-                      <div className="p-6 border-t border-outline-variant/8">
-                        <MarkdownRenderer content={section.md} />
+                      <div className="bg-surface-container-lowest p-6 border-t border-outline-variant/8">
+                        <SectionContent section={section} />
                       </div>
                     )}
                   </>

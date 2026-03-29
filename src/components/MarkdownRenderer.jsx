@@ -73,8 +73,17 @@ const SIZE_PRESETS = {
   },
 }
 
-function getComponents(size = 'normal') {
+const PROGRESS_BAR_HEADERS = /^(シェア|構成比|構成|rate|ctr|cvr|比率|割合)$/i
+
+function shouldShowProgressBar(value, headerText) {
+  if (!PROGRESS_BAR_HEADERS.test(String(headerText ?? '').trim())) return false
+  const num = parseFloat(String(value ?? '').replace(/[,%％]/g, ''))
+  return Number.isFinite(num) && num >= 0 && num <= 100
+}
+
+function getComponents(size = 'normal', variant = null) {
   const preset = SIZE_PRESETS[size] ?? SIZE_PRESETS.normal
+  const isEP = variant === 'essential-pack'
 
   return {
     h1: ({ children }) => {
@@ -136,10 +145,17 @@ function getComponents(size = 'normal') {
         </table>
       </div>
     ),
-    thead: ({ children }) => <thead className="bg-surface-container-low">{children}</thead>,
+    thead: ({ children }) => (
+      <thead className={isEP ? 'bg-secondary-container' : 'bg-surface-container-low'}>{children}</thead>
+    ),
     tbody: ({ children }) => <tbody>{children}</tbody>,
-    tr: ({ children, isHeader }) => {
+    tr: ({ children, isHeader, node }) => {
       if (isHeader) return <tr>{children}</tr>
+      if (isEP) {
+        const rowIndex = node?.position?.start?.line ?? 0
+        const zebraClass = rowIndex % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/30'
+        return <tr className={`${zebraClass} hover:bg-surface-container/40 transition-colors`}>{children}</tr>
+      }
       return <tr className="hover:bg-surface-container/40 transition-colors">{children}</tr>
     },
     th: ({ children, style }) => {
@@ -148,7 +164,9 @@ function getComponents(size = 'normal') {
       const columnClass = getColumnClass(text, cellIndex)
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : 'text-left'
       return (
-        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/10 ${align} ${columnClass}`}>
+        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/10 ${align} ${columnClass} ${
+          isEP ? 'text-[10px] uppercase tracking-widest text-on-secondary-container' : ''
+        }`}>
           {children}
         </th>
       )
@@ -194,9 +212,9 @@ function getComponents(size = 'normal') {
   }
 }
 
-export default function MarkdownRenderer({ content, className = '', size = 'normal' }) {
+export default function MarkdownRenderer({ content, className = '', size = 'normal', variant = null }) {
   const markdown = typeof content === 'string' ? content.trim() : ''
-  const components = getComponents(size)
+  const components = getComponents(size, variant)
 
   if (!markdown) return null
 

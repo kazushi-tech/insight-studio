@@ -72,7 +72,7 @@ function formatAxisValue(value) {
   return numeric.toLocaleString('ja-JP')
 }
 
-function buildPreviewItems(group, effectiveChartType, doughnutUsePercent) {
+function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
   const labels = Array.isArray(group?.labels) ? group.labels : []
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
 
@@ -84,65 +84,65 @@ function buildPreviewItems(group, effectiveChartType, doughnutUsePercent) {
       .map((lbl, i) => ({ label: lbl, value: data[i] }))
       .filter((s) => s.value != null && s.value > 0)
       .sort((a, b) => b.value - a.value)
-      .slice(0, 3)
     if (segments.length === 0) return []
-    return [
-      `上位: ${segments.map((s) => `${s.label} ${formatValue(s.value, doughnutUsePercent)}`).join(' / ')}`,
-    ]
+
+    const total = segments.reduce((sum, s) => sum + s.value, 0)
+    const avg = total / segments.length
+    const insights = []
+    if (segments[0]) insights.push({ key: 'Max', label: segments[0].label, value: formatValue(segments[0].value, doughnutUsePercent), tone: 'accent' })
+    if (segments[1]) insights.push({ key: '#2', label: segments[1].label, value: formatValue(segments[1].value, doughnutUsePercent), tone: 'neutral' })
+    insights.push({ key: 'Avg', label: '平均', value: formatValue(avg, doughnutUsePercent), tone: 'neutral' })
+    return insights.slice(0, 3)
   }
 
   if (effectiveChartType === 'bar_horizontal') {
-    return datasets.slice(0, 3).flatMap((dataset, index) => {
-      const label = getDatasetLabel(dataset, index)
-      const usePercent = isPercentLike(label) || Boolean(dataset?.isPercent)
-      const values = (Array.isArray(dataset?.data) ? dataset.data : [])
-        .map((value, valueIndex) => [valueIndex, normalizeNumericValue(value)])
-        .filter(([, value]) => value != null)
-        .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
-        .slice(0, 3)
-
-      if (values.length === 0) return []
-
-      return [
-        `${label}: ${values
-          .map(([valueIndex, value]) => `${labels[valueIndex] ?? `項目 ${valueIndex + 1}`} ${formatValue(value, usePercent)}`)
-          .join(' / ')}`,
-      ]
-    })
-  }
-
-  return datasets.slice(0, 3).flatMap((dataset, index) => {
-    const label = getDatasetLabel(dataset, index)
-    const usePercent = isPercentLike(label) || Boolean(dataset?.isPercent)
+    const dataset = datasets[0]
+    if (!dataset) return []
+    const usePercent = isPercentLike(getDatasetLabel(dataset, 0)) || Boolean(dataset?.isPercent)
     const values = (Array.isArray(dataset?.data) ? dataset.data : [])
-      .map((value, valueIndex) => ({
-        index: valueIndex,
-        label: labels[valueIndex] ?? `項目 ${valueIndex + 1}`,
-        value: normalizeNumericValue(value),
-      }))
-      .filter((item) => item.value != null)
-
+      .map((value, i) => ({ index: i, label: labels[i] ?? `項目 ${i + 1}`, value: normalizeNumericValue(value) }))
+      .filter((v) => v.value != null)
+      .sort((a, b) => b.value - a.value)
     if (values.length === 0) return []
 
-    const first = values[0]
-    const last = values[values.length - 1]
-    const peak = values.reduce((best, current) => (current.value > best.value ? current : best))
-    const delta =
-      values.length >= 2 && first.value !== 0
-        ? ((last.value - first.value) / Math.abs(first.value)) * 100
-        : null
+    return values.slice(0, 3).map((v, i) => ({
+      key: `Top ${i + 1}`,
+      label: v.label,
+      value: formatValue(v.value, usePercent),
+      tone: i === 0 ? 'accent' : 'neutral',
+    }))
+  }
 
-    const deltaLabel =
-      delta == null
-        ? ''
-        : ` / 初回比 ${delta >= 0 ? '+' : ''}${delta.toLocaleString('ja-JP', {
-            maximumFractionDigits: 1,
-          })}%`
+  // line / area
+  const dataset = datasets[0]
+  if (!dataset) return []
+  const usePercent = isPercentLike(getDatasetLabel(dataset, 0)) || Boolean(dataset?.isPercent)
+  const values = (Array.isArray(dataset?.data) ? dataset.data : [])
+    .map((value, i) => ({ index: i, label: labels[i] ?? `項目 ${i + 1}`, value: normalizeNumericValue(value) }))
+    .filter((item) => item.value != null)
+  if (values.length === 0) return []
 
-    return [
-      `${label}: 最新 ${formatValue(last.value, usePercent)} / ピーク ${peak.label} ${formatValue(peak.value, usePercent)}${deltaLabel}`,
-    ]
-  })
+  const last = values[values.length - 1]
+  const peak = values.reduce((best, current) => (current.value > best.value ? current : best))
+  const first = values[0]
+  const delta = values.length >= 2 && first.value !== 0
+    ? ((last.value - first.value) / Math.abs(first.value)) * 100
+    : null
+  const trendTone = delta == null ? 'neutral' : delta >= 0 ? 'positive' : 'negative'
+
+  const insights = [
+    { key: 'Latest', label: last.label, value: formatValue(last.value, usePercent), tone: 'accent' },
+    { key: 'Peak', label: peak.label, value: formatValue(peak.value, usePercent), tone: 'neutral' },
+  ]
+  if (delta != null) {
+    insights.push({
+      key: 'Trend',
+      label: '初回比',
+      value: `${delta >= 0 ? '+' : ''}${delta.toLocaleString('ja-JP', { maximumFractionDigits: 1 })}%`,
+      tone: trendTone,
+    })
+  }
+  return insights.slice(0, 3)
 }
 
 function buildChartDatasets(group, effectiveChartType) {
@@ -264,7 +264,7 @@ export default function ChartGroupCard({ group }) {
   const presentation = useMemo(() => resolveChartPresentation(group), [group])
   const effectiveChartType = presentation.chartType
   const doughnutUsePercent = presentation.usePercent
-  const previewItems = useMemo(() => buildPreviewItems(group, effectiveChartType, doughnutUsePercent), [group, effectiveChartType, doughnutUsePercent])
+  const keyInsights = useMemo(() => buildKeyInsights(group, effectiveChartType, doughnutUsePercent), [group, effectiveChartType, doughnutUsePercent])
   const hasRenderableData = labels.length > 0 && datasets.some((dataset) => Array.isArray(dataset?.data))
 
   useEffect(() => {
@@ -342,6 +342,7 @@ export default function ChartGroupCard({ group }) {
                   bodyColor: colors.muted,
                   borderColor: colors.grid,
                   borderWidth: 1,
+                  cornerRadius: 12,
                   padding: 12,
                   callbacks: {
                     label(context) {
@@ -378,6 +379,7 @@ export default function ChartGroupCard({ group }) {
                   bodyColor: colors.muted,
                   borderColor: colors.grid,
                   borderWidth: 1,
+                  cornerRadius: 12,
                   padding: 12,
                   callbacks: {
                     label(context) {
@@ -397,7 +399,7 @@ export default function ChartGroupCard({ group }) {
                     maxRotation: isHorizontal ? 0 : 40,
                     minRotation: 0,
                   },
-                  grid: { color: withAlpha(colors.grid, '88') },
+                  grid: { color: withAlpha(colors.grid, '44') },
                 },
                 y: {
                   ticks: {
@@ -406,7 +408,7 @@ export default function ChartGroupCard({ group }) {
                     callback: (value) =>
                       isHorizontal ? chartLabels[value] ?? value : formatAxisValue(value),
                   },
-                  grid: { color: withAlpha(colors.grid, '88') },
+                  grid: { color: withAlpha(colors.grid, '44') },
                 },
               },
             }),
@@ -423,16 +425,11 @@ export default function ChartGroupCard({ group }) {
     <article className="bg-surface-container-lowest rounded-[0.75rem] ghost-border p-6 panel-card-hover">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div className="space-y-3 min-w-0">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">
-              Chart Group
-            </p>
-            <h3 className="text-lg font-bold text-on-surface japanese-text break-words">
-              {group?.title || '無題グラフ'}
-            </h3>
-          </div>
+          <h3 className="text-lg font-bold text-on-surface japanese-text break-words">
+            {group?.title || '無題グラフ'}
+          </h3>
           <div className="flex flex-wrap gap-2 text-xs">
-            <span className="px-3 py-1 rounded-full bg-primary-container text-on-primary-container font-semibold">
+            <span className="px-3 py-1 rounded-full bg-gold/10 text-gold font-semibold">
               {CHART_TYPE_LABELS[effectiveChartType] ?? 'Line / Trend'}
             </span>
             {group?._periodTag && (
@@ -456,14 +453,20 @@ export default function ChartGroupCard({ group }) {
             <canvas ref={canvasRef} />
           </div>
 
-          {previewItems.length > 0 && (
-            <div className="grid gap-2">
-              {previewItems.map((item, index) => (
+          {keyInsights.length > 0 && (
+            <div className="grid grid-cols-3 gap-3">
+              {keyInsights.map((insight, index) => (
                 <div
-                  key={`${group?.title ?? 'group'}-preview-${index}`}
-                  className="rounded-[0.75rem] bg-surface-container-low px-4 py-3 text-xs text-on-surface-variant leading-6"
+                  key={`${group?.title ?? 'group'}-insight-${index}`}
+                  className={`rounded-[0.75rem] px-4 py-3 ${
+                    insight.tone === 'accent' ? 'bg-gold/8 border-l-3 border-gold' : 'bg-surface-container-low'
+                  }`}
                 >
-                  {item}
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{insight.key}</p>
+                  <p className={`text-base font-extrabold tabular-nums mt-0.5 ${
+                    insight.tone === 'positive' ? 'text-success' : insight.tone === 'negative' ? 'text-error' : 'text-on-surface'
+                  }`}>{insight.value}</p>
+                  <p className="text-[11px] text-on-surface-variant mt-0.5 truncate">{insight.label}</p>
                 </div>
               ))}
             </div>
