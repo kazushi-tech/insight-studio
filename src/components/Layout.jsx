@@ -47,7 +47,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         aria-disabled="true"
         tabIndex={-1}
         onClick={(e) => e.preventDefault()}
-        className={`flex items-center gap-3 px-6 py-2.5 text-[15px] text-white/30 cursor-not-allowed border-l-4 border-transparent ${
+        className={`flex items-center gap-3 px-6 py-2.5 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed border-l-4 border-transparent ${
           isChild ? 'pl-14' : ''
         }`}
         title="セットアップを完了してください"
@@ -70,12 +70,12 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-primary-container focus-visible:outline-offset-[-2px] ${
+        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-[#2d6a4f] focus-visible:outline-offset-[-2px] ${
           isChild ? 'pl-14' : ''
         } ${
           isActive
-            ? 'text-white font-bold border-l-2 border-primary-container bg-white/8'
-            : 'text-white/60 hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent'
+            ? 'text-white font-bold border-l-2 border-[#2d6a4f] bg-[#2d6a4f]'
+            : 'text-[#a8b5a0] hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent'
         }`
       }
     >
@@ -96,10 +96,10 @@ function SidebarGroup({ item, disabledPaths }) {
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-primary-container focus-visible:outline-offset-[-2px] ${
+        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-[#2d6a4f] focus-visible:outline-offset-[-2px] ${
           isGroupActive
-            ? 'text-white border-primary-container bg-white/8 font-bold'
-            : 'text-white/60 hover:text-white/80 hover:bg-white/5 border-transparent'
+            ? 'text-white border-[#2d6a4f] bg-[#2d6a4f] font-bold'
+            : 'text-[#a8b5a0] hover:text-white/80 hover:bg-white/5 border-transparent'
         }`}
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
@@ -422,10 +422,10 @@ export default function Layout() {
         メインコンテンツへスキップ
       </a>
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 bg-primary-container text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth }}>
+      <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth, backgroundColor: '#14291e' }}>
         {/* Logo */}
         <div className="px-6 mb-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary-container/15 rounded-xl flex items-center justify-center text-on-primary-container">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(45,106,79,0.3)', color: '#a8e7c5' }}>
             <span className="material-symbols-outlined text-2xl">insights</span>
           </div>
           <div>
