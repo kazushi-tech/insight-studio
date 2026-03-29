@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react'
 import { scan } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
-import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 
 
@@ -103,10 +102,6 @@ function MetaBand({ run, modelName }) {
 }
 
 export default function Compare() {
-  const {
-    geminiKey,
-    hasGeminiKey,
-  } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('compare')
@@ -115,7 +110,7 @@ export default function Compare() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const canSubmit = urls.target && (urls.compA || urls.compB) && hasGeminiKey && !loading
+  const canSubmit = urls.target && (urls.compA || urls.compB) && !loading
 
   const handleScan = useCallback(async () => {
     startRun('compare', { urls })
@@ -123,9 +118,7 @@ export default function Compare() {
     try {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
 
-      const data = await scan(urlList, {
-        apiKey: geminiKey,
-      })
+      const data = await scan(urlList)
 
       const scanError = getScanErrorMessage(data)
 
@@ -136,14 +129,13 @@ export default function Compare() {
 
       completeRun('compare', data, {
         run_id: data.run_id,
-        providerLabel: 'Claude',
+        providerLabel: 'Gemini',
       })
     } catch (e) {
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。')
     }
   }, [
     urls,
-    geminiKey,
     startRun,
     completeRun,
     failRun,
@@ -181,15 +173,9 @@ export default function Compare() {
         </span>
       </div>
 
-      {!hasGeminiKey && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
-          <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">比較分析には Gemini API キーが必要です。設定画面から設定してください。</span>
-        </div>
-      )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">現行の Market Lens backend 互換のため、LP比較分析は Gemini キーで実行します。</span>
+        <span className="japanese-text">LP比較分析は server-side の Market Lens backend で実行します。ブラウザ保存の API キーはこの画面では送信しません。</span>
       </div>
 
       {/* URL Inputs */}
