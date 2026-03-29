@@ -1,5 +1,4 @@
 const TREND_PATTERN = /([+\-＋－]?\s*[\d,.]+\s*[%％])/
-const NUMERIC_PATTERN = /^[¥$]?\s*[-+]?[\d,]+\.?\d*\s*[%％回件円個万億]?$/
 
 function parseTrend(text) {
   const match = String(text ?? '').match(TREND_PATTERN)
@@ -20,7 +19,7 @@ function cleanValue(text) {
 
 function isIgnoredValue(text) {
   const lower = String(text).toLowerCase().trim()
-  return !lower || lower === 'nan' || lower === '-' || lower === '—' || /^(未取得|不明|n\/a)$/i.test(lower)
+  return !lower || lower === 'nan' || lower === '-' || lower === '—' || /(未取得|不明|算出不可|n\/a)/i.test(lower)
 }
 
 function extractFromTable(md) {

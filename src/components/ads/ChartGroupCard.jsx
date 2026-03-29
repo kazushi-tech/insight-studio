@@ -53,6 +53,28 @@ function isPercentLike(label) {
   )
 }
 
+function datasetUsesPercent(dataset, index) {
+  return Boolean(dataset?.isPercent) || isPercentLike(getDatasetLabel(dataset, index))
+}
+
+function getSeriesPoints(labels, dataset, index) {
+  const points = (Array.isArray(dataset?.data) ? dataset.data : [])
+    .map((value, valueIndex) => ({
+      index: valueIndex,
+      label: labels[valueIndex] ?? `項目 ${valueIndex + 1}`,
+      value: normalizeNumericValue(value),
+    }))
+    .filter((point) => point.value != null)
+
+  if (points.length === 0) return null
+
+  return {
+    seriesLabel: getDatasetLabel(dataset, index),
+    usePercent: datasetUsesPercent(dataset, index),
+    points,
+  }
+}
+
 function formatValue(value, usePercent = false) {
   if (value == null || !Number.isFinite(value)) return '-'
 
@@ -88,64 +110,107 @@ function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
 
     const total = segments.reduce((sum, s) => sum + s.value, 0)
     const avg = total / segments.length
+    const usePercent = doughnutUsePercent || datasetUsesPercent(dataset, 0)
     const insights = []
-    if (segments[0]) insights.push({ key: 'Max', label: segments[0].label, value: formatValue(segments[0].value, doughnutUsePercent), tone: 'accent' })
-    if (segments[1]) insights.push({ key: '#2', label: segments[1].label, value: formatValue(segments[1].value, doughnutUsePercent), tone: 'neutral' })
-    insights.push({ key: 'Avg', label: '平均', value: formatValue(avg, doughnutUsePercent), tone: 'neutral' })
+    if (segments[0]) insights.push({ key: 'Max', label: segments[0].label, value: formatValue(segments[0].value, usePercent), tone: 'accent' })
+    if (segments[1]) insights.push({ key: '#2', label: segments[1].label, value: formatValue(segments[1].value, usePercent), tone: 'neutral' })
+    insights.push({ key: 'Avg', label: '平均', value: formatValue(avg, usePercent), tone: 'neutral' })
     return insights.slice(0, 3)
   }
 
   if (effectiveChartType === 'bar_horizontal') {
-    const dataset = datasets[0]
-    if (!dataset) return []
-    const usePercent = isPercentLike(getDatasetLabel(dataset, 0)) || Boolean(dataset?.isPercent)
-    const values = (Array.isArray(dataset?.data) ? dataset.data : [])
-      .map((value, i) => ({ index: i, label: labels[i] ?? `項目 ${i + 1}`, value: normalizeNumericValue(value) }))
-      .filter((v) => v.value != null)
+    const rankedValues = datasets
+      .map((dataset, index) => getSeriesPoints(labels, dataset, index))
+      .filter(Boolean)
+      .flatMap((series) =>
+        series.points.map((point) => ({
+          ...point,
+          seriesLabel: series.seriesLabel,
+          usePercent: series.usePercent,
+        })),
+      )
       .sort((a, b) => b.value - a.value)
-    if (values.length === 0) return []
 
-    return values.slice(0, 3).map((v, i) => ({
+    if (rankedValues.length === 0) return []
+
+    const includeSeriesLabel = datasets.length > 1
+
+    return rankedValues.slice(0, 3).map((v, i) => ({
       key: `Top ${i + 1}`,
-      label: v.label,
-      value: formatValue(v.value, usePercent),
+      label: includeSeriesLabel ? `${v.label} · ${v.seriesLabel}` : v.label,
+      value: formatValue(v.value, v.usePercent),
       tone: i === 0 ? 'accent' : 'neutral',
     }))
   }
 
-  // line / area
-  const dataset = datasets[0]
-  if (!dataset) return []
-  const usePercent = isPercentLike(getDatasetLabel(dataset, 0)) || Boolean(dataset?.isPercent)
-  const values = (Array.isArray(dataset?.data) ? dataset.data : [])
-    .map((value, i) => ({ index: i, label: labels[i] ?? `項目 ${i + 1}`, value: normalizeNumericValue(value) }))
-    .filter((item) => item.value != null)
-  if (values.length === 0) return []
+  const series = datasets
+    .map((dataset, index) => getSeriesPoints(labels, dataset, index))
+    .filter(Boolean)
 
-  const last = values[values.length - 1]
-  const peak = values.reduce((best, current) => (current.value > best.value ? current : best))
-  const first = values[0]
-  const delta = values.length >= 2 && first.value !== 0
-    ? ((last.value - first.value) / Math.abs(first.value)) * 100
-    : null
-  const trendTone = delta == null ? 'neutral' : delta >= 0 ? 'positive' : 'negative'
+  if (series.length === 0) return []
 
-  const insights = [
-    { key: 'Latest', label: last.label, value: formatValue(last.value, usePercent), tone: 'accent' },
-    { key: 'Peak', label: peak.label, value: formatValue(peak.value, usePercent), tone: 'neutral' },
-  ]
-  if (delta != null) {
-    insights.push({
-      key: 'Trend',
-      label: '初回比',
-      value: `${delta >= 0 ? '+' : ''}${delta.toLocaleString('ja-JP', { maximumFractionDigits: 1 })}%`,
-      tone: trendTone,
-    })
+  if (series.length === 1) {
+    const [{ points, usePercent }] = series
+    const last = points[points.length - 1]
+    const peak = points.reduce((best, current) => (current.value > best.value ? current : best))
+    const first = points[0]
+    const delta = points.length >= 2 && first.value !== 0
+      ? ((last.value - first.value) / Math.abs(first.value)) * 100
+      : null
+    const trendTone = delta == null ? 'neutral' : delta >= 0 ? 'positive' : 'negative'
+
+    const insights = [
+      { key: 'Latest', label: last.label, value: formatValue(last.value, usePercent), tone: 'accent' },
+      { key: 'Peak', label: peak.label, value: formatValue(peak.value, usePercent), tone: 'neutral' },
+    ]
+    if (delta != null) {
+      insights.push({
+        key: 'Trend',
+        label: '初回比',
+        value: `${delta >= 0 ? '+' : ''}${delta.toLocaleString('ja-JP', { maximumFractionDigits: 1 })}%`,
+        tone: trendTone,
+      })
+    }
+    return insights.slice(0, 3)
   }
-  return insights.slice(0, 3)
+
+  const latestWinner = series
+    .map((item) => ({
+      ...item,
+      last: item.points[item.points.length - 1],
+    }))
+    .reduce((best, current) => (current.last.value > best.last.value ? current : best))
+
+  const peakWinner = series
+    .map((item) => ({
+      ...item,
+      peak: item.points.reduce((best, current) => (current.value > best.value ? current : best)),
+    }))
+    .reduce((best, current) => (current.peak.value > best.peak.value ? current : best))
+
+  return [
+    {
+      key: 'Latest',
+      label: `${latestWinner.seriesLabel} · ${latestWinner.last.label}`,
+      value: formatValue(latestWinner.last.value, latestWinner.usePercent),
+      tone: 'accent',
+    },
+    {
+      key: 'Peak',
+      label: `${peakWinner.seriesLabel} · ${peakWinner.peak.label}`,
+      value: formatValue(peakWinner.peak.value, peakWinner.usePercent),
+      tone: 'neutral',
+    },
+    {
+      key: 'Series',
+      label: `${labels.length}点で比較`,
+      value: `${series.length}系列`,
+      tone: 'neutral',
+    },
+  ]
 }
 
-function buildChartDatasets(group, effectiveChartType) {
+function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
   const labels = Array.isArray(group?.labels) ? group.labels : []
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
   const isDoughnut = effectiveChartType === 'doughnut'
@@ -166,6 +231,7 @@ function buildChartDatasets(group, effectiveChartType) {
         {
           label: getDatasetLabel(dataset, 0),
           data,
+          formatAsPercent: doughnutUsePercent || datasetUsesPercent(dataset, 0),
           backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length]),
           borderColor: 'var(--color-surface-container-lowest, #ffffff)',
           borderWidth: 2,
@@ -180,11 +246,13 @@ function buildChartDatasets(group, effectiveChartType) {
     useSinglePointMode,
     datasets: datasets.map((dataset, index) => {
       const label = getDatasetLabel(dataset, index)
+      const usePercent = datasetUsesPercent(dataset, index)
       const color = dataset?.borderColor || dataset?.backgroundColor || PALETTE[index % PALETTE.length]
       const data = (Array.isArray(dataset?.data) ? dataset.data : []).map(normalizeNumericValue)
       const common = {
         label,
         data,
+        formatAsPercent: usePercent,
         borderColor: color,
         spanGaps: true,
       }
@@ -239,7 +307,6 @@ function buildChartDatasets(group, effectiveChartType) {
         }
       }
 
-      const usePercent = isPercentLike(label) || Boolean(dataset?.isPercent)
       return {
         ...common,
         type: usePercent ? 'bar' : 'line',
@@ -280,7 +347,7 @@ export default function ChartGroupCard({ group }) {
     }
     const chartLabels = Array.isArray(group?.labels) ? group.labels : []
 
-    const { isDoughnut, isHorizontal, useSinglePointMode, datasets: chartDatasets } = buildChartDatasets(group, effectiveChartType)
+    const { isDoughnut, isHorizontal, useSinglePointMode, datasets: chartDatasets } = buildChartDatasets(group, effectiveChartType, doughnutUsePercent)
 
     const singlePointLabelPlugin = useSinglePointMode
       ? [
@@ -348,7 +415,8 @@ export default function ChartGroupCard({ group }) {
                     label(context) {
                       const lbl = context.label || ''
                       const val = context.parsed
-                      return `${lbl}: ${formatValue(val, doughnutUsePercent)}`
+                      const usePercent = Boolean(context.dataset.formatAsPercent)
+                      return `${lbl}: ${formatValue(val, usePercent)}`
                     },
                   },
                 },
@@ -385,7 +453,7 @@ export default function ChartGroupCard({ group }) {
                     label(context) {
                       const datasetLabel = context.dataset.label || ''
                       const rawValue = isHorizontal ? context.parsed.x : context.parsed.y
-                      const usePercent = isPercentLike(datasetLabel)
+                      const usePercent = Boolean(context.dataset.formatAsPercent)
                       return `${datasetLabel}: ${formatValue(rawValue, usePercent)}`
                     },
                   },

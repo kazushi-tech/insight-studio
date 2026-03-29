@@ -51,9 +51,9 @@ function splitMarkdownByTopLevelSections(markdown) {
   return sections
 }
 
-function SectionContent({ section }) {
+function SectionContent({ section, showSummaryHeader = true }) {
   const kpis = useMemo(() => extractKpis(section.md), [section.md])
-  const isSummary = section.kind === 'summary'
+  const isSummary = section.kind === 'summary' && showSummaryHeader
 
   return (
     <div className={isSummary ? 'bg-surface-container-lowest p-6' : ''}>
@@ -419,7 +419,17 @@ export default function EssentialPack() {
                 {selectedPeriod === 'all' ? '統合レポート' : `${selectedPeriod} レポート`}
               </h3>
             </div>
-            <MarkdownRenderer content={currentReport} />
+            <SectionContent
+              section={{
+                ...(sections[0] ?? {
+                  heading: selectedPeriod === 'all' ? '統合レポート' : `${selectedPeriod} レポート`,
+                  md: currentReport,
+                  kind: 'report',
+                }),
+                kind: 'report',
+              }}
+              showSummaryHeader={false}
+            />
           </div>
         )}
       </div>

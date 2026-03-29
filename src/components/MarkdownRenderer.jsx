@@ -73,14 +73,6 @@ const SIZE_PRESETS = {
   },
 }
 
-const PROGRESS_BAR_HEADERS = /^(シェア|構成比|構成|rate|ctr|cvr|比率|割合)$/i
-
-function shouldShowProgressBar(value, headerText) {
-  if (!PROGRESS_BAR_HEADERS.test(String(headerText ?? '').trim())) return false
-  const num = parseFloat(String(value ?? '').replace(/[,%％]/g, ''))
-  return Number.isFinite(num) && num >= 0 && num <= 100
-}
-
 function getComponents(size = 'normal', variant = null) {
   const preset = SIZE_PRESETS[size] ?? SIZE_PRESETS.normal
   const isEP = variant === 'essential-pack'
