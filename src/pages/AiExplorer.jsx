@@ -6,7 +6,6 @@ import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
-import { getAnalysisModel } from '../utils/analysisProvider'
 import {
   buildAiChartContext,
   regenerateAdsReportBundle,
@@ -155,7 +154,6 @@ export default function AiExplorer() {
       const data = await neonGenerate(
         {
           mode: 'question',
-          ...(getAnalysisModel(analysisProvider) ? { model: getAnalysisModel(analysisProvider) } : {}),
           ...(analysisProvider ? { provider: analysisProvider } : {}),
           temperature: 0.7,
           message: enrichedPrompt,

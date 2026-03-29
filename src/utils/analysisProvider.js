@@ -1,6 +1,5 @@
 export const ANALYSIS_PROVIDER_ANTHROPIC = 'anthropic'
 export const ANALYSIS_PROVIDER_GOOGLE = 'google'
-export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-20250514'
 
 export function normalizeAnalysisProvider(provider) {
   const normalized = String(provider || '').trim().toLowerCase()
@@ -11,12 +10,6 @@ export function normalizeAnalysisProvider(provider) {
     return ANALYSIS_PROVIDER_GOOGLE
   }
   return null
-}
-
-export function getAnalysisModel(provider) {
-  return normalizeAnalysisProvider(provider) === ANALYSIS_PROVIDER_ANTHROPIC
-    ? DEFAULT_ANTHROPIC_MODEL
-    : undefined
 }
 
 export function getAnalysisProviderLabel(provider) {

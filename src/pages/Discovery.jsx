@@ -4,7 +4,6 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
-import { getAnalysisModel } from '../utils/analysisProvider'
 
 function formatElapsed(ms) {
   if (!ms) return null
@@ -109,7 +108,6 @@ export default function Discovery() {
       const data = await discoveryAnalyze(url, {
         apiKey: analysisKey,
         provider: analysisProvider,
-        model: getAnalysisModel(analysisProvider),
         searchApiKey: geminiKey,
       })
       completeRun('discovery', data, { search_id: data.search_id })
