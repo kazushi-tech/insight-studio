@@ -13,7 +13,6 @@ import {
   getGeneration,
   getGenerationImageUrl,
 } from '../api/marketLens'
-import { getAnalysisModel } from '../utils/analysisProvider'
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
@@ -364,9 +363,6 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
 
 export default function CreativeReview() {
   const {
-    analysisKey,
-    analysisProvider,
-    hasAnalysisKey,
     geminiKey,
     hasGeminiKey,
   } = useAuth()
@@ -492,7 +488,7 @@ export default function CreativeReview() {
 
   // ─── 2. Review ───
   const handleReview = useCallback(async () => {
-    if (!assetId || !analysisKey.trim()) return
+    if (!assetId || !geminiKey.trim()) return
 
     setPhase('reviewing')
     setErrorMessage('')
@@ -514,15 +510,11 @@ export default function CreativeReview() {
       if (lpUrl.trim()) {
         payload.landing_page = { url: lpUrl.trim() }
         envelope = await reviewAdLp(payload, {
-          apiKey: analysisKey.trim(),
-          provider: analysisProvider,
-          model: getAnalysisModel(analysisProvider),
+          apiKey: geminiKey.trim(),
         })
       } else {
         envelope = await reviewBanner(payload, {
-          apiKey: analysisKey.trim(),
-          provider: analysisProvider,
-          model: getAnalysisModel(analysisProvider),
+          apiKey: geminiKey.trim(),
         })
       }
 
@@ -533,7 +525,7 @@ export default function CreativeReview() {
       failRun('creative-review', err.message)
       goError(`レビュー失敗: ${err.message}`)
     }
-  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, startRun, completeRun, failRun, clearRun, goError])
+  }, [assetId, geminiKey, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, startRun, completeRun, failRun, clearRun, goError])
 
   // ─── 3. Generation ───
   const handleGenerate = useCallback(async () => {
@@ -605,22 +597,18 @@ export default function CreativeReview() {
       {reviewRun && <MetaBand run={reviewRun} />}
 
       {/* ─── API Key Status ─── */}
-      {(!hasAnalysisKey || !hasGeminiKey) && (
+      {!hasGeminiKey && (
         <div className="space-y-3">
-          {!hasAnalysisKey && (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
-              <span className="material-symbols-outlined text-lg">warning</span>
-              <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
-            </div>
-          )}
-          {!hasGeminiKey && (
-            <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
-              <span className="material-symbols-outlined text-lg">warning</span>
-              <span className="japanese-text">画像生成用 Gemini API キーが未設定です。設定画面から設定してください。</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+            <span className="material-symbols-outlined text-lg">warning</span>
+            <span className="japanese-text">クリエイティブレビューと画像生成には Gemini API キーが必要です。設定画面から設定してください。</span>
+          </div>
         </div>
       )}
+      <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
+        <span className="material-symbols-outlined text-lg">info</span>
+        <span className="japanese-text">現行の Market Lens backend 互換のため、レビュー系も Gemini キーで実行します。</span>
+      </div>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
       {(!isUploaded && phase !== 'uploading') && (
@@ -739,9 +727,9 @@ export default function CreativeReview() {
                 />
               </div>
 
-              <button
-                onClick={handleReview}
-                disabled={!analysisKey.trim() || phase === 'reviewing'}
+                <button
+                  onClick={handleReview}
+                disabled={!geminiKey.trim() || phase === 'reviewing'}
                 className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {phase === 'reviewing' ? (
@@ -754,8 +742,8 @@ export default function CreativeReview() {
                 )}
               </button>
 
-              {!analysisKey.trim() && (
-                <p className="text-xs text-amber-600">分析用 Claude API キーを設定してください。</p>
+              {!geminiKey.trim() && (
+                <p className="text-xs text-amber-600">Gemini API キーを設定してください。</p>
               )}
             </div>
 

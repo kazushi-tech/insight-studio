@@ -222,7 +222,7 @@ function KeySettingsModal({ onClose }) {
         {/* Claude Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（分析用）</label>
-          <p className="text-xs text-on-surface-variant">LP比較分析・競合発見・AI考察・クリエイティブレビューに使用します</p>
+          <p className="text-xs text-on-surface-variant">AI考察に使用します</p>
           <a
             href="https://console.anthropic.com/settings/keys"
             target="_blank"
@@ -256,7 +256,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
-          <p className="text-xs text-on-surface-variant">バナー自動生成（Nano Banana2）と Discovery の検索補助に使用します</p>
+          <p className="text-xs text-on-surface-variant">LP比較分析・競合発見・クリエイティブレビュー・バナー自動生成に使用します</p>
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"

@@ -4,7 +4,6 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
-import { getAnalysisModel } from '../utils/analysisProvider'
 
 
 function formatElapsed(ms) {
@@ -105,9 +104,8 @@ function MetaBand({ run, modelName }) {
 
 export default function Compare() {
   const {
-    analysisKey,
-    analysisProvider,
-    hasAnalysisKey,
+    geminiKey,
+    hasGeminiKey,
   } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
@@ -117,7 +115,7 @@ export default function Compare() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
+  const canSubmit = urls.target && (urls.compA || urls.compB) && hasGeminiKey && !loading
 
   const handleScan = useCallback(async () => {
     startRun('compare', { urls })
@@ -126,9 +124,7 @@ export default function Compare() {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
 
       const data = await scan(urlList, {
-        apiKey: analysisKey,
-        provider: analysisProvider,
-        model: getAnalysisModel(analysisProvider),
+        apiKey: geminiKey,
       })
 
       const scanError = getScanErrorMessage(data)
@@ -147,8 +143,7 @@ export default function Compare() {
     }
   }, [
     urls,
-    analysisKey,
-    analysisProvider,
+    geminiKey,
     startRun,
     completeRun,
     failRun,
@@ -186,12 +181,16 @@ export default function Compare() {
         </span>
       </div>
 
-      {!hasAnalysisKey && (
+      {!hasGeminiKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">比較分析には Claude API キーが必要です。設定画面から設定してください。</span>
+          <span className="japanese-text">比較分析には Gemini API キーが必要です。設定画面から設定してください。</span>
         </div>
       )}
+      <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
+        <span className="material-symbols-outlined text-lg">info</span>
+        <span className="japanese-text">現行の Market Lens backend 互換のため、LP比較分析は Gemini キーで実行します。</span>
+      </div>
 
       {/* URL Inputs */}
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
