@@ -131,42 +131,54 @@ function getComponents(size = 'normal', variant = null) {
     },
     li: ({ children }) => <li>{children}</li>,
     table: ({ children }) => (
-      <div className="my-5 max-w-full overflow-x-auto rounded-[0.75rem]">
+      <div className={`my-5 max-w-full overflow-x-auto rounded-[0.75rem] ${isEP ? 'ghost-border' : ''}`}>
         <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
           {children}
         </table>
       </div>
     ),
     thead: ({ children }) => (
-      <thead className={isEP ? 'bg-secondary-container' : 'bg-surface-container-low'}>{children}</thead>
+      <thead className={isEP ? 'bg-surface-container-low' : 'bg-surface-container-low'}>{children}</thead>
     ),
-    tbody: ({ children }) => <tbody>{children}</tbody>,
-    tr: ({ children, isHeader, node }) => {
+    tbody: ({ children }) => (
+      <tbody className={isEP ? 'divide-y divide-outline-variant/10' : ''}>{children}</tbody>
+    ),
+    tr: ({ children, isHeader }) => {
       if (isHeader) return <tr>{children}</tr>
       if (isEP) {
-        const rowIndex = node?.position?.start?.line ?? 0
-        const zebraClass = rowIndex % 2 === 0 ? 'bg-surface-container-lowest' : 'bg-surface-container-low/30'
-        return <tr className={`${zebraClass} hover:bg-surface-container/40 transition-colors`}>{children}</tr>
+        return <tr className="group hover:bg-surface-container-low/40 transition-colors">{children}</tr>
       }
       return <tr className="hover:bg-surface-container/40 transition-colors">{children}</tr>
     },
-    th: ({ children, style }) => {
+    th: ({ children, style, node }) => {
       const text = String(children ?? '')
-      const cellIndex = 0
-      const columnClass = getColumnClass(text, cellIndex)
+      const cellIndex = node?.position?.start?.column ?? 1
+      const isFirstCol = cellIndex <= 1
+      const columnClass = getColumnClass(text, isFirstCol ? 0 : 1)
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : 'text-left'
+
+      if (isEP) {
+        return (
+          <th className={`px-8 py-4 text-[11px] font-bold uppercase tracking-[0.15em] text-on-surface-variant whitespace-nowrap ${align} ${columnClass} ${
+            isFirstCol ? 'ep-sticky-col bg-surface-container-low' : ''
+          }`}>
+            {children}
+          </th>
+        )
+      }
+
       return (
-        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/10 ${align} ${columnClass} ${
-          isEP ? 'text-[10px] uppercase tracking-widest text-on-secondary-container' : ''
-        }`}>
+        <th className={`px-3.5 py-3 font-bold whitespace-nowrap border-b border-outline-variant/10 ${align} ${columnClass}`}>
           {children}
         </th>
       )
     },
-    td: ({ children, style }) => {
+    td: ({ children, style, node }) => {
       const text = String(children ?? '')
       const numeric = isNumericCell(text)
       const url = isPlainHttpUrl(text)
+      const cellIndex = node?.position?.start?.column ?? 1
+      const isFirstCol = cellIndex <= 1
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : ''
 
       const content = url ? (
@@ -179,6 +191,21 @@ function getComponents(size = 'normal', variant = null) {
           {shortenUrlForDisplay(text)}
         </a>
       ) : children
+
+      if (isEP) {
+        return (
+          <td
+            title={text}
+            className={`px-8 py-3.5 align-top ${align} ${
+              numeric ? 'text-right font-mono tabular-nums whitespace-nowrap font-medium text-on-surface' : ''
+            } ${!numeric ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : ''} ${
+              isFirstCol ? 'ep-sticky-col font-semibold text-on-surface' : ''
+            }`}
+          >
+            {content}
+          </td>
+        )
+      }
 
       return (
         <td

@@ -152,7 +152,19 @@
   }
 
   .panel-card-hover:hover {
-    box-shadow: 0 10px 30px -8px rgba(26, 26, 46, 0.06);
+    box-shadow: 0 10px 30px rgba(25, 28, 29, 0.06);
+  }
+
+  /* Essential Pack: sticky first column utility */
+  .ep-sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background-color: var(--color-surface-container-lowest);
+  }
+
+  .group:hover .ep-sticky-col {
+    background-color: var(--color-surface-container-low);
   }
 
   .button-primary {

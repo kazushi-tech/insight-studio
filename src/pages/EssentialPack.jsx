@@ -58,15 +58,41 @@ function SectionContent({ section, showSummaryHeader = true }) {
   return (
     <div className={isSummary ? 'bg-surface-container-lowest p-6' : ''}>
       {isSummary && (
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-5">
           <span className="w-9 h-9 rounded-lg bg-gold/10 text-gold flex items-center justify-center">
             <span className="material-symbols-outlined text-lg">summarize</span>
           </span>
-          <h3 className="text-lg font-bold text-on-surface japanese-text">{section.heading}</h3>
+          <div>
+            <h3 className="text-lg font-bold text-on-surface japanese-text">{section.heading}</h3>
+            <p className="text-xs text-on-surface-variant">主要KPIと全体サマリー</p>
+          </div>
         </div>
       )}
       <KpiGrid kpis={kpis} />
       <MarkdownRenderer content={section.md} variant="essential-pack" />
+    </div>
+  )
+}
+
+function ContextualInsightModule({ insightText }) {
+  if (!insightText) return null
+
+  return (
+    <div className="grid grid-cols-3 gap-8 mt-8">
+      <div className="col-span-2 bg-surface-container-low p-8 rounded-[0.75rem] border-l-4 border-gold">
+        <div className="flex gap-4">
+          <span className="material-symbols-outlined text-gold text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
+          <div>
+            <h3 className="text-lg font-bold text-on-surface mb-2 japanese-text">AI自動考察</h3>
+            <p className="text-sm text-on-surface-variant japanese-text leading-7">{insightText}</p>
+          </div>
+        </div>
+      </div>
+      <div className="bg-surface-container-high/50 p-8 rounded-[0.75rem] flex flex-col justify-center items-center text-center">
+        <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">auto_awesome</span>
+        <h4 className="font-bold text-on-surface mb-1 japanese-text">詳細分析</h4>
+        <p className="text-xs text-on-surface-variant mb-3 japanese-text">各セクションの詳細レポートは<br/>アコーディオンを展開して確認できます</p>
+      </div>
     </div>
   )
 }
@@ -355,6 +381,11 @@ export default function EssentialPack() {
               Wizard の generate_batch 結果をここに表示します。左のボタンで再取得してください。
             </p>
           </div>
+        )}
+
+        {/* ── Contextual Insight (folder 11 style) ── */}
+        {currentReport && insightSummary && (
+          <ContextualInsightModule insightText={insightSummary} />
         )}
 
         {/* ── Accordion セクション表示 ── */}

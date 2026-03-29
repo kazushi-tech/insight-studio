@@ -490,51 +490,55 @@ export default function ChartGroupCard({ group }) {
   }, [group, effectiveChartType, doughnutUsePercent, hasRenderableData, theme])
 
   return (
-    <article className="bg-surface-container-lowest rounded-[0.75rem] ghost-border p-6 panel-card-hover">
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-5">
-        <div className="space-y-3 min-w-0">
+    <article className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/10 p-8 shadow-sm hover:shadow-[0_10px_30px_rgba(25,28,29,0.06)] transition-all flex flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div className="space-y-2 min-w-0">
           <h3 className="text-lg font-bold text-on-surface japanese-text break-words">
             {group?.title || '無題グラフ'}
           </h3>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="px-3 py-1 rounded-full bg-gold/10 text-gold font-semibold">
+          <div className="flex flex-wrap gap-2">
+            <span className="bg-secondary-fixed text-on-secondary-fixed text-[10px] px-2 py-0.5 rounded font-bold uppercase">
               {CHART_TYPE_LABELS[effectiveChartType] ?? 'Line / Trend'}
             </span>
             {group?._periodTag && (
-              <span className="px-3 py-1 rounded-full bg-secondary-container/40 text-on-secondary-container font-semibold">
+              <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
                 {group._periodTag}
               </span>
             )}
-            <span className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-semibold">
-              {datasets.length} 系列
+            <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
+              {datasets.length} Series
             </span>
-            <span className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-semibold">
-              {labels.length} 点
+            <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
+              {labels.length} Points
             </span>
           </div>
         </div>
       </div>
 
       {hasRenderableData ? (
-        <div className="space-y-5">
-          <div className={effectiveChartType === 'doughnut' ? 'relative h-[300px] max-w-[380px] mx-auto' : 'relative h-[320px] md:h-[360px]'}>
+        <div className="flex-1 flex flex-col">
+          <div className={`mb-8 ${effectiveChartType === 'doughnut'
+            ? 'relative h-[300px] max-w-[380px] mx-auto'
+            : 'relative h-[280px] bg-surface-container-low/30 rounded-[0.75rem] p-4'
+          }`}>
             <canvas ref={canvasRef} />
           </div>
 
           {keyInsights.length > 0 && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-outline-variant/10">
               {keyInsights.map((insight, index) => (
                 <div
                   key={`${group?.title ?? 'group'}-insight-${index}`}
-                  className={`rounded-[0.75rem] px-4 py-3 ${
-                    insight.tone === 'accent' ? 'bg-gold/8 border-l-3 border-gold' : 'bg-surface-container-low'
-                  }`}
+                  className="bg-surface-container-low p-3 rounded-lg"
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{insight.key}</p>
-                  <p className={`text-base font-extrabold tabular-nums mt-0.5 ${
-                    insight.tone === 'positive' ? 'text-success' : insight.tone === 'negative' ? 'text-error' : 'text-on-surface'
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">{insight.key}</p>
+                  <p className={`text-sm font-extrabold tabular-nums ${
+                    insight.tone === 'positive' ? 'text-success'
+                      : insight.tone === 'negative' ? 'text-error'
+                      : insight.tone === 'accent' ? 'text-on-surface'
+                      : 'text-on-surface'
                   }`}>{insight.value}</p>
-                  <p className="text-[11px] text-on-surface-variant mt-0.5 truncate">{insight.label}</p>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5 truncate">{insight.label}</p>
                 </div>
               ))}
             </div>

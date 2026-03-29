@@ -17,6 +17,7 @@ export default function AnalysisGraphs() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
+  const [chartTypeFilter, setChartTypeFilter] = useState('all')
 
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
@@ -61,19 +62,37 @@ export default function AnalysisGraphs() {
     if (!periodTags.includes(periodFilter)) setPeriodFilter('latest')
   }, [periodFilter, periodTags])
 
-  const filteredGroups = useMemo(
+  const periodFilteredGroups = useMemo(
     () => getDisplayChartGroups(chartGroups, periodFilter),
     [chartGroups, periodFilter],
   )
 
+  const availableChartTypes = useMemo(() => {
+    const types = new Set()
+    for (const group of periodFilteredGroups) {
+      types.add(resolveChartType(group))
+    }
+    return ['all', ...['line', 'area', 'bar_horizontal', 'doughnut'].filter((t) => types.has(t))]
+  }, [periodFilteredGroups])
+
+  useEffect(() => {
+    if (chartTypeFilter !== 'all' && !availableChartTypes.includes(chartTypeFilter)) {
+      setChartTypeFilter('all')
+    }
+  }, [availableChartTypes, chartTypeFilter])
+
+  const filteredGroups = useMemo(() => {
+    if (chartTypeFilter === 'all') return periodFilteredGroups
+    return periodFilteredGroups.filter((group) => resolveChartType(group) === chartTypeFilter)
+  }, [periodFilteredGroups, chartTypeFilter])
+
   const summary = useMemo(() => {
-    const datasetCount = filteredGroups.reduce(
+    const datasetCount = periodFilteredGroups.reduce(
       (sum, group) => sum + (Array.isArray(group?.datasets) ? group.datasets.length : 0),
       0,
     )
-    // Summary counts use rendered (effective) type, not raw backend type
     const typeCounts = {}
-    for (const group of filteredGroups) {
+    for (const group of periodFilteredGroups) {
       const etype = resolveChartType(group)
       typeCounts[etype] = (typeCounts[etype] || 0) + 1
     }
@@ -84,11 +103,11 @@ export default function AnalysisGraphs() {
       .join(' / ')
 
     return {
-      groupCount: filteredGroups.length,
+      groupCount: periodFilteredGroups.length,
       datasetCount,
       mixLabel: mixLabel || '-',
     }
-  }, [filteredGroups])
+  }, [periodFilteredGroups])
 
   const activeScopeLabel =
     periodFilter === 'all'
@@ -116,107 +135,108 @@ export default function AnalysisGraphs() {
     }
   }
 
+  const CHART_TYPE_FILTER_LABELS = {
+    all: 'All Graphs',
+    line: 'Line Analysis',
+    area: 'Area Trend',
+    bar_horizontal: 'Bar Comparison',
+    doughnut: 'Distribution',
+  }
+
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        <div className="space-y-2">
+    <div className="p-8 max-w-[1600px] mx-auto space-y-10">
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
           <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">広告考察：グラフ</h2>
-          <p className="text-sm text-on-surface-variant max-w-3xl japanese-text">
-            選択した期間・クエリタイプごとのパフォーマンスをグラフで可視化します。全期間まとめでは同一指標を期間横断で比較できます。
+          <p className="text-on-surface-variant mt-1 flex items-center gap-2">
+            <span className="material-symbols-outlined text-sm">calendar_today</span>
+            {activeScopeLabel}
           </p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={loading || !isAdsAuthenticated || !setupState}
-          className="px-5 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+          className="px-6 py-3 bg-gold hover:opacity-90 text-primary-container rounded-[0.75rem] font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 active:scale-95"
         >
-          {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">sync</span>}
-          再取得
+          {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">refresh</span>}
+          Update
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
-          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-xl">date_range</span>
-          </span>
-          <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">対象期間</p>
-            <p className="mt-1 text-lg font-bold text-on-surface japanese-text truncate">{activeScopeLabel}</p>
+      {/* Summary Metrics — folder (12) bento style */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          <div className="flex justify-between items-start mb-4">
+            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">date_range</span>
           </div>
+          <p className="text-xs font-medium text-on-surface-variant/70 mb-1">Target Period</p>
+          <h3 className="text-2xl font-bold text-on-surface japanese-text truncate">{activeScopeLabel}</h3>
         </section>
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
-          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-xl">bar_chart</span>
-          </span>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">グラフ数</p>
-            <p className="mt-1 text-3xl font-extrabold text-on-surface tabular-nums">{summary.groupCount}</p>
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          <div className="flex justify-between items-start mb-4">
+            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">bar_chart</span>
           </div>
+          <p className="text-xs font-medium text-on-surface-variant/70 mb-1">Total Charts</p>
+          <h3 className="text-2xl font-bold text-on-surface tabular-nums">{summary.groupCount} Units</h3>
         </section>
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
-          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-xl">stacked_line_chart</span>
-          </span>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">データ系列</p>
-            <p className="mt-1 text-3xl font-extrabold text-on-surface tabular-nums">{summary.datasetCount}</p>
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          <div className="flex justify-between items-start mb-4">
+            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">layers</span>
           </div>
+          <p className="text-xs font-medium text-on-surface-variant/70 mb-1">Data Series</p>
+          <h3 className="text-2xl font-bold text-on-surface tabular-nums">{summary.datasetCount} sets</h3>
         </section>
-        <section className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover flex items-start gap-4">
-          <span className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-xl">donut_small</span>
-          </span>
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-on-surface-variant">タイプ内訳</p>
-            <p className="mt-1 text-lg font-bold text-on-surface">{summary.mixLabel}</p>
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+          <div className="flex justify-between items-start mb-4">
+            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">donut_small</span>
           </div>
+          <p className="text-xs font-medium text-on-surface-variant/70 mb-1">Type Breakdown</p>
+          <h3 className="text-lg font-bold text-on-surface">{summary.mixLabel}</h3>
         </section>
       </div>
 
-      <div className="rounded-[0.75rem] bg-surface-container-lowest ghost-border p-5 panel-card-hover space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="graph-period-filter" className="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">
-            Display Period
-          </label>
+      {/* Filter Bar — folder (12) style with real filter */}
+      <div className="bg-surface-container-low p-3 rounded-2xl flex items-center gap-4 overflow-hidden">
+        <div className="flex items-center bg-surface-container-lowest border border-outline-variant/10 rounded-[0.75rem] px-4 py-2 shrink-0">
+          <span className="material-symbols-outlined text-on-surface-variant mr-2 text-sm">filter_alt</span>
+          <label htmlFor="graph-period-filter" className="text-sm font-bold text-on-surface mr-3">Period</label>
           <select
             id="graph-period-filter"
             value={periodFilter}
             onChange={(e) => setPeriodFilter(e.target.value)}
-            className="min-w-[220px] select-surface"
+            className="text-sm text-on-surface-variant bg-transparent border-none outline-none cursor-pointer"
           >
             <option value="latest">最新期間</option>
             <option value="all">全期間まとめ</option>
             {periodTags.map((period) => (
-              <option key={period} value={period}>
-                {period}
-              </option>
+              <option key={period} value={period}>{period}</option>
             ))}
           </select>
-          <div className="flex flex-wrap gap-2 text-xs">
-            {setupState?.periods?.map((period) => (
-              <span key={period} className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-semibold">
-                期間: {period}
-              </span>
-            ))}
-            {setupState?.queryTypes?.map((queryType) => (
-              <span key={queryType} className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-semibold">
-                クエリ: {queryType}
-              </span>
-            ))}
-          </div>
         </div>
-
-        {periodFilter === 'all' && periodTags.length > 1 && (
-          <p className="text-sm text-on-surface-variant japanese-text">
-            同一指標のグラフを期間ごとに並べて比較表示しています。
-          </p>
-        )}
-        {periodFilter === 'latest' && periodTags.length > 0 && (
-          <p className="text-sm text-on-surface-variant japanese-text">
-            最新期間 <span className="font-bold text-on-surface">{periodTags[periodTags.length - 1]}</span> を表示中です。
-          </p>
-        )}
+        <div className="w-px h-8 bg-outline-variant/20 mx-1 shrink-0" />
+        <div className="flex-1 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {availableChartTypes.map((type) => (
+            <button
+              key={type}
+              onClick={() => setChartTypeFilter(type)}
+              className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                chartTypeFilter === type
+                  ? 'bg-gold text-primary-container'
+                  : 'bg-surface-container-lowest hover:bg-white border border-outline-variant/10 text-on-surface-variant'
+              }`}
+            >
+              {CHART_TYPE_FILTER_LABELS[type] ?? type}
+            </button>
+          ))}
+        </div>
+        {/* Passive metadata */}
+        <div className="hidden lg:flex flex-wrap gap-2 text-xs shrink-0">
+          {setupState?.queryTypes?.map((qt) => (
+            <span key={qt} className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant font-medium">
+              {qt}
+            </span>
+          ))}
+        </div>
       </div>
 
       {error && (
@@ -224,9 +244,9 @@ export default function AnalysisGraphs() {
       )}
 
       {loading && chartGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] p-8 space-y-6">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/10 p-8 space-y-6">
           <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
             <SkeletonBlock variant="card" />
             <SkeletonBlock variant="card" />
           </div>
@@ -234,17 +254,17 @@ export default function AnalysisGraphs() {
       )}
 
       {!loading && !error && filteredGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 text-center space-y-3">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/10 p-8 text-center space-y-3">
           <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
           <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
           <p className="text-sm text-on-surface-variant japanese-text">
-            セットアップウィザードを完了するか、上の「再取得」ボタンを押してデータを読み込んでください。
+            セットアップウィザードを完了するか、上の「Update」ボタンを押してデータを読み込んでください。
           </p>
         </div>
       )}
 
       {filteredGroups.length > 0 && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
           {filteredGroups.map((group, groupIndex) => (
             <ChartGroupCard
               key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
