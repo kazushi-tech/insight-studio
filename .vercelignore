@@ -1,0 +1,11 @@
+.codex_*
+.claude/
+.git/
+.vercel/
+dist/
+node_modules/
+plans/
+stitch2/
+tmp_ads_insights_repo/
+tmp_market_lens_ai_repo/
+tmp_deploy_bundle.js
