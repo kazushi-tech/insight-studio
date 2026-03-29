@@ -90,6 +90,8 @@ export default function Settings() {
   const [authError, setAuthError] = useState(null)
   const [authNotice, setAuthNotice] = useState('')
 
+  const [toast, setToast] = useState(null)
+
   useEffect(() => {
     setLocalDisplayName(displayName)
   }, [displayName])
@@ -127,6 +129,12 @@ export default function Settings() {
     const id = setTimeout(() => setAuthNotice(''), 3000)
     return () => clearTimeout(id)
   }, [authNotice])
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const id = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(id)
+  }, [toast])
 
   function handleProfileSave() {
     setProfileError(null)
@@ -248,7 +256,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定"
-        description="LP比較分析・競合発見・AI考察・クリエイティブレビューに使う Claude API キーです。"
+        description="LP比較分析・競合発見・AI考察・クリエイティブレビューに使う Claude API キーです。Claude を推奨し、未設定時は保存済み Gemini キーへ暫定フォールバックします。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
@@ -324,7 +332,7 @@ export default function Settings() {
       <SettingsCard
         icon="image"
         title="画像生成 API設定"
-        description="バナー自動生成（Nano Banana2）に使う Gemini API キーです。"
+        description="バナー自動生成（Nano Banana2）に使う Gemini API キーです。Claude 未設定時は、一部の分析でも暫定的に利用されます。"
       >
         <div className="space-y-4">
           {hasGeminiKey && !editingGemini ? (
@@ -484,13 +492,66 @@ export default function Settings() {
       </div>{/* end grid-cols-12 */}
 
       <div className="mt-16 pt-8 border-t border-outline-variant/10 flex justify-end gap-4">
-        <button className="px-6 py-3 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all">
+        <button
+          onClick={() => {
+            setLocalDisplayName(displayName)
+            setClaudeInput(claudeKey)
+            setEditingClaude(!hasClaudeKey)
+            setGeminiInput(geminiKey)
+            setEditingGemini(!hasGeminiKey)
+            setToast({ tone: 'neutral', message: '変更を破棄しました。' })
+          }}
+          className="px-6 py-3 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
+        >
           キャンセル
         </button>
-        <button className="px-6 py-3 bg-gradient-to-r from-gold to-amber-500 text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all">
+        <button
+          onClick={() => {
+            let saved = false
+            const trimmedName = localDisplayName.trim()
+            if (trimmedName !== displayName) {
+              if (trimmedName.length > 20) {
+                setToast({ tone: 'error', message: '表示名は20文字以内にしてください。' })
+                return
+              }
+              setDisplayName(trimmedName)
+              saved = true
+            }
+            if (editingClaude && claudeInput.trim() && claudeInput.trim() !== claudeKey) {
+              setClaudeKey(claudeInput.trim())
+              setEditingClaude(false)
+              saved = true
+            }
+            if (editingGemini && geminiInput.trim() && geminiInput.trim() !== geminiKey) {
+              setGeminiKey(geminiInput.trim())
+              setEditingGemini(false)
+              saved = true
+            }
+            setToast({
+              tone: 'success',
+              message: saved ? '設定を保存しました。' : '変更はありません。',
+            })
+          }}
+          className="px-6 py-3 bg-gradient-to-r from-gold to-amber-500 text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
+        >
           保存する
         </button>
       </div>
+
+      {toast && (
+        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-6 py-4 shadow-lg text-sm font-bold transition-all animate-[slideUp_0.3s_ease-out] ${
+          toast.tone === 'error'
+            ? 'bg-error text-on-error'
+            : toast.tone === 'neutral'
+              ? 'bg-surface-container-high text-on-surface'
+              : 'bg-emerald-600 text-white'
+        }`}>
+          <span className="material-symbols-outlined text-lg">
+            {toast.tone === 'error' ? 'error' : toast.tone === 'neutral' ? 'info' : 'check_circle'}
+          </span>
+          <span className="japanese-text">{toast.message}</span>
+        </div>
+      )}
     </div>
   )
 }
