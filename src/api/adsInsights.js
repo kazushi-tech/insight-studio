@@ -177,13 +177,14 @@ export function generateInsights(payload) {
 export function neonGenerate(payload, apiKey) {
   const headers = {
     Accept: 'application/json',
-    ...(apiKey ? { 'X-API-Key': apiKey, 'X-Gemini-API-Key': apiKey } : {}),
+    ...(apiKey ? { 'X-API-Key': apiKey } : {}),
   }
+  const body = { ...payload, ...(apiKey ? { api_key: apiKey } : {}) }
 
   return request('/neon/generate', {
     method: 'POST',
     headers,
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
     timeout: 120000,
   })
 }

@@ -1,5 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { login as adsLogin, setToken, logout as adsLogout, setOnAuthError } from '../api/adsInsights'
+import {
+  ANALYSIS_PROVIDER_ANTHROPIC,
+} from '../utils/analysisProvider'
+import { isCompatibleApiKey, normalizeApiKey } from '../utils/apiKeys'
 
 const AuthContext = createContext(null)
 
@@ -17,31 +21,32 @@ export function AuthProvider({ children }) {
 
   // Claude API key — 分析・類推系 (Compare, Discovery, CreativeReview review, AiExplorer)
   const [claudeKey, setClaudeKeyState] = useState(
-    () => localStorage.getItem(STORAGE_KEY_CLAUDE) || ''
+    () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_CLAUDE) || '')
   )
 
-  // Gemini API key — 画像生成用 (CreativeReview generation / Nano Banana2)
-  // Legacy: 既存の is_gemini_key をそのまま画像生成用として扱う
+  // Gemini API key — 画像生成用 / Discovery 検索補助
   const [geminiKey, setGeminiKeyState] = useState(
-    () => localStorage.getItem(STORAGE_KEY_GEMINI) || ''
+    () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_GEMINI) || '')
   )
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const setClaudeKey = useCallback((key) => {
-    setClaudeKeyState(key)
-    if (key) {
-      localStorage.setItem(STORAGE_KEY_CLAUDE, key)
+    const normalized = normalizeApiKey(key)
+    setClaudeKeyState(normalized)
+    if (normalized) {
+      localStorage.setItem(STORAGE_KEY_CLAUDE, normalized)
     } else {
       localStorage.removeItem(STORAGE_KEY_CLAUDE)
     }
   }, [])
 
   const setGeminiKey = useCallback((key) => {
-    setGeminiKeyState(key)
-    if (key) {
-      localStorage.setItem(STORAGE_KEY_GEMINI, key)
+    const normalized = normalizeApiKey(key)
+    setGeminiKeyState(normalized)
+    if (normalized) {
+      localStorage.setItem(STORAGE_KEY_GEMINI, normalized)
     } else {
       localStorage.removeItem(STORAGE_KEY_GEMINI)
     }
@@ -80,18 +85,25 @@ export function AuthProvider({ children }) {
     return () => setOnAuthError(null)
   }, [logoutAds])
 
+  const hasClaudeKey = isCompatibleApiKey(claudeKey, ANALYSIS_PROVIDER_ANTHROPIC)
+  const hasGeminiKey = isCompatibleApiKey(geminiKey, 'google')
+  const analysisKey = hasClaudeKey ? claudeKey : ''
+  const analysisProvider = hasClaudeKey ? ANALYSIS_PROVIDER_ANTHROPIC : null
+
   const value = {
     adsToken,
     // Claude key — 分析用
     claudeKey,
     setClaudeKey,
-    hasClaudeKey: !!claudeKey,
-    // Gemini key — 画像生成用 (legacy互換)
+    hasClaudeKey,
+    // Gemini key — 画像生成用 / Discovery 検索補助
     geminiKey,
     setGeminiKey,
-    hasGeminiKey: !!geminiKey,
-    // 便利フラグ: 分析系が使える状態か
-    hasAnalysisKey: !!claudeKey,
+    hasGeminiKey,
+    // 分析系は Claude のみを使用
+    analysisKey,
+    analysisProvider,
+    hasAnalysisKey: !!analysisKey,
     // Ads auth
     loginAds,
     logoutAds,

@@ -15,6 +15,13 @@ const DISCOVERY_STAGE_LABELS = {
   analyze: '比較分析',
 }
 
+function resolveAiOptions(optionsOrApiKey) {
+  if (typeof optionsOrApiKey === 'string') {
+    return { apiKey: optionsOrApiKey }
+  }
+  return optionsOrApiKey || {}
+}
+
 function extractStage(detail) {
   if (!detail) return null
   const match = detail.match(/stage=(\w+)/)
@@ -239,10 +246,16 @@ async function requestRaw(path, options = {}) {
 // ─── Scan / Discovery ────────────────────────────────────────
 
 /** POST /api/scan — LP比較分析 */
-export function scan(urls, apiKey) {
+export function scan(urls, optionsOrApiKey) {
+  const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
   return requestJson('/scan', {
     method: 'POST',
-    body: JSON.stringify({ urls, api_key: apiKey }),
+    body: JSON.stringify({
+      urls,
+      ...(apiKey ? { api_key: apiKey } : {}),
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+    }),
     timeout: LONG_ANALYSIS_TIMEOUT,
   }).then((data) => {
     rememberTrackedScan(data?.run_id)
@@ -251,10 +264,17 @@ export function scan(urls, apiKey) {
 }
 
 /** POST /api/discovery/analyze — 競合発見 Discovery */
-export function discoveryAnalyze(url, apiKey) {
+export function discoveryAnalyze(url, optionsOrApiKey) {
+  const { apiKey, provider, model, searchApiKey } = resolveAiOptions(optionsOrApiKey)
   return requestJson('/discovery/analyze', {
     method: 'POST',
-    body: JSON.stringify({ brand_url: url, api_key: apiKey }),
+    body: JSON.stringify({
+      brand_url: url,
+      ...(apiKey ? { api_key: apiKey } : {}),
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+      ...(searchApiKey ? { search_api_key: searchApiKey } : {}),
+    }),
     timeout: LONG_ANALYSIS_TIMEOUT,
   })
 }
@@ -307,12 +327,18 @@ export function getCreativeAssetDownloadUrl(assetId) {
 /**
  * POST /api/reviews/banner — バナーレビュー
  * @param {{ asset_id, brand_info?, operator_memo? }} payload
- * @param {string} apiKey - Gemini BYOK API キー
+ * @param {string|{ apiKey?: string, provider?: string, model?: string }} optionsOrApiKey
  */
-export function reviewBanner(payload, apiKey) {
+export function reviewBanner(payload, optionsOrApiKey) {
+  const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
   return requestJson('/reviews/banner', {
     method: 'POST',
-    body: JSON.stringify({ ...payload, api_key: apiKey }),
+    body: JSON.stringify({
+      ...payload,
+      ...(apiKey ? { api_key: apiKey } : {}),
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+    }),
     timeout: 120000,
   })
 }
@@ -320,12 +346,18 @@ export function reviewBanner(payload, apiKey) {
 /**
  * POST /api/reviews/ad-lp — 広告LP統合レビュー
  * @param {{ asset_id, landing_page: { url }, brand_info?, operator_memo? }} payload
- * @param {string} apiKey
+ * @param {string|{ apiKey?: string, provider?: string, model?: string }} optionsOrApiKey
  */
-export function reviewAdLp(payload, apiKey) {
+export function reviewAdLp(payload, optionsOrApiKey) {
+  const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
   return requestJson('/reviews/ad-lp', {
     method: 'POST',
-    body: JSON.stringify({ ...payload, api_key: apiKey }),
+    body: JSON.stringify({
+      ...payload,
+      ...(apiKey ? { api_key: apiKey } : {}),
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+    }),
     timeout: 120000,
   })
 }

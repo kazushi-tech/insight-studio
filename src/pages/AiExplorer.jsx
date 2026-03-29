@@ -6,6 +6,7 @@ import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
+import { getAnalysisModel } from '../utils/analysisProvider'
 import {
   buildAiChartContext,
   regenerateAdsReportBundle,
@@ -47,7 +48,12 @@ function toConversationHistory(messages) {
 }
 
 export default function AiExplorer() {
-  const { isAdsAuthenticated, claudeKey, hasClaudeKey } = useAuth()
+  const {
+    isAdsAuthenticated,
+    analysisKey,
+    analysisProvider,
+    hasAnalysisKey,
+  } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const { avatarInitial } = useUserProfile()
   const [input, setInput] = useState('')
@@ -126,7 +132,7 @@ export default function AiExplorer() {
   )
 
   const promptDisabled =
-    !isAdsAuthenticated || !hasClaudeKey || !reportBundle?.reportMd || loading || reportLoading
+    !isAdsAuthenticated || !hasAnalysisKey || !reportBundle?.reportMd || loading || reportLoading
 
   async function handleSend(text) {
     const prompt = (text ?? input).trim()
@@ -149,8 +155,8 @@ export default function AiExplorer() {
       const data = await neonGenerate(
         {
           mode: 'question',
-          model: 'claude-sonnet-4-6',
-          provider: 'anthropic',
+          ...(getAnalysisModel(analysisProvider) ? { model: getAnalysisModel(analysisProvider) } : {}),
+          ...(analysisProvider ? { provider: analysisProvider } : {}),
           temperature: 0.7,
           message: enrichedPrompt,
           point_pack_md: reportBundle.reportMd,
@@ -161,7 +167,7 @@ export default function AiExplorer() {
           conversation_history: toConversationHistory(nextMessages),
           ai_chart_context: chartContext,
         },
-        claudeKey,
+        analysisKey,
       )
 
       const normalized = normalizeAdsPayload(data)
@@ -277,12 +283,12 @@ export default function AiExplorer() {
             <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
-        {!hasClaudeKey && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
-            <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">Claude API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
-          </div>
-        )}
+      {!hasAnalysisKey && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
+          <span className="material-symbols-outlined text-lg">warning</span>
+          <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
+        </div>
+      )}
         {reportError && (
           <div className="mb-4">
             <ErrorBanner message={reportError} onRetry={handleRefreshReport} />

@@ -4,6 +4,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+import { getAnalysisModel } from '../utils/analysisProvider'
 
 function formatElapsed(ms) {
   if (!ms) return null
@@ -46,7 +47,7 @@ function MetaBand({ run }) {
 }
 
 export default function Compare() {
-  const { claudeKey, hasClaudeKey } = useAuth()
+  const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('compare')
@@ -55,19 +56,23 @@ export default function Compare() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const canSubmit = urls.target && (urls.compA || urls.compB) && hasClaudeKey && !loading
+  const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
 
   const handleScan = useCallback(async () => {
     startRun('compare', { urls })
 
     try {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
-      const data = await scan(urlList, claudeKey)
+      const data = await scan(urlList, {
+        apiKey: analysisKey,
+        provider: analysisProvider,
+        model: getAnalysisModel(analysisProvider),
+      })
       completeRun('compare', data, { run_id: data.run_id })
     } catch (e) {
       failRun('compare', e.message)
     }
-  }, [urls, claudeKey, startRun, completeRun, failRun])
+  }, [urls, analysisKey, analysisProvider, startRun, completeRun, failRun])
 
   const handleRetry = useCallback(() => {
     clearRun('compare')
@@ -98,10 +103,10 @@ export default function Compare() {
         </span>
       </div>
 
-      {!hasClaudeKey && (
+      {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">Claude API キーが未設定です。Anthropic Console のAPIキーアイコンから設定してください。</span>
+          <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
         </div>
       )}
 

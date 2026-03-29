@@ -3,6 +3,8 @@ import { ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
+import { ANALYSIS_PROVIDER_ANTHROPIC, ANALYSIS_PROVIDER_GOOGLE } from '../utils/analysisProvider'
+import { getApiKeyValidationError } from '../utils/apiKeys'
 
 function SettingsCard({ icon, title, description, children }) {
   return (
@@ -155,6 +157,11 @@ export default function Settings() {
       setClaudeError('Claude API キーを入力してください。')
       return
     }
+    const validationError = getApiKeyValidationError(trimmed, ANALYSIS_PROVIDER_ANTHROPIC)
+    if (validationError) {
+      setClaudeError(validationError)
+      return
+    }
 
     setClaudeKey(trimmed)
     setEditingClaude(false)
@@ -175,6 +182,11 @@ export default function Settings() {
     const trimmed = geminiInput.trim()
     if (!trimmed) {
       setGeminiError('Gemini API キーを入力してください。')
+      return
+    }
+    const validationError = getApiKeyValidationError(trimmed, ANALYSIS_PROVIDER_GOOGLE)
+    if (validationError) {
+      setGeminiError(validationError)
       return
     }
 
@@ -256,7 +268,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定"
-        description="LP比較分析・競合発見・AI考察・クリエイティブレビューに使う Claude API キーです。Claude を推奨し、未設定時は保存済み Gemini キーへ暫定フォールバックします。"
+        description="LP比較分析・競合発見・AI考察・クリエイティブレビューに使う Claude API キーです。分析系は Claude に統一しています。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
@@ -332,7 +344,7 @@ export default function Settings() {
       <SettingsCard
         icon="image"
         title="画像生成 API設定"
-        description="バナー自動生成（Nano Banana2）に使う Gemini API キーです。Claude 未設定時は、一部の分析でも暫定的に利用されます。"
+        description="バナー自動生成（Nano Banana2）と Discovery の検索補助に使う Gemini API キーです。"
       >
         <div className="space-y-4">
           {hasGeminiKey && !editingGemini ? (
@@ -518,11 +530,21 @@ export default function Settings() {
               saved = true
             }
             if (editingClaude && claudeInput.trim() && claudeInput.trim() !== claudeKey) {
+              const validationError = getApiKeyValidationError(claudeInput.trim(), ANALYSIS_PROVIDER_ANTHROPIC)
+              if (validationError) {
+                setToast({ tone: 'error', message: validationError })
+                return
+              }
               setClaudeKey(claudeInput.trim())
               setEditingClaude(false)
               saved = true
             }
             if (editingGemini && geminiInput.trim() && geminiInput.trim() !== geminiKey) {
+              const validationError = getApiKeyValidationError(geminiInput.trim(), ANALYSIS_PROVIDER_GOOGLE)
+              if (validationError) {
+                setToast({ tone: 'error', message: validationError })
+                return
+              }
               setGeminiKey(geminiInput.trim())
               setEditingGemini(false)
               saved = true

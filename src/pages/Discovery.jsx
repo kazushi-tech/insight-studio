@@ -4,6 +4,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+import { getAnalysisModel } from '../utils/analysisProvider'
 
 function formatElapsed(ms) {
   if (!ms) return null
@@ -84,7 +85,12 @@ function PartialSuccessBanner({ fetchedSites }) {
 }
 
 export default function Discovery() {
-  const { claudeKey, hasClaudeKey } = useAuth()
+  const {
+    analysisKey,
+    analysisProvider,
+    geminiKey,
+    hasAnalysisKey,
+  } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('discovery')
@@ -94,18 +100,23 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
   const discoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
-  const canSubmit = url && hasClaudeKey && !loading
+  const canSubmit = url && hasAnalysisKey && !loading
 
   const handleDiscover = useCallback(async () => {
     startRun('discovery', { url })
 
     try {
-      const data = await discoveryAnalyze(url, claudeKey)
+      const data = await discoveryAnalyze(url, {
+        apiKey: analysisKey,
+        provider: analysisProvider,
+        model: getAnalysisModel(analysisProvider),
+        searchApiKey: geminiKey,
+      })
       completeRun('discovery', data, { search_id: data.search_id })
     } catch (e) {
       failRun('discovery', e.message)
     }
-  }, [url, claudeKey, startRun, completeRun, failRun])
+  }, [url, analysisKey, analysisProvider, geminiKey, startRun, completeRun, failRun])
 
   const handleRetry = useCallback(() => {
     clearRun('discovery')
@@ -118,10 +129,16 @@ export default function Discovery() {
         <p className="text-secondary max-w-2xl mt-2">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
-      {!hasClaudeKey && (
+      {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">Claude API キーが未設定です。ヘッダーの鍵アイコンから設定してください。</span>
+          <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
+        </div>
+      )}
+      {analysisProvider === 'anthropic' && !geminiKey && (
+        <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
+          <span className="material-symbols-outlined text-lg">travel_explore</span>
+          <span className="japanese-text">Discovery の検索補助には Gemini キーまたはサーバー側設定が使われます。未設定時はサーバー設定へフォールバックします。</span>
         </div>
       )}
 

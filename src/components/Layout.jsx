@@ -5,7 +5,12 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
-import { getAnalysisProviderLabel } from '../utils/analysisProvider'
+import {
+  ANALYSIS_PROVIDER_ANTHROPIC,
+  ANALYSIS_PROVIDER_GOOGLE,
+  getAnalysisProviderLabel,
+} from '../utils/analysisProvider'
+import { getApiKeyValidationError } from '../utils/apiKeys'
 import GuideModal from './GuideModal'
 
 const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
@@ -125,6 +130,8 @@ function KeySettingsModal({ onClose }) {
   const { claudeKey, setClaudeKey, geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
   const [localClaudeKey, setLocalClaudeKey] = useState(claudeKey)
   const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
+  const [claudeError, setClaudeError] = useState(null)
+  const [geminiError, setGeminiError] = useState(null)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
   const modalRef = useRef(null)
@@ -166,10 +173,22 @@ function KeySettingsModal({ onClose }) {
   }, [onClose])
 
   const handleSaveClaude = () => {
+    const validationError = getApiKeyValidationError(localClaudeKey, ANALYSIS_PROVIDER_ANTHROPIC)
+    if (validationError) {
+      setClaudeError(validationError)
+      return
+    }
+    setClaudeError(null)
     setClaudeKey(localClaudeKey)
   }
 
   const handleSaveGemini = () => {
+    const validationError = getApiKeyValidationError(localGeminiKey, ANALYSIS_PROVIDER_GOOGLE)
+    if (validationError) {
+      setGeminiError(validationError)
+      return
+    }
+    setGeminiError(null)
     setGeminiKey(localGeminiKey)
   }
 
@@ -218,7 +237,10 @@ function KeySettingsModal({ onClose }) {
             className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
             placeholder="sk-ant-..."
             value={localClaudeKey}
-            onChange={(e) => setLocalClaudeKey(e.target.value)}
+            onChange={(e) => {
+              setLocalClaudeKey(e.target.value)
+              setClaudeError(null)
+            }}
           />
           <button
             onClick={handleSaveClaude}
@@ -226,6 +248,7 @@ function KeySettingsModal({ onClose }) {
           >
             保存
           </button>
+          {claudeError && <p className="text-xs text-error">{claudeError}</p>}
         </div>
 
         <hr className="border-surface-container" />
@@ -233,7 +256,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
-          <p className="text-xs text-on-surface-variant">バナー自動生成（Nano Banana2）に使用します</p>
+          <p className="text-xs text-on-surface-variant">バナー自動生成（Nano Banana2）と Discovery の検索補助に使用します</p>
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
@@ -248,7 +271,10 @@ function KeySettingsModal({ onClose }) {
             className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
             placeholder="AIza..."
             value={localGeminiKey}
-            onChange={(e) => setLocalGeminiKey(e.target.value)}
+            onChange={(e) => {
+              setLocalGeminiKey(e.target.value)
+              setGeminiError(null)
+            }}
           />
           <button
             onClick={handleSaveGemini}
@@ -256,6 +282,7 @@ function KeySettingsModal({ onClose }) {
           >
             保存
           </button>
+          {geminiError && <p className="text-xs text-error">{geminiError}</p>}
         </div>
 
         <hr className="border-surface-container" />

@@ -6,6 +6,7 @@ import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAuth } from '../contexts/AuthContext'
 import { getChartPeriodTags, getDisplayChartGroups, isMeaningfulChartGroup } from '../utils/adsReports'
 import { SkeletonBlock, ErrorBanner } from '../components/ui'
+import { getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 const SPARKLINE_HEIGHTS = ['40%', '65%', '45%', '80%', '55%', '70%']
 
@@ -309,7 +310,7 @@ export default function Dashboard() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState(null)
   const { setupState, reportBundle } = useAdsSetup()
-  const { isAdsAuthenticated, hasClaudeKey, hasGeminiKey } = useAuth()
+  const { isAdsAuthenticated, hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider } = useAuth()
   const navigate = useNavigate()
 
   const fetchHistory = () => {
@@ -390,9 +391,9 @@ export default function Dashboard() {
                 <LiveStatCard
                   icon="key"
                   label="API接続状況"
-                  value={[hasClaudeKey, hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
+                  value={[hasAnalysisKey, hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
                   unit={`/ 3 接続`}
-                  subtitle={`Claude: ${hasClaudeKey ? '設定済' : '未設定'} / Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
+                  subtitle={`分析エンジン: ${getAnalysisProviderLabel(analysisProvider)} / Claude: ${hasClaudeKey ? '設定済' : '未設定'} / Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
                 />
               </>
             )}
