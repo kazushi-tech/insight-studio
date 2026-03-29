@@ -4,7 +4,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useAuth } from '../contexts/AuthContext'
-import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 
 function formatElapsed(ms) {
@@ -154,7 +154,6 @@ export default function Compare() {
       const data = await scan(urlList, {
         apiKey: analysisKey,
         provider: analysisProvider,
-        model: getAnalysisModel(analysisProvider),
       })
 
       const scanError = getScanErrorMessage(data)
