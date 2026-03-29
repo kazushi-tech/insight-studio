@@ -256,7 +256,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
-          <p className="text-xs text-on-surface-variant">LP比較分析・競合発見・クリエイティブレビュー・バナー自動生成に使用します</p>
+          <p className="text-xs text-on-surface-variant">競合発見・クリエイティブレビュー・バナー自動生成に使用します。LP比較分析は server-side 実行です</p>
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
@@ -411,7 +411,7 @@ export default function Layout() {
   }, [])
 
   const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
-  const analysisProviderLabel = getAnalysisProviderLabel(analysisProvider)
+  const aiInsightProviderLabel = getAnalysisProviderLabel(analysisProvider)
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -456,10 +456,17 @@ export default function Layout() {
         <div className="px-6 mb-3">
           <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-white/50">分析エンジン</span>
+              <span className="text-white/50">AI考察エンジン</span>
               <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {analysisProviderLabel}
+                {aiInsightProviderLabel}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-white/50">LP比較分析</span>
+              <span className="flex items-center gap-1 font-bold text-gold">
+                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+                server-side Gemini
               </span>
             </div>
             <div className="flex items-center justify-between">

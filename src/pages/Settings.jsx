@@ -268,7 +268,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定"
-        description="AI考察に使う Claude API キーです。Market Lens 系は現行 backend 互換のため Gemini を使用します。"
+        description="AI考察に使う Claude API キーです。LP比較分析は server-side の Market Lens backend を使い、競合発見・クリエイティブレビュー・バナー自動生成は Gemini を使用します。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
@@ -344,7 +344,7 @@ export default function Settings() {
       <SettingsCard
         icon="image"
         title="画像生成 API設定"
-        description="LP比較分析・競合発見・クリエイティブレビュー・バナー自動生成に使う Gemini API キーです。"
+        description="競合発見・クリエイティブレビュー・バナー自動生成に使う Gemini API キーです。LP比較分析は server-side 実行のため、このキーは送信しません。"
       >
         <div className="space-y-4">
           {hasGeminiKey && !editingGemini ? (

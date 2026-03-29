@@ -66,6 +66,20 @@ function parseExecutionMeta(reportMd) {
   return entries
 }
 
+function getExecutionMetaEntries(executionMeta) {
+  if (!executionMeta) return []
+
+  return [
+    { key: 'route', label: '実行経路', value: 'Market Lens backend' },
+    { key: 'engine', label: '実行エンジン', value: 'server-side Gemini' },
+    ...Object.entries(executionMeta).map(([key, entry]) => ({
+      key,
+      label: entry.label,
+      value: entry.value,
+    })),
+  ]
+}
+
 function stripExecutionMeta(reportMd) {
   if (!reportMd) return reportMd
   return reportMd.replace(/\n*(?:#{1,4}\s*)?(?:実行メタデータ|Execution Metadata)[\s\S]*$/i, '').trimEnd()
@@ -129,7 +143,7 @@ export default function Compare() {
 
       completeRun('compare', data, {
         run_id: data.run_id,
-        providerLabel: 'Gemini',
+        providerLabel: 'Market Lens backend',
       })
     } catch (e) {
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。')
@@ -152,6 +166,7 @@ export default function Compare() {
   const executionMeta = parseExecutionMeta(rawReport)
   const report = executionMeta ? stripExecutionMeta(rawReport) : rawReport
   const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
+  const executionMetaEntries = getExecutionMetaEntries(executionMeta)
   const extracted = result?.extracted ?? null
   const siteCards = [
     { key: 'target', label: '自社 LP', subtitle: 'Control', url: urls.target },
@@ -175,7 +190,7 @@ export default function Compare() {
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">LP比較分析は server-side の Market Lens backend で実行します。ブラウザ保存の API キーはこの画面では送信しません。</span>
+        <span className="japanese-text">LP比較分析は server-side の Market Lens backend で実行します。ブラウザ保存の API キーはこの画面では送信せず、レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
       </div>
 
       {/* URL Inputs */}
@@ -344,8 +359,11 @@ export default function Compare() {
                 <span className="material-symbols-outlined text-secondary text-base">info</span>
                 <span className="text-xs font-bold uppercase tracking-widest">実行メタデータ</span>
               </div>
+              <p className="text-xs text-on-surface-variant mb-4 japanese-text">
+                AI考察の Claude 設定とは別経路です。ここには LP比較分析 backend が返した実行情報を表示しています。
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {Object.entries(executionMeta).map(([key, { label, value }]) => (
+                {executionMetaEntries.map(({ key, label, value }) => (
                   <div key={key} className="rounded-xl px-4 py-3 bg-surface-container">
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>
                     <p className="text-sm font-mono font-bold truncate text-on-surface" title={value}>

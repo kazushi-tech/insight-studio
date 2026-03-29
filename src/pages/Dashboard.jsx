@@ -421,7 +421,7 @@ export default function Dashboard() {
                   label="API接続状況"
                   value={[hasAnalysisKey, hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
                   unit={`/ 3 接続`}
-                  subtitle={`分析エンジン: ${getAnalysisProviderLabel(analysisProvider)} / Claude: ${hasClaudeKey ? '設定済' : '未設定'} / Gemini: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
+                  subtitle={`AI考察: ${getAnalysisProviderLabel(analysisProvider)} / LP比較: server-side Gemini / Claude API: ${hasClaudeKey ? '設定済' : '未設定'} / Gemini API: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
                 />
               </>
             )}
