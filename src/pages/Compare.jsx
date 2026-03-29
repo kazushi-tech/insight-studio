@@ -36,10 +36,49 @@ function getScanErrorMessage(data) {
   return match?.[0] || '分析に失敗しました。しばらく待って再試行してください。'
 }
 
-function MetaBand({ run }) {
+function extractModelFromReport(reportMd) {
+  if (!reportMd) return null
+  const match = reportMd.match(/(?:モデル|Model)\s*[:：]\s*`?([^`\r\n]+)`?/i)
+  return match?.[1]?.trim() || null
+}
+
+function parseExecutionMeta(reportMd) {
+  if (!reportMd) return null
+  const metaMatch = reportMd.match(/(?:#{1,4}\s*)?(?:実行メタデータ|Execution Metadata)[\s\S]*$/i)
+  if (!metaMatch) return null
+
+  const metaBlock = metaMatch[0]
+  const entries = {}
+
+  const patterns = [
+    { key: 'model', label: 'モデル', regex: /(?:モデル|Model)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+    { key: 'tokens', label: 'トークン数', regex: /(?:トークン|Tokens?)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+    { key: 'inputTokens', label: '入力トークン', regex: /(?:入力トークン|Input Tokens?)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+    { key: 'outputTokens', label: '出力トークン', regex: /(?:出力トークン|Output Tokens?)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+    { key: 'status', label: 'ステータス', regex: /(?:ステータス|Status)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+    { key: 'runId', label: 'Run ID', regex: /(?:Run\s*ID|実行ID)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+    { key: 'timestamp', label: 'タイムスタンプ', regex: /(?:タイムスタンプ|Timestamp|日時)\s*[:：]\s*`?([^`\r\n]+)`?/i },
+  ]
+
+  for (const { key, label, regex } of patterns) {
+    const m = metaBlock.match(regex)
+    if (m) entries[key] = { label, value: m[1].trim() }
+  }
+
+  if (Object.keys(entries).length === 0) return null
+  return entries
+}
+
+function stripExecutionMeta(reportMd) {
+  if (!reportMd) return reportMd
+  return reportMd.replace(/\n*(?:#{1,4}\s*)?(?:実行メタデータ|Execution Metadata)[\s\S]*$/i, '').trimEnd()
+}
+
+function MetaBand({ run, modelName }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
+  const isFallback = !!run.meta?.fallbackFrom
 
   return (
     <div className="flex items-center gap-4 text-xs text-on-surface-variant">
@@ -56,7 +95,14 @@ function MetaBand({ run }) {
         <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{result.status}</span>
       )}
       {run.meta?.providerLabel && (
-        <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
+        <span className={`px-3 py-1 rounded-full font-bold ${isFallback ? 'bg-amber-100 text-amber-800' : 'bg-surface-container'}`}>
+          {run.meta.providerLabel}
+        </span>
+      )}
+      {modelName && (
+        <span className={`px-3 py-1 rounded-full font-mono ${isFallback ? 'bg-amber-100 text-amber-800' : 'bg-surface-container'}`}>
+          {modelName}
+        </span>
       )}
       {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
@@ -156,7 +202,10 @@ export default function Compare() {
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
   const hasScores = overallScore != null || Object.values(scores).some((v) => v != null)
-  const report = result?.report_md ?? result?.report ?? result?.analysis ?? ''
+  const rawReport = result?.report_md ?? result?.report ?? result?.analysis ?? ''
+  const executionMeta = parseExecutionMeta(rawReport)
+  const report = executionMeta ? stripExecutionMeta(rawReport) : rawReport
+  const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
   const extracted = result?.extracted ?? null
   const siteCards = [
     { key: 'target', label: '自社 LP', subtitle: 'Control', url: urls.target },
@@ -247,14 +296,20 @@ export default function Compare() {
       )}
 
       {run?.meta?.fallbackFrom && result && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
-          <span className="material-symbols-outlined text-lg">info</span>
-          <span className="japanese-text">{run.meta.fallbackFrom} で失敗したため、{run.meta.providerLabel} で再試行した結果を表示しています。</span>
+        <div className="flex items-start gap-3 bg-amber-100 border-2 border-amber-300 rounded-[0.75rem] px-5 py-4 text-sm text-amber-900">
+          <span className="material-symbols-outlined text-xl mt-0.5">warning</span>
+          <div className="space-y-1">
+            <p className="font-bold japanese-text">フォールバックが発生しました</p>
+            <p className="japanese-text">
+              {run.meta.fallbackFrom} での分析が失敗したため、<strong>{run.meta.providerLabel}</strong> で再試行した結果を表示しています。
+              {modelName && <>（使用モデル: <code className="px-1.5 py-0.5 bg-amber-200 rounded text-xs font-mono">{modelName}</code>）</>}
+            </p>
+          </div>
         </div>
       )}
 
       {/* Meta Band */}
-      {run && run.status !== 'failed' && <MetaBand run={run} />}
+      {run && run.status !== 'failed' && <MetaBand run={run} modelName={modelName} />}
 
       {/* Analysis Targets */}
       {siteCards.length > 0 && (
@@ -360,6 +415,32 @@ export default function Compare() {
               </div>
             )}
           </div>
+
+          {/* Execution Metadata — structured display */}
+          {executionMeta && (
+            <div className="max-w-4xl mx-auto bg-surface-container-lowest rounded-[0.75rem] p-6">
+              <div className="flex items-center gap-2 text-on-surface-variant mb-4">
+                <span className="material-symbols-outlined text-secondary text-base">info</span>
+                <span className="text-xs font-bold uppercase tracking-widest">実行メタデータ</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {Object.entries(executionMeta).map(([key, { label, value }]) => {
+                  const isFallbackModel = key === 'model' && run?.meta?.fallbackFrom
+                  return (
+                    <div
+                      key={key}
+                      className={`rounded-xl px-4 py-3 ${isFallbackModel ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}
+                    >
+                      <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{label}</p>
+                      <p className={`text-sm font-mono font-bold truncate ${isFallbackModel ? 'text-amber-800' : 'text-on-surface'}`} title={value}>
+                        {value}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
