@@ -13,7 +13,7 @@ import {
   getGeneration,
   getGenerationImageUrl,
 } from '../api/marketLens'
-import { getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
@@ -520,11 +520,13 @@ export default function CreativeReview() {
         envelope = await reviewAdLp(payload, {
           apiKey: analysisKey.trim(),
           provider: analysisProvider,
+          model: getAnalysisModel(analysisProvider),
         })
       } else {
         envelope = await reviewBanner(payload, {
           apiKey: analysisKey.trim(),
           provider: analysisProvider,
+          model: getAnalysisModel(analysisProvider),
         })
       }
 
