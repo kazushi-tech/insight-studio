@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { getAnalysisModel } from '../utils/analysisProvider'
 
+const PROVIDER_GOOGLE = 'google'
+
 function formatElapsed(ms) {
   if (!ms) return null
   const sec = Math.round(ms / 1000)
@@ -20,6 +22,18 @@ function getHostname(value) {
   } catch {
     return ''
   }
+}
+
+function getScanErrorMessage(data) {
+  if (!data || data.status !== 'error') return ''
+
+  if (typeof data.error === 'string' && data.error.trim()) {
+    return data.error.trim()
+  }
+
+  const report = typeof data.report_md === 'string' ? data.report_md : ''
+  const match = report.match(/LLM分析エラー:[^\r\n]+/)
+  return match?.[0] || '分析に失敗しました。しばらく待って再試行してください。'
 }
 
 function MetaBand({ run }) {
@@ -41,13 +55,22 @@ function MetaBand({ run }) {
       {result?.status && result.status !== run.status && (
         <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{result.status}</span>
       )}
+      {run.meta?.providerLabel && (
+        <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
+      )}
       {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
   )
 }
 
 export default function Compare() {
-  const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
+  const {
+    analysisKey,
+    analysisProvider,
+    geminiKey,
+    hasAnalysisKey,
+    hasGeminiKey,
+  } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('compare')
@@ -56,23 +79,75 @@ export default function Compare() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
+  const canSubmit = urls.target && (urls.compA || urls.compB) && (hasAnalysisKey || hasGeminiKey) && !loading
 
   const handleScan = useCallback(async () => {
     startRun('compare', { urls })
 
     try {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
-      const data = await scan(urlList, {
-        apiKey: analysisKey,
-        provider: analysisProvider,
-        model: getAnalysisModel(analysisProvider),
-      })
-      completeRun('compare', data, { run_id: data.run_id })
+      const attempts = []
+
+      if (hasAnalysisKey) {
+        attempts.push({
+          providerLabel: 'Claude',
+          options: {
+            apiKey: analysisKey,
+            provider: analysisProvider,
+            model: getAnalysisModel(analysisProvider),
+          },
+        })
+      }
+
+      if (hasGeminiKey) {
+        attempts.push({
+          providerLabel: 'Gemini',
+          options: {
+            apiKey: geminiKey,
+            provider: PROVIDER_GOOGLE,
+          },
+        })
+      }
+
+      let lastError = '分析に失敗しました。しばらく待って再試行してください。'
+
+      for (let index = 0; index < attempts.length; index += 1) {
+        const attempt = attempts[index]
+
+        try {
+          const data = await scan(urlList, attempt.options)
+          const scanError = getScanErrorMessage(data)
+
+          if (!scanError) {
+            completeRun('compare', data, {
+              run_id: data.run_id,
+              providerLabel: attempt.providerLabel,
+              fallbackFrom: index > 0 ? attempts[index - 1]?.providerLabel : '',
+            })
+            return
+          }
+
+          lastError = scanError
+        } catch (e) {
+          lastError = e.message || String(e)
+        }
+      }
+
+      failRun('compare', lastError)
     } catch (e) {
       failRun('compare', e.message)
     }
-  }, [urls, analysisKey, analysisProvider, startRun, completeRun, failRun])
+  }, [
+    urls,
+    analysisKey,
+    analysisProvider,
+    geminiKey,
+    hasAnalysisKey,
+    hasGeminiKey,
+    startRun,
+    completeRun,
+    failRun,
+  ])
 
   const handleRetry = useCallback(() => {
     clearRun('compare')
@@ -106,7 +181,17 @@ export default function Compare() {
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
+          <span className="japanese-text">
+            {hasGeminiKey
+              ? 'Claude API キーが未設定のため、比較分析は Gemini で実行します。'
+              : '比較分析には Claude または Gemini の API キーが必要です。設定画面から設定してください。'}
+          </span>
+        </div>
+      )}
+      {hasAnalysisKey && hasGeminiKey && (
+        <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
+          <span className="material-symbols-outlined text-lg">swap_horiz</span>
+          <span className="japanese-text">比較分析は Claude を優先し、backend 側の provider 差異で失敗した場合のみ Gemini へ自動フォールバックします。</span>
         </div>
       )}
 
@@ -159,6 +244,13 @@ export default function Compare() {
 
       {error && (
         <ErrorBanner message={error} onRetry={handleRetry} />
+      )}
+
+      {run?.meta?.fallbackFrom && result && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+          <span className="material-symbols-outlined text-lg">info</span>
+          <span className="japanese-text">{run.meta.fallbackFrom} で失敗したため、{run.meta.providerLabel} で再試行した結果を表示しています。</span>
+        </div>
       )}
 
       {/* Meta Band */}
