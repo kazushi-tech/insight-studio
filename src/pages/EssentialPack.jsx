@@ -157,7 +157,13 @@ export default function EssentialPack() {
 
   const sections = useMemo(() => splitMarkdownByTopLevelSections(currentReport), [currentReport])
   const useAccordion = sections.length > 1
-  const insightSummary = useMemo(() => extractMarkdownSummary(currentReport), [currentReport])
+  const insightSummary = useMemo(() => {
+    if (!currentReport) return null
+    if (selectedPeriod === 'all' && periodReports.length > 1) return null
+
+    const summarySection = sections.find((section) => section.kind === 'summary')
+    return extractMarkdownSummary(summarySection?.md ?? currentReport)
+  }, [currentReport, periodReports.length, sections, selectedPeriod])
 
   /* ── accordion 初期状態: summary + 最初の report を open ── */
   useEffect(() => {
@@ -340,7 +346,7 @@ export default function EssentialPack() {
           <div className="bg-secondary p-4 rounded-[0.75rem] text-on-secondary">
             <div className="flex items-center gap-2 mb-1">
               <span className="material-symbols-outlined text-sm">description</span>
-              <span className="font-bold text-xs">SUMMARY</span>
+              <span className="font-bold text-xs">サマリー</span>
             </div>
             <p className="text-xs leading-relaxed">{insightSummary}</p>
           </div>

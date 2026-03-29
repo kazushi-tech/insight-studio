@@ -1,10 +1,10 @@
 export const SUPPORTED_CHART_TYPES = ['line', 'bar_horizontal', 'doughnut', 'area']
 
 export const CHART_TYPE_LABELS = {
-  line: 'Line / Trend',
-  bar_horizontal: 'Horizontal Bar',
-  doughnut: 'Doughnut',
-  area: 'Area',
+  line: '推移',
+  bar_horizontal: '横棒比較',
+  doughnut: '構成比',
+  area: 'エリア推移',
 }
 
 const PERCENT_KEYWORDS = /構成|構成比|割合|比率|シェア|%|％|share|ratio/i

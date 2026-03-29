@@ -358,7 +358,7 @@ function BackgroundIndicator() {
 
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
-  const [showGuide, setShowGuide] = useState(false)
+  const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
   const { hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup } = useAdsSetup()
@@ -393,12 +393,6 @@ export default function Layout() {
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [handleMouseMove, handleMouseUp])
-
-  useEffect(() => {
-    if (localStorage.getItem('insight-studio-guide-seen') !== '1') {
-      setShowGuide(true)
-    }
-  }, [])
 
   const startResize = () => {
     isResizing.current = true

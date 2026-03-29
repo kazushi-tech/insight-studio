@@ -117,11 +117,11 @@ function diamondPoints(scaleByAxis) {
 }
 
 export default function PerformanceRadar({ rubricScores }) {
+  const chartId = useId().replace(/:/g, '')
   const computed = computeAxes(rubricScores)
   if (!computed) return null
 
   const { axes, totalScore } = computed
-  const chartId = useId().replace(/:/g, '')
   const fillId = `performance-radar-fill-${chartId}`
   const glowId = `performance-radar-glow-${chartId}`
   const totalBg = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'

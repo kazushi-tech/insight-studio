@@ -161,10 +161,11 @@
     left: 0;
     z-index: 10;
     background-color: var(--color-surface-container-lowest);
+    transition: background-color 150ms ease;
   }
 
   .group:hover .ep-sticky-col {
-    background-color: var(--color-surface-container-low);
+    background-color: color-mix(in srgb, var(--color-surface-container-low) 40%, transparent);
   }
 
   .button-primary {
@@ -375,4 +376,3 @@
   display: inline-block;
   vertical-align: middle;
 }
-

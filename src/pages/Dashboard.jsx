@@ -1,14 +1,23 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Chart from 'chart.js/auto'
 import { getScans } from '../api/marketLens'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAuth } from '../contexts/AuthContext'
-import { getChartPeriodTags, getDisplayChartGroups, isMeaningfulChartGroup } from '../utils/adsReports'
+import { getChartPeriodTags, getDisplayChartGroups } from '../utils/adsReports'
 import { SkeletonBlock, ErrorBanner } from '../components/ui'
 import { getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 const SPARKLINE_HEIGHTS = ['40%', '65%', '45%', '80%', '55%', '70%']
+const EMPTY_LIST = []
+
+function getTrendKeywordCount(keyword, index) {
+  let hash = index * 17
+  for (const char of keyword) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 997
+  }
+  return 5 + (hash % 30)
+}
 
 function LiveStatCard({ icon, label, value, unit, subtitle, change, onClick }) {
   return (
@@ -76,8 +85,8 @@ const COMPACT_PALETTE = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', 
 function CompactChartCard({ group, onClick }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
-  const labels = Array.isArray(group?.labels) ? group.labels : []
-  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const labels = Array.isArray(group?.labels) ? group.labels : EMPTY_LIST
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : EMPTY_LIST
 
   const latestValue = useMemo(() => {
     if (datasets.length === 0) return null
@@ -313,7 +322,7 @@ export default function Dashboard() {
   const { isAdsAuthenticated, hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider } = useAuth()
   const navigate = useNavigate()
 
-  const fetchHistory = () => {
+  const fetchHistory = useCallback(() => {
     setHistoryLoading(true)
     setHistoryError(null)
     getScans()
@@ -325,10 +334,29 @@ export default function Dashboard() {
         setHistoryError(e.message)
       })
       .finally(() => setHistoryLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
-    fetchHistory()
+    let cancelled = false
+
+    getScans()
+      .then((data) => {
+        if (cancelled) return
+        const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
+        setHistory(items)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setHistoryError(e.message)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setHistoryLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const latestScan = history.length > 0 ? history[0] : null
@@ -501,10 +529,10 @@ export default function Dashboard() {
           <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
             <h3 className="text-lg font-bold text-on-surface japanese-text mb-4">トレンドキーワード</h3>
             <div className="flex flex-wrap gap-2">
-              {['LP改善', 'CVR最適化', 'CPA削減', 'ファーストビュー', 'CTA配置', '離脱率', 'A/Bテスト'].map((kw) => (
+              {['LP改善', 'CVR最適化', 'CPA削減', 'ファーストビュー', 'CTA配置', '離脱率', 'A/Bテスト'].map((kw, i) => (
                 <span key={kw} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-surface-container text-on-surface-variant">
                   {kw}
-                  <span className="text-xs text-outline-variant tabular-nums">+{Math.floor(Math.random() * 30 + 5)}</span>
+                  <span className="text-xs text-outline-variant tabular-nums">+{getTrendKeywordCount(kw, i)}</span>
                 </span>
               ))}
             </div>

@@ -44,7 +44,7 @@ function getDatasetLabel(dataset, index) {
     return dataset.label.trim()
   }
 
-  return `Dataset ${index + 1}`
+  return `系列 ${index + 1}`
 }
 
 function isPercentLike(label) {
@@ -112,9 +112,9 @@ function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
     const avg = total / segments.length
     const usePercent = doughnutUsePercent || datasetUsesPercent(dataset, 0)
     const insights = []
-    if (segments[0]) insights.push({ key: 'Max', label: segments[0].label, value: formatValue(segments[0].value, usePercent), tone: 'accent' })
-    if (segments[1]) insights.push({ key: '#2', label: segments[1].label, value: formatValue(segments[1].value, usePercent), tone: 'neutral' })
-    insights.push({ key: 'Avg', label: '平均', value: formatValue(avg, usePercent), tone: 'neutral' })
+    if (segments[0]) insights.push({ key: '最大', label: segments[0].label, value: formatValue(segments[0].value, usePercent), tone: 'accent' })
+    if (segments[1]) insights.push({ key: '第2位', label: segments[1].label, value: formatValue(segments[1].value, usePercent), tone: 'neutral' })
+    insights.push({ key: '平均', label: '平均', value: formatValue(avg, usePercent), tone: 'neutral' })
     return insights.slice(0, 3)
   }
 
@@ -136,7 +136,7 @@ function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
     const includeSeriesLabel = datasets.length > 1
 
     return rankedValues.slice(0, 3).map((v, i) => ({
-      key: `Top ${i + 1}`,
+      key: `上位${i + 1}`,
       label: includeSeriesLabel ? `${v.label} · ${v.seriesLabel}` : v.label,
       value: formatValue(v.value, v.usePercent),
       tone: i === 0 ? 'accent' : 'neutral',
@@ -160,12 +160,12 @@ function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
     const trendTone = delta == null ? 'neutral' : delta >= 0 ? 'positive' : 'negative'
 
     const insights = [
-      { key: 'Latest', label: last.label, value: formatValue(last.value, usePercent), tone: 'accent' },
-      { key: 'Peak', label: peak.label, value: formatValue(peak.value, usePercent), tone: 'neutral' },
+      { key: '最新', label: last.label, value: formatValue(last.value, usePercent), tone: 'accent' },
+      { key: 'ピーク', label: peak.label, value: formatValue(peak.value, usePercent), tone: 'neutral' },
     ]
     if (delta != null) {
       insights.push({
-        key: 'Trend',
+        key: '推移',
         label: '初回比',
         value: `${delta >= 0 ? '+' : ''}${delta.toLocaleString('ja-JP', { maximumFractionDigits: 1 })}%`,
         tone: trendTone,
@@ -190,19 +190,19 @@ function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
 
   return [
     {
-      key: 'Latest',
+      key: '最新',
       label: `${latestWinner.seriesLabel} · ${latestWinner.last.label}`,
       value: formatValue(latestWinner.last.value, latestWinner.usePercent),
       tone: 'accent',
     },
     {
-      key: 'Peak',
+      key: 'ピーク',
       label: `${peakWinner.seriesLabel} · ${peakWinner.peak.label}`,
       value: formatValue(peakWinner.peak.value, peakWinner.usePercent),
       tone: 'neutral',
     },
     {
-      key: 'Series',
+      key: '系列',
       label: `${labels.length}点で比較`,
       value: `${series.length}系列`,
       tone: 'neutral',
@@ -498,7 +498,7 @@ export default function ChartGroupCard({ group }) {
           </h3>
           <div className="flex flex-wrap gap-2">
             <span className="bg-secondary-fixed text-on-secondary-fixed text-[10px] px-2 py-0.5 rounded font-bold uppercase">
-              {CHART_TYPE_LABELS[effectiveChartType] ?? 'Line / Trend'}
+              {CHART_TYPE_LABELS[effectiveChartType] ?? '推移'}
             </span>
             {group?._periodTag && (
               <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
@@ -506,10 +506,10 @@ export default function ChartGroupCard({ group }) {
               </span>
             )}
             <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
-              {datasets.length} Series
+              {datasets.length} 系列
             </span>
             <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
-              {labels.length} Points
+              {labels.length} 点
             </span>
           </div>
         </div>
