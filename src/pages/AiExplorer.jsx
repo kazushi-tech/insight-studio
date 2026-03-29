@@ -11,6 +11,7 @@ import {
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
+import { getAnalysisModel } from '../utils/analysisProvider'
 
 const QUICK_PROMPTS = [
   { icon: 'warning', label: 'リスクを要約して', color: 'text-red-500' },
@@ -154,6 +155,7 @@ export default function AiExplorer() {
       const data = await neonGenerate(
         {
           mode: 'question',
+          ...(getAnalysisModel(analysisProvider) ? { model: getAnalysisModel(analysisProvider) } : {}),
           ...(analysisProvider ? { provider: analysisProvider } : {}),
           temperature: 0.7,
           message: enrichedPrompt,
