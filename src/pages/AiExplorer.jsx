@@ -388,8 +388,8 @@ export default function AiExplorer() {
       <div className="flex-1 overflow-y-auto px-10 pt-3 pb-6 space-y-6" aria-live="polite">
         {messages.length === 0 && (
           <div className="text-center py-20 text-on-surface-variant">
-            <div className="w-16 h-16 bg-gold/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="material-symbols-outlined text-4xl text-gold">auto_awesome</span>
+            <div className="w-16 h-16 bg-primary-container/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-4xl text-primary-container">auto_awesome</span>
             </div>
             <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI 考察エンジン</p>
             <p className="text-sm mt-2">要点パックとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
@@ -399,8 +399,8 @@ export default function AiExplorer() {
         {messages.map((message, index) =>
           isAssistantMessage(message) ? (
             <div key={index} className="flex gap-4">
-              <div className="w-10 h-10 bg-gold/20 rounded-full flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-gold text-lg">auto_awesome</span>
+              <div className="w-10 h-10 bg-primary-container/20 rounded-full flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-primary-container text-lg">auto_awesome</span>
               </div>
               <div>
                 <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
@@ -423,7 +423,7 @@ export default function AiExplorer() {
 
         {loading && (
           <div className="flex gap-4">
-            <div className="w-10 h-10 bg-gold/20 rounded-full flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 bg-primary-container/20 rounded-full flex items-center justify-center shrink-0">
               <LoadingSpinner size="sm" />
             </div>
             <div>
@@ -451,7 +451,7 @@ export default function AiExplorer() {
           <button
             onClick={() => handleSend()}
             disabled={!input.trim() || promptDisabled}
-            className="w-10 h-10 bg-gold text-primary-container rounded-full flex items-center justify-center hover:opacity-88 transition-all disabled:opacity-45 disabled:cursor-not-allowed"
+            className="w-10 h-10 bg-primary-container text-on-primary rounded-full flex items-center justify-center hover:opacity-88 transition-all disabled:opacity-45 disabled:cursor-not-allowed"
             aria-label="送信"
           >
             <span className="material-symbols-outlined">send</span>

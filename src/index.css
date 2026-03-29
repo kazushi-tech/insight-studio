@@ -1,110 +1,111 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface-bright: #f8f9fa;
-  --color-surface-container-high: #e7e8e9;
-  --color-surface-container-highest: #e1e3e4;
-  --color-surface-container-low: #f3f4f5;
+  --color-surface-bright: #fafaf5;
+  --color-surface-container-high: #e8e8e3;
+  --color-surface-container-highest: #e3e3de;
+  --color-surface-container-low: #f4f4ef;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container: #edeeef;
-  --color-surface-dim: #d9dadb;
-  --color-surface-variant: #e1e3e4;
-  --color-surface-tint: #5d5c74;
-  --color-surface: #f8f9fa;
-  --color-background: #f8f9fa;
+  --color-surface-container: #eeeee9;
+  --color-surface-dim: #dadad5;
+  --color-surface-variant: #e3e3de;
+  --color-surface-tint: #2c694e;
+  --color-surface: #fafaf5;
+  --color-background: #fafaf5;
 
-  --color-primary: #00000b;
-  --color-primary-container: #1a1a2e;
-  --color-primary-fixed: #e2e0fc;
-  --color-primary-fixed-dim: #c6c4df;
+  --color-primary: #0f5238;
+  --color-primary-container: #2d6a4f;
+  --color-primary-fixed: #b1f0ce;
+  --color-primary-fixed-dim: #95d4b3;
   --color-on-primary: #ffffff;
-  --color-on-primary-container: #83829b;
-  --color-on-primary-fixed: #1a1a2e;
+  --color-on-primary-container: #a8e7c5;
+  --color-on-primary-fixed: #002114;
 
-  --color-secondary: #795900;
-  --color-secondary-container: #fece65;
-  --color-secondary-fixed: #ffdf9f;
-  --color-secondary-fixed-dim: #eec058;
+  --color-secondary: #456553;
+  --color-secondary-container: #c4e8d1;
+  --color-secondary-fixed: #c7ebd4;
+  --color-secondary-fixed-dim: #abcfb8;
   --color-on-secondary: #ffffff;
-  --color-on-secondary-container: #755700;
+  --color-on-secondary-container: #496a57;
+  --color-on-secondary-fixed: #002113;
+  --color-on-secondary-fixed-variant: #2d4d3c;
 
-  --color-tertiary: #695d3c;
-  --color-tertiary-container: #b9aa83;
-  --color-tertiary-fixed: #f2e1b7;
+  --color-tertiary: #713638;
+  --color-tertiary-container: #8d4d4e;
+  --color-tertiary-fixed: #ffdad9;
   --color-on-tertiary: #ffffff;
+  --color-on-tertiary-fixed: #390b0e;
 
   --color-error: #ba1a1a;
   --color-error-container: #ffdad6;
   --color-on-error: #ffffff;
   --color-on-error-container: #93000a;
 
-  --color-on-surface: #191c1d;
-  --color-on-surface-variant: #47464c;
-  --color-on-background: #191c1d;
+  --color-on-surface: #1a1c19;
+  --color-on-surface-variant: #404943;
+  --color-on-background: #1a1c19;
 
-  --color-outline: #78767d;
-  --color-outline-variant: #c8c5cd;
+  --color-outline: #707973;
+  --color-outline-variant: #bfc9c1;
 
-  --color-inverse-surface: #2e3132;
-  --color-inverse-on-surface: #f0f1f2;
+  --color-inverse-surface: #2f312e;
+  --color-inverse-on-surface: #f1f1ec;
+  --color-inverse-primary: #95d4b3;
 
-  --color-gold: #D4A843;
-  --color-gold-dim: #EEC058;
-
-  --color-tertiary-text: #5c5344;
+  --color-tertiary-text: #713638;
   --color-success: #2e7d32;
   --color-warning: #e65100;
 }
 
 :root[data-theme='dark'] {
-  --color-surface-bright: #262d36;
-  --color-surface-container-high: #2f3742;
-  --color-surface-container-highest: #39414d;
-  --color-surface-container-low: #1b212a;
-  --color-surface-container-lowest: #141920;
-  --color-surface-container: #232a34;
-  --color-surface-dim: #0f141a;
-  --color-surface-variant: #2a313c;
-  --color-surface-tint: #d4a843;
-  --color-surface: #0d1117;
-  --color-background: #0d1117;
+  --color-surface-bright: #1e2a22;
+  --color-surface-container-high: #243029;
+  --color-surface-container-highest: #2e3a33;
+  --color-surface-container-low: #141f18;
+  --color-surface-container-lowest: #0f1512;
+  --color-surface-container: #1a261e;
+  --color-surface-dim: #0b100d;
+  --color-surface-variant: #1e2a22;
+  --color-surface-tint: #95d4b3;
+  --color-surface: #0f1512;
+  --color-background: #0f1512;
 
-  --color-primary: #f3f5f7;
-  --color-primary-container: #17202a;
-  --color-primary-fixed: #242d38;
-  --color-primary-fixed-dim: #394453;
-  --color-on-primary: #0d1117;
-  --color-on-primary-container: #dbe2ea;
-  --color-on-primary-fixed: #f3f5f7;
+  --color-primary: #e8f5ec;
+  --color-primary-container: #1a3a28;
+  --color-primary-fixed: #1e4430;
+  --color-primary-fixed-dim: #2d5a42;
+  --color-on-primary: #0f1512;
+  --color-on-primary-container: #b5e8cc;
+  --color-on-primary-fixed: #e8f5ec;
 
-  --color-secondary: #e2ba63;
-  --color-secondary-container: #5f4813;
-  --color-secondary-fixed: #7c5d12;
-  --color-secondary-fixed-dim: #9a7518;
-  --color-on-secondary: #16110a;
-  --color-on-secondary-container: #f6dfad;
+  --color-secondary: #95d4b3;
+  --color-secondary-container: #2a4a38;
+  --color-secondary-fixed: #2d5040;
+  --color-secondary-fixed-dim: #3d6a56;
+  --color-on-secondary: #0f1512;
+  --color-on-secondary-container: #c4e8d4;
 
-  --color-tertiary: #c9b27b;
-  --color-tertiary-container: #51482e;
-  --color-tertiary-fixed: #66593a;
-  --color-on-tertiary: #11161d;
+  --color-tertiary: #e0a0a1;
+  --color-tertiary-container: #5a2829;
+  --color-tertiary-fixed: #6e3435;
+  --color-on-tertiary: #0f1512;
 
   --color-error: #ff8f8f;
   --color-error-container: #5a2020;
   --color-on-error: #261010;
   --color-on-error-container: #ffd9d9;
 
-  --color-on-surface: #edf2f7;
-  --color-on-surface-variant: #a5b0bf;
-  --color-on-background: #edf2f7;
+  --color-on-surface: #e2ede6;
+  --color-on-surface-variant: #97a89d;
+  --color-on-background: #e2ede6;
 
-  --color-outline: #677180;
-  --color-outline-variant: #39414d;
+  --color-outline: #607068;
+  --color-outline-variant: #2e3f38;
 
-  --color-inverse-surface: #edf2f7;
-  --color-inverse-on-surface: #161b22;
+  --color-inverse-surface: #e2ede6;
+  --color-inverse-on-surface: #141f18;
 
-  --color-tertiary-text: #b0a48e;
+  --color-tertiary-text: #e0a0a1;
   --color-success: #66bb6a;
   --color-warning: #ffb74d;
 }
@@ -173,8 +174,8 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
-    background-color: var(--color-gold);
-    color: var(--color-primary-container);
+    background-color: var(--color-primary-container);
+    color: var(--color-on-primary);
     border-radius: 0.75rem;
     font-weight: 700;
     font-size: 0.875rem;
@@ -361,6 +362,7 @@
 }
 
 .glass-panel {
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   background: var(--color-surface-container-lowest);
   opacity: 0.92;

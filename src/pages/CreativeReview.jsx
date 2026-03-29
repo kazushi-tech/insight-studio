@@ -13,6 +13,7 @@ import {
   getGeneration,
   getGenerationImageUrl,
 } from '../api/marketLens'
+import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
@@ -311,6 +312,9 @@ function MetaBand({ run }) {
         {run.status === 'running' ? 'レビュー中…' : run.status === 'completed' ? 'レビュー完了' : 'エラー'}
       </span>
       {run.meta?.run_id && <span className="text-outline font-mono">run: {run.meta.run_id}</span>}
+      {run.meta?.providerLabel && (
+        <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
+      )}
       {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
   )
@@ -363,6 +367,9 @@ function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta =
 
 export default function CreativeReview() {
   const {
+    analysisKey,
+    analysisProvider,
+    hasAnalysisKey,
     geminiKey,
     hasGeminiKey,
   } = useAuth()
@@ -396,6 +403,7 @@ export default function CreativeReview() {
   const genImageUrl = genRun?.result?.imageUrl || null
   const genId = genRun?.result?.genId || null
   const originalBannerUrl = previewUrl || (assetId ? getCreativeAssetDownloadUrl(assetId) : null)
+  const providerLabel = getAnalysisProviderLabel(analysisProvider)
 
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
@@ -488,7 +496,7 @@ export default function CreativeReview() {
 
   // ─── 2. Review ───
   const handleReview = useCallback(async () => {
-    if (!assetId || !geminiKey.trim()) return
+    if (!assetId || !analysisKey.trim() || !analysisProvider) return
 
     setPhase('reviewing')
     setErrorMessage('')
@@ -510,22 +518,29 @@ export default function CreativeReview() {
       if (lpUrl.trim()) {
         payload.landing_page = { url: lpUrl.trim() }
         envelope = await reviewAdLp(payload, {
-          apiKey: geminiKey.trim(),
+          apiKey: analysisKey.trim(),
+          provider: analysisProvider,
+          model: getAnalysisModel(analysisProvider),
         })
       } else {
         envelope = await reviewBanner(payload, {
-          apiKey: geminiKey.trim(),
+          apiKey: analysisKey.trim(),
+          provider: analysisProvider,
+          model: getAnalysisModel(analysisProvider),
         })
       }
 
       const review = envelope.review || envelope
-      completeRun('creative-review', { review, envelope }, { run_id: envelope.run_id })
+      completeRun('creative-review', { review, envelope }, {
+        run_id: envelope.run_id,
+        providerLabel,
+      })
       setPhase('reviewed')
     } catch (err) {
       failRun('creative-review', err.message)
       goError(`レビュー失敗: ${err.message}`)
     }
-  }, [assetId, geminiKey, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, startRun, completeRun, failRun, clearRun, goError])
+  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, startRun, completeRun, failRun, clearRun, goError])
 
   // ─── 3. Generation ───
   const handleGenerate = useCallback(async () => {
@@ -597,17 +612,25 @@ export default function CreativeReview() {
       {reviewRun && <MetaBand run={reviewRun} />}
 
       {/* ─── API Key Status ─── */}
+      {!hasAnalysisKey && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+            <span className="material-symbols-outlined text-lg">warning</span>
+            <span className="japanese-text">クリエイティブレビューには Claude API キーが必要です。設定画面から設定してください。</span>
+          </div>
+        </div>
+      )}
       {!hasGeminiKey && (
         <div className="space-y-3">
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
             <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">クリエイティブレビューと画像生成には Gemini API キーが必要です。設定画面から設定してください。</span>
+            <span className="japanese-text">改善バナー生成には Gemini API キーが必要です。レビューだけなら Claude で実行できます。</span>
           </div>
         </div>
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">現行の Market Lens backend 互換のため、レビュー系も Gemini キーで実行します。</span>
+        <span className="japanese-text">クリエイティブレビューは Claude で実行し、改善バナー生成だけ Nano Banana2（Gemini）を使用します。</span>
       </div>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
@@ -729,8 +752,8 @@ export default function CreativeReview() {
 
                 <button
                   onClick={handleReview}
-                disabled={!geminiKey.trim() || phase === 'reviewing'}
-                className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={!analysisKey.trim() || phase === 'reviewing'}
+                className="px-6 py-3 bg-primary-container text-on-primary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {phase === 'reviewing' ? (
                   <LoadingSpinner size="sm" label="レビュー中…" />
@@ -742,8 +765,8 @@ export default function CreativeReview() {
                 )}
               </button>
 
-              {!geminiKey.trim() && (
-                <p className="text-xs text-amber-600">Gemini API キーを設定してください。</p>
+              {!analysisKey.trim() && (
+                <p className="text-xs text-amber-600">分析用 Claude API キーを設定してください。</p>
               )}
             </div>
 
@@ -868,7 +891,7 @@ export default function CreativeReview() {
                     <a
                       href={genImageUrl}
                       download={`banner-${genId}.png`}
-                      className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
+                      className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
                     >
                       <span className="material-symbols-outlined text-lg">download</span>
                       ダウンロード
@@ -902,7 +925,7 @@ export default function CreativeReview() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {[
               { icon: 'cloud_upload', title: '画像をアップロード', desc: 'バナー画像（PNG/JPG）を選択' },
-              { icon: 'rate_review', title: 'AIレビュー', desc: 'Geminiがバナーを分析・評価' },
+              { icon: 'rate_review', title: 'AIレビュー', desc: 'Claudeがバナーを分析・評価' },
               { icon: 'auto_fix_high', title: 'バナー生成', desc: 'Nano Banana2で改善版を自動生成' },
               { icon: 'download', title: 'ダウンロード', desc: '生成されたバナーを保存' },
             ].map((step, i) => (

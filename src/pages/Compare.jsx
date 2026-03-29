@@ -3,6 +3,8 @@ import { scan } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+import { useAuth } from '../contexts/AuthContext'
+import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 
 function formatElapsed(ms) {
@@ -66,12 +68,25 @@ function parseExecutionMeta(reportMd) {
   return entries
 }
 
-function getExecutionMetaEntries(executionMeta) {
+function inferExecutionEngine(providerLabel, modelName) {
+  const normalizedProvider = String(providerLabel || '').trim().toLowerCase()
+  const normalizedModel = String(modelName || '').trim().toLowerCase()
+
+  if (normalizedProvider.includes('claude') || normalizedModel.startsWith('claude')) {
+    return 'Claude'
+  }
+  if (normalizedProvider.includes('gemini') || normalizedModel.startsWith('gemini')) {
+    return 'Gemini'
+  }
+  return 'server-side analysis'
+}
+
+function getExecutionMetaEntries(executionMeta, { providerLabel, modelName }) {
   if (!executionMeta) return []
 
   return [
     { key: 'route', label: '実行経路', value: 'Market Lens backend' },
-    { key: 'engine', label: '実行エンジン', value: 'server-side Gemini' },
+    { key: 'engine', label: '実行エンジン', value: inferExecutionEngine(providerLabel, modelName) },
     ...Object.entries(executionMeta).map(([key, entry]) => ({
       key,
       label: entry.label,
@@ -116,6 +131,7 @@ function MetaBand({ run, modelName }) {
 }
 
 export default function Compare() {
+  const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const run = getRun('compare')
@@ -124,15 +140,22 @@ export default function Compare() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const canSubmit = urls.target && (urls.compA || urls.compB) && !loading
+  const providerLabel = getAnalysisProviderLabel(analysisProvider)
+  const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
 
   const handleScan = useCallback(async () => {
+    if (!analysisKey || !analysisProvider) return
+
     startRun('compare', { urls })
 
     try {
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
 
-      const data = await scan(urlList)
+      const data = await scan(urlList, {
+        apiKey: analysisKey,
+        provider: analysisProvider,
+        model: getAnalysisModel(analysisProvider),
+      })
 
       const scanError = getScanErrorMessage(data)
 
@@ -143,13 +166,16 @@ export default function Compare() {
 
       completeRun('compare', data, {
         run_id: data.run_id,
-        providerLabel: 'Market Lens backend',
+        providerLabel,
       })
     } catch (e) {
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。')
     }
   }, [
     urls,
+    analysisKey,
+    analysisProvider,
+    providerLabel,
     startRun,
     completeRun,
     failRun,
@@ -166,7 +192,10 @@ export default function Compare() {
   const executionMeta = parseExecutionMeta(rawReport)
   const report = executionMeta ? stripExecutionMeta(rawReport) : rawReport
   const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
-  const executionMetaEntries = getExecutionMetaEntries(executionMeta)
+  const executionMetaEntries = getExecutionMetaEntries(executionMeta, {
+    providerLabel: run?.meta?.providerLabel,
+    modelName,
+  })
   const extracted = result?.extracted ?? null
   const siteCards = [
     { key: 'target', label: '自社 LP', subtitle: 'Control', url: urls.target },
@@ -190,8 +219,14 @@ export default function Compare() {
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">LP比較分析は server-side の Market Lens backend で実行します。ブラウザ保存の API キーはこの画面では送信せず、レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
+        <span className="japanese-text">LP比較分析は分析用 Claude API キーを Market Lens backend に送信して実行します。Gemini は分析に使わず、レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
       </div>
+      {!hasAnalysisKey && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+          <span className="material-symbols-outlined text-lg">warning</span>
+          <span className="japanese-text">LP比較分析には Claude API キーが必要です。設定画面から設定してください。</span>
+        </div>
+      )}
 
       {/* URL Inputs */}
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
@@ -310,7 +345,7 @@ export default function Compare() {
                 <div className="shrink-0">
                   <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/70">OVERALL STRATEGY SCORE</p>
                   <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-7xl font-black tabular-nums text-gold">{overallScore ?? '--'}</span>
+                    <span className="text-7xl font-black tabular-nums text-primary-container">{overallScore ?? '--'}</span>
                     <span className="text-2xl font-bold text-white/50">/100</span>
                   </div>
                 </div>
@@ -328,8 +363,8 @@ export default function Compare() {
             </div>
           )}
 
-          {/* Report — primary display with gold left accent */}
-          <div className={`max-w-4xl mx-auto bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-gold' : ''}`}>
+          {/* Report — primary display with green left accent */}
+          <div className={`max-w-4xl mx-auto bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-primary-container' : ''}`}>
             <div className="flex items-center gap-2 text-on-surface-variant mb-6">
               <span className="material-symbols-outlined text-secondary">description</span>
               <span className="text-sm font-bold">分析レポート</span>
@@ -360,7 +395,7 @@ export default function Compare() {
                 <span className="text-xs font-bold uppercase tracking-widest">実行メタデータ</span>
               </div>
               <p className="text-xs text-on-surface-variant mb-4 japanese-text">
-                AI考察の Claude 設定とは別経路です。ここには LP比較分析 backend が返した実行情報を表示しています。
+                ここには LP比較分析 backend が返した実行情報を表示しています。
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {executionMetaEntries.map(({ key, label, value }) => (

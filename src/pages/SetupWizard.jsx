@@ -439,7 +439,7 @@ export default function SetupWizard() {
         <button
           onClick={handleNext}
           disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated}
-          className="px-10 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed"
+          className="px-10 py-3 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>

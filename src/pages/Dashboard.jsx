@@ -26,7 +26,7 @@ function LiveStatCard({ icon, label, value, unit, subtitle, change, onClick }) {
       onClick={onClick}
     >
       <div className="flex items-start justify-between">
-        <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center text-gold">
+        <div className="w-10 h-10 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary-container">
           <span className="material-symbols-outlined text-[20px]">{icon}</span>
         </div>
         {change && (
@@ -48,7 +48,7 @@ function LiveStatCard({ icon, label, value, unit, subtitle, change, onClick }) {
         {SPARKLINE_HEIGHTS.map((h, i) => (
           <div
             key={i}
-            className="flex-1 rounded-sm bg-gold"
+            className="flex-1 rounded-sm bg-primary-container"
             style={{ height: h, opacity: 0.25 + (i / SPARKLINE_HEIGHTS.length) * 0.55 }}
           />
         ))}
@@ -421,7 +421,7 @@ export default function Dashboard() {
                   label="API接続状況"
                   value={[hasAnalysisKey, hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
                   unit={`/ 3 接続`}
-                  subtitle={`AI考察: ${getAnalysisProviderLabel(analysisProvider)} / LP比較: server-side Gemini / Claude API: ${hasClaudeKey ? '設定済' : '未設定'} / Gemini API: ${hasGeminiKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
+                  subtitle={`AI考察: ${getAnalysisProviderLabel(analysisProvider)} / 競合LP分析: ${getAnalysisProviderLabel(analysisProvider)} / 画像生成: ${hasGeminiKey ? 'Gemini' : '未設定'} / Claude API: ${hasClaudeKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
                 />
               </>
             )}
@@ -584,7 +584,7 @@ export default function Dashboard() {
                 ].map((item, i) => (
                   <div key={i} className="relative flex gap-3">
                     {/* Dot marker */}
-                    <div className="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-surface-container-lowest border-2 border-gold shrink-0" />
+                    <div className="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-surface-container-lowest border-2 border-primary-container shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-on-surface japanese-text leading-snug">{item.text}</p>
                       <p className="text-xs text-on-surface-variant mt-0.5">{item.sub}</p>

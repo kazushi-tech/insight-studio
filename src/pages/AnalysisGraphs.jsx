@@ -156,7 +156,7 @@ export default function AnalysisGraphs() {
         <button
           onClick={handleRefresh}
           disabled={loading || !isAdsAuthenticated || !setupState}
-          className="px-6 py-3 bg-gold hover:opacity-90 text-primary-container rounded-[0.75rem] font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 active:scale-95"
+          className="px-6 py-3 bg-primary-container hover:opacity-90 text-on-primary rounded-[0.75rem] font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-50 active:scale-95"
         >
           {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">refresh</span>}
           再取得
@@ -165,30 +165,30 @@ export default function AnalysisGraphs() {
 
       {/* Summary Metrics — folder (12) bento style */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/15 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="flex justify-between items-start mb-4">
-            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">date_range</span>
+            <span className="material-symbols-outlined p-2 bg-primary-container/10 text-primary-container rounded-lg">date_range</span>
           </div>
           <p className="text-xs font-medium text-on-surface-variant/70 mb-1">対象期間</p>
           <h3 className="text-2xl font-bold text-on-surface japanese-text truncate">{activeScopeLabel}</h3>
         </section>
-        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/15 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="flex justify-between items-start mb-4">
-            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">bar_chart</span>
+            <span className="material-symbols-outlined p-2 bg-primary-container/10 text-primary-container rounded-lg">bar_chart</span>
           </div>
           <p className="text-xs font-medium text-on-surface-variant/70 mb-1">グラフ数</p>
           <h3 className="text-2xl font-bold text-on-surface tabular-nums">{summary.groupCount}</h3>
         </section>
-        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/15 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="flex justify-between items-start mb-4">
-            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">layers</span>
+            <span className="material-symbols-outlined p-2 bg-primary-container/10 text-primary-container rounded-lg">layers</span>
           </div>
           <p className="text-xs font-medium text-on-surface-variant/70 mb-1">データ系列</p>
           <h3 className="text-2xl font-bold text-on-surface tabular-nums">{summary.datasetCount}</h3>
         </section>
-        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/10 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
+        <section className="bg-surface-container-lowest p-6 rounded-[0.75rem] border border-outline-variant/15 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
           <div className="flex justify-between items-start mb-4">
-            <span className="material-symbols-outlined p-2 bg-gold/10 text-gold rounded-lg">donut_small</span>
+            <span className="material-symbols-outlined p-2 bg-primary-container/10 text-primary-container rounded-lg">donut_small</span>
           </div>
           <p className="text-xs font-medium text-on-surface-variant/70 mb-1">タイプ内訳</p>
           <h3 className="text-lg font-bold text-on-surface">{summary.mixLabel}</h3>
@@ -197,7 +197,7 @@ export default function AnalysisGraphs() {
 
       {/* Filter Bar — folder (12) style with real filter */}
       <div className="bg-surface-container-low p-3 rounded-2xl flex items-center gap-4 overflow-hidden">
-        <div className="flex items-center bg-surface-container-lowest border border-outline-variant/10 rounded-[0.75rem] px-4 py-2 shrink-0">
+        <div className="flex items-center bg-surface-container-lowest border border-outline-variant/15 rounded-[0.75rem] px-4 py-2 shrink-0">
           <span className="material-symbols-outlined text-on-surface-variant mr-2 text-sm">filter_alt</span>
           <label htmlFor="graph-period-filter" className="text-sm font-bold text-on-surface mr-3">期間</label>
           <select
@@ -221,8 +221,8 @@ export default function AnalysisGraphs() {
               onClick={() => setChartTypeFilter(type)}
               className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                 chartTypeFilter === type
-                  ? 'bg-gold text-primary-container'
-                  : 'bg-surface-container-lowest hover:bg-white border border-outline-variant/10 text-on-surface-variant'
+                  ? 'bg-primary-container text-on-primary'
+                  : 'bg-surface-container-lowest hover:bg-white border border-outline-variant/15 text-on-surface-variant'
               }`}
             >
               {CHART_TYPE_FILTER_LABELS[type] ?? type}
@@ -244,7 +244,7 @@ export default function AnalysisGraphs() {
       )}
 
       {loading && chartGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/10 p-8 space-y-6">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/15 p-8 space-y-6">
           <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
             <SkeletonBlock variant="card" />
@@ -254,7 +254,7 @@ export default function AnalysisGraphs() {
       )}
 
       {!loading && !error && filteredGroups.length === 0 && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/10 p-8 text-center space-y-3">
+        <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/15 p-8 text-center space-y-3">
           <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
           <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
           <p className="text-sm text-on-surface-variant japanese-text">

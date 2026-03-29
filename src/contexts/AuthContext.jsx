@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
     () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_CLAUDE) || '')
   )
 
-  // Gemini API key — 画像生成用 / Discovery 検索補助
+  // Gemini API key — 画像生成用
   const [geminiKey, setGeminiKeyState] = useState(
     () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_GEMINI) || '')
   )
@@ -96,7 +96,7 @@ export function AuthProvider({ children }) {
     claudeKey,
     setClaudeKey,
     hasClaudeKey,
-    // Gemini key — 画像生成用 / Discovery 検索補助
+    // Gemini key — 画像生成用
     geminiKey,
     setGeminiKey,
     hasGeminiKey,

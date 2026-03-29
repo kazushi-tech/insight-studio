@@ -70,11 +70,11 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-[-2px] ${
+        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-primary-container focus-visible:outline-offset-[-2px] ${
           isChild ? 'pl-14' : ''
         } ${
           isActive
-            ? 'text-white font-bold border-l-2 border-gold bg-white/8'
+            ? 'text-white font-bold border-l-2 border-primary-container bg-white/8'
             : 'text-white/60 hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent'
         }`
       }
@@ -96,9 +96,9 @@ function SidebarGroup({ item, disabledPaths }) {
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-gold focus-visible:outline-offset-[-2px] ${
+        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-primary-container focus-visible:outline-offset-[-2px] ${
           isGroupActive
-            ? 'text-white border-gold bg-white/8 font-bold'
+            ? 'text-white border-primary-container bg-white/8 font-bold'
             : 'text-white/60 hover:text-white/80 hover:bg-white/5 border-transparent'
         }`}
       >
@@ -222,7 +222,7 @@ function KeySettingsModal({ onClose }) {
         {/* Claude Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（分析用）</label>
-          <p className="text-xs text-on-surface-variant">AI考察に使用します</p>
+          <p className="text-xs text-on-surface-variant">AI考察・LP比較・競合発見・クリエイティブレビューに使用します</p>
           <a
             href="https://console.anthropic.com/settings/keys"
             target="_blank"
@@ -244,7 +244,7 @@ function KeySettingsModal({ onClose }) {
           />
           <button
             onClick={handleSaveClaude}
-            className="px-5 py-2 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
+            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all"
           >
             保存
           </button>
@@ -256,7 +256,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
-          <p className="text-xs text-on-surface-variant">競合発見・クリエイティブレビュー・バナー自動生成に使用します。LP比較分析は server-side 実行です</p>
+          <p className="text-xs text-on-surface-variant">改善バナー生成の Nano Banana2 に使用します。分析系のレビューや比較には使用しません</p>
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
@@ -278,7 +278,7 @@ function KeySettingsModal({ onClose }) {
           />
           <button
             onClick={handleSaveGemini}
-            className="px-5 py-2 bg-gold text-primary-container rounded-xl font-bold text-sm hover:opacity-88 transition-all"
+            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all"
           >
             保存
           </button>
@@ -368,7 +368,7 @@ export default function Layout() {
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('insight-studio-sidebar-width')
-    return saved ? Math.max(200, Math.min(400, Number(saved))) : 260
+    return saved ? Math.max(200, Math.min(400, Number(saved))) : 240
   })
   const isResizing = useRef(false)
 
@@ -425,7 +425,7 @@ export default function Layout() {
       <aside className="fixed left-0 top-0 h-full z-40 py-6 bg-primary-container text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth }}>
         {/* Logo */}
         <div className="px-6 mb-8 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gold/15 rounded-xl flex items-center justify-center text-gold">
+          <div className="w-10 h-10 bg-primary-container/15 rounded-xl flex items-center justify-center text-on-primary-container">
             <span className="material-symbols-outlined text-2xl">insights</span>
           </div>
           <div>
@@ -463,10 +463,10 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">LP比較分析</span>
-              <span className="flex items-center gap-1 font-bold text-gold">
-                <span className="w-1.5 h-1.5 rounded-full bg-gold" />
-                server-side Gemini
+              <span className="text-white/50">競合LP分析</span>
+              <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                {aiInsightProviderLabel}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -534,7 +534,7 @@ export default function Layout() {
       {/* Main Content */}
       <main id="main-content" className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
         {/* Top Header */}
-        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface/90 backdrop-blur-xl border-b border-outline-variant/10">
+        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface/90 backdrop-blur-md border-b border-outline-variant/10">
           <div className="flex-1" />
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">

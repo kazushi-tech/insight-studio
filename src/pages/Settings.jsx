@@ -254,7 +254,7 @@ export default function Settings() {
             />
             <button
               onClick={handleProfileSave}
-              className="px-6 py-3 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+              className="px-6 py-3 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
             >
               保存
             </button>
@@ -268,7 +268,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定"
-        description="AI考察に使う Claude API キーです。LP比較分析は server-side の Market Lens backend を使い、競合発見・クリエイティブレビュー・バナー自動生成は Gemini を使用します。"
+        description="AI考察・LP比較・競合発見・クリエイティブレビューに使う Claude API キーです。分析系では Gemini を使用しません。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
@@ -283,7 +283,7 @@ export default function Settings() {
                     setEditingClaude(true)
                     setClaudeError(null)
                   }}
-                  className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
                 >
                   変更
                 </button>
@@ -308,7 +308,7 @@ export default function Settings() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleClaudeSave}
-                  className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
                 >
                   保存
                 </button>
@@ -344,7 +344,7 @@ export default function Settings() {
       <SettingsCard
         icon="image"
         title="画像生成 API設定"
-        description="競合発見・クリエイティブレビュー・バナー自動生成に使う Gemini API キーです。LP比較分析は server-side 実行のため、このキーは送信しません。"
+        description="改善バナー生成に使う Gemini API キーです。分析系の比較・発見・レビューにはこのキーを送信しません。"
       >
         <div className="space-y-4">
           {hasGeminiKey && !editingGemini ? (
@@ -359,7 +359,7 @@ export default function Settings() {
                     setEditingGemini(true)
                     setGeminiError(null)
                   }}
-                  className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
                 >
                   変更
                 </button>
@@ -384,7 +384,7 @@ export default function Settings() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleGeminiSave}
-                  className="px-5 py-2.5 bg-gold text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
                 >
                   保存
                 </button>
@@ -554,7 +554,7 @@ export default function Settings() {
               message: saved ? '設定を保存しました。' : '変更はありません。',
             })
           }}
-          className="px-6 py-3 bg-gradient-to-r from-gold to-amber-500 text-primary-container rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
+          className="px-6 py-3 bg-gradient-to-r from-primary-container to-emerald-600 text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
         >
           保存する
         </button>

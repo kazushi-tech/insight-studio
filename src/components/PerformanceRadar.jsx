@@ -154,7 +154,7 @@ export default function PerformanceRadar({ rubricScores }) {
         <div className="relative mx-auto w-full max-w-[28rem] aspect-square">
           <div
             className="absolute inset-12 rounded-full blur-3xl pointer-events-none"
-            style={{ background: 'radial-gradient(circle, rgba(212, 168, 67, 0.18) 0%, rgba(212, 168, 67, 0) 72%)' }}
+            style={{ background: 'radial-gradient(circle, rgba(45, 106, 79, 0.18) 0%, rgba(45, 106, 79, 0) 72%)' }}
           />
           <svg
             viewBox={`0 0 ${RADAR_GEOMETRY.size} ${RADAR_GEOMETRY.size}`}
@@ -164,10 +164,10 @@ export default function PerformanceRadar({ rubricScores }) {
             <defs>
               <linearGradient id={fillId} x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="var(--color-secondary-fixed-dim)" stopOpacity="0.48" />
-                <stop offset="100%" stopColor="var(--color-gold)" stopOpacity="0.16" />
+                <stop offset="100%" stopColor="var(--color-primary-container)" stopOpacity="0.16" />
               </linearGradient>
               <filter id={glowId} x="-40%" y="-40%" width="180%" height="180%">
-                <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="var(--color-gold)" floodOpacity="0.18" />
+                <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="var(--color-primary-container)" floodOpacity="0.18" />
               </filter>
             </defs>
 
@@ -208,7 +208,7 @@ export default function PerformanceRadar({ rubricScores }) {
                     y1={RADAR_GEOMETRY.center}
                     x2={currentPoint.x}
                     y2={currentPoint.y}
-                    stroke="var(--color-gold)"
+                    stroke="var(--color-primary-container)"
                     strokeWidth="2"
                     opacity="0.38"
                   />
@@ -227,7 +227,7 @@ export default function PerformanceRadar({ rubricScores }) {
             <polygon
               points={radarPolygonPoints}
               fill={`url(#${fillId})`}
-              stroke="var(--color-gold)"
+              stroke="var(--color-primary-container)"
               strokeWidth="2.75"
               strokeLinejoin="round"
               filter={`url(#${glowId})`}
@@ -243,14 +243,14 @@ export default function PerformanceRadar({ rubricScores }) {
                     cy={point.y}
                     r="5.5"
                     fill="var(--color-surface-container-lowest)"
-                    stroke="var(--color-gold)"
+                    stroke="var(--color-primary-container)"
                     strokeWidth="2.5"
                   />
                   <circle
                     cx={point.x}
                     cy={point.y}
                     r="2.4"
-                    fill="var(--color-gold)"
+                    fill="var(--color-primary-container)"
                   />
                 </g>
               )

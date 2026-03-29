@@ -59,7 +59,7 @@ function SectionContent({ section, showSummaryHeader = true }) {
     <div className={isSummary ? 'bg-surface-container-lowest p-6' : ''}>
       {isSummary && (
         <div className="flex items-center gap-3 mb-5">
-          <span className="w-9 h-9 rounded-lg bg-gold/10 text-gold flex items-center justify-center">
+          <span className="w-9 h-9 rounded-lg bg-primary-container/10 text-primary-container flex items-center justify-center">
             <span className="material-symbols-outlined text-lg">summarize</span>
           </span>
           <div>
@@ -79,9 +79,9 @@ function ContextualInsightModule({ insightText }) {
 
   return (
     <div className="grid grid-cols-3 gap-8 mt-8">
-      <div className="col-span-2 bg-surface-container-low p-8 rounded-[0.75rem] border-l-4 border-gold">
+      <div className="col-span-2 bg-surface-container-low p-8 rounded-[0.75rem] border-l-4 border-primary-container">
         <div className="flex gap-4">
-          <span className="material-symbols-outlined text-gold text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
+          <span className="material-symbols-outlined text-primary-container text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>lightbulb</span>
           <div>
             <h3 className="text-lg font-bold text-on-surface mb-2 japanese-text">AI自動考察</h3>
             <p className="text-sm text-on-surface-variant japanese-text leading-7">{insightText}</p>
@@ -247,7 +247,7 @@ export default function EssentialPack() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] overflow-x-hidden">
       {/* ── Sticky Left Nav ── */}
-      <div className="w-[260px] min-w-[260px] bg-surface-container-lowest border-r border-outline-variant/10 p-5 space-y-5 sticky top-16 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
+      <div className="w-[240px] min-w-[240px] bg-surface-container-lowest border-r border-outline-variant/10 p-5 space-y-5 sticky top-16 self-start max-h-[calc(100vh-4rem)] overflow-y-auto">
         {/* 期間プルダウン */}
         {periodReports.length > 1 && (
           <div>
@@ -422,7 +422,7 @@ export default function EssentialPack() {
                     >
                       <span className="flex items-center gap-3">
                         <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          openSections[section.id] ? 'bg-gold/10 text-gold' : 'bg-surface-container text-on-surface-variant'
+                          openSections[section.id] ? 'bg-primary-container/10 text-primary-container' : 'bg-surface-container text-on-surface-variant'
                         }`}>
                           <span className="material-symbols-outlined text-lg">article</span>
                         </span>

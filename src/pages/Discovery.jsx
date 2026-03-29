@@ -4,6 +4,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 function formatElapsed(ms) {
   if (!ms) return null
@@ -36,6 +37,9 @@ function MetaBand({ run }) {
       )}
       {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
       {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
+      {run.meta?.providerLabel && (
+        <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{run.meta.providerLabel}</span>
+      )}
       {fallbackCount > 0 && <span>{fallbackCount} 件補完</span>}
       {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
@@ -85,8 +89,9 @@ function PartialSuccessBanner({ fetchedSites }) {
 
 export default function Discovery() {
   const {
-    geminiKey,
-    hasGeminiKey,
+    analysisKey,
+    analysisProvider,
+    hasAnalysisKey,
   } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
@@ -97,21 +102,28 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
   const discoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
-  const canSubmit = url && hasGeminiKey && !loading
+  const providerLabel = getAnalysisProviderLabel(analysisProvider)
+  const canSubmit = url && hasAnalysisKey && !loading
 
   const handleDiscover = useCallback(async () => {
+    if (!analysisKey || !analysisProvider) return
+
     startRun('discovery', { url })
 
     try {
       const data = await discoveryAnalyze(url, {
-        apiKey: geminiKey,
-        searchApiKey: geminiKey,
+        apiKey: analysisKey,
+        provider: analysisProvider,
+        model: getAnalysisModel(analysisProvider),
       })
-      completeRun('discovery', data, { search_id: data.search_id })
+      completeRun('discovery', data, {
+        search_id: data.search_id,
+        providerLabel,
+      })
     } catch (e) {
       failRun('discovery', e.message)
     }
-  }, [url, geminiKey, startRun, completeRun, failRun])
+  }, [url, analysisKey, analysisProvider, providerLabel, startRun, completeRun, failRun])
 
   const handleRetry = useCallback(() => {
     clearRun('discovery')
@@ -124,15 +136,15 @@ export default function Discovery() {
         <p className="text-secondary max-w-2xl mt-2">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
-      {!hasGeminiKey && (
+      {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">競合発見には Gemini API キーが必要です。設定画面から設定してください。</span>
+          <span className="japanese-text">競合発見には Claude API キーが必要です。設定画面から設定してください。</span>
         </div>
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">travel_explore</span>
-        <span className="japanese-text">現行の Market Lens backend 互換のため、競合発見は Gemini キーで実行します。</span>
+        <span className="japanese-text">競合発見の分析は Claude で実行します。Gemini は分析には使わず、必要な検索設定はサーバー側で処理します。</span>
       </div>
 
       {/* URL Input */}

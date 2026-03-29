@@ -17,7 +17,7 @@ export default function KpiGrid({ kpis }) {
         <div
           key={`${kpi.label}-${index}`}
           className={`rounded-[0.75rem] p-5 ghost-border ${
-            index === 0 ? 'border-l-4 border-gold bg-gold/8' : 'bg-surface-container-lowest'
+            index === 0 ? 'border-l-4 border-primary-container bg-primary-container/8' : 'bg-surface-container-lowest'
           }`}
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant truncate">{kpi.label}</p>

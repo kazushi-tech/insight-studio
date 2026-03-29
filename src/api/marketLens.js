@@ -30,14 +30,25 @@ function extractStage(detail) {
 
 function buildErrorMessage(path, status, body) {
   const detail = body?.detail
+  const normalizedDetail = typeof detail === 'string' ? detail.toLowerCase() : ''
 
   // Discovery stage-aware error mapping
   if (path.includes('/discovery')) {
     const stage = extractStage(detail)
     const stageLabel = stage ? DISCOVERY_STAGE_LABELS[stage] || stage : null
 
-    if (status === 400) return detail || 'Gemini API キーが必要です。設定画面から入力してください。'
-    if (status === 401) return detail || 'Gemini API キーが無効です。正しいキーを入力してください。'
+    if (status === 400) {
+      if (normalizedDetail.includes('gemini api key is required for discovery search')) {
+        return '競合発見の検索設定が不足しています。サーバー側の Discovery 検索キー設定を確認してください。'
+      }
+      return detail || '競合発見の実行条件が不足しています。分析用 Claude API キーとサーバー側設定を確認してください。'
+    }
+    if (status === 401) {
+      if (normalizedDetail.includes('api key')) {
+        return '競合発見で使用する API キーが無効です。分析用 Claude API キー、またはサーバー側の検索キー設定を確認してください。'
+      }
+      return detail || '競合発見の認証に失敗しました。API キー設定を確認してください。'
+    }
     if (status === 404) return detail || '競合サイトが見つかりませんでした。別のURLで試してください。'
     if (status === 422) return detail || 'URLの形式が正しくありません。'
     if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
