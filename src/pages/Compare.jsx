@@ -378,9 +378,7 @@ export default function Compare() {
               </div>
             )}
             {report ? (
-              <div className="pl-9 text-on-surface-variant text-sm leading-relaxed">
-                <MarkdownRenderer content={report} />
-              </div>
+              <MarkdownRenderer content={report} variant="discovery" />
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
                 <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>

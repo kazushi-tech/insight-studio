@@ -73,6 +73,48 @@ const SIZE_PRESETS = {
   },
 }
 
+function splitMarkdownSections(markdown) {
+  const lines = markdown.split('\n')
+  const sections = []
+  let currentHeading = null
+  let currentBody = []
+  let inCodeBlock = false
+
+  for (const line of lines) {
+    if (line.trimStart().startsWith('```')) {
+      inCodeBlock = !inCodeBlock
+    }
+
+    if (!inCodeBlock && /^## /.test(line)) {
+      if (currentHeading !== null || currentBody.length > 0) {
+        sections.push({
+          heading: currentHeading,
+          body: currentBody.join('\n').trim(),
+        })
+      }
+      currentHeading = line.replace(/^## /, '').trim()
+      currentBody = []
+    } else {
+      currentBody.push(line)
+    }
+  }
+
+  if (currentHeading !== null || currentBody.length > 0) {
+    sections.push({
+      heading: currentHeading,
+      body: currentBody.join('\n').trim(),
+    })
+  }
+
+  return sections
+}
+
+function isRecommendationSection(heading) {
+  if (!heading) return false
+  const text = heading.toLowerCase()
+  return text.includes('推奨') || text.includes('改善') || text.includes('提案') || text.includes('recommend')
+}
+
 function getSectionIcon(headingText) {
   const text = headingText.toLowerCase()
   if (text.includes('市場') || text.includes('業界') || text.includes('概要')) return 'insights'
@@ -308,11 +350,55 @@ export default function MarkdownRenderer({ content, className = '', size = 'norm
   if (!markdown) return null
 
   if (isDiscovery) {
+    const sections = splitMarkdownSections(markdown)
+    const sectionBodyComponents = { ...components }
+    sectionBodyComponents.h2 = () => null
+
     return (
       <div className={`discovery-report space-y-8 ${className}`}>
-        <Markdown remarkPlugins={[remarkGfm]} components={components}>
-          {markdown}
-        </Markdown>
+        {sections.map((section, i) => {
+          if (section.heading === null) {
+            if (!section.body) return null
+            return (
+              <div key={`preamble-${i}`}>
+                <Markdown remarkPlugins={[remarkGfm]} components={components}>
+                  {section.body}
+                </Markdown>
+              </div>
+            )
+          }
+
+          const icon = getSectionIcon(section.heading)
+          const isRec = isRecommendationSection(section.heading)
+
+          return (
+            <section
+              key={`section-${i}`}
+              className="section-card bg-surface-container-lowest rounded-2xl p-8 border-l-[4px] border-primary"
+            >
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
+                  <span className="material-symbols-outlined text-3xl">{icon}</span>
+                </div>
+                <h3 className="text-2xl font-bold text-primary japanese-text">{section.heading}</h3>
+              </div>
+
+              {isRec ? (
+                <div className="bg-primary/5 p-8 rounded-2xl">
+                  <Markdown remarkPlugins={[remarkGfm]} components={sectionBodyComponents}>
+                    {section.body}
+                  </Markdown>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <Markdown remarkPlugins={[remarkGfm]} components={sectionBodyComponents}>
+                    {section.body}
+                  </Markdown>
+                </div>
+              )}
+            </section>
+          )
+        })}
       </div>
     )
   }

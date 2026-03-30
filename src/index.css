@@ -412,6 +412,20 @@
     background-color: var(--color-surface);
   }
 
+  .section-card {
+    transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-right: 1px solid transparent;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+  }
+  .section-card:hover {
+    box-shadow: 0 12px 32px -12px rgba(26, 28, 25, 0.08);
+    border-right-color: rgba(69, 101, 83, 0.1);
+    border-top-color: rgba(69, 101, 83, 0.1);
+    border-bottom-color: rgba(69, 101, 83, 0.1);
+  }
+
   .skeleton-sweep {
     background: linear-gradient(
       90deg,

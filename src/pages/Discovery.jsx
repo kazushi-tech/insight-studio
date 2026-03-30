@@ -197,13 +197,13 @@ export default function Discovery() {
 
       {/* Report */}
       {result?.report_md && (
-        <div className="space-y-8">
+        <>
           <div className="flex items-center gap-2 text-on-surface-variant mb-2">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>
           </div>
           <MarkdownRenderer content={result.report_md} variant="discovery" />
-        </div>
+        </>
       )}
 
       {/* Discovered LPs */}
