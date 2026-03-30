@@ -80,8 +80,8 @@ function buildErrorMessage(path, status, body) {
     if (status === 422) return cleanedDetail || 'URLの形式が正しくありません。'
     if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
     if (status === 500 && stageLabel) return `${stageLabel}でサーバーエラーが発生しました。しばらく待って再試行してください。`
-    if (status === 500 && normalizedDetail === 'internal server error') {
-      return '競合発見の比較分析で内部エラーが発生しました。Claude API キーやモデル権限、または Discovery backend の未処理例外を確認してください。'
+    if (status === 500 && normalizedDetail.startsWith('internal server error')) {
+      return `Discovery バックエンドで内部エラーが発生しました。サーバーログを確認してください。(${cleanedDetail})`
     }
     if (status === 500) return cleanedDetail || 'バックエンドでサーバーエラーが発生しました。対象サイトの構造が複雑か、一時的な負荷の可能性があります。しばらく待って再試行してください。'
     if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${stripRawProviderPrefixes(cleanedDetail)}`
