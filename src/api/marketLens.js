@@ -38,6 +38,16 @@ function stripStageMarker(detail) {
     .trim()
 }
 
+/** Strip raw provider error prefixes that should never reach the user. */
+function stripRawProviderPrefixes(msg) {
+  if (typeof msg !== 'string') return msg
+  return msg
+    .replace(/^Gemini Search error:\s*/i, '')
+    .replace(/^GeminiSearchError:\s*/i, '')
+    .replace(/^Anthropic error:\s*/i, '')
+    .trim()
+}
+
 function buildErrorMessage(path, status, body) {
   const detail = body?.detail
   const cleanedDetail = stripStageMarker(detail)
@@ -68,10 +78,10 @@ function buildErrorMessage(path, status, body) {
       return '競合発見の比較分析で内部エラーが発生しました。Claude API キーやモデル権限、または Discovery backend の未処理例外を確認してください。'
     }
     if (status === 500) return cleanedDetail || 'バックエンドでサーバーエラーが発生しました。対象サイトの構造が複雑か、一時的な負荷の可能性があります。しばらく待って再試行してください。'
-    if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${cleanedDetail}`
-    if (status === 502) return cleanedDetail || '競合分析パイプラインでエラーが発生しました。'
+    if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${stripRawProviderPrefixes(cleanedDetail)}`
+    if (status === 502) return stripRawProviderPrefixes(cleanedDetail) || '競合分析パイプラインでエラーが発生しました。'
     if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
-    if (cleanedDetail) return cleanedDetail
+    if (cleanedDetail) return stripRawProviderPrefixes(cleanedDetail)
     return `Discovery API error: ${status}`
   }
 
