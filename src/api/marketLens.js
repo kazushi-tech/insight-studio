@@ -8,6 +8,7 @@ const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
   ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
   : 'https://market-lens-ai.onrender.com/api'
 const LONG_ANALYSIS_TIMEOUT = 180000
+let _directBackendReady = false
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
 const STORAGE_KEY_MARKET_LENS_PROFILE_ID = 'insight-studio-market-lens-profile-id'
@@ -193,9 +194,34 @@ async function buildRequestHeaders(customHeaders = {}) {
  * JSON リクエスト用の共通 fetch wrapper。
  * Content-Type: application/json を自動付与する。
  */
+/**
+ * Wake up the Render backend (cold start) and verify CORS works.
+ * Caches success so subsequent calls skip the check.
+ */
+async function ensureDirectBackend() {
+  if (_directBackendReady) return true
+  try {
+    const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(60000),
+    })
+    if (res.ok) {
+      _directBackendReady = true
+      return true
+    }
+  } catch {
+    // CORS failure or network error
+  }
+  return false
+}
+
 async function requestJson(path, options = {}) {
   const { timeout = 30000, direct = false, ...restOptions } = options
-  const baseUrl = direct ? DIRECT_BACKEND_BASE : BASE
+  let baseUrl = BASE
+  if (direct) {
+    const canDirect = await ensureDirectBackend()
+    baseUrl = canDirect ? DIRECT_BACKEND_BASE : BASE
+  }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
