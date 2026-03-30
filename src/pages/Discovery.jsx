@@ -136,8 +136,8 @@ export default function Discovery() {
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div>
-        <h2 className="text-[2.75rem] font-extrabold text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
-        <p className="text-secondary max-w-2xl mt-2">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
+        <h2 className="display-lg text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
+        <p className="body-lg text-on-surface-variant max-w-2xl mt-4">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
 
       {!hasAnalysisKey && (
@@ -208,16 +208,18 @@ export default function Discovery() {
 
       {/* Discovered LPs */}
       {discoveries.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold text-on-surface flex items-center gap-3 japanese-text">
-              <span className="material-symbols-outlined text-secondary">verified</span>
-              発見されたLP一覧
-              <span className="inline-flex items-center justify-center px-3 py-0.5 bg-secondary/10 text-secondary text-sm font-bold rounded-full">{discoveries.length}</span>
-            </h3>
+        <div className="space-y-10">
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <h3 className="headline-lg text-on-surface flex items-center gap-3 japanese-text">
+                <span className="material-symbols-outlined text-primary-container">verified</span>
+                発見されたLP一覧
+              </h3>
+            </div>
+            <span className="inline-flex items-center justify-center px-4 py-2 bg-primary-container/10 text-primary-container label-md rounded-full">{discoveries.length}件</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-3 gap-10">
             {discoveries.map((item, i) => {
               const isFallback = item.analysis_source === 'search_result_fallback'
               const isFailed = item.analysis_source === 'failed' || (item.error && !isFallback)
@@ -225,8 +227,10 @@ export default function Discovery() {
               return (
                 <div
                   key={item.url ?? i}
-                  className={`bg-surface-container-lowest rounded-[0.75rem] overflow-hidden hover:shadow-xl transition-shadow ${
-                    isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
+                  className={`surface-elevated rounded-xl overflow-hidden elevation-hover ${
+                    isFailed ? 'opacity-60 ghost-border-thin border-red-200/50' :
+                    isFallback ? 'ghost-border-thin border-amber-200/50' :
+                    'ghost-border-thin'
                   }`}
                 >
                   <div className="relative aspect-[4/3] overflow-hidden rounded-t-[0.75rem] bg-surface-container">

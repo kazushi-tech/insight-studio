@@ -206,15 +206,17 @@ export default function Compare() {
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-[2.75rem] font-extrabold text-on-surface tracking-tight japanese-text">LP比較・競合分析</h2>
-          <p className="text-secondary max-w-2xl mt-2">自社と競合のLPを並列比較し、AIが戦略的な改善点を提示します</p>
+      <div className="grid grid-cols-12 gap-12 items-end">
+        <div className="col-span-9">
+          <h2 className="display-lg text-on-surface tracking-tight japanese-text">LP比較・競合分析</h2>
+          <p className="body-lg text-on-surface-variant max-w-2xl mt-6">自社と競合のLPを並列比較し、AIが戦略的な改善点を提示します</p>
         </div>
-        <span className="inline-flex items-center gap-2 px-4 py-2 bg-surface-container rounded-full text-sm font-bold text-secondary">
-          <span className="material-symbols-outlined text-sm">auto_awesome</span>
-          AI POWERED
-        </span>
+        <div className="col-span-3 flex justify-end">
+          <span className="inline-flex items-center gap-2 px-5 py-3 surface-section rounded-full label-md text-primary-container">
+            <span className="material-symbols-outlined text-base">auto_awesome</span>
+            AI POWERED
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
@@ -340,7 +342,7 @@ export default function Compare() {
         <div className="space-y-8">
           {/* Score Header — full-width prominent score display */}
           {hasScores && (
-            <div className="bg-gradient-to-br from-primary-container to-[#2a2a4e] p-8 rounded-[0.75rem] text-white">
+            <div className="bg-gradient-to-br from-primary-container to-primary p-10 rounded-xl text-white elevation-hover">
               <div className="flex items-center gap-10">
                 <div className="shrink-0">
                   <p className="text-xs uppercase tracking-[0.2em] font-bold text-white/70">OVERALL STRATEGY SCORE</p>

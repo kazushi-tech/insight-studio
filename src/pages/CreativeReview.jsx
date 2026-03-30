@@ -592,7 +592,7 @@ export default function CreativeReview() {
             <span className="material-symbols-outlined text-sm">chevron_right</span>
             <span className="text-secondary font-bold">クリエイティブ・レビュー</span>
           </div>
-          <h2 className="text-3xl font-bold text-on-surface tracking-tight">Creative Review & Banner Generation</h2>
+          <h2 className="display-md text-on-surface tracking-tight">Creative Review & Banner Generation</h2>
           <p className="text-on-surface-variant text-sm mt-1">バナー画像をアップロード → AIレビュー → 改善バナー自動生成</p>
         </div>
       </div>
@@ -646,7 +646,7 @@ export default function CreativeReview() {
             onDrop={onDrop}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
-            className="border-2 border-dashed border-outline-variant rounded-[0.75rem] p-10 flex flex-col items-center justify-center cursor-pointer hover:border-secondary hover:bg-secondary/5 transition-all"
+            className="ghost-border-thick border-dashed rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-secondary hover:bg-secondary/5 transition-all"
           >
             <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-3">cloud_upload</span>
             <p className="text-sm text-on-surface-variant japanese-text">クリックまたはドラッグ＆ドロップで画像を選択</p>
