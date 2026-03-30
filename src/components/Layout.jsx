@@ -12,6 +12,8 @@ import {
 } from '../utils/analysisProvider'
 import { getApiKeyValidationError } from '../utils/apiKeys'
 import GuideModal from './GuideModal'
+import CaseSelector from './CaseSelector'
+import CaseAuthModal from './CaseAuthModal'
 
 const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
 
@@ -359,12 +361,33 @@ function BackgroundIndicator() {
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [selectedCase, setSelectedCase] = useState(null)
   const { hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
-  const { isSetupComplete, setupState, resetSetup } = useAdsSetup()
+  const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
   const navigate = useNavigate()
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
+
+  const handleCaseSelect = useCallback((caseInfo) => {
+    if (caseInfo === null) {
+      // Clear case selection
+      clearCase()
+      return
+    }
+    setSelectedCase(caseInfo)
+    setShowAuthModal(true)
+  }, [clearCase])
+
+  const handleCaseAuthenticate = useCallback(async (caseId, password) => {
+    await authenticateCase(caseId, password)
+  }, [authenticateCase])
+
+  const handleAuthModalClose = useCallback(() => {
+    setShowAuthModal(false)
+    setSelectedCase(null)
+  }, [])
 
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const saved = localStorage.getItem('insight-studio-sidebar-width')
@@ -535,7 +558,9 @@ export default function Layout() {
       <main id="main-content" className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
         {/* Top Header */}
         <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface/90 backdrop-blur-md border-b border-outline-variant/10">
-          <div className="flex-1" />
+          <div className="flex-1">
+            <CaseSelector onCaseSelect={handleCaseSelect} />
+          </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
               {/* API Key Settings */}
@@ -589,6 +614,14 @@ export default function Layout() {
 
       {/* Key Settings Modal */}
       {showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
+      {/* Case Auth Modal */}
+      {showAuthModal && selectedCase && (
+        <CaseAuthModal
+          caseInfo={selectedCase}
+          onClose={handleAuthModalClose}
+          onAuthenticate={handleCaseAuthenticate}
+        />
+      )}
       {/* Guide Modal */}
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
     </div>

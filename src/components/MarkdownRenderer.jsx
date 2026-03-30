@@ -73,9 +73,19 @@ const SIZE_PRESETS = {
   },
 }
 
+function getSectionIcon(headingText) {
+  const text = headingText.toLowerCase()
+  if (text.includes('市場') || text.includes('業界') || text.includes('概要')) return 'insights'
+  if (text.includes('競合') || text.includes('動向')) return 'group'
+  if (text.includes('cta') || text.includes('効果') || text.includes('分析')) return 'touch_app'
+  if (text.includes('推奨') || text.includes('改善') || text.includes('推奨事項')) return 'recommend'
+  return 'article'
+}
+
 function getComponents(size = 'normal', variant = null) {
   const preset = SIZE_PRESETS[size] ?? SIZE_PRESETS.normal
   const isEP = variant === 'essential-pack'
+  const isDiscovery = variant === 'discovery'
 
   return {
     h1: ({ children }) => {
@@ -84,6 +94,20 @@ function getComponents(size = 'normal', variant = null) {
     },
     h2: ({ children }) => {
       const id = makeHeadingId(String(children))
+      const headingText = String(children)
+
+      if (isDiscovery) {
+        const icon = getSectionIcon(headingText)
+        return (
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
+              <span className="material-symbols-outlined text-2xl">{icon}</span>
+            </div>
+            <h3 id={id} className="text-2xl font-bold text-primary japanese-text">{children}</h3>
+          </div>
+        )
+      }
+
       return <h3 id={id} className={`${preset.h2} font-bold japanese-text text-on-surface scroll-mt-20`}>{children}</h3>
     },
     h3: ({ children }) => {
@@ -93,7 +117,12 @@ function getComponents(size = 'normal', variant = null) {
     p: ({ children }) => (
       <p className={`${preset.paragraph} whitespace-pre-wrap text-on-surface-variant japanese-text`}>{children}</p>
     ),
-    strong: ({ children }) => <strong>{children}</strong>,
+    strong: ({ children }) => {
+      if (isDiscovery) {
+        return <strong className="text-on-surface font-bold">{children}</strong>
+      }
+      return <strong>{children}</strong>
+    },
     code: ({ children, className }) => {
       const isBlock = className?.includes('language-')
       if (isBlock) {
@@ -115,6 +144,15 @@ function getComponents(size = 'normal', variant = null) {
     ),
     ul: ({ children, depth }) => {
       const indent = depth > 0 ? 'pl-5' : 'pl-6'
+
+      if (isDiscovery) {
+        return (
+          <ul className={`space-y-4 pl-0 list-none ${preset.list} text-on-surface-variant`}>
+            {children}
+          </ul>
+        )
+      }
+
       return (
         <ul className={`space-y-1.5 ${indent} list-disc ${preset.list} text-on-surface-variant`}>
           {children}
@@ -123,13 +161,44 @@ function getComponents(size = 'normal', variant = null) {
     },
     ol: ({ children, depth }) => {
       const indent = depth > 0 ? 'pl-5' : 'pl-6'
+
+      if (isDiscovery) {
+        return (
+          <ol className={`space-y-6 pl-0 list-none counter-reset-[discovery-counter] ${preset.list} text-on-surface-variant`}>
+            {children}
+          </ol>
+        )
+      }
+
       return (
         <ol className={`space-y-1.5 ${indent} list-decimal ${preset.list} text-on-surface-variant`}>
           {children}
         </ol>
       )
     },
-    li: ({ children }) => <li>{children}</li>,
+    li: ({ children, index }) => {
+      if (isDiscovery) {
+        // 番号付きリストかどうかを判定（ol内ならindexがnumber）
+        if (typeof index === 'number') {
+          return (
+            <li className="relative pl-16 min-h-14 flex items-start leading-relaxed counter-increment-[discovery-counter]">
+              <span className="absolute left-0 top-0 w-14 h-14 rounded-full border-2 border-primary/10 flex items-center justify-center text-primary text-xl font-extrabold">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span className="pt-3">{children}</span>
+            </li>
+          )
+        }
+        // 箇条書きリスト
+        return (
+          <li className="relative pl-7 leading-[1.8] mb-3">
+            <span className="material-symbols-outlined absolute left-0 top-[0.1em] text-secondary text-base" style={{ fontVariationSettings: "'FILL' 1" }}>fiber_manual_record</span>
+            {children}
+          </li>
+        )
+      }
+      return <li>{children}</li>
+    },
     table: ({ children }) => (
       <div className={`my-5 max-w-full overflow-x-auto rounded-[0.75rem] ${isEP ? 'ghost-border' : ''}`}>
         <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
@@ -234,8 +303,19 @@ function getComponents(size = 'normal', variant = null) {
 export default function MarkdownRenderer({ content, className = '', size = 'normal', variant = null }) {
   const markdown = typeof content === 'string' ? content.trim() : ''
   const components = getComponents(size, variant)
+  const isDiscovery = variant === 'discovery'
 
   if (!markdown) return null
+
+  if (isDiscovery) {
+    return (
+      <div className={`discovery-report space-y-8 ${className}`}>
+        <Markdown remarkPlugins={[remarkGfm]} components={components}>
+          {markdown}
+        </Markdown>
+      </div>
+    )
+  }
 
   return (
     <div className={`space-y-5 ${className}`}>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio - Discovery分析レポート</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#0f5238",
+              "primary-container": "#2d6a4f",
+              "background": "#fafaf5",
+              "on-background": "#1a1c19",
+              "surface": "#fafaf5",
+              "surface-container": "#f0f2ed",
+              "surface-container-lowest": "#ffffff",
+              "on-surface": "#1a1c19",
+              "on-surface-variant": "#456553",
+              "secondary": "#456553",
+              "outline-variant": "rgba(69, 101, 83, 0.1)",
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "12px", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Manrope', sans-serif; letter-spacing: 0.02em; color: #1a1c19; background-color: #fafaf5; }
+        .japanese-text { letter-spacing: 0.05em; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .section-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid transparent;
+        }
+        .section-card:hover {
+            box-shadow: 0 12px 32px -12px rgba(26, 28, 25, 0.08);
+            border-color: rgba(69, 101, 83, 0.1);
+        }
+
+        /* Discovery Markdown Variant Styles */
+        .discovery-report ul {
+            padding-left: 0;
+            list-style: none;
+        }
+        .discovery-report ul li {
+            position: relative;
+            padding-left: 1.75rem;
+            line-height: 1.8;
+            margin-bottom: 0.75rem;
+        }
+        .discovery-report ul li::before {
+            content: "fiber_manual_record";
+            font-family: 'Material Symbols Outlined';
+            position: absolute;
+            left: 0;
+            top: 0.1em;
+            font-size: 1rem;
+            color: #456553;
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        .discovery-report ol {
+            counter-reset: discovery-counter;
+            padding-left: 0;
+            list-style: none;
+        }
+        .discovery-report ol li {
+            counter-increment: discovery-counter;
+            position: relative;
+            padding-left: 4.5rem;
+            min-height: 3.5rem;
+            margin-bottom: 2rem;
+            line-height: 1.8;
+        }
+        .discovery-report ol li::before {
+            content: counter(discovery-counter, decimal-leading-zero);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3.5rem;
+            height: 3.5rem;
+            background-color: transparent;
+            color: #0f5238;
+            border: 2px solid rgba(15, 82, 56, 0.1);
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+        
+        .lp-thumbnail-container {
+            position: relative;
+            aspect-ratio: 4/3;
+            background-color: #f0f2ed;
+            overflow: hidden;
+            border-radius: 0.75rem;
+        }
+        .lp-thumbnail-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .lp-thumbnail-image.loaded {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="antialiased">
+<!-- Navigation Rail -->
+<aside class="fixed left-0 top-0 h-full z-40 py-6 w-[240px] bg-white border-r border-outline-variant/50 font-manrope text-sm antialiased tracking-wide">
+<div class="px-6 mb-10 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-lg">insights</span>
+</div>
+<div>
+<h1 class="text-xl font-bold text-primary tracking-tighter">Insight Studio</h1>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant">Ad Ops &amp; Analysis</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-primary/5 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>ダッシュボード</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-primary bg-primary/5 font-bold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span>競合LP分析</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-primary/5 transition-colors" href="#">
+<span class="material-symbols-outlined">insights</span>
+<span>広告考察</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-primary/5 transition-colors" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span>レポート</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-primary/5 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>設定</span>
+</a>
+</nav>
+<div class="absolute bottom-10 left-0 w-full px-4">
+<button class="w-full py-3 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>新規プロジェクト</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[240px] min-h-screen">
+<!-- Top App Bar -->
+<header class="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-white/80 backdrop-blur-xl border-b border-outline-variant/30">
+<div class="flex items-center gap-6 flex-1">
+<div class="relative w-full max-w-md focus-within:ring-2 focus-within:ring-primary/20 rounded-xl overflow-hidden transition-all bg-background/50">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
+<input class="w-full bg-transparent border-none py-2 pl-10 pr-4 text-sm focus:ring-0" placeholder="キーワードで検索" type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:text-primary transition-colors"><span class="material-symbols-outlined">light_mode</span></button>
+<button class="p-2 hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<div class="flex items-center gap-3 ml-2 pl-4 border-l border-outline-variant">
+<span class="text-sm font-medium japanese-text">田中 一郎</span>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-primary/10">
+<img alt="田中 一郎" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJvlpNu4CppYioQp3_kyyE8JONYLWE4L1li6v_yX_1wH_CF8vHwdAWaEBIYfU7WN-fRtcu1FX3Ey1ErxVDwav6GdTz19JIR-C-cdIGNHxoCRnIU1wb2rU1Jp-_ae_Ix7KBAL3rE7gI9hdJL0lJTxdiBRzX12GluqUrptuB6Bq997tzk7YaInQ2MNRoCAngiE_cfjQ0F4QOIem-CPuvyb5yUc7oK3rWH67yeupJb3_sLIfNx1JbUAqAbPB-FLAnj8wNAFLJ3w8vMlRJ"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-12 max-w-5xl mx-auto">
+<!-- Header Section -->
+<header class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<nav class="flex items-center gap-2 text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">
+<a class="hover:text-primary transition-colors" href="#">競合LP分析</a>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span>Discovery分析</span>
+</nav>
+<h2 class="text-[2.5rem] font-extrabold leading-tight text-primary tracking-tight font-headline japanese-text">Discovery分析レポート</h2>
+<div class="flex items-center gap-4 mt-4">
+<div class="flex items-center gap-2 px-3 py-1 bg-primary/5 rounded-full">
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+<span class="text-xs font-bold text-primary uppercase">Completed</span>
+</div>
+<span class="text-sm text-on-surface-variant flex items-center gap-1.5">
+<span class="material-symbols-outlined text-base">calendar_today</span>
+                            2024年5月24日 解析完了
+                        </span>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-2.5 rounded-xl font-bold text-sm text-on-surface-variant ghost-border border border-outline-variant/20 hover:bg-primary/5 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">share</span>
+                        共有
+                    </button>
+<button class="px-6 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined text-lg">file_download</span>
+                        PDF出力
+                    </button>
+</div>
+</header>
+<!-- Discovery Report Content (Markdown Variant) -->
+<div class="discovery-report space-y-8">
+<!-- Section: Market Overview -->
+<section class="section-card bg-surface-container-lowest rounded-2xl p-8 border-l-[4px] border-primary">
+<div class="flex items-center gap-4 mb-8">
+<div class="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">insights</span>
+</div>
+<h3 class="text-2xl font-bold text-primary japanese-text">市場概要・業界概要</h3>
+</div>
+<div class="space-y-6">
+<div class="p-6 bg-background/50 rounded-2xl border border-outline-variant/20 mb-6">
+<p class="leading-[1.8] text-on-surface japanese-text font-medium">
+                                現在の市場はオーガニック回帰とサステナビリティが主要テーマとなっており、競合他社は「成分の透明性」と「製造プロセスの可視化」をLPの核に据えています。
+                            </p>
+</div>
+<ul>
+<li><strong class="text-on-surface">主要トレンドの変遷:</strong> 消費者の購買決定要因が、単なる機能性からブランドの姿勢やエシカルな側面へとシフトしています。</li>
+<li><strong class="text-on-surface">市場規模の拡大:</strong> D2Cモデルの普及により、特定のニッチ市場におけるLTVの高いファン層の獲得競争が激化しています。</li>
+</ul>
+</div>
+</section>
+<!-- Section: Competitor Trends -->
+<section class="section-card bg-surface-container-lowest rounded-2xl p-8 border-l-[4px] border-primary">
+<div class="flex items-center gap-4 mb-8">
+<div class="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">group</span>
+</div>
+<h3 class="text-2xl font-bold text-primary japanese-text">競合動向分析</h3>
+</div>
+<!-- Discovery Results: LP Cards with Improved Thumbnails -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+<div class="group cursor-pointer">
+<div class="lp-thumbnail-container mb-4">
+<div class="absolute inset-0 flex flex-col items-center justify-center text-on-surface-variant/40 gap-2">
+<span class="material-symbols-outlined text-4xl">image</span>
+<span class="text-xs font-bold uppercase tracking-wider">サムネイルなし</span>
+</div>
+<img alt="Competitor LP A" class="lp-thumbnail-image loaded" loading="lazy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2TN-baRGECgtOBJg87NZXKfpaqck_SRks2HBVZsuIsZCbTZnfAMKP-u1SeP3JNE8vmJW0tx65SwaOGYsvwXKHwI3s6-nAbLrSQSfc_eIUm0lD4oAv0kw8VfMxPhdw2_IwKfF8AqRC6pFzaFoRnxovabyln5nSlV3Fhy6P_UUsuMKiTppEVdILXO7uJGm348y57KPxLmM-vyBe3dAQDANR94wFuI_NKY33zWjKiU27wb1PlUA-bK038UTEwVf0Z-MXVykcy3H_eElR"/>
+</div>
+<h4 class="font-bold text-on-surface japanese-text group-hover:text-primary transition-colors">競合A社：ナチュラル志向LP</h4>
+<p class="text-sm text-on-surface-variant mt-1">ビジュアル重視の構成で、ブランドの情緒的価値を訴求。</p>
+</div>
+<div class="group cursor-pointer">
+<div class="lp-thumbnail-container mb-4">
+<div class="absolute inset-0 flex flex-col items-center justify-center text-on-surface-variant/40 gap-2">
+<span class="material-symbols-outlined text-4xl">image</span>
+<span class="text-xs font-bold uppercase tracking-wider">サムネイルなし</span>
+</div>
+<img alt="Competitor LP B" class="lp-thumbnail-image loaded" loading="lazy" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAK_NUZ7wMq6DbcR-MO6m6ZzjC3fwh4k6W2ZRaTcn8Wg1tQU2RKPFBqqs8ov93oohPWdu8Xq71NqkRJGrT_sgyIxJ5h8F821w-axlmJzw8nCaLPgKBs50VBjFw8LA0il-4lAajJ_cB7VLWhFvbGlIDOB3sFOz0BIrRY8QeJQlBlNIsP_7ou9_O_Fc8p63hasKit7anRaIeZe2XVEMYCAHb_WD1tMSl_Uyv5W8U4jKqW-z5FaZHB679rRaDbhD83tIClUOTBypZ3ELmk"/>
+</div>
+<h4 class="font-bold text-on-surface japanese-text group-hover:text-primary transition-colors">競合B社：データ駆動型LP</h4>
+<p class="text-sm text-on-surface-variant mt-1">診断型コンテンツを導入し、高いCVRを実現。</p>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-6 rounded-2xl bg-background/30 flex gap-4 items-start border border-outline-variant/10">
+<div class="w-10 h-10 rounded-lg bg-primary/10 flex-shrink-0 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">trending_up</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface mb-2 japanese-text">ビジュアル重視の構成</h4>
+<p class="text-sm text-on-surface-variant leading-[1.6]">高解像度のシネマグラフを活用し、プロダクトの使用感を情緒的に訴求するLPが増加中。</p>
+</div>
+</div>
+<div class="p-6 rounded-2xl bg-background/30 flex gap-4 items-start border border-outline-variant/10">
+<div class="w-10 h-10 rounded-lg bg-primary/10 flex-shrink-0 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">psychology</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface mb-2 japanese-text">診断型コンテンツの導入</h4>
+<p class="text-sm text-on-surface-variant leading-[1.6]">パーソナライズされた体験を提供することで、離脱率を抑えつつリードを獲得する手法が一般的。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section: CTA Analysis -->
+<section class="section-card bg-surface-container-lowest rounded-2xl p-8 border-l-[4px] border-primary">
+<div class="flex items-center gap-4 mb-8">
+<div class="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">touch_app</span>
+</div>
+<h3 class="text-2xl font-bold text-primary japanese-text">CTA効果分析</h3>
+</div>
+<div class="space-y-6">
+<ol>
+<li>
+<h4 class="text-lg font-bold text-on-surface mb-2 japanese-text">マイクロコピーの最適化</h4>
+<p class="text-on-surface-variant">「購入する」よりも「まずは体験してみる」といったハードルの低いフレーズの方が、クリック率が24%高い傾向にあります。</p>
+</li>
+<li>
+<h4 class="text-lg font-bold text-on-surface mb-2 japanese-text">スティッキーCTAの配置</h4>
+<p class="text-on-surface-variant">モバイル表示時、画面下部に常にCTAを表示させることで、スクロール中の意欲的なタイミングを逃さずコンバージョンに繋げています。</p>
+</li>
+</ol>
+</div>
+</section>
+<!-- Section: Recommendations -->
+<section class="section-card bg-surface-container-lowest rounded-2xl p-8 border-l-[4px] border-primary">
+<div class="flex items-center gap-4 mb-8">
+<div class="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl">recommend</span>
+</div>
+<h3 class="text-2xl font-bold text-primary japanese-text">改善推奨事項</h3>
+</div>
+<div class="bg-primary/5 p-8 rounded-2xl">
+<ul>
+<li class="mb-6 last:mb-0">
+<span class="block font-bold text-on-surface japanese-text text-lg">ファーストビューの動画化</span>
+<span class="text-sm text-on-surface-variant">ブランドの世界観を瞬時に伝えるため、3秒以内のループ動画の導入を推奨します。</span>
+</li>
+<li class="mb-6 last:mb-0">
+<span class="block font-bold text-on-surface japanese-text text-lg">ユーザーレビューの構造化</span>
+<span class="text-sm text-on-surface-variant">テキストだけでなく、星評価と年代・肌質タグを併記し、情報の信頼性を高めてください。</span>
+</li>
+</ul>
+</div>
+</section>
+</div>
+<!-- Footer Stats -->
+<footer class="mt-16 pt-12 border-t border-outline-variant/30 flex justify-between items-center text-on-surface-variant">
+<div class="flex gap-8">
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest mb-1">Total Scanned LP</p>
+<p class="text-2xl font-extrabold text-primary">124 <span class="text-xs font-normal text-on-surface-variant">Sites</span></p>
+</div>
+<div>
+<p class="text-[10px] font-bold uppercase tracking-widest mb-1">Avg Score</p>
+<p class="text-2xl font-extrabold text-primary">82.4 <span class="text-xs font-normal text-on-surface-variant">Points</span></p>
+</div>
+</div>
+<p class="text-xs japanese-text">© 2024 Insight Studio Analysis Engine v2.4</p>
+</footer>
+</div>
+</main>
+<script>
+        // Simple script to handle image load opacity
+        document.addEventListener('DOMContentLoaded', () => {
+            const images = document.querySelectorAll('.lp-thumbnail-image');
+            images.forEach(img => {
+                if (img.complete) {
+                    img.classList.add('loaded');
+                } else {
+                    img.addEventListener('load', () => {
+                        img.classList.add('loaded');
+                    });
+                    img.addEventListener('error', () => {
+                        // Keep opacity 0 to show placeholder
+                        img.style.display = 'none';
+                    });
+                }
+            });
+        });
+    </script>
+</body></html>

@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { DEFAULT_ADS_DATASET_ID } from '../api/adsInsights'
+import { DEFAULT_ADS_DATASET_ID, loginCase } from '../api/adsInsights'
 
 const AdsSetupContext = createContext(null)
 
 const STORAGE_KEY = 'insight-studio-ads-setup'
+const CASE_STORAGE_KEY = 'insight-studio-current-case'
 const STORAGE_VERSION = 3
 const QUERY_TYPE_MIGRATIONS = {
   search_query: 'search',
@@ -93,12 +94,53 @@ export function AdsSetupProvider({ children }) {
   const { onAdsLogout } = useAuth()
   const [setupState, setSetupState] = useState(loadState)
   const [reportBundle, setReportBundle] = useState(null)
+  const [currentCase, setCurrentCase] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CASE_STORAGE_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const [isCaseAuthenticated, setIsCaseAuthenticated] = useState(() => {
+    return Boolean(currentCase?.dataset_id)
+  })
 
   const resetSetup = useCallback(() => {
     setSetupState(null)
     setReportBundle(null)
     saveState(null)
   }, [])
+
+  // Case management functions
+  const selectCase = useCallback((caseInfo) => {
+    setCurrentCase(caseInfo)
+    localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
+  }, [])
+
+  const authenticateCase = useCallback(async (caseId, password) => {
+    const result = await loginCase(caseId, password)
+    const caseInfo = {
+      case_id: result.case_id,
+      name: result.name,
+      dataset_id: result.dataset_id,
+    }
+    setCurrentCase(caseInfo)
+    setIsCaseAuthenticated(true)
+    localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
+    return caseInfo
+  }, [])
+
+  const clearCase = useCallback(() => {
+    setCurrentCase(null)
+    setIsCaseAuthenticated(false)
+    localStorage.removeItem(CASE_STORAGE_KEY)
+    resetSetup()
+  }, [resetSetup])
+
+  const getCurrentDatasetId = useCallback(() => {
+    return currentCase?.dataset_id ?? DEFAULT_ADS_DATASET_ID
+  }, [currentCase])
 
   useEffect(() => {
     return onAdsLogout(resetSetup)
@@ -127,6 +169,13 @@ export function AdsSetupProvider({ children }) {
         setReportBundle,
         completeSetup,
         resetSetup,
+        // Case management
+        currentCase,
+        isCaseAuthenticated,
+        selectCase,
+        authenticateCase,
+        clearCase,
+        getCurrentDatasetId,
       }}
     >
       {children}

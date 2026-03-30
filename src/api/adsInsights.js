@@ -207,6 +207,16 @@ export function getCases() {
   return request('/cases')
 }
 
+/** POST /api/cases/login — 案件認証 */
+export async function loginCase(caseId, password) {
+  const data = await request('/cases/login', {
+    method: 'POST',
+    body: JSON.stringify({ case_id: caseId, password }),
+    skipAuth: true,
+  })
+  return data // { ok, case_id, name, dataset_id }
+}
+
 /** GET /api/health */
 export function health() {
   return request('/health')

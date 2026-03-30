@@ -101,7 +101,11 @@ export default function Discovery() {
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
   const result = run?.result || null
-  const discoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
+  const allDiscoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
+  const discoveries = allDiscoveries.filter((item) => {
+    const isFailed = item.analysis_source === 'failed' || (item.error && item.analysis_source !== 'search_result_fallback')
+    return !isFailed
+  })
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = url && hasAnalysisKey && !loading
 
@@ -193,12 +197,12 @@ export default function Discovery() {
 
       {/* Report */}
       {result?.report_md && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 space-y-5">
-          <div className="flex items-center gap-2 text-on-surface-variant mb-4">
+        <div className="space-y-8">
+          <div className="flex items-center gap-2 text-on-surface-variant mb-2">
             <span className="material-symbols-outlined">description</span>
             <span className="text-sm font-bold">分析レポート</span>
           </div>
-          <MarkdownRenderer content={result.report_md} />
+          <MarkdownRenderer content={result.report_md} variant="discovery" />
         </div>
       )}
 
@@ -225,10 +229,23 @@ export default function Discovery() {
                     isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
                   }`}
                 >
-                  <div className="h-48 bg-surface-container relative aspect-[4/3]">
-                    <span className="material-symbols-outlined absolute inset-0 m-auto text-6xl text-outline-variant/50">
-                      {isFailed ? 'error_outline' : isFallback ? 'warning' : 'web'}
-                    </span>
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-t-[0.75rem] bg-surface-container">
+                    {/* Placeholder */}
+                    <div className={`absolute inset-0 flex flex-col items-center justify-center text-on-surface-variant/40 gap-2 transition-opacity duration-300 ${item.og_image_url ? 'opacity-0' : ''}`}>
+                      <span className="material-symbols-outlined text-4xl">image</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider">サムネイルなし</span>
+                    </div>
+                    {/* OG Image */}
+                    {item.og_image_url && (
+                      <img
+                        src={item.og_image_url}
+                        alt={item.title || item.url}
+                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 opacity-0"
+                        loading="lazy"
+                        onLoad={(e) => e.target.classList.add('opacity-100')}
+                        onError={(e) => { e.target.style.display = 'none' }}
+                      />
+                    )}
                     {(item.score != null) && (
                       <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center shadow-md">
                         <span className="text-[10px] font-bold text-on-surface-variant block uppercase tracking-wider">SCORE</span>
