@@ -2,6 +2,11 @@
 const DIRECT_MARKET_LENS_ORIGIN =
   import.meta.env.VITE_MARKET_LENS_API_ORIGIN?.replace(/\/$/, '') || ''
 const BASE = DIRECT_MARKET_LENS_ORIGIN ? `${DIRECT_MARKET_LENS_ORIGIN}/api` : '/api/ml'
+// Vercel rewrite proxy has a ~60s hard timeout. Long-running endpoints
+// (discovery/analyze, scan) must bypass the proxy and hit Render directly.
+const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
+  ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
+  : 'https://market-lens-ai.onrender.com/api'
 const LONG_ANALYSIS_TIMEOUT = 180000
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
@@ -189,7 +194,8 @@ async function buildRequestHeaders(customHeaders = {}) {
  * Content-Type: application/json を自動付与する。
  */
 async function requestJson(path, options = {}) {
-  const { timeout = 30000, ...restOptions } = options
+  const { timeout = 30000, direct = false, ...restOptions } = options
+  const baseUrl = direct ? DIRECT_BACKEND_BASE : BASE
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -197,7 +203,7 @@ async function requestJson(path, options = {}) {
   let res
   try {
     const headers = await buildRequestHeaders(restOptions.headers)
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${baseUrl}${path}`, {
       headers: { 'Content-Type': 'application/json', ...headers },
       ...restOptions,
       signal: controller.signal,
@@ -292,6 +298,7 @@ export function scan(urls, optionsOrApiKey) {
       ...(model ? { model } : {}),
     }),
     timeout: LONG_ANALYSIS_TIMEOUT,
+    direct: true,
   }).then((data) => {
     rememberTrackedScan(data?.run_id)
     return data
@@ -311,6 +318,7 @@ export function discoveryAnalyze(url, optionsOrApiKey) {
       ...(searchApiKey ? { search_api_key: searchApiKey } : {}),
     }),
     timeout: LONG_ANALYSIS_TIMEOUT,
+    direct: true,
   })
 }
 
