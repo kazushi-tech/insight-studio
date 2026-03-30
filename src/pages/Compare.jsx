@@ -366,7 +366,7 @@ export default function Compare() {
           )}
 
           {/* Report — primary display with green left accent */}
-          <div className={`max-w-4xl mx-auto bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-primary-container' : ''}`}>
+          <div className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-primary-container' : ''}`}>
             <div className="flex items-center gap-2 text-on-surface-variant mb-6">
               <span className="material-symbols-outlined text-secondary">description</span>
               <span className="text-sm font-bold">分析レポート</span>
@@ -389,7 +389,7 @@ export default function Compare() {
 
           {/* Execution Metadata — structured display */}
           {executionMeta && (
-            <div className="max-w-4xl mx-auto bg-surface-container-lowest rounded-[0.75rem] p-6">
+            <div className="bg-surface-container-lowest rounded-[0.75rem] p-6">
               <div className="flex items-center gap-2 text-on-surface-variant mb-4">
                 <span className="material-symbols-outlined text-secondary text-base">info</span>
                 <span className="text-xs font-bold uppercase tracking-widest">実行メタデータ</span>
