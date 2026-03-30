@@ -220,7 +220,7 @@ export default function Discovery() {
 
               return (
                 <div
-                  key={item.url ?? item.name ?? i}
+                  key={item.url ?? i}
                   className={`bg-surface-container-lowest rounded-[0.75rem] overflow-hidden hover:shadow-xl transition-shadow ${
                     isFailed ? 'opacity-60 ring-1 ring-red-200' : isFallback ? 'ring-1 ring-amber-200' : ''
                   }`}
@@ -248,7 +248,7 @@ export default function Discovery() {
                   </div>
                   <div className="p-5">
                     <div className="flex items-start justify-between">
-                      <h4 className="font-bold text-on-surface japanese-text">{item.title ?? item.name ?? item.url}</h4>
+                      <h4 className="font-bold text-on-surface japanese-text">{item.title || item.url}</h4>
                       {item.url && (
                         <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary transition-colors">
                           <span className="material-symbols-outlined text-lg">open_in_new</span>
