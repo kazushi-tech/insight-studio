@@ -87,6 +87,32 @@ function PartialSuccessBanner({ fetchedSites }) {
   )
 }
 
+const FONT_SIZES = [
+  { key: 'normal', label: 'S' },
+  { key: 'large', label: 'M' },
+  { key: 'xlarge', label: 'L' },
+]
+
+function domainColor(domain) {
+  let hash = 0
+  for (let i = 0; i < domain.length; i++) hash = domain.charCodeAt(i) + ((hash << 5) - hash)
+  const h = Math.abs(hash) % 360
+  return `hsl(${h}, 35%, 45%)`
+}
+
+function DomainPlaceholder({ domain }) {
+  const initial = (domain || '?').replace(/^www\./, '').charAt(0).toUpperCase()
+  const color = domainColor(domain || '')
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: `linear-gradient(135deg, ${color}22, ${color}44)` }}>
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-lg" style={{ backgroundColor: color }}>
+        {initial}
+      </div>
+      <span className="text-xs font-bold text-on-surface-variant/60 tracking-wide">{(domain || '').replace(/^www\./, '')}</span>
+    </div>
+  )
+}
+
 export default function Discovery() {
   const {
     analysisKey,
@@ -97,6 +123,7 @@ export default function Discovery() {
 
   const run = getRun('discovery')
   const [url, setUrl] = useState(() => run?.input?.url || '')
+  const [fontSize, setFontSize] = useState('normal')
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -198,11 +225,29 @@ export default function Discovery() {
       {/* Report */}
       {result?.report_md && (
         <>
-          <div className="flex items-center gap-2 text-on-surface-variant mb-2">
-            <span className="material-symbols-outlined">description</span>
-            <span className="text-sm font-bold">分析レポート</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-on-surface-variant">
+              <span className="material-symbols-outlined">description</span>
+              <span className="text-sm font-bold">分析レポート</span>
+            </div>
+            <div className="flex items-center gap-1 bg-surface-container rounded-full p-1">
+              <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
+              {FONT_SIZES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setFontSize(key)}
+                  className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                    fontSize === key
+                      ? 'bg-primary-container text-on-primary-container'
+                      : 'text-on-surface-variant hover:bg-surface-container-low'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-          <MarkdownRenderer content={result.report_md} variant="discovery" />
+          <MarkdownRenderer content={result.report_md} size={fontSize} variant="discovery" />
         </>
       )}
 
@@ -234,12 +279,9 @@ export default function Discovery() {
                   }`}
                 >
                   <div className="relative aspect-[4/3] overflow-hidden rounded-t-[0.75rem] bg-surface-container">
-                    {/* Placeholder */}
-                    <div className={`absolute inset-0 flex flex-col items-center justify-center text-on-surface-variant/40 gap-2 transition-opacity duration-300 ${item.og_image_url ? 'opacity-0' : ''}`}>
-                      <span className="material-symbols-outlined text-4xl">image</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider">サムネイルなし</span>
-                    </div>
-                    {/* OG Image */}
+                    {/* Domain Placeholder (always rendered as base layer) */}
+                    <DomainPlaceholder domain={item.domain || new URL(item.url || 'https://unknown').hostname} />
+                    {/* OG Image (overlays placeholder on successful load) */}
                     {item.og_image_url && (
                       <img
                         src={item.og_image_url}
