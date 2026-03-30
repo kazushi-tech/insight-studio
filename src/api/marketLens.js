@@ -28,9 +28,20 @@ function extractStage(detail) {
   return match ? match[1] : null
 }
 
+function stripStageMarker(detail) {
+  if (typeof detail !== 'string') return detail
+  return detail
+    .replace(/\s*\(stage=\w+\)\s*/gi, ' ')
+    .replace(/\bstage=\w+\b[:：]?\s*/gi, '')
+    .replace(/\s+:/g, ':')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 function buildErrorMessage(path, status, body) {
   const detail = body?.detail
-  const normalizedDetail = typeof detail === 'string' ? detail.toLowerCase() : ''
+  const cleanedDetail = stripStageMarker(detail)
+  const normalizedDetail = typeof cleanedDetail === 'string' ? cleanedDetail.toLowerCase() : ''
 
   // Discovery stage-aware error mapping
   if (path.includes('/discovery')) {
@@ -41,27 +52,30 @@ function buildErrorMessage(path, status, body) {
       if (normalizedDetail.includes('gemini api key is required for discovery search')) {
         return '競合発見の検索設定が不足しています。サーバー側の Discovery 検索キー設定を確認してください。'
       }
-      return detail || '競合発見の実行条件が不足しています。分析用 Claude API キーとサーバー側設定を確認してください。'
+      return cleanedDetail || '競合発見の実行条件が不足しています。分析用 Claude API キーとサーバー側設定を確認してください。'
     }
     if (status === 401) {
       if (normalizedDetail.includes('api key')) {
         return '競合発見で使用する API キーが無効です。分析用 Claude API キー、またはサーバー側の検索キー設定を確認してください。'
       }
-      return detail || '競合発見の認証に失敗しました。API キー設定を確認してください。'
+      return cleanedDetail || '競合発見の認証に失敗しました。API キー設定を確認してください。'
     }
-    if (status === 404) return detail || '競合サイトが見つかりませんでした。別のURLで試してください。'
-    if (status === 422) return detail || 'URLの形式が正しくありません。'
+    if (status === 404) return cleanedDetail || '競合サイトが見つかりませんでした。別のURLで試してください。'
+    if (status === 422) return cleanedDetail || 'URLの形式が正しくありません。'
     if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
     if (status === 500 && stageLabel) return `${stageLabel}でサーバーエラーが発生しました。しばらく待って再試行してください。`
-    if (status === 500) return detail || 'バックエンドでサーバーエラーが発生しました。対象サイトの構造が複雑か、一時的な負荷の可能性があります。しばらく待って再試行してください。'
-    if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${detail}`
-    if (status === 502) return detail || '競合分析パイプラインでエラーが発生しました。'
+    if (status === 500 && normalizedDetail === 'internal server error') {
+      return '競合発見の比較分析で内部エラーが発生しました。Claude API キーやモデル権限、または Discovery backend の未処理例外を確認してください。'
+    }
+    if (status === 500) return cleanedDetail || 'バックエンドでサーバーエラーが発生しました。対象サイトの構造が複雑か、一時的な負荷の可能性があります。しばらく待って再試行してください。'
+    if (status === 502 && stageLabel) return `${stageLabel}で失敗しました。${cleanedDetail}`
+    if (status === 502) return cleanedDetail || '競合分析パイプラインでエラーが発生しました。'
     if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
-    if (detail) return detail
+    if (cleanedDetail) return cleanedDetail
     return `Discovery API error: ${status}`
   }
 
-  if (detail) return detail
+  if (cleanedDetail) return cleanedDetail
 
   if (status === 404) {
     if (path.includes('/assets')) return 'アセットが見つかりません。再アップロードしてください。'
