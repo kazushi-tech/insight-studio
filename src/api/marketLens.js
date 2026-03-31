@@ -424,7 +424,7 @@ export function reviewBanner(payload, optionsOrApiKey) {
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
     }),
-    timeout: 120000,
+    timeout: LONG_ANALYSIS_TIMEOUT,
     direct: true,
   })
 }
@@ -444,7 +444,7 @@ export function reviewAdLp(payload, optionsOrApiKey) {
       ...(provider ? { provider } : {}),
       ...(model ? { model } : {}),
     }),
-    timeout: 120000,
+    timeout: LONG_ANALYSIS_TIMEOUT,
     direct: true,
   })
 }
@@ -461,7 +461,7 @@ export function generateBanner(payload, apiKey) {
   return requestJson('/generation/banner', {
     method: 'POST',
     body: JSON.stringify({ ...payload, api_key: apiKey }),
-    timeout: 120000,
+    timeout: 300000,
     direct: true,
   })
 }
