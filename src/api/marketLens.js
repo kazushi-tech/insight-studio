@@ -425,6 +425,7 @@ export function reviewBanner(payload, optionsOrApiKey) {
       ...(model ? { model } : {}),
     }),
     timeout: 120000,
+    direct: true,
   })
 }
 
@@ -444,6 +445,7 @@ export function reviewAdLp(payload, optionsOrApiKey) {
       ...(model ? { model } : {}),
     }),
     timeout: 120000,
+    direct: true,
   })
 }
 
@@ -460,6 +462,7 @@ export function generateBanner(payload, apiKey) {
     method: 'POST',
     body: JSON.stringify({ ...payload, api_key: apiKey }),
     timeout: 120000,
+    direct: true,
   })
 }
 
