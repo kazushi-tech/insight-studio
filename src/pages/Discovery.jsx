@@ -124,10 +124,10 @@ export default function Discovery() {
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
-  const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
+  const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
 
   const run = getRun('discovery')
-  const [url, setUrl] = useState(() => run?.input?.url || '')
+  const [url, setUrl] = useState(() => getDraft('discovery')?.url || run?.input?.url || '')
   const [fontSize, setFontSize] = useState('normal')
 
   const loading = run?.status === 'running'
@@ -165,6 +165,12 @@ export default function Discovery() {
     clearRun('discovery')
   }, [clearRun])
 
+  const handleClear = useCallback(() => {
+    clearRun('discovery')
+    clearDraft('discovery')
+    setUrl('')
+  }, [clearRun, clearDraft])
+
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       <div>
@@ -192,7 +198,10 @@ export default function Discovery() {
               className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
               placeholder="競合他社のURLを入力"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value)
+                setDraft('discovery', { url: e.target.value })
+              }}
             />
           </div>
           <button

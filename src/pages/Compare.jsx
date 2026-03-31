@@ -132,10 +132,11 @@ function MetaBand({ run, modelName }) {
 
 export default function Compare() {
   const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
-  const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
+  const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
 
   const run = getRun('compare')
-  const [urls, setUrls] = useState(() => run?.input?.urls || { target: '', compA: '', compB: '' })
+  const defaults = { target: '', compA: '', compB: '' }
+  const [urls, setUrls] = useState(() => getDraft('compare')?.urls || run?.input?.urls || defaults)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -184,6 +185,12 @@ export default function Compare() {
   const handleRetry = useCallback(() => {
     clearRun('compare')
   }, [clearRun])
+
+  const handleClear = useCallback(() => {
+    clearRun('compare')
+    clearDraft('compare')
+    setUrls({ target: '', compA: '', compB: '' })
+  }, [clearRun, clearDraft])
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
@@ -246,7 +253,11 @@ export default function Compare() {
                   className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
                   placeholder={placeholder}
                   value={urls[key]}
-                  onChange={(e) => setUrls({ ...urls, [key]: e.target.value })}
+                  onChange={(e) => {
+                    const next = { ...urls, [key]: e.target.value }
+                    setUrls(next)
+                    setDraft('compare', { urls: next })
+                  }}
                 />
               </div>
             </div>

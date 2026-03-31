@@ -3,6 +3,8 @@ import { createContext, useContext, useState, useSyncExternalStore } from 'react
 // ─── Run kinds ───
 // compare | discovery | creative-review | banner-generation
 
+const DRAFT_PREFIX = 'is-draft-'
+
 function createRunStore() {
   const runs = new Map()
   const listeners = new Set()
@@ -14,6 +16,25 @@ function createRunStore() {
 
   function notify() {
     listeners.forEach((fn) => fn())
+  }
+
+  function setDraft(kind, data) {
+    try {
+      sessionStorage.setItem(DRAFT_PREFIX + kind, JSON.stringify(data))
+    } catch { /* quota exceeded — ignore */ }
+    notify()
+  }
+
+  function getDraft(kind) {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_PREFIX + kind)
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  }
+
+  function clearDraft(kind) {
+    try { sessionStorage.removeItem(DRAFT_PREFIX + kind) } catch {}
+    notify()
   }
 
   function subscribe(fn) {
@@ -102,6 +123,9 @@ function createRunStore() {
     clearRun,
     isRunning,
     getRunningKinds,
+    setDraft,
+    getDraft,
+    clearDraft,
   }
 }
 
@@ -133,5 +157,8 @@ export function useAnalysisRuns() {
     clearRun: store.clearRun,
     isRunning: store.isRunning,
     getRunningKinds: store.getRunningKinds,
+    setDraft: store.setDraft,
+    getDraft: store.getDraft,
+    clearDraft: store.clearDraft,
   }
 }
