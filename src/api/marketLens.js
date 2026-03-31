@@ -201,9 +201,12 @@ async function buildRequestHeaders(customHeaders = {}) {
 async function ensureDirectBackend() {
   if (_directBackendReady) return true
   try {
+    // Render free-tier cold start can take up to 90-120s.
+    // Use a generous timeout so we don't fall back to the Vercel proxy
+    // which has its own 60s hard limit and will also time out.
     const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
       method: 'GET',
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(120000),
     })
     if (res.ok) {
       _directBackendReady = true
@@ -219,8 +222,11 @@ async function requestJson(path, options = {}) {
   const { timeout = 30000, direct = false, ...restOptions } = options
   let baseUrl = BASE
   if (direct) {
-    const canDirect = await ensureDirectBackend()
-    baseUrl = canDirect ? DIRECT_BACKEND_BASE : BASE
+    // Always try direct connection for long-running endpoints.
+    // Falling back to the Vercel proxy is worse — it has a 60s hard
+    // timeout that will always kill Discovery/Scan requests.
+    await ensureDirectBackend()
+    baseUrl = DIRECT_BACKEND_BASE
   }
 
   const controller = new AbortController()
