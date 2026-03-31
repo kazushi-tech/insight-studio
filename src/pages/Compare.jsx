@@ -130,6 +130,80 @@ function MetaBand({ run, modelName }) {
   )
 }
 
+// 抽出データの「取得不可」フィールドを除いて表示
+const EXTRACTED_LABELS = {
+  title: 'タイトル',
+  meta_description: 'Meta Description',
+  og_type: 'OG Type',
+  h1: 'H1',
+  hero_copy: 'Hero Copy',
+  main_cta: 'Main CTA',
+  secondary_ctas: 'Secondary CTAs',
+  pricing_snippet: 'Pricing',
+  feature_bullets: 'Features',
+  faq_items: 'FAQ',
+  testimonials: '顧客の声',
+  body_text_snippet: '本文抜粋',
+}
+
+function hasValue(v) {
+  if (v == null || v === '') return false
+  if (Array.isArray(v) && v.length === 0) return false
+  return true
+}
+
+function formatValue(v) {
+  if (Array.isArray(v)) return v.join(' / ')
+  if (typeof v === 'string' && v.length > 200) return v.slice(0, 200) + '…'
+  return String(v)
+}
+
+function ExtractedDataPanel({ extracted }) {
+  const items = Array.isArray(extracted) ? extracted : [extracted]
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="mb-6">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors"
+      >
+        <span className={`material-symbols-outlined text-sm transition-transform ${open ? 'rotate-90' : ''}`}>
+          chevron_right
+        </span>
+        抽出データ ({items.length} サイト)
+      </button>
+      {open && (
+        <div className="mt-3 space-y-4">
+          {items.map((site, i) => {
+            const available = Object.entries(EXTRACTED_LABELS).filter(([key]) => hasValue(site[key]))
+            const total = Object.keys(EXTRACTED_LABELS).length
+            return (
+              <div key={site.url || i} className="p-4 bg-surface-container rounded-[0.75rem] text-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-on-surface truncate max-w-[70%]">{site.url}</p>
+                  <span className="text-xs text-on-surface-variant">{available.length}/{total} 取得成功</span>
+                </div>
+                {site.error && (
+                  <p className="text-xs text-red-500">エラー: {site.error}</p>
+                )}
+                <div className="grid grid-cols-1 gap-1.5">
+                  {available.map(([key, label]) => (
+                    <div key={key} className="flex gap-2 text-xs">
+                      <span className="font-bold text-on-surface-variant shrink-0 w-32">{label}</span>
+                      <span className="text-on-surface break-all">{formatValue(site[key])}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Compare() {
   const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
@@ -383,10 +457,7 @@ export default function Compare() {
               <span className="text-sm font-bold">分析レポート</span>
             </div>
             {extracted && (
-              <div className="mb-6 p-4 bg-surface-container rounded-[0.75rem] text-sm space-y-2">
-                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-2">抽出データ</p>
-                <pre className="text-xs text-on-surface-variant whitespace-pre-wrap overflow-x-auto">{typeof extracted === 'string' ? extracted : JSON.stringify(extracted, null, 2)}</pre>
-              </div>
+              <ExtractedDataPanel extracted={extracted} />
             )}
             {report ? (
               <MarkdownRenderer content={report} variant="discovery" />
