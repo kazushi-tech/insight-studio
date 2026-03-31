@@ -196,30 +196,34 @@ async function buildRequestHeaders(customHeaders = {}) {
  */
 /**
  * Wake up the Render backend (cold start) and verify CORS works.
+ * Retries with backoff to survive deploys and cold starts.
  * Caches success so subsequent calls skip the check.
  */
 async function ensureDirectBackend() {
   if (_directBackendReady) return true
-  try {
-    // Render free-tier cold start can take up to 90-120s.
-    // Use a generous timeout so we don't fall back to the Vercel proxy
-    // which has its own 60s hard limit and will also time out.
-    const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(120000),
-    })
-    if (res.ok) {
-      _directBackendReady = true
-      return true
+  const RETRY_DELAYS = [0, 5000, 10000]
+  for (let i = 0; i < RETRY_DELAYS.length; i++) {
+    if (RETRY_DELAYS[i] > 0) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS[i]))
     }
-  } catch {
-    // CORS failure or network error
+    try {
+      const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(30000),
+      })
+      if (res.ok) {
+        _directBackendReady = true
+        return true
+      }
+    } catch {
+      // CORS failure or network error — retry
+    }
   }
   return false
 }
 
 async function requestJson(path, options = {}) {
-  const { timeout = 30000, direct = false, ...restOptions } = options
+  const { timeout = 30000, direct = false, _retried = false, ...restOptions } = options
   let baseUrl = BASE
   if (direct) {
     // Always try direct connection for long-running endpoints.
@@ -242,6 +246,12 @@ async function requestJson(path, options = {}) {
     })
   } catch (e) {
     clearTimeout(timeoutId)
+    // On CORS / network error for direct requests, reset readiness and retry once.
+    // This handles Render deploys where the service briefly returns 503 without CORS headers.
+    if (direct && !_retried && (e instanceof TypeError || /Failed to fetch/i.test(String(e?.message)))) {
+      _directBackendReady = false
+      return requestJson(path, { timeout, direct, _retried: true, ...restOptions })
+    }
     if (e.name === 'AbortError') {
       if (path === '/scan' || path === '/discovery/analyze') {
         throw new Error('分析の完了まで時間がかかっています。対象サイトの取得やバックエンドの起動待ちで数十秒かかることがあります。少し待って再実行してください。')
