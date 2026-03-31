@@ -5,26 +5,31 @@ import { useId } from 'react'
  * SVG 実装で低スコア時でも形状と軸差分が読み取りやすいようにする
  */
 
-const AXIS_GROUPS = {
-  composition: {
-    label: '構成',
-    ids: ['visual_flow', 'information_balance', 'information_density', 'first_view_clarity'],
+const AXIS_GROUPS_BY_TYPE = {
+  banner_review: {
+    composition: { label: '構成', ids: ['visual_flow', 'information_balance', 'information_density', 'first_view_clarity'] },
+    design:      { label: 'デザイン', ids: ['visual_impact', 'brand_consistency', 'competitive_edge'] },
+    cta:         { label: 'CTA', ids: ['cta_effectiveness', 'cta_clarity', 'cta_placement', 'offer_clarity'] },
+    trust:       { label: '信頼性', ids: ['credibility', 'trust_elements', 'drop_off_risk'] },
   },
-  design: {
-    label: 'デザイン',
-    ids: ['visual_impact', 'brand_consistency', 'competitive_edge'],
-  },
-  cta: {
-    label: 'CTA',
-    ids: ['cta_effectiveness', 'cta_clarity', 'cta_placement', 'offer_clarity'],
-  },
-  trust: {
-    label: '信頼性',
-    ids: ['credibility', 'trust_elements', 'drop_off_risk'],
+  ad_lp_review: {
+    composition: { label: '構成', ids: ['first_view_clarity', 'story_consistency'] },
+    message:     { label: 'メッセージ', ids: ['ad_to_lp_message_match', 'benefit_clarity'] },
+    cta:         { label: 'CTA', ids: ['cta_placement', 'input_friction'] },
+    trust:       { label: '信頼性', ids: ['trust_elements', 'drop_off_risk'] },
   },
 }
 
-const AXIS_ORDER = ['composition', 'design', 'cta', 'trust']
+const AXIS_ORDER_BY_TYPE = {
+  banner_review: ['composition', 'design', 'cta', 'trust'],
+  ad_lp_review:  ['composition', 'message', 'cta', 'trust'],
+}
+
+const AD_LP_IDS = new Set(['ad_to_lp_message_match', 'benefit_clarity', 'input_friction', 'story_consistency'])
+
+function detectReviewType(rubricScores) {
+  return rubricScores.some(s => AD_LP_IDS.has(s.rubric_id)) ? 'ad_lp_review' : 'banner_review'
+}
 
 const RADAR_GEOMETRY = {
   size: 320,
@@ -44,6 +49,11 @@ const AXIS_META = {
     vector: [1, 0],
     labelClassName: 'top-1/2 right-4 translate-x-full -translate-y-1/2 text-left',
   },
+  message: {
+    label: 'メッセージ',
+    vector: [1, 0],
+    labelClassName: 'top-1/2 right-4 translate-x-full -translate-y-1/2 text-left',
+  },
   cta: {
     label: 'CTA',
     vector: [0, 1],
@@ -60,8 +70,12 @@ function clampScore(score) {
   return Math.max(0, Math.min(5, score ?? 0))
 }
 
-function computeAxes(rubricScores) {
+function computeAxes(rubricScores, reviewType) {
   if (!Array.isArray(rubricScores) || rubricScores.length === 0) return null
+
+  const type = reviewType || detectReviewType(rubricScores)
+  const axisGroups = AXIS_GROUPS_BY_TYPE[type] || AXIS_GROUPS_BY_TYPE.banner_review
+  const axisOrder = AXIS_ORDER_BY_TYPE[type] || AXIS_ORDER_BY_TYPE.banner_review
 
   const scoreMap = {}
   rubricScores.forEach((item) => {
@@ -72,8 +86,8 @@ function computeAxes(rubricScores) {
   let totalSum = 0
   let totalCount = 0
 
-  for (const key of AXIS_ORDER) {
-    const group = AXIS_GROUPS[key]
+  for (const key of axisOrder) {
+    const group = axisGroups[key]
     const scores = group.ids.map((id) => scoreMap[id]).filter((v) => v != null)
     axes[key] = scores.length > 0 ? clampScore(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
     totalSum += scores.reduce((a, b) => a + b, 0)
@@ -81,7 +95,7 @@ function computeAxes(rubricScores) {
   }
 
   const totalScore = totalCount > 0 ? Math.round((totalSum / totalCount) * 20) : 0
-  return { axes, totalScore }
+  return { axes, totalScore, axisOrder, axisGroups }
 }
 
 function scoreColor(score) {
@@ -106,8 +120,8 @@ function axisPoint(axisKey, scale = 1) {
   }
 }
 
-function diamondPoints(scaleByAxis) {
-  return AXIS_ORDER.map((axisKey) => {
+function diamondPoints(scaleByAxis, axisOrder) {
+  return axisOrder.map((axisKey) => {
     const scale = typeof scaleByAxis === 'number'
       ? scaleByAxis
       : clampScore(scaleByAxis[axisKey]) / 5
@@ -116,23 +130,23 @@ function diamondPoints(scaleByAxis) {
   }).join(' ')
 }
 
-export default function PerformanceRadar({ rubricScores }) {
+export default function PerformanceRadar({ rubricScores, reviewType }) {
   const chartId = useId().replace(/:/g, '')
-  const computed = computeAxes(rubricScores)
+  const computed = computeAxes(rubricScores, reviewType)
   if (!computed) return null
 
-  const { axes, totalScore } = computed
+  const { axes, totalScore, axisOrder, axisGroups } = computed
   const fillId = `performance-radar-fill-${chartId}`
   const glowId = `performance-radar-glow-${chartId}`
   const totalBg = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
-  const axisEntries = AXIS_ORDER.map((key) => ({
+  const axisEntries = axisOrder.map((key) => ({
     key,
-    label: AXIS_GROUPS[key].label,
+    label: axisGroups[key].label,
     score: axes[key],
   }))
   const strongestAxis = axisEntries.reduce((best, current) => current.score > best.score ? current : best)
   const weakestAxis = axisEntries.reduce((worst, current) => current.score < worst.score ? current : worst)
-  const radarPolygonPoints = diamondPoints(axes)
+  const radarPolygonPoints = diamondPoints(axes, axisOrder)
 
   return (
     <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/15 p-6 md:p-8 panel-card-hover">
@@ -172,7 +186,7 @@ export default function PerformanceRadar({ rubricScores }) {
             </defs>
 
             <polygon
-              points={diamondPoints(1)}
+              points={diamondPoints(1, axisOrder)}
               fill="var(--color-secondary-fixed-dim)"
               opacity="0.04"
             />
@@ -180,7 +194,7 @@ export default function PerformanceRadar({ rubricScores }) {
             {RADAR_GEOMETRY.levels.map((level) => (
               <polygon
                 key={level}
-                points={diamondPoints(level)}
+                points={diamondPoints(level, axisOrder)}
                 fill="none"
                 stroke="var(--color-outline-variant)"
                 strokeWidth={level === 1 ? 1.5 : 1}
@@ -188,7 +202,7 @@ export default function PerformanceRadar({ rubricScores }) {
               />
             ))}
 
-            {AXIS_ORDER.map((axisKey) => {
+            {axisOrder.map((axisKey) => {
               const outerPoint = axisPoint(axisKey, 1)
               const currentPoint = axisPoint(axisKey, clampScore(axes[axisKey]) / 5)
 
@@ -233,7 +247,7 @@ export default function PerformanceRadar({ rubricScores }) {
               filter={`url(#${glowId})`}
             />
 
-            {AXIS_ORDER.map((axisKey) => {
+            {axisOrder.map((axisKey) => {
               const point = axisPoint(axisKey, clampScore(axes[axisKey]) / 5)
 
               return (
@@ -265,7 +279,7 @@ export default function PerformanceRadar({ rubricScores }) {
             />
           </svg>
 
-          {AXIS_ORDER.map((axisKey) => {
+          {axisOrder.map((axisKey) => {
             const meta = AXIS_META[axisKey]
             const score = axes[axisKey]
 
@@ -285,8 +299,8 @@ export default function PerformanceRadar({ rubricScores }) {
 
       {/* Score breakdown grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-10">
-        {AXIS_ORDER.map((key) => {
-          const group = AXIS_GROUPS[key]
+        {axisOrder.map((key) => {
+          const group = axisGroups[key]
           const score = axes[key]
           const pct = (score / 5) * 100
           return (

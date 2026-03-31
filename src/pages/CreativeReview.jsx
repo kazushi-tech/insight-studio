@@ -405,6 +405,11 @@ export default function CreativeReview() {
   const originalBannerUrl = previewUrl || (assetId ? getCreativeAssetDownloadUrl(assetId) : null)
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
 
+  // Phase E: After banner scoring state
+  const [afterReviewResult, setAfterReviewResult] = useState(null)
+  const [afterScoring, setAfterScoring] = useState(false)
+  const [afterError, setAfterError] = useState('')
+
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
   )
@@ -577,6 +582,39 @@ export default function CreativeReview() {
       goError(`生成失敗: ${err.message}`)
     }
   }, [runId, geminiKey, startRun, completeRun, failRun, goError])
+
+  // ─── 4. After banner scoring ───
+  const handleAfterScoring = useCallback(async () => {
+    if (!genImageUrl || !analysisKey.trim() || afterScoring) return
+    setAfterScoring(true)
+    setAfterError('')
+    setAfterReviewResult(null)
+
+    try {
+      // Fetch the generated image as a blob and upload as new asset
+      const resp = await fetch(genImageUrl)
+      if (!resp.ok) throw new Error('改善バナー画像の取得に失敗しました。')
+      const blob = await resp.blob()
+      const file = new File([blob], `improved-${genId}.png`, { type: 'image/png' })
+      const uploadData = await uploadCreativeAsset(file)
+
+      // Run banner review on the uploaded after-image
+      const envelope = await reviewBanner(
+        { asset_id: uploadData.asset_id },
+        {
+          apiKey: analysisKey.trim(),
+          provider: analysisProvider,
+          model: getAnalysisModel(analysisProvider),
+        },
+      )
+      const review = envelope.review || envelope
+      setAfterReviewResult(review)
+    } catch (err) {
+      setAfterError(`スコアリング失敗: ${err.message}`)
+    } finally {
+      setAfterScoring(false)
+    }
+  }, [genImageUrl, genId, analysisKey, analysisProvider, afterScoring])
 
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed', 'generating', 'generated'].includes(phase)
@@ -800,7 +838,7 @@ export default function CreativeReview() {
                 </div>
 
                 {/* Performance Radar — stitch2 diamond visualization */}
-                {reviewResult?.rubric_scores && <PerformanceRadar rubricScores={reviewResult.rubric_scores} />}
+                {reviewResult?.rubric_scores && <PerformanceRadar rubricScores={reviewResult.rubric_scores} reviewType={reviewResult.review_type} />}
 
                 {/* Section-aware review blocks — no more giant scroll box */}
                 <ReviewResultDisplay review={reviewResult} size={reviewTextSize} />
@@ -875,7 +913,75 @@ export default function CreativeReview() {
                   />
                 </div>
 
+                {/* Before/After Radar Comparison */}
+                {afterReviewResult?.rubric_scores && reviewResult?.rubric_scores && (() => {
+                  const beforeScores = reviewResult.rubric_scores
+                  const afterScores = afterReviewResult.rubric_scores
+                  const beforeAvg = beforeScores.length > 0 ? Math.round((beforeScores.reduce((s, i) => s + (i.score || 0), 0) / beforeScores.length) * 20) : 0
+                  const afterAvg = afterScores.length > 0 ? Math.round((afterScores.reduce((s, i) => s + (i.score || 0), 0) / afterScores.length) * 20) : 0
+                  const diff = afterAvg - beforeAvg
+                  const diffColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-500' : 'text-on-surface-variant'
+                  const isCrossType = reviewResult.review_type === 'ad_lp_review'
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-base font-bold text-on-surface japanese-text flex items-center gap-2">
+                          <span className="material-symbols-outlined text-secondary">compare</span>
+                          Before / After スコア比較
+                        </h4>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-on-surface-variant font-bold">{beforeAvg}</span>
+                          <span className="material-symbols-outlined text-on-surface-variant text-sm">arrow_forward</span>
+                          <span className="text-sm font-black text-on-surface">{afterAvg}</span>
+                          <span className={`text-sm font-black ${diffColor}`}>
+                            ({diff > 0 ? '+' : ''}{diff})
+                          </span>
+                        </div>
+                      </div>
+                      {isCrossType && (
+                        <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                          Before は広告+LP統合レビュー（8項目）、After はバナーレビュー（5項目）のため、Total Score のみ比較可能です。軸別比較は参考値です。
+                        </p>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Before</p>
+                          <PerformanceRadar rubricScores={beforeScores} reviewType={reviewResult.review_type} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">After</p>
+                          <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {afterError && (
+                  <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 rounded-lg px-4 py-2">
+                    <span className="material-symbols-outlined text-lg">error</span>
+                    {afterError}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-3 justify-end">
+                  {!afterReviewResult && (
+                    <button
+                      onClick={handleAfterScoring}
+                      disabled={afterScoring || !analysisKey.trim()}
+                      className="px-5 py-2.5 bg-secondary/10 text-secondary rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-secondary/20 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {afterScoring ? (
+                        <LoadingSpinner size="sm" label="スコアリング中…" />
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-lg">compare</span>
+                          改善バナーをスコアリング
+                        </>
+                      )}
+                    </button>
+                  )}
                   {originalBannerUrl && (
                     <a
                       href={originalBannerUrl}
