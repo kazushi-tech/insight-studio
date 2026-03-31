@@ -17,14 +17,37 @@ function shortenUrlForDisplay(url) {
 function getColumnClass(header, cellIndex) {
   const normalized = String(header ?? '').trim().toLowerCase()
 
+  // 1. 狭い番号列（最優先 — cellIndex===0 より前にチェック）
+  if (/^(#|番号|no\.?|順位|rank)$/i.test(normalized)) {
+    return 'w-[3rem] min-w-[3rem] text-center'
+  }
+
+  // 2. 優先度列
+  if (/^(優先度|priority|重要度)$/i.test(normalized)) {
+    return 'min-w-[4.5rem] max-w-[5.5rem]'
+  }
+
+  // 3. メインコンテンツ列（提案・施策）
+  if (/^(提案|改善|内容|施策|recommendation|suggestion|description)$/i.test(normalized)) {
+    return 'min-w-[22rem] max-w-[40rem]'
+  }
+
+  // 4. 効果・インパクト列
+  if (/^(期待効果|効果|impact|expected.?effect)$/i.test(normalized)) {
+    return 'min-w-[10rem] max-w-[16rem]'
+  }
+
+  // 5. タイトル系 or 先頭列フォールバック
   if (cellIndex === 0 || /(title|page|landing|location|url|path|keyword|query|campaign|content|source)/i.test(normalized)) {
     return 'min-w-[14rem] max-w-[28rem]'
   }
 
+  // 6. 日付
   if (/(date|period|day|week|month|event_date)/i.test(normalized)) {
     return 'min-w-[6rem]'
   }
 
+  // 7. メトリクス
   if (/(users|sessions|page_views|pageviews|views|pv|count|rate|ratio|ctr|cpc|cpa|cv|avg|cost|revenue|value|time|duration|bounce|engagement|impressions|clicks)/i.test(normalized)) {
     return 'min-w-[4.5rem]'
   }
@@ -241,21 +264,38 @@ function getComponents(size = 'normal', variant = null) {
       }
       return <li>{children}</li>
     },
-    table: ({ children }) => (
-      <div className={`my-5 max-w-full overflow-x-auto rounded-[0.75rem] ${isEP ? 'ghost-border' : ''}`}>
-        <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
-          {children}
-        </table>
-      </div>
-    ),
-    thead: ({ children }) => (
-      <thead className={isEP ? 'bg-surface-container-low' : 'bg-surface-container-low'}>{children}</thead>
-    ),
-    tbody: ({ children }) => (
-      <tbody className={isEP ? 'divide-y divide-outline-variant/10' : ''}>{children}</tbody>
-    ),
+    table: ({ children }) => {
+      if (isDiscovery) {
+        return (
+          <div className="my-5 max-w-full overflow-x-auto rounded-[0.75rem] ghost-border-thin -mx-2">
+            <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
+              {children}
+            </table>
+          </div>
+        )
+      }
+      return (
+        <div className={`my-5 max-w-full overflow-x-auto rounded-[0.75rem] ${isEP ? 'ghost-border' : ''}`}>
+          <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
+            {children}
+          </table>
+        </div>
+      )
+    },
+    thead: ({ children }) => {
+      if (isDiscovery) return <thead className="bg-primary/5">{children}</thead>
+      return <thead className="bg-surface-container-low">{children}</thead>
+    },
+    tbody: ({ children }) => {
+      if (isDiscovery) return <tbody className="divide-y divide-outline-variant/5">{children}</tbody>
+      if (isEP) return <tbody className="divide-y divide-outline-variant/10">{children}</tbody>
+      return <tbody>{children}</tbody>
+    },
     tr: ({ children, isHeader }) => {
       if (isHeader) return <tr>{children}</tr>
+      if (isDiscovery) {
+        return <tr className="hover:bg-primary/[0.02] transition-colors">{children}</tr>
+      }
       if (isEP) {
         return <tr className="group hover:bg-surface-container-low/40 transition-colors">{children}</tr>
       }
@@ -267,6 +307,14 @@ function getComponents(size = 'normal', variant = null) {
       const isFirstCol = cellIndex <= 1
       const columnClass = getColumnClass(text, isFirstCol ? 0 : 1)
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : 'text-left'
+
+      if (isDiscovery) {
+        return (
+          <th className={`px-4 py-3 text-xs font-bold text-primary/80 whitespace-nowrap ${align} ${columnClass}`}>
+            {children}
+          </th>
+        )
+      }
 
       if (isEP) {
         return (
@@ -302,6 +350,19 @@ function getComponents(size = 'normal', variant = null) {
           {shortenUrlForDisplay(text)}
         </a>
       ) : children
+
+      if (isDiscovery) {
+        return (
+          <td
+            title={text}
+            className={`px-4 py-3 align-top leading-relaxed ${align} ${
+              numeric ? 'text-right font-mono tabular-nums whitespace-nowrap' : ''
+            } ${!numeric ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : ''}`}
+          >
+            {content}
+          </td>
+        )
+      }
 
       if (isEP) {
         return (

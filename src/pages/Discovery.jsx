@@ -104,11 +104,16 @@ function DomainPlaceholder({ domain }) {
   const initial = (domain || '?').replace(/^www\./, '').charAt(0).toUpperCase()
   const color = domainColor(domain || '')
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ background: `linear-gradient(135deg, ${color}22, ${color}44)` }}>
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-lg" style={{ backgroundColor: color }}>
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+         style={{ background: `linear-gradient(135deg, ${color}18, ${color}30, ${color}18)` }}>
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-lg"
+           style={{ backgroundColor: color }}>
         {initial}
       </div>
-      <span className="text-xs font-bold text-on-surface-variant/60 tracking-wide">{(domain || '').replace(/^www\./, '')}</span>
+      <span className="text-xs font-bold text-on-surface-variant/60 tracking-wide truncate max-w-[200px]">
+        {(domain || '').replace(/^www\./, '')}
+      </span>
+      <span className="material-symbols-outlined text-on-surface-variant/15 absolute bottom-3 right-3 text-4xl">language</span>
     </div>
   )
 }
@@ -288,8 +293,18 @@ export default function Discovery() {
                         alt={item.title || item.url}
                         className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 opacity-0"
                         loading="lazy"
+                        referrerPolicy="no-referrer"
                         onLoad={(e) => e.target.classList.add('opacity-100')}
-                        onError={(e) => { e.target.style.display = 'none' }}
+                        onError={(e) => {
+                          const img = e.target
+                          if (!img.dataset.retried) {
+                            img.dataset.retried = 'true'
+                            img.removeAttribute('crossorigin')
+                            img.src = item.og_image_url + (item.og_image_url.includes('?') ? '&' : '?') + '_r=1'
+                          } else {
+                            img.style.display = 'none'
+                          }
+                        }}
                       />
                     )}
                     {(item.score != null) && (
