@@ -610,7 +610,12 @@ export default function CreativeReview() {
       const review = envelope.review || envelope
       setAfterReviewResult(review)
     } catch (err) {
-      setAfterError(`スコアリング失敗: ${err.message}`)
+      const msg = err.message || ''
+      if (msg.includes('Evidence grounding violation') || msg.includes('Commentary guardrail')) {
+        setAfterError('スコアリングに失敗しました。再試行してください。')
+      } else {
+        setAfterError(`スコアリング失敗: ${msg}`)
+      }
     } finally {
       setAfterScoring(false)
     }
