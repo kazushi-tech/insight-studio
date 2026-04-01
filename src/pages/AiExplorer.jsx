@@ -13,6 +13,26 @@ import {
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 
+function formatAnalysisError(error) {
+  const msg = error.message || ''
+  const body = error.body || {}
+  const bodyStr = JSON.stringify(body)
+
+  if (
+    msg.includes('API key not valid') ||
+    msg.includes('API_KEY_INVALID') ||
+    bodyStr.includes('generativelanguage.googleapis.com')
+  ) {
+    return 'バックエンドが Gemini API を呼び出しましたが、APIキーが無効です。バックエンド側の provider 設定を確認してください。'
+  }
+
+  if (error.isAuthError) {
+    return AUTH_EXPIRED_MESSAGE
+  }
+
+  return msg.length > 200 ? msg.slice(0, 200) + '…' : msg
+}
+
 const QUICK_PROMPTS = [
   { icon: 'warning', label: 'リスクを要約して', color: 'text-red-500' },
   { icon: 'lightbulb', label: 'ROI改善のアイデア', color: 'text-emerald-500' },
@@ -155,8 +175,8 @@ export default function AiExplorer() {
       const data = await neonGenerate(
         {
           mode: 'question',
-          ...(getAnalysisModel(analysisProvider) ? { model: getAnalysisModel(analysisProvider) } : {}),
-          ...(analysisProvider ? { provider: analysisProvider } : {}),
+          model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
+          provider: analysisProvider || 'anthropic',
           temperature: 0.7,
           message: enrichedPrompt,
           point_pack_md: reportBundle.reportMd,
@@ -189,7 +209,7 @@ export default function AiExplorer() {
         setStatus('✓ 考察生成完了')
       }
     } catch (e) {
-      const errorMsg = e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message
+      const errorMsg = formatAnalysisError(e)
       setStatus(`生成エラー: ${errorMsg}`)
       setMessages([
         ...nextMessages,

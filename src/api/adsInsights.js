@@ -178,6 +178,7 @@ export function neonGenerate(payload, apiKey) {
   const headers = {
     Accept: 'application/json',
     ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+    ...(payload.provider ? { 'X-Analysis-Provider': payload.provider } : {}),
   }
   const body = { ...payload, ...(apiKey ? { api_key: apiKey } : {}) }
 
