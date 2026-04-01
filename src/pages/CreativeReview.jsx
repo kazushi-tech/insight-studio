@@ -949,13 +949,13 @@ export default function CreativeReview() {
                           Before は広告+LP統合レビュー（8項目）、After はバナーレビュー（5項目）のため、Total Score のみ比較可能です。軸別比較は参考値です。
                         </p>
                       )}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Before</p>
+                          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">Before</p>
                           <PerformanceRadar rubricScores={beforeScores} reviewType={reviewResult.review_type} />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-widest">After</p>
+                          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">After</p>
                           <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" />
                         </div>
                       </div>

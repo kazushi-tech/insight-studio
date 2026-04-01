@@ -32,9 +32,9 @@ function detectReviewType(rubricScores) {
 }
 
 const RADAR_GEOMETRY = {
-  size: 320,
-  center: 160,
-  radius: 118,
+  size: 380,
+  center: 190,
+  radius: 140,
   levels: [0.25, 0.5, 0.75, 1],
 }
 
@@ -157,15 +157,15 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
           <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
         </div>
         <div className={`${totalBg} text-white px-4 py-3 rounded-[0.75rem] text-center min-w-[92px] shadow-sm`}>
-          <p className="text-[10px] font-medium opacity-80">Total Score</p>
+          <p className="text-xs font-medium opacity-80">Total Score</p>
           <p className="text-3xl font-black tabular-nums leading-none">{totalScore}</p>
-          <p className="text-[10px] font-bold opacity-70 mt-1">out of 100</p>
+          <p className="text-xs font-bold opacity-70 mt-1">out of 100</p>
         </div>
       </div>
 
       {/* Diamond */}
       <div className="mt-10">
-        <div className="relative mx-auto w-full max-w-[28rem] aspect-square">
+        <div className="relative mx-auto w-full max-w-[32rem] aspect-square">
           <div
             className="absolute inset-12 rounded-full blur-3xl pointer-events-none"
             style={{ background: 'radial-gradient(circle, rgba(45, 106, 79, 0.18) 0%, rgba(45, 106, 79, 0) 72%)' }}
@@ -285,10 +285,10 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
 
             return (
               <div key={axisKey} className={`absolute ${meta.labelClassName} pointer-events-none`}>
-                <p className="text-[10px] font-black tracking-[0.16em] text-on-surface-variant/75 uppercase whitespace-nowrap">
+                <p className="text-xs font-black tracking-[0.16em] text-on-surface-variant/75 uppercase whitespace-nowrap">
                   {meta.label}
                 </p>
-                <p className={`text-2xl md:text-[2rem] font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
+                <p className={`text-[1.75rem] md:text-4xl font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
                   {score.toFixed(1)}
                 </p>
               </div>
@@ -311,7 +311,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
                   {score.toFixed(1)}
                   <span className="text-on-surface-variant font-medium text-xs ml-0.5">/5</span>
                 </p>
-                <span className="text-[11px] font-bold text-on-surface-variant tabular-nums">{Math.round(pct)}%</span>
+                <span className="text-sm font-bold text-on-surface-variant tabular-nums">{Math.round(pct)}%</span>
               </div>
               <div className="h-2 bg-surface-container-high rounded-full overflow-hidden mt-3">
                 <div className={`h-full ${barColor(score)} rounded-full transition-all`} style={{ width: `${pct}%` }} />
@@ -324,7 +324,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
       {/* Derived summary */}
       <div className="grid gap-3 mt-3 sm:grid-cols-2">
         <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
-          <p className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Strongest Axis</p>
+          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Strongest Axis</p>
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-base font-black text-primary japanese-text">{strongestAxis.label}</p>
@@ -337,7 +337,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
           </div>
         </div>
         <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
-          <p className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Needs Attention</p>
+          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Needs Attention</p>
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-base font-black text-primary japanese-text">{weakestAxis.label}</p>
