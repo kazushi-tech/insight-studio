@@ -952,13 +952,36 @@ export default function CreativeReview() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">Before</p>
-                          <PerformanceRadar rubricScores={beforeScores} reviewType={reviewResult.review_type} />
+                          <PerformanceRadar rubricScores={beforeScores} reviewType={reviewResult.review_type} compact />
                         </div>
                         <div>
                           <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">After</p>
-                          <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" />
+                          <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" compact />
                         </div>
                       </div>
+                    </div>
+                  )
+                })()}
+
+                {afterReviewResult?.rubric_scores && (() => {
+                  const scores = afterReviewResult.rubric_scores
+                  const avg = scores.length > 0 ? Math.round((scores.reduce((s, i) => s + (i.score || 0), 0) / scores.length) * 20) : 0
+                  if (avg >= 60) return null
+                  return (
+                    <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] p-4 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-600">warning</span>
+                        <p className="text-sm text-amber-800 font-medium japanese-text">
+                          改善バナーのスコアが {avg}/100 と低めです。再生成でより良い結果が得られる場合があります。
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleGenerate}
+                        className="px-4 py-2 bg-amber-600 text-white rounded-[0.75rem] font-bold text-sm hover:bg-amber-700 transition-all whitespace-nowrap flex items-center gap-1.5"
+                      >
+                        <span className="material-symbols-outlined text-base">refresh</span>
+                        再生成する
+                      </button>
                     </div>
                   )
                 })()}

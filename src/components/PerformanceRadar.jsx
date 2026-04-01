@@ -130,7 +130,7 @@ function diamondPoints(scaleByAxis, axisOrder) {
   }).join(' ')
 }
 
-export default function PerformanceRadar({ rubricScores, reviewType }) {
+export default function PerformanceRadar({ rubricScores, reviewType, compact = false }) {
   const chartId = useId().replace(/:/g, '')
   const computed = computeAxes(rubricScores, reviewType)
   if (!computed) return null
@@ -149,23 +149,32 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
   const radarPolygonPoints = diamondPoints(axes, axisOrder)
 
   return (
-    <div className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/15 p-6 md:p-8 panel-card-hover">
+    <div className={`bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/15 ${compact ? 'p-3 md:p-4' : 'p-6 md:p-8'} panel-card-hover`}>
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
-          <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
+      {compact ? (
+        <div className="flex items-center justify-center">
+          <div className={`${totalBg} text-white px-3 py-2 rounded-[0.75rem] text-center min-w-[72px] shadow-sm`}>
+            <p className="text-[10px] font-medium opacity-80">Score</p>
+            <p className="text-2xl font-black tabular-nums leading-none">{totalScore}</p>
+          </div>
         </div>
-        <div className={`${totalBg} text-white px-4 py-3 rounded-[0.75rem] text-center min-w-[92px] shadow-sm`}>
-          <p className="text-xs font-medium opacity-80">Total Score</p>
-          <p className="text-3xl font-black tabular-nums leading-none">{totalScore}</p>
-          <p className="text-xs font-bold opacity-70 mt-1">out of 100</p>
+      ) : (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
+            <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
+          </div>
+          <div className={`${totalBg} text-white px-4 py-3 rounded-[0.75rem] text-center min-w-[92px] shadow-sm`}>
+            <p className="text-xs font-medium opacity-80">Total Score</p>
+            <p className="text-3xl font-black tabular-nums leading-none">{totalScore}</p>
+            <p className="text-xs font-bold opacity-70 mt-1">out of 100</p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Diamond */}
-      <div className="mt-10">
-        <div className="relative mx-auto w-full max-w-[32rem] aspect-square">
+      <div className={compact ? 'mt-4' : 'mt-10'}>
+        <div className={`relative mx-auto w-full ${compact ? 'max-w-[20rem]' : 'max-w-[32rem]'} aspect-square`}>
           <div
             className="absolute inset-12 rounded-full blur-3xl pointer-events-none"
             style={{ background: 'radial-gradient(circle, rgba(45, 106, 79, 0.18) 0%, rgba(45, 106, 79, 0) 72%)' }}
@@ -198,7 +207,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
                 fill="none"
                 stroke="var(--color-outline-variant)"
                 strokeWidth={level === 1 ? 1.5 : 1}
-                opacity={level === 1 ? 0.34 : 0.22}
+                opacity={level === 1 ? 0.55 : 0.40}
               />
             ))}
 
@@ -215,7 +224,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
                     y2={outerPoint.y}
                     stroke="var(--color-outline-variant)"
                     strokeWidth="1"
-                    opacity="0.22"
+                    opacity="0.40"
                   />
                   <line
                     x1={RADAR_GEOMETRY.center}
@@ -288,7 +297,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
                 <p className="text-xs font-black tracking-[0.16em] text-on-surface-variant/75 uppercase whitespace-nowrap">
                   {meta.label}
                 </p>
-                <p className={`text-[1.75rem] md:text-4xl font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
+                <p className={`${compact ? 'text-lg' : 'text-[1.75rem] md:text-4xl'} font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
                   {score.toFixed(1)}
                 </p>
               </div>
@@ -298,7 +307,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
       </div>
 
       {/* Score breakdown grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-10">
+      {!compact && <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-10">
         {axisOrder.map((key) => {
           const group = axisGroups[key]
           const score = axes[key]
@@ -319,10 +328,10 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
             </div>
           )
         })}
-      </div>
+      </div>}
 
       {/* Derived summary */}
-      <div className="grid gap-3 mt-3 sm:grid-cols-2">
+      {!compact && <div className="grid gap-3 mt-3 sm:grid-cols-2">
         <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
           <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Strongest Axis</p>
           <div className="flex items-end justify-between gap-4">
@@ -349,7 +358,7 @@ export default function PerformanceRadar({ rubricScores, reviewType }) {
             </p>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
