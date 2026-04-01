@@ -14,12 +14,10 @@ import {
   getGenerationImageUrl,
 } from '../api/marketLens'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { SCORE_THRESHOLD_EXCELLENT, SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_FAIR } from '../utils/scoreThresholds'
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
-const SCORE_THRESHOLD_EXCELLENT = 80
-const SCORE_THRESHOLD_GOOD = 60
-const SCORE_THRESHOLD_FAIR = 40
 const REGENERATION_THRESHOLD = 60
 const MAX_REGENERATION_ATTEMPTS = 3
 
@@ -525,6 +523,7 @@ export default function CreativeReview() {
     setLpUrl('')
     clearRun('creative-review')
     clearRun('banner-generation')
+    setRegenerationCount(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [clearRun])
 

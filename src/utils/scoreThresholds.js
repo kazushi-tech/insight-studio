@@ -1,0 +1,3 @@
+export const SCORE_THRESHOLD_EXCELLENT = 80
+export const SCORE_THRESHOLD_GOOD = 60
+export const SCORE_THRESHOLD_FAIR = 40

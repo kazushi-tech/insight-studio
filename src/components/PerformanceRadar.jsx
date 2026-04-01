@@ -1,4 +1,5 @@
 import { useId } from 'react'
+import { SCORE_THRESHOLD_EXCELLENT, SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_FAIR } from '../utils/scoreThresholds'
 
 /**
  * PerformanceRadar — stitch2 準拠ダイヤモンド型レーダー + スコアカード
@@ -24,10 +25,6 @@ const AXIS_ORDER_BY_TYPE = {
   banner_review: ['composition', 'design', 'cta', 'trust'],
   ad_lp_review:  ['composition', 'message', 'cta', 'trust'],
 }
-
-const SCORE_THRESHOLD_EXCELLENT = 80
-const SCORE_THRESHOLD_GOOD = 60
-const SCORE_THRESHOLD_FAIR = 40
 
 const AD_LP_IDS = new Set(['ad_to_lp_message_match', 'benefit_clarity', 'input_friction', 'story_consistency'])
 
