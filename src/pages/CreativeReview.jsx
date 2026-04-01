@@ -703,7 +703,11 @@ export default function CreativeReview() {
       const resp = await fetch(genImageUrl)
       if (!resp.ok) throw new Error('改善バナー画像の取得に失敗しました。')
       const blob = await resp.blob()
-      const file = new File([blob], `improved-${genId}.png`, { type: 'image/png' })
+      // blob.type が image/jpeg のみ特別扱い、それ以外は image/png として扱う
+      // Note: Gemini Vision は image/jpeg または image/png を返す
+      const actualType = blob.type || 'image/png'
+      const ext = actualType === 'image/jpeg' ? 'jpg' : 'png'
+      const file = new File([blob], `improved-${genId}.${ext}`, { type: actualType })
       const uploadData = await uploadCreativeAsset(file)
 
       // Run banner review on the uploaded after-image
