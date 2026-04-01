@@ -25,6 +25,10 @@ const AXIS_ORDER_BY_TYPE = {
   ad_lp_review:  ['composition', 'message', 'cta', 'trust'],
 }
 
+const SCORE_THRESHOLD_EXCELLENT = 80
+const SCORE_THRESHOLD_GOOD = 60
+const SCORE_THRESHOLD_FAIR = 40
+
 const AD_LP_IDS = new Set(['ad_to_lp_message_match', 'benefit_clarity', 'input_friction', 'story_consistency'])
 
 function detectReviewType(rubricScores) {
@@ -138,7 +142,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
   const { axes, totalScore, axisOrder, axisGroups } = computed
   const fillId = `performance-radar-fill-${chartId}`
   const glowId = `performance-radar-glow-${chartId}`
-  const totalBg = totalScore >= 80 ? 'bg-emerald-600' : totalScore >= 60 ? 'bg-primary-container' : totalScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+  const totalBg = totalScore >= SCORE_THRESHOLD_EXCELLENT ? 'bg-emerald-600' : totalScore >= SCORE_THRESHOLD_GOOD ? 'bg-primary-container' : totalScore >= SCORE_THRESHOLD_FAIR ? 'bg-amber-500' : 'bg-rose-500'
   const axisEntries = axisOrder.map((key) => ({
     key,
     label: axisGroups[key].label,

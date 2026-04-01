@@ -17,6 +17,14 @@ import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisPro
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
+const SCORE_THRESHOLD_EXCELLENT = 80
+const SCORE_THRESHOLD_GOOD = 60
+const SCORE_THRESHOLD_FAIR = 40
+const REGENERATION_THRESHOLD = 60
+const MAX_REGENERATION_ATTEMPTS = 3
+
+const calcAvgScore100 = (scores) =>
+  scores.length > 0 ? Math.round((scores.reduce((s, i) => s + (i.score || 0), 0) / scores.length) * 20) : 0
 const REVIEW_TEXT_SIZE_STORAGE_KEY = 'creative_review_text_size'
 const REVIEW_TEXT_SIZE_OPTIONS = [
   { value: 'normal', label: '標準' },
@@ -46,6 +54,80 @@ const RUBRIC_LABEL_MAP = {
   drop_off_risk: '離脱リスク',
   input_friction: '入力摩擦',
   story_consistency: 'ストーリー一貫性',
+}
+
+// ─── Before/After Comparison Sub-components ───
+
+function BeforeAfterRadarComparison({ beforeReview, afterReview }) {
+  const beforeScores = beforeReview.rubric_scores
+  const afterScores = afterReview.rubric_scores
+  const beforeAvg = calcAvgScore100(beforeScores)
+  const afterAvg = calcAvgScore100(afterScores)
+  const diff = afterAvg - beforeAvg
+  const diffColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-500' : 'text-on-surface-variant'
+  const isCrossType = beforeReview.review_type === 'ad_lp_review'
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-base font-bold text-on-surface japanese-text flex items-center gap-2">
+          <span className="material-symbols-outlined text-secondary">compare</span>
+          Before / After スコア比較
+        </h4>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-on-surface-variant font-bold">{beforeAvg}</span>
+          <span className="material-symbols-outlined text-on-surface-variant text-sm">arrow_forward</span>
+          <span className="text-sm font-black text-on-surface">{afterAvg}</span>
+          <span className={`text-sm font-black ${diffColor}`}>
+            ({diff > 0 ? '+' : ''}{diff})
+          </span>
+        </div>
+      </div>
+      {isCrossType && (
+        <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+          Before は広告+LP統合レビュー（8項目）、After はバナーレビュー（5項目）のため、Total Score のみ比較可能です。軸別比較は参考値です。
+        </p>
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">Before</p>
+          <PerformanceRadar rubricScores={beforeScores} reviewType={beforeReview.review_type} compact />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">After</p>
+          <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" compact />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LowScoreRegenerationPrompt({ scores, onRegenerate, regenerationCount }) {
+  const avg = calcAvgScore100(scores)
+  if (avg >= REGENERATION_THRESHOLD) return null
+  const attemptsLeft = MAX_REGENERATION_ATTEMPTS - regenerationCount
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] p-4 flex items-center justify-between gap-4">
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined text-amber-600">warning</span>
+        <p className="text-sm text-amber-800 font-medium japanese-text">
+          改善バナーのスコアが {avg}/100 と低めです。{attemptsLeft > 0 ? '再生成でより良い結果が得られる場合があります。' : '再生成の上限に達しました。'}
+        </p>
+      </div>
+      {attemptsLeft > 0 ? (
+        <button
+          onClick={onRegenerate}
+          className="px-4 py-2 bg-amber-600 text-white rounded-[0.75rem] font-bold text-sm hover:bg-amber-700 transition-all whitespace-nowrap flex items-center gap-1.5"
+        >
+          <span className="material-symbols-outlined text-base">refresh</span>
+          再生成する ({attemptsLeft}/{MAX_REGENERATION_ATTEMPTS})
+        </button>
+      ) : (
+        <span className="text-xs text-amber-600 font-medium whitespace-nowrap">上限 {MAX_REGENERATION_ATTEMPTS} 回</span>
+      )}
+    </div>
+  )
 }
 
 // ─── Section-aware Review Blocks ───
@@ -409,6 +491,7 @@ export default function CreativeReview() {
   const [afterReviewResult, setAfterReviewResult] = useState(null)
   const [afterScoring, setAfterScoring] = useState(false)
   const [afterError, setAfterError] = useState('')
+  const [regenerationCount, setRegenerationCount] = useState(0)
 
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
@@ -582,6 +665,13 @@ export default function CreativeReview() {
       goError(`生成失敗: ${err.message}`)
     }
   }, [runId, geminiKey, startRun, completeRun, failRun, goError])
+
+  const handleRegenerate = useCallback(() => {
+    setRegenerationCount((c) => c + 1)
+    setAfterReviewResult(null)
+    setAfterError('')
+    handleGenerate()
+  }, [handleGenerate])
 
   // ─── 4. After banner scoring ───
   const handleAfterScoring = useCallback(async () => {
@@ -919,72 +1009,17 @@ export default function CreativeReview() {
                 </div>
 
                 {/* Before/After Radar Comparison */}
-                {afterReviewResult?.rubric_scores && reviewResult?.rubric_scores && (() => {
-                  const beforeScores = reviewResult.rubric_scores
-                  const afterScores = afterReviewResult.rubric_scores
-                  const beforeAvg = beforeScores.length > 0 ? Math.round((beforeScores.reduce((s, i) => s + (i.score || 0), 0) / beforeScores.length) * 20) : 0
-                  const afterAvg = afterScores.length > 0 ? Math.round((afterScores.reduce((s, i) => s + (i.score || 0), 0) / afterScores.length) * 20) : 0
-                  const diff = afterAvg - beforeAvg
-                  const diffColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-500' : 'text-on-surface-variant'
-                  const isCrossType = reviewResult.review_type === 'ad_lp_review'
+                {afterReviewResult?.rubric_scores && reviewResult?.rubric_scores && (
+                  <BeforeAfterRadarComparison beforeReview={reviewResult} afterReview={afterReviewResult} />
+                )}
 
-                  return (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-base font-bold text-on-surface japanese-text flex items-center gap-2">
-                          <span className="material-symbols-outlined text-secondary">compare</span>
-                          Before / After スコア比較
-                        </h4>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-on-surface-variant font-bold">{beforeAvg}</span>
-                          <span className="material-symbols-outlined text-on-surface-variant text-sm">arrow_forward</span>
-                          <span className="text-sm font-black text-on-surface">{afterAvg}</span>
-                          <span className={`text-sm font-black ${diffColor}`}>
-                            ({diff > 0 ? '+' : ''}{diff})
-                          </span>
-                        </div>
-                      </div>
-                      {isCrossType && (
-                        <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                          Before は広告+LP統合レビュー（8項目）、After はバナーレビュー（5項目）のため、Total Score のみ比較可能です。軸別比較は参考値です。
-                        </p>
-                      )}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">Before</p>
-                          <PerformanceRadar rubricScores={beforeScores} reviewType={reviewResult.review_type} compact />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">After</p>
-                          <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" compact />
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {afterReviewResult?.rubric_scores && (() => {
-                  const scores = afterReviewResult.rubric_scores
-                  const avg = scores.length > 0 ? Math.round((scores.reduce((s, i) => s + (i.score || 0), 0) / scores.length) * 20) : 0
-                  if (avg >= 60) return null
-                  return (
-                    <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] p-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-amber-600">warning</span>
-                        <p className="text-sm text-amber-800 font-medium japanese-text">
-                          改善バナーのスコアが {avg}/100 と低めです。再生成でより良い結果が得られる場合があります。
-                        </p>
-                      </div>
-                      <button
-                        onClick={handleGenerate}
-                        className="px-4 py-2 bg-amber-600 text-white rounded-[0.75rem] font-bold text-sm hover:bg-amber-700 transition-all whitespace-nowrap flex items-center gap-1.5"
-                      >
-                        <span className="material-symbols-outlined text-base">refresh</span>
-                        再生成する
-                      </button>
-                    </div>
-                  )
-                })()}
+                {afterReviewResult?.rubric_scores && (
+                  <LowScoreRegenerationPrompt
+                    scores={afterReviewResult.rubric_scores}
+                    onRegenerate={handleRegenerate}
+                    regenerationCount={regenerationCount}
+                  />
+                )}
 
                 {afterError && (
                   <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 rounded-lg px-4 py-2">
