@@ -18,7 +18,7 @@ import { SCORE_THRESHOLD_EXCELLENT, SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_FAIR }
 
 const POLL_INTERVAL = 5000
 const POLL_MAX = 12
-const REGENERATION_THRESHOLD = 60
+const REGENERATION_THRESHOLD = SCORE_THRESHOLD_GOOD
 const MAX_REGENERATION_ATTEMPTS = 3
 
 const calcAvgScore100 = (scores) =>
@@ -124,6 +124,19 @@ function LowScoreRegenerationPrompt({ scores, onRegenerate, regenerationCount })
       ) : (
         <span className="text-xs text-amber-600 font-medium whitespace-nowrap">上限 {MAX_REGENERATION_ATTEMPTS} 回</span>
       )}
+    </div>
+  )
+}
+
+function GoodScoreMessage({ scores }) {
+  const avg = calcAvgScore100(scores)
+  if (avg < REGENERATION_THRESHOLD) return null
+  return (
+    <div className="bg-emerald-50 border border-emerald-200 rounded-[0.75rem] p-4 flex items-center gap-2">
+      <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+      <p className="text-sm text-emerald-800 font-medium japanese-text">
+        改善バナーのスコアは {avg}/100 です。十分な品質が確認されました。
+      </p>
     </div>
   )
 }
@@ -490,6 +503,7 @@ export default function CreativeReview() {
   const [afterScoring, setAfterScoring] = useState(false)
   const [afterError, setAfterError] = useState('')
   const [regenerationCount, setRegenerationCount] = useState(0)
+  const [afterReviewRunId, setAfterReviewRunId] = useState(null)
 
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
@@ -524,6 +538,9 @@ export default function CreativeReview() {
     clearRun('creative-review')
     clearRun('banner-generation')
     setRegenerationCount(0)
+    setAfterReviewResult(null)
+    setAfterError('')
+    setAfterReviewRunId(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [clearRun])
 
@@ -639,7 +656,8 @@ export default function CreativeReview() {
     startRun('banner-generation', { runId })
 
     try {
-      const result = await generateBanner({ review_run_id: runId }, geminiKey.trim())
+      const effectiveRunId = afterReviewRunId || runId
+      const result = await generateBanner({ review_run_id: effectiveRunId }, geminiKey.trim())
       const gId = result.id
 
       let status = result.status
@@ -663,14 +681,15 @@ export default function CreativeReview() {
       failRun('banner-generation', err.message)
       goError(`生成失敗: ${err.message}`)
     }
-  }, [runId, geminiKey, startRun, completeRun, failRun, goError])
+  }, [runId, geminiKey, afterReviewRunId, startRun, completeRun, failRun, goError])
 
   const handleRegenerate = useCallback(() => {
     setRegenerationCount((c) => c + 1)
     setAfterReviewResult(null)
     setAfterError('')
+    clearRun('banner-generation')
     handleGenerate()
-  }, [handleGenerate])
+  }, [handleGenerate, clearRun])
 
   // ─── 4. After banner scoring ───
   const handleAfterScoring = useCallback(async () => {
@@ -698,6 +717,7 @@ export default function CreativeReview() {
       )
       const review = envelope.review || envelope
       setAfterReviewResult(review)
+      if (envelope.run_id) setAfterReviewRunId(envelope.run_id)
     } catch (err) {
       const msg = err.message || ''
       if (msg.includes('Evidence grounding violation') || msg.includes('Commentary guardrail')) {
@@ -1013,11 +1033,14 @@ export default function CreativeReview() {
                 )}
 
                 {afterReviewResult?.rubric_scores && (
-                  <LowScoreRegenerationPrompt
-                    scores={afterReviewResult.rubric_scores}
-                    onRegenerate={handleRegenerate}
-                    regenerationCount={regenerationCount}
-                  />
+                  <>
+                    <LowScoreRegenerationPrompt
+                      scores={afterReviewResult.rubric_scores}
+                      onRegenerate={handleRegenerate}
+                      regenerationCount={regenerationCount}
+                    />
+                    <GoodScoreMessage scores={afterReviewResult.rubric_scores} />
+                  </>
                 )}
 
                 {afterError && (
