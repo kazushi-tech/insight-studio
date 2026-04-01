@@ -5,6 +5,7 @@ import { getScans } from '../api/marketLens'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
 import {
   buildAiChartContext,
@@ -75,18 +76,45 @@ export default function AiExplorer() {
     hasAnalysisKey,
   } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
+  const { getDraft, setDraft, clearDraft } = useAnalysisRuns()
   const { avatarInitial } = useUserProfile()
+
+  const FONT_SIZE_KEY = 'is-ai-chat-font-size'
+  const USER_TEXT_SIZE = { normal: 'text-sm', large: 'text-base', xlarge: 'text-lg' }
+
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState(() => {
+    const draft = getDraft('ai-explorer')
+    if (!draft || !Array.isArray(draft.messages)) return []
+    return draft.messages
+      .filter((m) => m && typeof m.role === 'string' && typeof m.text === 'string')
+      .slice(-50)
+  })
   const [loading, setLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState(null)
   const [status, setStatus] = useState('')
-  const [contextMode, setContextMode] = useState('ads-only')
+  const [contextMode, setContextMode] = useState(() => {
+    const draft = getDraft('ai-explorer')
+    return draft?.contextMode === 'ads-with-ml' ? 'ads-with-ml' : 'ads-only'
+  })
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = localStorage.getItem(FONT_SIZE_KEY)
+    return saved === 'large' || saved === 'xlarge' ? saved : 'normal'
+  })
   const [mlContextSummary, setMlContextSummary] = useState(null)
   const [mlLoading, setMlLoading] = useState(false)
   const [mlStatus, setMlStatus] = useState('idle')
   const chatEndRef = useRef(null)
+
+  useEffect(() => {
+    setDraft('ai-explorer', { messages: messages.slice(-50), contextMode })
+  }, [messages, contextMode, setDraft])
+
+  function handleFontSizeChange(size) {
+    setFontSize(size)
+    localStorage.setItem(FONT_SIZE_KEY, size)
+  }
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -365,15 +393,47 @@ export default function AiExplorer() {
                 </span>
               )}
             </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Size</p>
+              <div className="flex bg-surface-container rounded-full p-0.5">
+                {[
+                  { key: 'normal', label: '小' },
+                  { key: 'large', label: '中' },
+                  { key: 'xlarge', label: '大' },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => handleFontSizeChange(opt.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      fontSize === opt.key
+                        ? 'bg-primary text-on-primary'
+                        : 'text-on-surface-variant hover:bg-surface-container-high'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <button
-            onClick={handleRefreshReport}
-            disabled={!setupState || !isAdsAuthenticated || reportLoading}
-            className="px-4 py-2 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
-          >
-            {reportLoading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-sm">sync</span>}
-            コンテキスト更新
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setMessages([]); setStatus(''); clearDraft('ai-explorer') }}
+              disabled={messages.length === 0}
+              className="px-4 py-2 bg-surface-container text-on-surface-variant rounded-[0.75rem] font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">delete_sweep</span>
+              チャット消去
+            </button>
+            <button
+              onClick={handleRefreshReport}
+              disabled={!setupState || !isAdsAuthenticated || reportLoading}
+              className="px-4 py-2 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+            >
+              {reportLoading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-sm">sync</span>}
+              コンテキスト更新
+            </button>
+          </div>
         </div>
 
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
@@ -425,14 +485,14 @@ export default function AiExplorer() {
               <div>
                 <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
                 <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
-                  <MarkdownRenderer content={message.text} className="text-sm" />
+                  <MarkdownRenderer content={message.text} className="text-sm" size={fontSize} />
                 </div>
               </div>
             </div>
           ) : (
             <div key={index} className="flex justify-end gap-4">
               <div className="bg-primary-container text-on-primary rounded-2xl rounded-tr-none px-6 py-4 max-w-2xl">
-                <p className="text-sm leading-relaxed text-on-primary japanese-text">{message.text}</p>
+                <p className={`${USER_TEXT_SIZE[fontSize]} leading-relaxed text-on-primary japanese-text`}>{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">
                 {avatarInitial}
@@ -449,7 +509,7 @@ export default function AiExplorer() {
             <div>
               <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
               <div className="bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6">
-                <p className="text-sm text-on-surface-variant japanese-text">考察を生成中…</p>
+                <p className={`${USER_TEXT_SIZE[fontSize]} text-on-surface-variant japanese-text`}>考察を生成中…</p>
               </div>
             </div>
           </div>
