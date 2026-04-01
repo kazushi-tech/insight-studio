@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { getCases } from '../api/adsInsights'
+import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 
 export default function CaseSelector({ onCaseSelect }) {
+  const { isAdsAuthenticated } = useAuth()
   const { currentCase, isSetupComplete } = useAdsSetup()
   const [isOpen, setIsOpen] = useState(false)
   const [cases, setCases] = useState([])
@@ -14,7 +16,7 @@ export default function CaseSelector({ onCaseSelect }) {
   const inputRef = useRef(null)
 
   useEffect(() => {
-    if (isOpen && cases.length === 0) {
+    if (isOpen && cases.length === 0 && isAdsAuthenticated) {
       setLoading(true)
       setError(null)
       getCases()
@@ -28,7 +30,7 @@ export default function CaseSelector({ onCaseSelect }) {
           setLoading(false)
         })
     }
-  }, [isOpen, cases.length])
+  }, [isOpen, cases.length, isAdsAuthenticated])
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -146,24 +148,32 @@ export default function CaseSelector({ onCaseSelect }) {
 
           {/* Case list */}
           <div className="max-h-64 overflow-y-auto">
-            {loading && (
+            {!isAdsAuthenticated && (
+              <div className="px-4 py-6 text-center">
+                <span className="material-symbols-outlined text-3xl text-amber-500 mb-2 block">lock</span>
+                <p className="text-sm text-on-surface-variant japanese-text">認証が必要です</p>
+                <p className="text-xs text-on-surface-variant/70 japanese-text mt-1">設定ページからログインしてください</p>
+              </div>
+            )}
+
+            {isAdsAuthenticated && loading && (
               <div className="flex items-center justify-center gap-2 py-8 text-on-surface-variant">
                 <span className="material-symbols-outlined animate-spin text-lg">progress_activity</span>
                 <span className="text-sm japanese-text">読み込み中...</span>
               </div>
             )}
 
-            {error && (
+            {isAdsAuthenticated && error && (
               <div className="px-4 py-3 text-sm text-error japanese-text">{error}</div>
             )}
 
-            {!loading && !error && filteredCases.length === 0 && (
+            {isAdsAuthenticated && !loading && !error && filteredCases.length === 0 && (
               <div className="px-4 py-3 text-sm text-on-surface-variant japanese-text">
                 {searchQuery ? '一致する案件がありません' : '案件がありません'}
               </div>
             )}
 
-            {!loading &&
+            {isAdsAuthenticated && !loading &&
               !error &&
               filteredCases.map((c) => {
                 const caseId = c.id || c.case_id

@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getCases, createCase, updateCase, getCaseBqStatus } from '../api/adsInsights'
+import { useAuth } from '../contexts/AuthContext'
+import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 
 const STATUS_LABELS = { active: '有効', inactive: '無効' }
@@ -147,6 +150,9 @@ function CaseForm({ onSubmit, onCancel, initialData }) {
 }
 
 export default function CaseManagement() {
+  const { isAdsAuthenticated } = useAuth()
+  const { currentCase } = useAdsSetup()
+  const navigate = useNavigate()
   const [cases, setCases] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -168,8 +174,12 @@ export default function CaseManagement() {
   }, [])
 
   useEffect(() => {
-    fetchCases()
-  }, [fetchCases])
+    if (isAdsAuthenticated) {
+      fetchCases()
+    } else {
+      setLoading(false)
+    }
+  }, [fetchCases, isAdsAuthenticated])
 
   const handleCreate = async (payload) => {
     setError(null)
@@ -211,18 +221,55 @@ export default function CaseManagement() {
           <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">案件管理</h2>
           <p className="text-sm text-on-surface-variant mt-1 japanese-text">クライアント案件の登録・編集・BQ接続テスト</p>
         </div>
-        <button
-          onClick={() => { setShowForm(true); setEditingCase(null) }}
-          className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
-        >
-          <span className="material-symbols-outlined text-lg">add</span>
-          <span className="japanese-text">新規案件</span>
-        </button>
+        {isAdsAuthenticated && (
+          <button
+            onClick={() => { setShowForm(true); setEditingCase(null) }}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+          >
+            <span className="material-symbols-outlined text-lg">add</span>
+            <span className="japanese-text">新規案件</span>
+          </button>
+        )}
       </div>
+
+      {!isAdsAuthenticated && (
+        <div className="space-y-4">
+          <div className="bg-surface-container-lowest p-6 rounded-2xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                <span className="material-symbols-outlined">lock</span>
+              </div>
+              <h4 className="text-lg font-bold japanese-text">認証が必要です</h4>
+            </div>
+            <p className="text-sm text-on-surface-variant japanese-text mb-4">
+              案件一覧を表示するには、考察スタジオへの認証が必要です。設定ページからログインしてください。
+            </p>
+            <button
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
+            >
+              <span className="material-symbols-outlined text-lg">settings</span>
+              <span className="japanese-text">設定ページへ</span>
+            </button>
+          </div>
+
+          {currentCase && (
+            <div className="bg-surface-container-lowest p-6 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-lg text-on-surface-variant">folder_open</span>
+                <div>
+                  <p className="text-sm font-bold japanese-text">現在選択中の案件</p>
+                  <p className="text-sm text-on-surface-variant japanese-text">{currentCase.name}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && <ErrorBanner message={error} />}
 
-      {(showForm || editingCase) && (
+      {isAdsAuthenticated && (showForm || editingCase) && (
         <CaseForm
           initialData={editingCase}
           onSubmit={editingCase ? handleUpdate : handleCreate}
@@ -230,7 +277,7 @@ export default function CaseManagement() {
         />
       )}
 
-      {loading ? (
+      {!isAdsAuthenticated ? null : loading ? (
         <div className="flex items-center justify-center py-16">
           <LoadingSpinner size="lg" label="案件一覧を読み込み中..." />
         </div>
