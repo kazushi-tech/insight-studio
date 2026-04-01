@@ -1,4 +1,4 @@
-import { bqGenerateBatch, DEFAULT_ADS_DATASET_ID } from '../api/adsInsights'
+import { bqGenerateBatch } from '../api/adsInsights'
 
 const GENERATE_RETRY_DELAYS_MS = [800, 1600]
 
@@ -197,7 +197,8 @@ export async function generateBatchWithRetry(payload) {
 }
 
 export function buildAdsReportBundle({ setupState, results }) {
-  const datasetId = setupState?.datasetId ?? DEFAULT_ADS_DATASET_ID
+  const datasetId = setupState?.datasetId
+  if (!datasetId) throw new Error('dataset_id が設定されていません。案件を選択してください。')
   const periods = setupState?.periods ?? []
   const periodReports = periods.map((periodTag, index) => {
     const result = results[index] ?? {}
@@ -242,7 +243,7 @@ export async function regenerateAdsReportBundle(setupState) {
   for (const period of setupState.periods) {
     const result = await generateBatchWithRetry({
       query_types: setupState.queryTypes,
-      dataset_id: setupState.datasetId ?? DEFAULT_ADS_DATASET_ID,
+      dataset_id: setupState.datasetId,
       period,
     })
     results.push(result)

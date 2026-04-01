@@ -111,9 +111,7 @@ async function request(path, options = {}) {
   return res.json()
 }
 
-function withDefaultDataset(payload = {}) {
-  return { dataset_id: DEFAULT_ADS_DATASET_ID, ...payload }
-}
+
 
 /** POST /api/auth/login — 認証 */
 export async function login(password) {
@@ -161,7 +159,7 @@ export function getMonths() {
 export function loadData(payload) {
   return request('/load', {
     method: 'POST',
-    body: JSON.stringify(withDefaultDataset(payload)),
+    body: JSON.stringify(payload),
   })
 }
 
@@ -169,7 +167,7 @@ export function loadData(payload) {
 export function generateInsights(payload) {
   return request('/generate_insights', {
     method: 'POST',
-    body: JSON.stringify(withDefaultDataset(payload)),
+    body: JSON.stringify(payload),
   })
 }
 
@@ -232,8 +230,7 @@ export function bqQueryTypes() {
 
 /** GET /api/bq/periods — BQ期間一覧 */
 export function bqPeriods(params = {}) {
-  const merged = { dataset_id: DEFAULT_ADS_DATASET_ID, ...params }
-  const qs = toQueryString(merged)
+  const qs = toQueryString(params)
   return request(qs ? `/bq/periods?${qs}` : '/bq/periods')
 }
 
@@ -241,7 +238,7 @@ export function bqPeriods(params = {}) {
 export function bqGenerate(payload) {
   return request('/bq/generate', {
     method: 'POST',
-    body: JSON.stringify(withDefaultDataset(payload)),
+    body: JSON.stringify(payload),
   })
 }
 
@@ -249,6 +246,27 @@ export function bqGenerate(payload) {
 export function bqGenerateBatch(payload) {
   return request('/bq/generate_batch', {
     method: 'POST',
-    body: JSON.stringify(withDefaultDataset(payload)),
+    body: JSON.stringify(payload),
+  })
+}
+
+/** GET /api/cases/:case_id/bq-status — BQ接続テスト */
+export function getCaseBqStatus(caseId) {
+  return request(`/cases/${encodeURIComponent(caseId)}/bq-status`)
+}
+
+/** POST /api/cases — 案件新規登録 */
+export function createCase(payload) {
+  return request('/cases', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** PUT /api/cases/:case_id — 案件更新 */
+export function updateCase(caseId, payload) {
+  return request(`/cases/${encodeURIComponent(caseId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
   })
 }

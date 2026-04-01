@@ -4,7 +4,8 @@ import { DEFAULT_ADS_DATASET_ID, loginCase } from '../api/adsInsights'
 
 const AdsSetupContext = createContext(null)
 
-const STORAGE_KEY = 'insight-studio-ads-setup'
+const STORAGE_KEY_PREFIX = 'insight-studio-ads-setup'
+const LEGACY_STORAGE_KEY = 'insight-studio-ads-setup'
 const CASE_STORAGE_KEY = 'insight-studio-current-case'
 const STORAGE_VERSION = 3
 const QUERY_TYPE_MIGRATIONS = {
@@ -14,6 +15,10 @@ const QUERY_TYPE_MIGRATIONS = {
   auction: 'auction_proxy',
 }
 const VALID_GRANULARITIES = new Set(['monthly', 'weekly', 'daily'])
+
+function storageKeyForCase(caseId) {
+  return caseId ? `${STORAGE_KEY_PREFIX}:${caseId}` : LEGACY_STORAGE_KEY
+}
 
 function normalizeStringArray(values) {
   if (!Array.isArray(values)) return []
@@ -57,43 +62,60 @@ function normalizeSetupState(state) {
   }
 }
 
-function loadState() {
+function loadState(caseId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const key = storageKeyForCase(caseId)
+    const raw = localStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw)
     const normalized = normalizeSetupState(parsed)
     if (!normalized) {
-      localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem(key)
       return null
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+    localStorage.setItem(key, JSON.stringify(normalized))
     return normalized
   } catch {
-    localStorage.removeItem(STORAGE_KEY)
     return null
   }
 }
 
-function saveState(state) {
+function saveState(state, caseId) {
+  const key = storageKeyForCase(caseId)
   if (!state) {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(key)
     return
   }
 
   const normalized = normalizeSetupState(state)
   if (!normalized) {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(key)
     return
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+  localStorage.setItem(key, JSON.stringify(normalized))
+}
+
+function migrateLegacyStorage() {
+  try {
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw)
+    const normalized = normalizeSetupState(parsed)
+    if (normalized) {
+      const petabitKey = storageKeyForCase('petabit')
+      if (!localStorage.getItem(petabitKey)) {
+        localStorage.setItem(petabitKey, JSON.stringify(normalized))
+      }
+    }
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+  } catch {
+    localStorage.removeItem(LEGACY_STORAGE_KEY)
+  }
 }
 
 export function AdsSetupProvider({ children }) {
   const { onAdsLogout } = useAuth()
-  const [setupState, setSetupState] = useState(loadState)
-  const [reportBundle, setReportBundle] = useState(null)
   const [currentCase, setCurrentCase] = useState(() => {
     try {
       const saved = localStorage.getItem(CASE_STORAGE_KEY)
@@ -106,11 +128,33 @@ export function AdsSetupProvider({ children }) {
     return Boolean(currentCase?.dataset_id)
   })
 
+  // Run legacy migration on first mount
+  useEffect(() => {
+    migrateLegacyStorage()
+    // If no case is set, auto-select petabit
+    if (!currentCase) {
+      const petabitCase = { case_id: 'petabit', name: 'ペタビット', dataset_id: 'analytics_311324674' }
+      setCurrentCase(petabitCase)
+      setIsCaseAuthenticated(true)
+      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const [setupState, setSetupState] = useState(() => loadState(currentCase?.case_id))
+  const [reportBundle, setReportBundle] = useState(null)
+
+  // Re-load setup state when case changes
+  useEffect(() => {
+    const state = loadState(currentCase?.case_id)
+    setSetupState(state)
+    setReportBundle(null)
+  }, [currentCase?.case_id])
+
   const resetSetup = useCallback(() => {
     setSetupState(null)
     setReportBundle(null)
-    saveState(null)
-  }, [])
+    saveState(null, currentCase?.case_id)
+  }, [currentCase?.case_id])
 
   // Case management functions
   const selectCase = useCallback((caseInfo) => {
@@ -152,13 +196,13 @@ export function AdsSetupProvider({ children }) {
       queryTypes: payload.queryTypes,
       periods: payload.periods,
       granularity: payload.granularity,
-      datasetId: payload.datasetId ?? DEFAULT_ADS_DATASET_ID,
+      datasetId: payload.datasetId ?? getCurrentDatasetId(),
       completedAt: new Date().toISOString(),
     }
     setSetupState(state)
     setReportBundle(nextReportBundle)
-    saveState(state)
-  }, [])
+    saveState(state, currentCase?.case_id)
+  }, [currentCase?.case_id, getCurrentDatasetId])
 
   return (
     <AdsSetupContext.Provider

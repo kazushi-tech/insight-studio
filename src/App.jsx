@@ -10,6 +10,7 @@ import EssentialPack from './pages/EssentialPack'
 import AnalysisGraphs from './pages/AnalysisGraphs'
 import AiExplorer from './pages/AiExplorer'
 import Settings from './pages/Settings'
+import CaseManagement from './pages/CaseManagement'
 import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 
@@ -53,8 +54,12 @@ class ErrorBoundary extends Component {
 
 function SetupGuard({ children }) {
   const { isAdsAuthenticated } = useAuth()
-  const { isSetupComplete } = useAdsSetup()
+  const { isSetupComplete, isCaseAuthenticated, setupState, currentCase } = useAdsSetup()
   if (!isAdsAuthenticated || !isSetupComplete) return <Navigate to="/ads/wizard" replace />
+  if (!isCaseAuthenticated) return <Navigate to="/ads/wizard" replace />
+  if (setupState?.datasetId && currentCase?.dataset_id && setupState.datasetId !== currentCase.dataset_id) {
+    return <Navigate to="/ads/wizard" replace />
+  }
   return children
 }
 
@@ -71,6 +76,7 @@ export default function App() {
           <Route path="ads/pack" element={<SetupGuard><EssentialPack /></SetupGuard>} />
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
           <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
+          <Route path="cases" element={<CaseManagement />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

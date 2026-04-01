@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { bqPeriods, DEFAULT_ADS_DATASET_ID } from '../api/adsInsights'
+import { bqPeriods } from '../api/adsInsights'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -39,7 +39,7 @@ export default function SetupWizard() {
   const navigate = useNavigate()
   const location = useLocation()
   const { isAdsAuthenticated } = useAuth()
-  const { completeSetup } = useAdsSetup()
+  const { completeSetup, getCurrentDatasetId, currentCase } = useAdsSetup()
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState(new Set())
   const [error, setError] = useState(null)
@@ -96,7 +96,7 @@ export default function SetupWizard() {
   }
 
   async function fetchPeriods(gran) {
-    const data = await bqPeriods({ granularity: gran })
+    const data = await bqPeriods({ granularity: gran, dataset_id: getCurrentDatasetId() })
     return extractPeriods(data)
   }
 
@@ -170,7 +170,7 @@ export default function SetupWizard() {
           setLoadingLabel(`レポートを生成中… (${currentGenerated.size + 1}/${periodsArray.length})`)
           const data = await generateBatchWithRetry({
             query_types: queryTypeIds,
-            dataset_id: DEFAULT_ADS_DATASET_ID,
+            dataset_id: getCurrentDatasetId(),
             period,
           })
           results.push(data)
@@ -183,7 +183,7 @@ export default function SetupWizard() {
             queryTypes: queryTypeIds,
             periods: periodsArray,
             granularity,
-            datasetId: DEFAULT_ADS_DATASET_ID,
+            datasetId: getCurrentDatasetId(),
           },
           results,
         })
@@ -193,7 +193,7 @@ export default function SetupWizard() {
             queryTypes: queryTypeIds,
             periods: periodsArray,
             granularity,
-            datasetId: DEFAULT_ADS_DATASET_ID,
+            datasetId: getCurrentDatasetId(),
           },
           reportBundle,
         )
@@ -236,6 +236,13 @@ export default function SetupWizard() {
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
+        </div>
+      )}
+
+      {!currentCase && (
+        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-[0.75rem] px-5 py-3 text-sm text-blue-800">
+          <span className="material-symbols-outlined text-lg">info</span>
+          <span className="japanese-text">案件を選択してください。ヘッダーの案件セレクターから対象案件を選べます。</span>
         </div>
       )}
 

@@ -3,12 +3,13 @@ import { getCases } from '../api/adsInsights'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 
 export default function CaseSelector({ onCaseSelect }) {
-  const { currentCase } = useAdsSetup()
+  const { currentCase, isSetupComplete } = useAdsSetup()
   const [isOpen, setIsOpen] = useState(false)
   const [cases, setCases] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [confirmCase, setConfirmCase] = useState(null)
   const dropdownRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -39,6 +40,7 @@ export default function CaseSelector({ onCaseSelect }) {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false)
+        setConfirmCase(null)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -50,14 +52,25 @@ export default function CaseSelector({ onCaseSelect }) {
   )
 
   const handleSelect = (caseInfo) => {
+    // If setup is complete and switching to a different case, show confirmation
+    if (isSetupComplete && currentCase?.case_id && currentCase.case_id !== (caseInfo.id || caseInfo.case_id)) {
+      setConfirmCase(caseInfo)
+      return
+    }
+    doSelect(caseInfo)
+  }
+
+  const doSelect = (caseInfo) => {
     setIsOpen(false)
     setSearchQuery('')
+    setConfirmCase(null)
     onCaseSelect?.(caseInfo)
   }
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
       setIsOpen(false)
+      setConfirmCase(null)
     }
   }
 
@@ -75,6 +88,9 @@ export default function CaseSelector({ onCaseSelect }) {
         <span className="japanese-text truncate max-w-[200px]">
           {currentCase ? currentCase.name : '案件を選択'}
         </span>
+        {currentCase?.dataset_id && (
+          <span className="w-2 h-2 rounded-full bg-emerald-500" title="BQデータセット設定済" />
+        )}
         <span
           className={`material-symbols-outlined text-base transition-transform ${isOpen ? 'rotate-180' : ''}`}
         >
@@ -88,6 +104,29 @@ export default function CaseSelector({ onCaseSelect }) {
           className="absolute top-full left-0 mt-2 w-80 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/20 z-50 overflow-hidden"
           onKeyDown={handleKeyDown}
         >
+          {/* Confirm dialog */}
+          {confirmCase && (
+            <div className="p-4 bg-amber-50 border-b border-amber-200">
+              <p className="text-sm text-amber-800 japanese-text mb-3">
+                案件を切り替えると、現在のセットアップがリセットされます。よろしいですか？
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => doSelect(confirmCase)}
+                  className="px-4 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:opacity-90"
+                >
+                  切り替える
+                </button>
+                <button
+                  onClick={() => setConfirmCase(null)}
+                  className="px-4 py-1.5 text-amber-700 text-xs font-bold hover:underline"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Search input */}
           <div className="p-3 border-b border-outline-variant/20">
             <div className="relative">
@@ -126,24 +165,36 @@ export default function CaseSelector({ onCaseSelect }) {
 
             {!loading &&
               !error &&
-              filteredCases.map((c) => (
-                <button
-                  key={c.id || c.case_id}
-                  role="option"
-                  aria-selected={currentCase?.case_id === (c.id || c.case_id)}
-                  onClick={() => handleSelect(c)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm hover:bg-surface-container transition-colors ${
-                    currentCase?.case_id === (c.id || c.case_id)
-                      ? 'bg-primary-container/20 text-primary'
-                      : 'text-on-surface'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-lg text-on-surface-variant">
-                    {currentCase?.case_id === (c.id || c.case_id) ? 'check' : 'description'}
-                  </span>
-                  <span className="japanese-text truncate">{c.name}</span>
-                </button>
-              ))}
+              filteredCases.map((c) => {
+                const caseId = c.id || c.case_id
+                const isSelected = currentCase?.case_id === caseId
+                return (
+                  <button
+                    key={caseId}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelect(c)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm hover:bg-surface-container transition-colors ${
+                      isSelected
+                        ? 'bg-primary-container/20 text-primary'
+                        : 'text-on-surface'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-lg text-on-surface-variant">
+                      {isSelected ? 'check' : 'description'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="japanese-text truncate block">{c.name}</span>
+                      {c.dataset_id && (
+                        <span className="text-[10px] text-on-surface-variant font-mono truncate block">{c.dataset_id}</span>
+                      )}
+                    </div>
+                    {c.dataset_id && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="BQ接続あり" />
+                    )}
+                  </button>
+                )
+              })}
           </div>
 
           {/* Clear selection */}
@@ -152,6 +203,7 @@ export default function CaseSelector({ onCaseSelect }) {
               <button
                 onClick={() => {
                   setIsOpen(false)
+                  setConfirmCase(null)
                   onCaseSelect?.(null)
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-error/10 transition-colors"

@@ -38,6 +38,7 @@ const NAV_ITEMS = [
       { to: '/ads/ai', label: 'AI考察', requiresSetup: true },
     ],
   },
+  { to: '/cases', icon: 'business_center', label: '案件管理' },
   { to: '/settings', icon: 'settings', label: '設定' },
 ]
 
