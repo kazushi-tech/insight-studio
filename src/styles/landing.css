@@ -1,91 +1,89 @@
 /*
- * LP Terra Theme
- * Strategy: Add missing tokens to @theme (globally available but harmless),
- * then override ALL color tokens inside .lp-page scope so Terra palette wins.
+ * LP Modern Dynamic Theme
+ * Emerald + Muted Gold on white — upgraded from Terra
  */
+
+/* ── Google Fonts (Manrope) ── */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap');
 
 /* ── Tokens that do NOT exist in index.css @theme ── */
 @theme {
-  /* Font families for LP */
-  --font-headline: "Literata", serif;
-  --font-body: "Nunito Sans", sans-serif;
-  --font-label: "Nunito Sans", sans-serif;
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
 
-  /* Missing color tokens (not in index.css) */
-  --color-on-tertiary-container: #554020;
-  --color-on-tertiary-fixed: #221a05;
-  --color-on-tertiary-fixed-variant: #554020;
-  --color-tertiary-fixed-dim: #dcc48e;
-  --color-on-secondary-fixed-variant: #4a4538;
-  --color-secondary-fixed-dim: #d4ccbf;
-  --color-primary-fixed-dim: #8ecf9e;
-  --color-on-primary-fixed-variant: #2a6038;
-  --color-on-secondary-container: #5e5548;
-  --color-on-secondary-fixed: #1e1a13;
+  --color-on-tertiary-container: #4a3500;
+  --color-on-tertiary-fixed: #261a00;
+  --color-on-tertiary-fixed-variant: #5b4300;
+  --color-tertiary-fixed-dim: #eec058;
+  --color-on-secondary-fixed-variant: #3f465c;
+  --color-secondary-fixed-dim: #bec6e0;
+  --color-primary-fixed-dim: #4edea3;
+  --color-on-primary-fixed-variant: #005236;
+  --color-on-secondary-container: #5c647a;
+  --color-on-secondary-fixed: #131b2e;
 }
 
-/* ── Scoped Terra overrides ── */
+/* ── Scoped Modern Dynamic overrides ── */
 .lp-page {
-  /* Override ALL color tokens to Terra values */
-  --color-primary: #4a7c59;
-  --color-primary-container: #78a886;
-  --color-primary-fixed: #c8e8d0;
-  --color-primary-fixed-dim: #8ecf9e;
+  --color-primary: #006c49;
+  --color-primary-container: #10b981;
+  --color-primary-fixed: #6ffbbe;
+  --color-primary-fixed-dim: #4edea3;
   --color-on-primary: #ffffff;
-  --color-on-primary-container: #d8f0de;
-  --color-on-primary-fixed: #002110;
-  --color-on-primary-fixed-variant: #2a6038;
+  --color-on-primary-container: #00422b;
+  --color-on-primary-fixed: #002113;
+  --color-on-primary-fixed-variant: #005236;
 
-  --color-secondary: #6b6358;
-  --color-secondary-container: #f0e8db;
-  --color-secondary-fixed: #f0e8db;
-  --color-secondary-fixed-dim: #d4ccbf;
+  --color-secondary: #565e74;
+  --color-secondary-container: #dae2fd;
+  --color-secondary-fixed: #dae2fd;
+  --color-secondary-fixed-dim: #bec6e0;
   --color-on-secondary: #ffffff;
-  --color-on-secondary-container: #5e5548;
-  --color-on-secondary-fixed: #1e1a13;
-  --color-on-secondary-fixed-variant: #4a4538;
+  --color-on-secondary-container: #5c647a;
+  --color-on-secondary-fixed: #131b2e;
+  --color-on-secondary-fixed-variant: #3f465c;
 
-  --color-tertiary: #705c30;
-  --color-tertiary-container: #c4a66a;
-  --color-tertiary-fixed: #f8e0a8;
-  --color-tertiary-fixed-dim: #dcc48e;
+  --color-tertiary: #795900;
+  --color-tertiary-container: #c79c38;
+  --color-tertiary-fixed: #ffdf9f;
+  --color-tertiary-fixed-dim: #eec058;
   --color-on-tertiary: #ffffff;
-  --color-on-tertiary-container: #554020;
-  --color-on-tertiary-fixed: #221a05;
-  --color-on-tertiary-fixed-variant: #554020;
+  --color-on-tertiary-container: #4a3500;
+  --color-on-tertiary-fixed: #261a00;
+  --color-on-tertiary-fixed-variant: #5b4300;
 
-  --color-error: #b83230;
-  --color-error-container: #ffdad8;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
   --color-on-error: #ffffff;
-  --color-on-error-container: #690005;
+  --color-on-error-container: #93000a;
 
-  --color-surface: #faf6f0;
-  --color-surface-bright: #faf6f0;
-  --color-surface-dim: #dbd7cf;
-  --color-surface-container: #f0ece4;
-  --color-surface-container-low: #f5f1ea;
-  --color-surface-container-high: #eae6de;
-  --color-surface-container-highest: #e4e0d8;
+  --color-surface: #ffffff;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-container: #f9fafb;
+  --color-surface-container-low: #f3f4f6;
+  --color-surface-container-high: #e5eeff;
+  --color-surface-container-highest: #d3e4fe;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-variant: #e4e0d8;
-  --color-surface-tint: #4a7c59;
-  --color-background: #faf6f0;
+  --color-surface-variant: #e5e7eb;
+  --color-surface-tint: #006c49;
+  --color-background: #ffffff;
 
-  --color-on-surface: #2e3230;
-  --color-on-surface-variant: #4a4e4a;
-  --color-on-background: #2e3230;
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #3c4a42;
+  --color-on-background: #0b1c30;
 
-  --color-outline: #74796e;
-  --color-outline-variant: #c4c8bc;
+  --color-outline: #6c7a71;
+  --color-outline-variant: #bbcabf;
 
-  --color-inverse-surface: #2e3230;
-  --color-inverse-on-surface: #f5f0e8;
-  --color-inverse-primary: #8ecf9e;
+  --color-inverse-surface: #213145;
+  --color-inverse-on-surface: #eaf1ff;
+  --color-inverse-primary: #4edea3;
 
-  /* LP-specific styling */
-  font-family: "Nunito Sans", sans-serif;
-  background-color: #faf6f0;
-  color: #2e3230;
+  font-family: "Manrope", sans-serif;
+  background-color: #ffffff;
+  color: #0b1c30;
   scroll-behavior: smooth;
 }
 
@@ -93,7 +91,7 @@
 .lp-page h2,
 .lp-page h3,
 .lp-page .brand-font {
-  font-family: "Literata", serif;
+  font-family: "Manrope", sans-serif;
 }
 
 .lp-page .material-symbols-outlined {
@@ -102,21 +100,145 @@
   vertical-align: middle;
 }
 
-/* Glass card effect */
-.lp-page .glass-card {
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+/* ── Keyframe Animations ── */
+@keyframes lp-fade-up {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Scroll-triggered fade-in */
+@keyframes lp-scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes lp-slide-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes lp-gradient-shift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes lp-bounce-down {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(10px); }
+}
+
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-16px) rotate(2deg); }
+}
+
+@keyframes lp-glow-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(16, 185, 129, 0.3); }
+  50%      { box-shadow: 0 0 36px rgba(16, 185, 129, 0.6); }
+}
+
+/* ── Animation utility classes ── */
+.lp-page .lp-animate-gradient {
+  background-size: 400% 400%;
+  animation: lp-gradient-shift 12s ease infinite;
+}
+
+.lp-page .lp-animate-float {
+  animation: lp-float 6s ease-in-out infinite;
+}
+
+.lp-page .lp-animate-glow {
+  animation: lp-glow-pulse 2.5s ease-in-out infinite;
+}
+
+.lp-page .lp-animate-bounce {
+  animation: lp-bounce-down 2s ease-in-out infinite;
+}
+
+/* ── Scroll-triggered fade-in (base) ── */
 .lp-fade-in {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .lp-fade-in.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* ── Stagger delays for child elements ── */
+.lp-stagger > *:nth-child(1) { transition-delay: 0ms; }
+.lp-stagger > *:nth-child(2) { transition-delay: 100ms; }
+.lp-stagger > *:nth-child(3) { transition-delay: 200ms; }
+.lp-stagger > *:nth-child(4) { transition-delay: 300ms; }
+.lp-stagger > *:nth-child(5) { transition-delay: 400ms; }
+.lp-stagger > *:nth-child(6) { transition-delay: 500ms; }
+
+.lp-stagger > * {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-stagger.visible > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Nav link underline animation ── */
+.lp-page .lp-nav-link {
+  position: relative;
+}
+
+.lp-page .lp-nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #10b981;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-page .lp-nav-link:hover::after {
+  transform: scaleX(1);
+}
+
+/* ── Glass card ── */
+.lp-page .glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Ambient orbs (background decoration) ── */
+.lp-page .lp-orb {
+  position: fixed;
+  border-radius: 9999px;
+  filter: blur(120px);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .lp-fade-in,
+  .lp-stagger > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .lp-page .lp-animate-gradient,
+  .lp-page .lp-animate-float,
+  .lp-page .lp-animate-glow,
+  .lp-page .lp-animate-bounce {
+    animation: none;
+  }
 }

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio | 競合ディスカバリー</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary-container": "#c79c38",
+              "on-secondary-fixed": "#131b2e",
+              "surface-bright": "#f8f9ff",
+              "outline-variant": "#bbcabf",
+              "on-secondary": "#ffffff",
+              "primary-container": "#10b981",
+              "secondary-container": "#dae2fd",
+              "primary": "#006c49",
+              "surface-container-low": "#eff4ff",
+              "secondary-fixed-dim": "#bec6e0",
+              "on-background": "#0b1c30",
+              "primary-fixed": "#6ffbbe",
+              "surface-dim": "#cbdbf5",
+              "on-error": "#ffffff",
+              "surface-container-high": "#dce9ff",
+              "on-secondary-container": "#5c647a",
+              "on-tertiary-fixed-variant": "#5b4300",
+              "tertiary-fixed-dim": "#eec058",
+              "on-primary-fixed-variant": "#005236",
+              "secondary": "#565e74",
+              "on-error-container": "#93000a",
+              "error": "#ba1a1a",
+              "error-container": "#ffdad6",
+              "on-tertiary-container": "#4a3500",
+              "background": "#f8f9ff",
+              "surface-variant": "#d3e4fe",
+              "on-secondary-fixed-variant": "#3f465c",
+              "on-surface": "#0b1c30",
+              "on-tertiary": "#ffffff",
+              "tertiary-fixed": "#ffdf9f",
+              "secondary-fixed": "#dae2fd",
+              "outline": "#6c7a71",
+              "on-surface-variant": "#3c4a42",
+              "primary-fixed-dim": "#4edea3",
+              "on-tertiary-fixed": "#261a00",
+              "surface-container-lowest": "#ffffff",
+              "surface-container-highest": "#d3e4fe",
+              "surface-container": "#e5eeff",
+              "tertiary": "#795900",
+              "surface-tint": "#006c49",
+              "on-primary": "#ffffff",
+              "inverse-primary": "#4edea3",
+              "inverse-on-surface": "#eaf1ff",
+              "inverse-surface": "#213145",
+              "on-primary-container": "#00422b",
+              "on-primary-fixed": "#002113",
+              "surface": "#f8f9ff"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Manrope"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes scale-in {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes bounce-down {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes glow-pulse {
+            0% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.8); }
+            100% { box-shadow: 0 0 5px rgba(16, 185, 129, 0.4); }
+        }
+        @keyframes slide-in-right {
+            from { transform: translateX(50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        .animate-gradient { background-size: 200% 200%; animation: gradient-shift 8s ease infinite; }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-glow { animation: glow-pulse 3s infinite; }
+        .animate-bounce-down { animation: bounce-down 2s infinite; }
+        
+        .reveal { opacity: 0; }
+        .reveal.active { opacity: 1; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="sticky top-0 w-full z-50 bg-emerald-50/70 backdrop-blur-xl shadow-sm shadow-emerald-900/5">
+<nav class="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto w-full">
+<div class="text-xl font-bold tracking-tighter text-emerald-900">Insight Studio</div>
+<div class="hidden md:flex gap-8 items-center">
+<a class="text-slate-600 font-medium hover:text-emerald-600 transition-colors duration-300" href="#features">Features</a>
+<a class="text-slate-600 font-medium hover:text-emerald-600 transition-colors duration-300" href="#demo">Demo</a>
+<a class="text-slate-600 font-medium hover:text-emerald-600 transition-colors duration-300" href="#benefits">Benefits</a>
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-bold tracking-tight active:scale-95 duration-200 transition-all hover:opacity-90">Start for free</button>
+</div>
+</nav>
+</header>
+<main>
+<!-- Section 1: Hero -->
+<section class="relative min-h-screen flex items-center justify-center overflow-hidden animate-gradient bg-gradient-to-br from-[#064e3b] via-[#10b981] to-[#D4A843] px-8">
+<div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+<div class="space-y-8" data-animate="fade-up">
+<h1 class="text-5xl lg:text-7xl font-extrabold text-white leading-tight tracking-tighter">
+                        見逃している競合、<br/>AIが1分で特定。
+                    </h1>
+<p class="text-white/90 text-xl font-medium max-w-xl">
+                        URLを入力するだけで、独自のアルゴリズムがあなたの市場をリアルタイムにスキャン。隠れたライバルの戦略を瞬時に可視化します。
+                    </p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-white text-primary px-10 py-4 rounded-lg font-bold text-lg animate-glow active:scale-95 transition-all">無料で試してみる</button>
+<button class="border-2 border-white text-white px-10 py-4 rounded-lg font-bold text-lg hover:bg-white/10 active:scale-95 transition-all">製品デモを見る</button>
+</div>
+</div>
+<div class="relative flex justify-center lg:justify-end" data-animate="scale-in">
+<div class="w-full max-w-lg aspect-square bg-white/10 backdrop-blur-2xl rounded-full p-8 animate-float border border-white/20">
+<img alt="Data Visualization" class="w-full h-full object-contain mix-blend-screen opacity-90" data-alt="Futuristic glowing 3D network map showing interconnected nodes representing market competitors in vibrant neon emerald and gold colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCH7Cv9-8Wijbts1d04yR8dZOiCjGYe3cMihjxzXQk6_M0Tw76PHMMBRcMc6zK_AdaJwUXN5jGBnpT93dLp0HFyww-rkkYuuFZeY3-Nhhs72EV7RkTMzwNvDdw7OY4nT0LJQLfmBvwug-JyyUP5y55ZZ5255nwVeaJfdgTYI30BTm15REDmWrM-DIpaEk07rffj550YIay0k1p-njGgfzlJzRDtup5DqsngpSRv8CkvKakpaaSmqouyL2EPjHXdMpROMAqpBIrQB2w"/>
+</div>
+<!-- Decorative Elements -->
+<div class="absolute -top-10 -right-10 w-24 h-24 bg-tertiary-fixed-dim rounded-full blur-3xl opacity-50"></div>
+</div>
+</div>
+<!-- Scroll Indicator -->
+<div class="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/70 animate-bounce-down cursor-pointer">
+<span class="material-symbols-outlined text-4xl">keyboard_double_arrow_down</span>
+</div>
+</section>
+<!-- Section 2: Problem -->
+<section class="py-24 bg-white px-8">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-20 reveal" data-animate="fade-up">
+<h2 class="text-3xl lg:text-5xl font-extrabold text-on-surface tracking-tighter mb-6">
+                        広告運用チームが直面する競合分析の壁
+                    </h2>
+<div class="h-1.5 w-24 bg-primary mx-auto rounded-full"></div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<div class="md:col-span-8 bg-surface-container-low p-10 rounded-xl flex flex-col justify-between reveal" data-animate="fade-up" data-delay="0">
+<span class="material-symbols-outlined text-primary text-5xl mb-4">timer_off</span>
+<div>
+<h3 class="text-2xl font-bold mb-4">膨大な手作業による調査時間のロス</h3>
+<p class="text-on-surface-variant leading-relaxed">手動でのキーワード検索、競合サイトの巡回、レポート作成。広告運用の要である分析作業が、日々クリエイティブな時間を奪っています。</p>
+</div>
+</div>
+<div class="md:col-span-4 bg-emerald-50 p-10 rounded-xl reveal" data-animate="fade-up" data-delay="150">
+<span class="material-symbols-outlined text-primary text-5xl mb-4">visibility_off</span>
+<h3 class="text-xl font-bold mb-4">見落とされる潜在競合</h3>
+<p class="text-on-surface-variant">既存の競合リストだけでは不十分。急成長中のスタートアップや、隣接カテゴリーからの新規参入を見逃していませんか？</p>
+</div>
+<div class="md:col-span-12 bg-surface-container-low p-10 rounded-xl flex items-center reveal" data-animate="fade-up" data-delay="300">
+<div class="flex-1">
+<span class="material-symbols-outlined text-primary text-5xl mb-4">view_column</span>
+<h3 class="text-2xl font-bold mb-2">断片化されたデータ</h3>
+<p class="text-on-surface-variant">検索順位、バナークリエイティブ、LP。バラバラのツールで管理されるデータを統合するだけで一苦労です。</p>
+</div>
+<div class="hidden lg:block w-1/3">
+<img alt="Tech Collaboration" class="rounded-lg grayscale opacity-50" data-alt="Modern minimalist office workspace with abstract lighting reflecting off glass surfaces" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvBvmQgk1tQEZtC90jYEB9uvxdz1PlGuNdd4kGtVtktMk411fuvfFRwOsOVid65g7_8tSDrScJISFyR5DhTb8Sv0vNLLPUByrYLn_CLG7ls7gCfVQXRX3dBYfbiYhzCa2PQiRORLQSfhndIQz64qHD7s1btO6lGmnG-8p3bwXN2TAFX6Zgke0nidYnCcXo-DO_o2eisvLFvsnhkUU8RQo7DZeTB4xGS5XhDLy0NiKqz90M9f8iG8WeNYRSyEgFiIm0UofWHtgGf5w"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Feature Demo -->
+<section class="py-24 bg-surface-container-low px-8 overflow-hidden" id="demo">
+<div class="max-w-7xl mx-auto">
+<div class="flex flex-col md:flex-row items-center gap-12">
+<div class="w-full md:w-1/3 reveal" data-animate="scale-in">
+<div class="bg-white p-8 rounded-2xl shadow-xl shadow-primary/5 relative">
+<div class="absolute -top-4 -left-4 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-bold text-xl">1</div>
+<span class="material-symbols-outlined text-primary text-4xl mb-4">language</span>
+<h4 class="text-xl font-bold mb-2">URL入力</h4>
+<p class="text-on-surface-variant text-sm">自社サイトまたはターゲットURLを入力するだけ。</p>
+</div>
+</div>
+<div class="hidden md:block text-primary">
+<span class="material-symbols-outlined text-4xl">trending_flat</span>
+</div>
+<div class="w-full md:w-1/3 reveal" data-animate="scale-in" data-delay="200">
+<div class="bg-white p-8 rounded-2xl shadow-xl shadow-primary/5 relative">
+<div class="absolute -top-4 -left-4 w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center font-bold text-xl">2</div>
+<span class="material-symbols-outlined text-primary text-4xl mb-4">psychology</span>
+<h4 class="text-xl font-bold mb-2">AI自動スキャン</h4>
+<p class="text-on-surface-variant text-sm">AIが関連キーワードと競合サイトを数秒で特定します。</p>
+</div>
+</div>
+<div class="hidden md:block text-primary">
+<span class="material-symbols-outlined text-4xl">trending_flat</span>
+</div>
+<div class="w-full md:w-1/3 reveal" data-animate="scale-in" data-delay="400">
+<div class="bg-primary p-8 rounded-2xl shadow-xl shadow-primary/20 relative">
+<div class="absolute -top-4 -left-4 w-12 h-12 bg-tertiary-container text-white rounded-full flex items-center justify-center font-bold text-xl">3</div>
+<span class="material-symbols-outlined text-white text-4xl mb-4">analytics</span>
+<h4 class="text-xl font-bold mb-2 text-white">マップ＆レポート</h4>
+<p class="text-white/80 text-sm">即座に実行可能な分析レポートを自動生成します。</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 4: Analysis Bento Grid -->
+<section class="py-24 bg-white px-8" id="features">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16 reveal" data-animate="fade-up">
+<h2 class="text-3xl font-bold text-primary mb-2">Discovery Module</h2>
+<h3 class="text-4xl font-extrabold tracking-tighter">直感的なインターフェースで、洞察を加速。</h3>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 grid-rows-none lg:grid-rows-2 gap-4 h-auto lg:h-[800px]">
+<!-- Large Map -->
+<div class="lg:col-span-8 lg:row-span-2 bg-surface-container-low rounded-3xl p-8 relative overflow-hidden transition-transform hover:scale-[1.01] duration-500 reveal shadow-sm" data-animate="fade-up">
+<div class="flex justify-between items-start mb-8">
+<div>
+<h4 class="text-2xl font-bold">競合マーケットマップ</h4>
+<p class="text-on-surface-variant">競合他社のポジショニングを多角的視点で可視化</p>
+</div>
+<span class="bg-primary/10 text-primary px-4 py-1 rounded-full text-xs font-bold">Real-time</span>
+</div>
+<img alt="Network Map" class="w-full h-full object-cover rounded-xl opacity-80 mix-blend-multiply" data-alt="Complex 2D architectural diagram with flowing lines and golden data nodes on a clean white background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOHgiK5oqU_fmJ20CpiPo3l4lfU7fvmupkRjuPWKnNqg-7yskVRqr4U5JV4WBD4OpbCTJ60x29KSQGdOJIczSObj8Kz8dysWbLVA4DY6u0fZq9d3UVNGf8VsAJh-QSlSbO8j-DzyTOUOKYRQzYrXeAyJMFpMMyqEHCOVLrL90Rmz-c6tZUcOEqIA98-zmqsKCJ7cwkG_-6HaybwJsBmgPV39RvX8BdgN3GmuniAidSbmmxyrwycfiNITfNW8CLy-10Px09qwBcxO8"/>
+</div>
+<!-- Discoveries -->
+<div class="lg:col-span-4 bg-emerald-900 text-white rounded-3xl p-8 transition-transform hover:scale-[1.02] duration-500 reveal shadow-lg" data-animate="fade-up" data-delay="200">
+<h4 class="text-xl font-bold mb-4">新規発見された競合</h4>
+<div class="space-y-4">
+<div class="flex items-center gap-4 bg-white/10 p-3 rounded-lg border border-white/10">
+<div class="w-10 h-10 bg-primary-container rounded-full flex items-center justify-center font-bold">A</div>
+<div class="flex-1">
+<div class="text-sm font-bold">Alpha Digital</div>
+<div class="text-[10px] opacity-70">広告費シェア: 12% 急上昇中</div>
+</div>
+</div>
+<div class="flex items-center gap-4 bg-white/10 p-3 rounded-lg border border-white/10">
+<div class="w-10 h-10 bg-tertiary-container rounded-full flex items-center justify-center font-bold">S</div>
+<div class="flex-1">
+<div class="text-sm font-bold">Skyline SaaS</div>
+<div class="text-[10px] opacity-70">新規LP確認: 2時間前</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Market Positioning -->
+<div class="lg:col-span-2 bg-surface-container-high rounded-3xl p-6 transition-transform hover:scale-[1.02] duration-500 reveal" data-animate="fade-up" data-delay="300">
+<h4 class="text-sm font-bold text-on-surface-variant uppercase tracking-widest mb-4">ポジション</h4>
+<div class="text-3xl font-extrabold text-primary">High Tier</div>
+<p class="text-xs text-on-surface-variant mt-2">同業種124社中 12位</p>
+</div>
+<!-- Alerts -->
+<div class="lg:col-span-2 bg-tertiary-fixed-dim rounded-3xl p-6 transition-transform hover:scale-[1.02] duration-500 reveal" data-animate="fade-up" data-delay="400">
+<div class="flex items-center gap-2 text-on-tertiary-fixed font-bold mb-2">
+<span class="material-symbols-outlined text-sm">notifications_active</span>
+                            Alerts
+                        </div>
+<div class="text-4xl font-extrabold text-on-tertiary-fixed">08</div>
+<p class="text-xs text-on-tertiary-fixed-variant mt-2 font-medium">即対応が必要な競合の動き</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 5: Impact/Numbers -->
+<section class="py-24 bg-on-background text-white px-8 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-96 h-96 bg-primary opacity-20 blur-[120px]"></div>
+<div class="max-w-7xl mx-auto relative z-10">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div>
+<h2 class="text-4xl lg:text-5xl font-extrabold tracking-tighter mb-8 reveal" data-animate="fade-up">導入後の圧倒的な変化</h2>
+<div class="space-y-6">
+<div class="flex items-center gap-6 reveal" data-animate="fade-up" data-delay="100">
+<div class="text-6xl font-extrabold text-primary-container">-85%</div>
+<div class="text-xl font-bold">競合調査に要する時間</div>
+</div>
+<div class="flex items-center gap-6 reveal" data-animate="fade-up" data-delay="200">
+<div class="text-6xl font-extrabold text-tertiary-fixed-dim">3.2倍</div>
+<div class="text-xl font-bold">AIによる自動発見競合数</div>
+</div>
+</div>
+</div>
+<div class="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm reveal" data-animate="scale-in">
+<h4 class="text-2xl font-bold mb-6 flex items-center gap-2 text-primary-container">
+<span class="material-symbols-outlined">auto_awesome</span>
+                            月次レポート自動化
+                        </h4>
+<p class="text-white/70 leading-relaxed mb-6">
+                            これまでのレポート作成は過去のもの。Insight Studioは、データの収集からグラフ化、示唆の抽出までを自動で行います。あなたは戦略を決定するだけ。
+                        </p>
+<div class="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary-container w-[92%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-xs font-bold opacity-60">
+<span>効率化率</span>
+<span>92%達成</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 6: Testimonials -->
+<section class="py-24 bg-white px-8">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16 reveal" data-animate="fade-up">
+<h2 class="text-4xl font-extrabold tracking-tighter">多くのリーダーに選ばれています</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+<div class="glass-card p-8 rounded-2xl border border-outline-variant/20 shadow-xl shadow-on-surface/5 reveal" data-animate="fade-up" data-delay="0">
+<div class="flex text-tertiary mb-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-on-surface-variant italic mb-6">「今まで見落としていた小規模な競合のLP戦略が浮き彫りになり、広告のCPAが30%改善しました。」</p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-slate-200 rounded-full"></div>
+<div>
+<div class="font-bold text-sm">佐藤 健太</div>
+<div class="text-xs text-on-surface-variant">大手飲料メーカー マーケティング部長</div>
+</div>
+</div>
+</div>
+<div class="glass-card p-8 rounded-2xl border border-outline-variant/20 shadow-xl shadow-on-surface/5 reveal" data-animate="fade-up" data-delay="200">
+<div class="flex text-tertiary mb-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-on-surface-variant italic mb-6">「レポート作成の時間がゼロになり、チームの士気が格段に上がりました。AIの分析精度には驚かされます。」</p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-slate-200 rounded-full"></div>
+<div>
+<div class="font-bold text-sm">田中 舞</div>
+<div class="text-xs text-on-surface-variant">広告代理店 アカウントディレクター</div>
+</div>
+</div>
+</div>
+<div class="glass-card p-8 rounded-2xl border border-outline-variant/20 shadow-xl shadow-on-surface/5 reveal" data-animate="fade-up" data-delay="400">
+<div class="flex text-tertiary mb-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+</div>
+<p class="text-on-surface-variant italic mb-6">「スタートアップにとって情報の非対称性は死活問題。このツールは私たちの最強の武器になっています。」</p>
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-slate-200 rounded-full"></div>
+<div>
+<div class="font-bold text-sm">高橋 浩</div>
+<div class="text-xs text-on-surface-variant">SaaS企業 CEO</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 7: CTA -->
+<section class="py-24 px-8">
+<div class="max-w-5xl mx-auto bg-gradient-to-r from-emerald-900 to-emerald-700 rounded-[3rem] p-12 lg:p-24 text-center relative overflow-hidden reveal shadow-2xl" data-animate="scale-in">
+<div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+<div class="relative z-10">
+<h2 class="text-4xl lg:text-6xl font-extrabold text-white tracking-tighter mb-8">競合の動きを、見逃さない。</h2>
+<p class="text-white/80 text-xl mb-12 max-w-2xl mx-auto font-medium">今すぐInsight Studioを始めて、市場の全貌を把握しましょう。</p>
+<div class="flex flex-col items-center gap-6">
+<button class="bg-primary-container text-on-primary-container px-12 py-5 rounded-xl font-bold text-xl animate-glow hover:scale-105 transition-all">無料で競合分析を始める</button>
+<p class="text-white/60 text-sm">* クレジットカード登録不要、初期費用0円</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 8: FAQ -->
+<section class="py-24 bg-surface-container-low px-8">
+<div class="max-w-3xl mx-auto">
+<div class="text-center mb-16 reveal" data-animate="fade-up">
+<h2 class="text-4xl font-extrabold tracking-tighter">よくある質問</h2>
+</div>
+<div class="space-y-4">
+<details class="group bg-white rounded-xl p-2 border border-outline-variant/10 reveal" data-animate="fade-up" data-delay="0">
+<summary class="list-none cursor-pointer p-4 font-bold text-lg flex justify-between items-center group-open:text-primary transition-colors">
+                            どのようなデータが分析可能ですか？
+                            <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
+</summary>
+<div class="p-4 pt-0 text-on-surface-variant leading-relaxed">
+                            検索広告の出稿状況、主要キーワードの順位、クリエイティブの変化、LPの構造更新、市場におけるシェア推移など、公開されているウェブ情報をAIが包括的に分析します。
+                        </div>
+</details>
+<details class="group bg-white rounded-xl p-2 border border-outline-variant/10 reveal" data-animate="fade-up" data-delay="100">
+<summary class="list-none cursor-pointer p-4 font-bold text-lg flex justify-between items-center group-open:text-primary transition-colors">
+                            分析の精度はどのくらいですか？
+                            <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
+</summary>
+<div class="p-4 pt-0 text-on-surface-variant leading-relaxed">
+                            独自の機械学習モデルにより、関連性の高い競合を98%以上の精度で特定します。また、人間が気づきにくい文脈上の競合もAIが見つけ出します。
+                        </div>
+</details>
+<details class="group bg-white rounded-xl p-2 border border-outline-variant/10 reveal" data-animate="fade-up" data-delay="200">
+<summary class="list-none cursor-pointer p-4 font-bold text-lg flex justify-between items-center group-open:text-primary transition-colors">
+                            海外の競合も調査できますか？
+                            <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
+</summary>
+<div class="p-4 pt-0 text-on-surface-variant leading-relaxed">
+                            はい、世界120カ国以上のウェブデータをサポートしており、グローバル展開しているブランドの調査も可能です。
+                        </div>
+</details>
+<details class="group bg-white rounded-xl p-2 border border-outline-variant/10 reveal" data-animate="fade-up" data-delay="300">
+<summary class="list-none cursor-pointer p-4 font-bold text-lg flex justify-between items-center group-open:text-primary transition-colors">
+                            導入には時間がかかりますか？
+                            <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
+</summary>
+<div class="p-4 pt-0 text-on-surface-variant leading-relaxed">
+                            最短1分で完了します。アカウント作成後、URLを入力するだけで即座に初期レポートが生成されます。
+                        </div>
+</details>
+<details class="group bg-white rounded-xl p-2 border border-outline-variant/10 reveal" data-animate="fade-up" data-delay="400">
+<summary class="list-none cursor-pointer p-4 font-bold text-lg flex justify-between items-center group-open:text-primary transition-colors">
+                            レポートの出力形式は？
+                            <span class="material-symbols-outlined transition-transform group-open:rotate-180">expand_more</span>
+</summary>
+<div class="p-4 pt-0 text-on-surface-variant leading-relaxed">
+                            ダッシュボード上での閲覧に加え、PDF、CSV、Googleスライド形式でのエクスポートに対応しています。
+                        </div>
+</details>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-slate-50 py-12 px-8">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 max-w-7xl mx-auto w-full gap-8">
+<div class="flex flex-col items-center md:items-start gap-4">
+<div class="text-lg font-bold text-emerald-800">Insight Studio</div>
+<div class="text-xs font-medium text-slate-500 font-manrope">© 2024 Insight Studio. All rights reserved.</div>
+</div>
+<div class="flex gap-8 items-center font-manrope text-xs font-medium">
+<a class="text-slate-500 hover:text-emerald-500 transition-all underline" href="#">Privacy</a>
+<a class="text-slate-500 hover:text-emerald-500 transition-all underline" href="#">Terms</a>
+<a class="text-slate-500 hover:text-emerald-500 transition-all underline" href="#">Contact</a>
+<a class="text-slate-500 hover:text-emerald-500 transition-all underline" href="#">About</a>
+</div>
+</div>
+</footer>
+<script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const animation = entry.target.dataset.animate;
+                        const delay = entry.target.dataset.delay || 0;
+                        
+                        setTimeout(() => {
+                            entry.target.classList.add('active');
+                            entry.target.style.animation = `${animation} 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards`;
+                        }, delay);
+                        
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('[data-animate]').forEach(el => {
+                el.classList.add('reveal');
+                observer.observe(el);
+            });
+        });
+    </script>
+</body></html>

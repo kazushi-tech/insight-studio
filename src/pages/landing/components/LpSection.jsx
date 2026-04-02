@@ -5,6 +5,7 @@ export default function LpSection({
   className = '',
   id,
   animate = true,
+  stagger = false,
 }) {
   const ref = useRef(null)
 
@@ -19,18 +20,21 @@ export default function LpSection({
           observer.unobserve(el)
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
     )
     observer.observe(el)
     return () => observer.disconnect()
   }, [animate])
 
+  const classes = [
+    animate ? (stagger ? 'lp-stagger' : 'lp-fade-in') : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <section
-      ref={ref}
-      id={id}
-      className={`${animate ? 'lp-fade-in' : ''} ${className}`}
-    >
+    <section ref={ref} id={id} className={classes}>
       {children}
     </section>
   )
