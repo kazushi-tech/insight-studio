@@ -11,6 +11,13 @@ import AnalysisGraphs from './pages/AnalysisGraphs'
 import AiExplorer from './pages/AiExplorer'
 import Settings from './pages/Settings'
 import CaseManagement from './pages/CaseManagement'
+import LpLayout from './pages/landing/LpLayout'
+import LandingPage from './pages/landing/LandingPage'
+import LpPricing from './pages/landing/LpPricing'
+import LpCompare from './pages/landing/LpCompare'
+import LpPerformance from './pages/landing/LpPerformance'
+import LpCreative from './pages/landing/LpCreative'
+import LpDiscovery from './pages/landing/LpDiscovery'
 import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 
@@ -67,6 +74,16 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
+        {/* LP pages — outside Layout, own navbar/footer */}
+        <Route path="lp" element={<LpLayout />}>
+          <Route index element={<LandingPage />} />
+          <Route path="pricing" element={<LpPricing />} />
+          <Route path="compare" element={<LpCompare />} />
+          <Route path="performance" element={<LpPerformance />} />
+          <Route path="creative" element={<LpCreative />} />
+          <Route path="discovery" element={<LpDiscovery />} />
+        </Route>
+        {/* App pages */}
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="compare" element={<Compare />} />
