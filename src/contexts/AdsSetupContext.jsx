@@ -191,7 +191,11 @@ export function AdsSetupProvider({ children }) {
   }, [currentCase])
 
   useEffect(() => {
-    return onAdsLogout(resetSetup)
+    return onAdsLogout(() => {
+      resetSetup()
+      setIsCaseAuthenticated(false)
+      localStorage.removeItem(CASE_AUTH_KEY)
+    })
   }, [onAdsLogout, resetSetup])
 
   const completeSetup = useCallback((payload, nextReportBundle = null) => {

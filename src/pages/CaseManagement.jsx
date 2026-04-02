@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { getCases, createCase, updateCase, getCaseBqStatus } from '../api/adsInsights'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -152,7 +151,6 @@ function CaseForm({ onSubmit, onCancel, initialData }) {
 export default function CaseManagement() {
   const { isAdsAuthenticated } = useAuth()
   const { currentCase } = useAdsSetup()
-  const navigate = useNavigate()
   const [cases, setCases] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -241,16 +239,9 @@ export default function CaseManagement() {
               </div>
               <h4 className="text-lg font-bold japanese-text">認証が必要です</h4>
             </div>
-            <p className="text-sm text-on-surface-variant japanese-text mb-4">
-              案件一覧を表示するには、考察スタジオへの認証が必要です。設定ページからログインしてください。
+            <p className="text-sm text-on-surface-variant japanese-text">
+              案件一覧を管理するには、ヘッダーの案件セレクターから案件を選択し、パスワードを入力して認証してください。
             </p>
-            <button
-              onClick={() => navigate('/settings')}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm hover:opacity-90 transition-all"
-            >
-              <span className="material-symbols-outlined text-lg">settings</span>
-              <span className="japanese-text">設定ページへ</span>
-            </button>
           </div>
 
           {currentCase && (
