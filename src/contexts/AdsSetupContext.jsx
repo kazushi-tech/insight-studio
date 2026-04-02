@@ -7,6 +7,7 @@ const AdsSetupContext = createContext(null)
 const STORAGE_KEY_PREFIX = 'insight-studio-ads-setup'
 const LEGACY_STORAGE_KEY = 'insight-studio-ads-setup'
 const CASE_STORAGE_KEY = 'insight-studio-current-case'
+const CASE_AUTH_KEY = 'insight-studio-case-authenticated'
 const STORAGE_VERSION = 3
 const QUERY_TYPE_MIGRATIONS = {
   search_query: 'search',
@@ -115,7 +116,7 @@ function migrateLegacyStorage() {
 }
 
 export function AdsSetupProvider({ children }) {
-  const { onAdsLogout } = useAuth()
+  const { onAdsLogout, syncTokenFromApi } = useAuth()
   const [currentCase, setCurrentCase] = useState(() => {
     try {
       const saved = localStorage.getItem(CASE_STORAGE_KEY)
@@ -125,17 +126,16 @@ export function AdsSetupProvider({ children }) {
     }
   })
   const [isCaseAuthenticated, setIsCaseAuthenticated] = useState(() => {
-    return Boolean(currentCase?.dataset_id)
+    return localStorage.getItem(CASE_AUTH_KEY) === 'true'
   })
 
   // Run legacy migration on first mount
   useEffect(() => {
     migrateLegacyStorage()
-    // If no case is set, auto-select petabit
+    // If no case is set, auto-select petabit (パスワード未入力なので isCaseAuthenticated は false のまま)
     if (!currentCase) {
       const petabitCase = { case_id: 'petabit', name: 'ペタビット', dataset_id: 'analytics_311324674' }
       setCurrentCase(petabitCase)
-      setIsCaseAuthenticated(true)
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -172,13 +172,17 @@ export function AdsSetupProvider({ children }) {
     setCurrentCase(caseInfo)
     setIsCaseAuthenticated(true)
     localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
+    localStorage.setItem(CASE_AUTH_KEY, 'true')
+    // loginCase が token を返していたら AuthContext にも同期
+    syncTokenFromApi()
     return caseInfo
-  }, [])
+  }, [syncTokenFromApi])
 
   const clearCase = useCallback(() => {
     setCurrentCase(null)
     setIsCaseAuthenticated(false)
     localStorage.removeItem(CASE_STORAGE_KEY)
+    localStorage.removeItem(CASE_AUTH_KEY)
     resetSetup()
   }, [resetSetup])
 

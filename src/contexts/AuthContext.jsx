@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
-import { login as adsLogin, setToken, logout as adsLogout, setOnAuthError } from '../api/adsInsights'
+import { login as adsLogin, setToken, getToken, logout as adsLogout, setOnAuthError } from '../api/adsInsights'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
 } from '../utils/analysisProvider'
@@ -80,6 +80,15 @@ export function AuthProvider({ children }) {
     onLogoutCallbacksRef.current.forEach((cb) => cb())
   }, [])
 
+  // loginCase() 経由で取得したtokenをAuthContextにも反映
+  const syncTokenFromApi = useCallback(() => {
+    const currentToken = getToken()
+    if (currentToken && !adsToken) {
+      setAdsToken(currentToken)
+      localStorage.setItem(STORAGE_KEY_TOKEN, currentToken)
+    }
+  }, [adsToken])
+
   useEffect(() => {
     setOnAuthError(() => logoutAds())
     return () => setOnAuthError(null)
@@ -108,6 +117,7 @@ export function AuthProvider({ children }) {
     loginAds,
     logoutAds,
     onAdsLogout,
+    syncTokenFromApi,
     isAdsAuthenticated: !!adsToken,
     loading,
     error,

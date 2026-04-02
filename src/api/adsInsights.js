@@ -203,7 +203,7 @@ export function keyStatus() {
 
 /** GET /api/cases — 案件一覧 */
 export function getCases() {
-  return request('/cases')
+  return request('/cases', { suppressAuthErrorHandler: true })
 }
 
 /** POST /api/cases/login — 案件認証 */
@@ -213,7 +213,11 @@ export async function loginCase(caseId, password) {
     body: JSON.stringify({ case_id: caseId, password }),
     skipAuth: true,
   })
-  return data // { ok, case_id, name, dataset_id }
+  // バックエンドがtokenを返した場合、グローバル認証も完了
+  if (data.token) {
+    authToken = data.token
+  }
+  return data // { ok, case_id, name, dataset_id, token? }
 }
 
 /** GET /api/health */

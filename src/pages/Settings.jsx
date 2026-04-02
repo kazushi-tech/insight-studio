@@ -444,22 +444,11 @@ export default function Settings() {
               切断する
             </button>
           ) : (
-            <div className="space-y-3">
-              <input
-                type="password"
-                className="w-full bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-                placeholder="パスワードを入力"
-                value={adsPassword}
-                onChange={(e) => setAdsPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAdsLogin()}
-              />
-              <button
-                onClick={handleAdsLogin}
-                disabled={loading || !adsPassword.trim()}
-                className="px-5 py-2.5 bg-secondary text-on-secondary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50"
-              >
-                {loading ? 'ログイン中…' : 'ログイン'}
-              </button>
+            <div className="flex items-center gap-3 py-2">
+              <span className="material-symbols-outlined text-amber-500">info</span>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                ヘッダーの案件セレクターから案件を選択・認証すると自動的に接続されます。
+              </p>
             </div>
           )}
 
