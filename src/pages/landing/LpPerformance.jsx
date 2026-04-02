@@ -45,12 +45,12 @@ export default function LpPerformance() {
               </div>
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="font-body text-xs text-stone-500 mb-1">ROAS</p>
+                  <p className="font-body text-xs text-on-surface-variant mb-1">ROAS</p>
                   <p className="font-headline text-2xl font-bold text-primary">340%</p>
                   <p className="font-body text-[10px] text-error font-bold">↓ 12.5% vs last week</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <p className="font-body text-xs text-stone-500 mb-1">CPA</p>
+                  <p className="font-body text-xs text-on-surface-variant mb-1">CPA</p>
                   <p className="font-headline text-2xl font-bold text-primary">¥1,250</p>
                   <p className="font-body text-[10px] text-error font-bold">↑ 15% vs last week</p>
                 </div>
@@ -65,7 +65,7 @@ export default function LpPerformance() {
                   </span>
                   <div className="text-sm">
                     <p className="font-headline font-bold text-primary mb-1 leading-none">AI Insight</p>
-                    <p className="font-body text-stone-700">
+                    <p className="font-body text-on-surface">
                       CPAが上昇しています。競合他社の入札強化が原因の可能性があります。リマーケティング設定の再確認を推奨します。
                     </p>
                   </div>
@@ -166,17 +166,17 @@ export default function LpPerformance() {
       </LpSection>
 
       {/* Analysis Dashboard Mockup */}
-      <LpSection className="py-24 px-8 bg-stone-100">
+      <LpSection className="py-24 px-8 bg-surface-container-low">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="font-headline text-3xl font-bold mb-4">直感的な Analysis Dashboard</h2>
             <p className="font-body text-on-surface-variant">あなたの広告パフォーマンスを、AIの視点で可視化します。</p>
           </div>
-          <div className="bg-[#faf6f0] rounded-3xl p-8 md:p-12 shadow-2xl border border-primary/10">
+          <div className="bg-surface-container-low rounded-3xl p-8 md:p-12 shadow-2xl border border-primary/10">
             {/* Metrics row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               <div className="p-6 bg-white rounded-xl shadow-sm border-l-4 border-primary">
-                <p className="font-body text-xs font-bold text-stone-500 uppercase mb-2">Conversion Rate</p>
+                <p className="font-body text-xs font-bold text-on-surface-variant uppercase mb-2">Conversion Rate</p>
                 <p className="font-headline text-3xl font-bold text-on-surface">3.8%</p>
                 <div className="flex items-center gap-1 mt-2 text-primary font-bold text-xs">
                   <span className="material-symbols-outlined text-sm">trending_up</span>
@@ -184,7 +184,7 @@ export default function LpPerformance() {
                 </div>
               </div>
               <div className="p-6 bg-white rounded-xl shadow-sm border-l-4 border-primary">
-                <p className="font-body text-xs font-bold text-stone-500 uppercase mb-2">Avg. CPA</p>
+                <p className="font-body text-xs font-bold text-on-surface-variant uppercase mb-2">Avg. CPA</p>
                 <p className="font-headline text-3xl font-bold text-on-surface">¥1,850</p>
                 <div className="flex items-center gap-1 mt-2 text-error font-bold text-xs">
                   <span className="material-symbols-outlined text-sm">trending_up</span>
@@ -192,7 +192,7 @@ export default function LpPerformance() {
                 </div>
               </div>
               <div className="p-6 bg-white rounded-xl shadow-sm border-l-4 border-primary">
-                <p className="font-body text-xs font-bold text-stone-500 uppercase mb-2">Total ROAS</p>
+                <p className="font-body text-xs font-bold text-on-surface-variant uppercase mb-2">Total ROAS</p>
                 <p className="font-headline text-3xl font-bold text-on-surface">412%</p>
                 <div className="flex items-center gap-1 mt-2 text-primary font-bold text-xs">
                   <span className="material-symbols-outlined text-sm">trending_up</span>
@@ -236,7 +236,7 @@ export default function LpPerformance() {
                     を確認しました。」
                   </p>
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
+                    <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">
                       Recommended Actions
                     </p>
                     <div className="flex items-center gap-2 text-xs bg-white/50 p-2 rounded-lg border border-primary/10">
@@ -258,7 +258,7 @@ export default function LpPerformance() {
       {/* Supported Platforms */}
       <LpSection className="py-16 px-8 border-y border-outline-variant/20 bg-white">
         <div className="max-w-7xl mx-auto text-center">
-          <p className="font-body text-sm font-bold text-stone-400 mb-10 tracking-[0.2em] uppercase">
+          <p className="font-body text-sm font-bold text-on-surface-variant/60 mb-10 tracking-[0.2em] uppercase">
             Supported Platforms
           </p>
           <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all">

@@ -16,7 +16,7 @@ const plans = [
       'メールサポート',
     ],
     buttonLabel: '無料で始める',
-    buttonClass: 'bg-[#4a7c59] text-white hover:-translate-y-0.5 shadow-lg shadow-[#4a7c59]/20',
+    buttonClass: 'bg-primary text-white hover:-translate-y-0.5 shadow-lg shadow-primary/20',
     featured: false,
   },
   {
@@ -48,7 +48,7 @@ const plans = [
       'オンボーディング支援',
     ],
     buttonLabel: 'お問い合わせ',
-    buttonClass: 'bg-white text-[#4a7c59] border border-[#4a7c59]/20 hover:bg-[#f5f1ea] hover:-translate-y-0.5',
+    buttonClass: 'bg-white text-primary border border-primary/20 hover:bg-surface-container-low hover:-translate-y-0.5',
     featured: false,
   },
 ]
@@ -84,23 +84,23 @@ export default function LpPricing() {
     <>
       {/* ── Hero ── */}
       <LpSection className="pt-32 pb-16 px-6 text-center relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#4a7c59]/8 rounded-full blur-[120px] -translate-y-1/3 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#705c30]/6 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/8 rounded-full blur-[120px] -translate-y-1/3 translate-x-1/4" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-tertiary/6 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
 
         <div className="max-w-4xl mx-auto relative z-10">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-[#c8e8d0]/40 border border-[#4a7c59]/15 rounded-full px-5 py-2 mb-8">
-            <span className="material-symbols-outlined text-[#4a7c59] text-base">payments</span>
-            <span className="text-sm font-bold tracking-widest text-[#4a7c59] font-label">PRICING PLANS</span>
+          <div className="inline-flex items-center gap-2 bg-primary-fixed/20 border border-primary/15 rounded-full px-5 py-2 mb-8">
+            <span className="material-symbols-outlined text-primary text-base">payments</span>
+            <span className="text-sm font-bold tracking-widest text-primary font-label">PRICING PLANS</span>
           </div>
 
-          <h1 className="font-headline text-4xl md:text-6xl font-extrabold text-[#2e3230] leading-tight mb-6">
+          <h1 className="font-headline text-4xl md:text-6xl font-extrabold text-on-surface leading-tight mb-6">
             あなたのチームに
             <br />
             最適なプランを。
           </h1>
 
-          <p className="font-body text-lg md:text-xl text-[#4a4e4a] max-w-2xl mx-auto leading-relaxed">
+          <p className="font-body text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto leading-relaxed">
             すべてのプランに14日間の無料トライアル付き。
             <br className="hidden md:block" />
             クレジットカード登録不要ですぐに始められます。
@@ -117,13 +117,13 @@ export default function LpPricing() {
                 key={i}
                 className={`rounded-3xl p-8 md:p-10 flex flex-col transition-all hover:shadow-xl ${
                   plan.featured
-                    ? 'bg-[#0f5238] text-white relative shadow-2xl md:-translate-y-4'
-                    : 'bg-white border border-[#e4e0d8]/60 shadow-sm'
+                    ? 'bg-[#003d2a] text-white relative shadow-2xl md:-translate-y-4'
+                    : 'bg-white border border-outline-variant/60 shadow-sm'
                 }`}
               >
                 {/* Badge for featured plan */}
                 {plan.featured && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-[#c4a66a] text-[#554020] rounded-full px-5 py-2 text-sm font-extrabold shadow-lg">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 bg-tertiary-fixed-dim text-on-tertiary-fixed rounded-full px-5 py-2 text-sm font-extrabold shadow-lg">
                     <span className="material-symbols-outlined text-base">star</span>
                     おすすめ
                   </div>
@@ -132,7 +132,7 @@ export default function LpPricing() {
                 {/* Plan name */}
                 <h3
                   className={`font-headline text-lg font-bold mb-2 ${
-                    plan.featured ? 'text-[#d8f0de]' : 'text-[#4a4e4a]'
+                    plan.featured ? 'text-primary-fixed' : 'text-on-surface-variant'
                   }`}
                 >
                   {plan.name}
@@ -142,7 +142,7 @@ export default function LpPricing() {
                 <div className="mb-2">
                   <span
                     className={`text-4xl md:text-5xl font-extrabold font-headline ${
-                      plan.featured ? 'text-tertiary-fixed' : 'text-[#2e3230]'
+                      plan.featured ? 'text-tertiary-fixed' : 'text-on-surface'
                     }`}
                   >
                     {plan.price}
@@ -150,7 +150,7 @@ export default function LpPricing() {
                   {plan.period && (
                     <span
                       className={`text-lg ml-1 ${
-                        plan.featured ? 'text-[#d8f0de]/60' : 'text-[#4a4e4a]'
+                        plan.featured ? 'text-primary-fixed/60' : 'text-on-surface-variant'
                       }`}
                     >
                       {plan.period}
@@ -161,7 +161,7 @@ export default function LpPricing() {
                 {/* Description */}
                 <p
                   className={`font-body text-sm mb-8 ${
-                    plan.featured ? 'text-[#d8f0de]/70' : 'text-[#4a4e4a]'
+                    plan.featured ? 'text-primary-fixed/70' : 'text-on-surface-variant'
                   }`}
                 >
                   {plan.description}
@@ -173,14 +173,14 @@ export default function LpPricing() {
                     <li key={j} className="flex items-start gap-3">
                       <span
                         className={`material-symbols-outlined text-lg flex-shrink-0 mt-0.5 ${
-                          plan.featured ? 'text-[#c4a66a]' : 'text-[#4a7c59]'
+                          plan.featured ? 'text-tertiary-fixed-dim' : 'text-primary'
                         }`}
                       >
                         check_circle
                       </span>
                       <span
                         className={`font-body text-sm ${
-                          plan.featured ? 'text-[#d8f0de]/90' : 'text-[#2e3230]'
+                          plan.featured ? 'text-primary-fixed/90' : 'text-on-surface'
                         }`}
                       >
                         {feat}
@@ -203,11 +203,11 @@ export default function LpPricing() {
       </LpSection>
 
       {/* ── FAQ ── */}
-      <LpSection className="py-24 px-6 bg-[#f5f1ea]">
+      <LpSection className="py-24 px-6 bg-surface-container-low">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-bold tracking-widest text-[#4a7c59] mb-4 font-label">FAQ</p>
-            <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-[#2e3230] leading-tight">
+            <p className="text-sm font-bold tracking-widest text-primary mb-4 font-label">FAQ</p>
+            <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-on-surface leading-tight">
               よくあるご質問
             </h2>
           </div>
@@ -216,17 +216,17 @@ export default function LpPricing() {
             {faqs.map((faq, i) => (
               <div
                 key={i}
-                className="bg-white rounded-2xl border border-[#e4e0d8]/60 overflow-hidden transition-shadow hover:shadow-md"
+                className="bg-white rounded-2xl border border-outline-variant/60 overflow-hidden transition-shadow hover:shadow-md"
               >
                 <button
                   onClick={() => toggleFaq(i)}
                   className="w-full flex items-center justify-between gap-4 p-6 text-left cursor-pointer"
                 >
-                  <span className="font-headline text-base md:text-lg font-bold text-[#2e3230]">
+                  <span className="font-headline text-base md:text-lg font-bold text-on-surface">
                     {faq.q}
                   </span>
                   <span
-                    className={`material-symbols-outlined text-2xl text-[#4a4e4a] flex-shrink-0 transition-transform duration-300 ${
+                    className={`material-symbols-outlined text-2xl text-on-surface-variant flex-shrink-0 transition-transform duration-300 ${
                       openFaq === i ? 'rotate-180' : ''
                     }`}
                   >
@@ -238,7 +238,7 @@ export default function LpPricing() {
                     openFaq === i ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                   }`}
                 >
-                  <p className="font-body text-sm md:text-base text-[#4a4e4a] leading-relaxed px-6 pb-6">
+                  <p className="font-body text-sm md:text-base text-on-surface-variant leading-relaxed px-6 pb-6">
                     {faq.a}
                   </p>
                 </div>

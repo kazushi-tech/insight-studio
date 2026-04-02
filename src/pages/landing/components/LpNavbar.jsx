@@ -18,9 +18,9 @@ export default function LpNavbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 bg-[#faf6f0] border-b transition-shadow duration-300 ${
+      className={`sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b transition-shadow duration-300 ${
         scrolled
-          ? 'shadow-[0_4px_20px_rgba(46,50,48,0.06)] border-stone-200/50'
+          ? 'shadow-[0_4px_20px_rgba(46,50,48,0.06)] border-outline-variant/50'
           : 'border-transparent'
       }`}
     >
@@ -44,7 +44,7 @@ export default function LpNavbar() {
                   className={`transition-colors duration-200 ${
                     isActive
                       ? 'text-primary border-b-2 border-primary pb-1'
-                      : 'text-stone-600 hover:text-primary'
+                      : 'text-on-surface-variant hover:text-primary'
                   }`}
                 >
                   {link.label}

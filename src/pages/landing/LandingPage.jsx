@@ -89,25 +89,25 @@ export default function LandingPage() {
       {/* ── Hero ── */}
       <LpSection className="relative overflow-hidden pt-32 pb-24 px-6">
         {/* Background blurs */}
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#4a7c59]/8 rounded-full blur-[120px] -translate-y-1/3 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#705c30]/6 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/8 rounded-full blur-[120px] -translate-y-1/3 translate-x-1/4" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-tertiary/6 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
 
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-16">
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-[#c8e8d0]/40 border border-[#4a7c59]/15 rounded-full px-5 py-2 mb-8">
-              <span className="material-symbols-outlined text-[#4a7c59] text-base">auto_awesome</span>
-              <span className="text-sm font-bold tracking-widest text-[#4a7c59] font-label">AI POWERED ANALYSIS</span>
+            <div className="inline-flex items-center gap-2 bg-primary-fixed/20 border border-primary/15 rounded-full px-5 py-2 mb-8">
+              <span className="material-symbols-outlined text-primary text-base">auto_awesome</span>
+              <span className="text-sm font-bold tracking-widest text-primary font-label">AI POWERED ANALYSIS</span>
             </div>
 
             {/* Headline */}
-            <h1 className="font-headline text-4xl md:text-6xl lg:text-7xl font-extrabold text-[#2e3230] leading-tight mb-8">
+            <h1 className="font-headline text-4xl md:text-6xl lg:text-7xl font-extrabold text-on-surface leading-tight mb-8">
               広告運用の&ldquo;なぜ？&rdquo;を、
               <br />
               <span className="text-primary">AIが解き明かす。</span>
             </h1>
 
-            <p className="font-body text-lg md:text-xl text-[#4a4e4a] max-w-2xl mx-auto mb-10 leading-relaxed">
+            <p className="font-body text-lg md:text-xl text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed">
               競合分析・クリエイティブ診断・パフォーマンス考察。
               <br className="hidden md:block" />
               広告運用に必要なすべての分析を、AIがワンストップで。
@@ -117,14 +117,14 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/"
-                className="inline-flex items-center justify-center gap-2 px-10 py-5 bg-[#4a7c59] text-white rounded-2xl font-extrabold text-lg shadow-xl shadow-[#4a7c59]/25 hover:-translate-y-1 transition-all"
+                className="inline-flex items-center justify-center gap-2 px-10 py-5 bg-primary text-white rounded-2xl font-extrabold text-lg shadow-xl shadow-primary/25 hover:-translate-y-1 transition-all"
               >
                 無料で始める
                 <span className="material-symbols-outlined text-xl">arrow_forward</span>
               </Link>
               <a
                 href="#"
-                className="inline-flex items-center justify-center gap-2 px-10 py-5 bg-white/80 text-[#4a7c59] border border-[#4a7c59]/20 rounded-2xl font-extrabold text-lg hover:bg-[#f5f1ea] transition-all"
+                className="inline-flex items-center justify-center gap-2 px-10 py-5 bg-white/80 text-primary border border-primary/20 rounded-2xl font-extrabold text-lg hover:bg-surface-container-low transition-all"
               >
                 資料をダウンロード
                 <span className="material-symbols-outlined text-xl">download</span>
@@ -142,14 +142,14 @@ export default function LandingPage() {
               />
             </div>
             {/* ROAS badge */}
-            <div className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 bg-white rounded-2xl shadow-xl p-4 md:p-5 border border-[#4a7c59]/10">
+            <div className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 bg-white rounded-2xl shadow-xl p-4 md:p-5 border border-primary/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-[#c8e8d0] flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[#4a7c59] text-xl md:text-2xl">trending_up</span>
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary-fixed/40 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary text-xl md:text-2xl">trending_up</span>
                 </div>
                 <div>
-                  <p className="text-xs text-[#4a4e4a] font-medium">ROAS</p>
-                  <p className="text-xl md:text-2xl font-extrabold text-[#4a7c59]">+142%</p>
+                  <p className="text-xs text-on-surface-variant font-medium">ROAS</p>
+                  <p className="text-xl md:text-2xl font-extrabold text-primary">+142%</p>
                 </div>
               </div>
             </div>
@@ -161,8 +161,8 @@ export default function LandingPage() {
       <LpSection className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-bold tracking-widest text-[#4a7c59] mb-4 font-label">CHALLENGES</p>
-            <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-[#2e3230] leading-tight">
+            <p className="text-sm font-bold tracking-widest text-primary mb-4 font-label">CHALLENGES</p>
+            <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-on-surface leading-tight">
               広告運用チームが直面する
               <br className="hidden md:block" />
               4つの課題
@@ -173,13 +173,13 @@ export default function LandingPage() {
             {problems.map((p, i) => (
               <div
                 key={i}
-                className="bg-white rounded-3xl p-8 shadow-sm border border-[#e4e0d8]/60 hover:shadow-lg hover:-translate-y-1 transition-all"
+                className="bg-white rounded-3xl p-8 shadow-sm border border-outline-variant/60 hover:shadow-lg hover:-translate-y-1 transition-all"
               >
-                <div className="w-14 h-14 rounded-2xl bg-[#c8e8d0]/40 flex items-center justify-center mb-6">
-                  <span className="material-symbols-outlined text-[#4a7c59] text-2xl">{p.icon}</span>
+                <div className="w-14 h-14 rounded-2xl bg-primary-fixed/20 flex items-center justify-center mb-6">
+                  <span className="material-symbols-outlined text-primary text-2xl">{p.icon}</span>
                 </div>
-                <h3 className="font-headline text-lg font-bold text-[#2e3230] mb-3">{p.title}</h3>
-                <p className="font-body text-sm text-[#4a4e4a] leading-relaxed">{p.body}</p>
+                <h3 className="font-headline text-lg font-bold text-on-surface mb-3">{p.title}</h3>
+                <p className="font-body text-sm text-on-surface-variant leading-relaxed">{p.body}</p>
               </div>
             ))}
           </div>
@@ -187,11 +187,11 @@ export default function LandingPage() {
       </LpSection>
 
       {/* ── Features Bento Grid ── */}
-      <LpSection id="features" className="py-24 px-6 bg-[#f5f1ea]">
+      <LpSection id="features" className="py-24 px-6 bg-surface-container-low">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-sm font-bold tracking-widest text-[#4a7c59] mb-4 font-label">FEATURES</p>
-            <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-[#2e3230] leading-tight">
+            <p className="text-sm font-bold tracking-widest text-primary mb-4 font-label">FEATURES</p>
+            <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-on-surface leading-tight">
               Insight Studio の主要機能
             </h2>
           </div>
@@ -203,21 +203,21 @@ export default function LandingPage() {
                 to={f.to}
                 className={`group rounded-3xl p-8 transition-all hover:shadow-xl hover:-translate-y-1 ${f.colSpan} ${f.rowSpan} ${
                   f.isPrimary
-                    ? 'bg-[#4a7c59] text-white'
-                    : 'bg-white border border-[#e4e0d8]/60'
+                    ? 'bg-primary text-white'
+                    : 'bg-white border border-outline-variant/60'
                 }`}
               >
                 <div className="flex flex-col h-full">
                   <h3
                     className={`font-headline text-xl font-bold mb-3 ${
-                      f.isPrimary ? 'text-white' : 'text-[#2e3230]'
+                      f.isPrimary ? 'text-white' : 'text-on-surface'
                     }`}
                   >
                     {f.title}
                   </h3>
                   <p
                     className={`font-body text-sm leading-relaxed mb-6 ${
-                      f.isPrimary ? 'text-[#d8f0de]/80' : 'text-[#4a4e4a]'
+                      f.isPrimary ? 'text-primary-fixed/80' : 'text-on-surface-variant'
                     }`}
                   >
                     {f.body}
@@ -235,14 +235,14 @@ export default function LandingPage() {
                     <div className="mt-auto flex items-center gap-1">
                       <span
                         className={`text-sm font-bold ${
-                          f.isPrimary ? 'text-[#c8e8d0]' : 'text-[#4a7c59]'
+                          f.isPrimary ? 'text-primary-fixed' : 'text-primary'
                         }`}
                       >
                         詳しく見る
                       </span>
                       <span
                         className={`material-symbols-outlined text-lg group-hover:translate-x-1 transition-transform ${
-                          f.isPrimary ? 'text-[#c8e8d0]' : 'text-[#4a7c59]'
+                          f.isPrimary ? 'text-primary-fixed' : 'text-primary'
                         }`}
                       >
                         arrow_forward
@@ -257,7 +257,7 @@ export default function LandingPage() {
       </LpSection>
 
       {/* ── Differentiation ── */}
-      <LpSection className="py-24 px-6 bg-[#0f5238] text-white relative overflow-hidden">
+      <LpSection className="py-24 px-6 bg-[#003d2a] text-white relative overflow-hidden">
         {/* Dot pattern overlay */}
         <div
           className="absolute inset-0 opacity-10"
@@ -269,7 +269,7 @@ export default function LandingPage() {
 
         <div className="max-w-6xl mx-auto relative z-10">
           <div className="text-center mb-16">
-            <p className="text-sm font-bold tracking-widest text-[#c4a66a] mb-4 font-label">WHY INSIGHT STUDIO</p>
+            <p className="text-sm font-bold tracking-widest text-tertiary-fixed-dim mb-4 font-label">WHY INSIGHT STUDIO</p>
             <h2 className="font-headline text-3xl md:text-5xl font-extrabold text-white leading-tight">
               Insight Studio が選ばれる
               <br className="hidden md:block" />
@@ -281,12 +281,12 @@ export default function LandingPage() {
             <div className="space-y-10">
               {differentiators.map((d, i) => (
                 <div key={i} className="flex gap-6">
-                  <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-[#c4a66a]/20 flex items-center justify-center">
-                    <span className="text-xl font-extrabold text-[#c4a66a] font-headline">{d.num}</span>
+                  <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-tertiary-fixed-dim/20 flex items-center justify-center">
+                    <span className="text-xl font-extrabold text-tertiary-fixed-dim font-headline">{d.num}</span>
                   </div>
                   <div>
                     <h3 className="font-headline text-xl font-bold text-white mb-2">{d.title}</h3>
-                    <p className="font-body text-[#d8f0de]/70 leading-relaxed">{d.body}</p>
+                    <p className="font-body text-primary-fixed/70 leading-relaxed">{d.body}</p>
                   </div>
                 </div>
               ))}

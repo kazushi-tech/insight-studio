@@ -17,8 +17,8 @@ export default function LpCta({
       <div
         className={`max-w-5xl mx-auto ${
           isDark
-            ? 'bg-gradient-to-r from-emerald-900 to-emerald-700 rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl'
-            : 'bg-emerald-50/50 rounded-[2.5rem] p-12 md:p-20 text-center relative z-10 border border-emerald-200/30'
+            ? 'bg-gradient-to-r from-[#003d2a] to-primary rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl'
+            : 'bg-primary-fixed/10 rounded-[2.5rem] p-12 md:p-20 text-center relative z-10 border border-primary-fixed/30'
         }`}
       >
         {isDark && (
@@ -33,7 +33,7 @@ export default function LpCta({
         )}
         <h2
           className={`text-3xl md:text-5xl font-extrabold mb-8 leading-tight relative z-10 whitespace-pre-line ${
-            isDark ? 'text-white' : 'text-slate-900'
+            isDark ? 'text-white' : 'text-on-surface'
           }`}
         >
           {heading}
@@ -41,7 +41,7 @@ export default function LpCta({
         {body && (
           <p
             className={`text-lg mb-12 max-w-xl mx-auto relative z-10 ${
-              isDark ? 'text-white/80' : 'text-slate-600'
+              isDark ? 'text-white/80' : 'text-on-surface-variant'
             }`}
           >
             {body}
@@ -52,8 +52,8 @@ export default function LpCta({
             to={primaryTo}
             className={`px-10 py-5 rounded-2xl font-extrabold text-xl shadow-xl hover:-translate-y-1 transition-all ${
               isDark
-                ? 'bg-emerald-400 text-emerald-950 lp-animate-glow'
-                : 'bg-emerald-600 text-white shadow-emerald-600/30'
+                ? 'bg-primary-fixed-dim text-on-primary-fixed lp-animate-glow'
+                : 'bg-primary text-white shadow-primary/30'
             }`}
           >
             {primaryLabel}
@@ -63,8 +63,8 @@ export default function LpCta({
               to={secondaryTo}
               className={`px-10 py-5 rounded-2xl font-extrabold text-xl transition-all ${
                 isDark
-                  ? 'bg-transparent border-2 border-emerald-400/50 text-emerald-300 hover:bg-white/5'
-                  : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+                  ? 'bg-transparent border-2 border-primary-fixed-dim/50 text-primary-fixed hover:bg-white/5'
+                  : 'bg-white text-primary border border-primary-fixed/40 hover:bg-primary-fixed/10'
               }`}
             >
               {secondaryLabel}
@@ -72,7 +72,7 @@ export default function LpCta({
           )}
         </div>
         {!isDark && (
-          <p className="mt-8 text-sm text-slate-500 font-medium relative z-10">
+          <p className="mt-8 text-sm text-on-surface-variant font-medium relative z-10">
             クレジットカード登録不要 ・ いつでもキャンセル可能
           </p>
         )}
@@ -84,8 +84,8 @@ export default function LpCta({
       </div>
       {!isDark && (
         <>
-          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-emerald-500/5 rounded-full blur-[100px]" />
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-amber-500/5 rounded-full blur-[100px]" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-[100px]" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-tertiary/5 rounded-full blur-[100px]" />
         </>
       )}
     </LpSection>
