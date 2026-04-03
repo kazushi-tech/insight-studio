@@ -228,7 +228,7 @@ export default function Settings() {
     <div className="p-10 max-w-6xl mx-auto space-y-8">
       <div className="space-y-2">
         <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">設定・レポート管理</h2>
-        <p className="text-on-surface-variant text-sm japanese-text">プロフィールや接続設定を管理できます。不要なダミー設定は表示していません。</p>
+        <p className="text-on-surface-variant text-sm japanese-text">Claude API キーだけで Compare / Discovery / Ads AI / Creative Review(review) を始められます。Gemini は改善バナー生成だけの任意設定です。</p>
       </div>
 
       <div className="grid grid-cols-12 gap-8 items-start">
@@ -268,7 +268,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定"
-        description="AI考察・LP比較・競合発見・クリエイティブレビューに使う Claude API キーです。分析系では Gemini を使用しません。"
+        description="AI考察・LP比較・競合発見・クリエイティブレビューに使う Claude API キーです。core flow はこの設定だけで開始できます。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
@@ -343,10 +343,16 @@ export default function Settings() {
 
       <SettingsCard
         icon="image"
-        title="画像生成 API設定"
-        description="改善バナー生成に使う Gemini API キーです。分析系の比較・発見・レビューにはこのキーを送信しません。"
+        title="画像生成 API設定（任意）"
+        description="改善バナー生成に使う Gemini API キーです。分析系の比較・発見・レビューにはこのキーを送信しません。optional / experimental な追加機能として扱います。"
       >
         <div className="space-y-4">
+          {!hasGeminiKey && (
+            <div className="rounded-[0.75rem] border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+              <p className="font-bold japanese-text">Gemini 未設定でも core flow は利用できます。</p>
+              <p className="text-xs mt-1 text-sky-800">Compare / Discovery / Ads AI / Creative Review(review) は Claude API キー側の設定で進められます。</p>
+            </div>
+          )}
           {hasGeminiKey && !editingGemini ? (
             <>
               <div className="rounded-[0.75rem] bg-surface-container px-4 py-3">

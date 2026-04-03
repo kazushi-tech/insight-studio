@@ -259,7 +259,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
-          <p className="text-xs text-on-surface-variant">改善バナー生成の Nano Banana2 に使用します。分析系のレビューや比較には使用しません</p>
+          <p className="text-xs text-on-surface-variant">改善バナー生成の Nano Banana2 に使う任意キーです。Compare / Discovery / Ads AI / Creative Review(review) には使用しません</p>
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"
@@ -436,6 +436,21 @@ export default function Layout() {
 
   const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
   const aiInsightProviderLabel = getAnalysisProviderLabel(analysisProvider)
+  const coreAnalysisStatusLabel = hasAnalysisKey ? `${aiInsightProviderLabel} で利用可` : 'Claude 未設定'
+  const bannerGenerationStatusLabel = hasGeminiKey ? 'Gemini で利用可' : '任意・未設定'
+  const bannerGenerationTone = hasGeminiKey ? 'text-emerald-400' : 'text-amber-300'
+  const bannerGenerationDot = hasGeminiKey ? 'bg-emerald-400' : 'bg-amber-300'
+  const adsAiReady = hasAnalysisKey && isAdsAuthenticated && isSetupComplete
+  const adsAiStatusLabel = !hasAnalysisKey
+    ? 'Claude 未設定'
+    : !isAdsAuthenticated
+      ? '要認証'
+      : !isSetupComplete
+        ? '要セットアップ'
+        : `${aiInsightProviderLabel} で利用可`
+  const adsAiTone = adsAiReady ? 'text-emerald-400' : hasAnalysisKey || isAdsAuthenticated ? 'text-amber-400' : 'text-white/40'
+  const adsAiDot = adsAiReady ? 'bg-emerald-400' : hasAnalysisKey || isAdsAuthenticated ? 'bg-amber-400' : 'bg-white/20'
+  const showKeyAttention = !hasAnalysisKey || !isAdsAuthenticated
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -480,17 +495,17 @@ export default function Layout() {
         <div className="px-6 mb-3">
           <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-white/50">AI考察エンジン</span>
+              <span className="text-white/50">Compare / Discovery</span>
               <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {aiInsightProviderLabel}
+                {coreAnalysisStatusLabel}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">競合LP分析</span>
+              <span className="text-white/50">クリエイティブレビュー</span>
               <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {aiInsightProviderLabel}
+                {coreAnalysisStatusLabel}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -501,10 +516,10 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">Gemini API</span>
-              <span className={`flex items-center gap-1 font-bold ${hasGeminiKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${hasGeminiKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {hasGeminiKey ? '設定済' : '未設定'}
+              <span className="text-white/50">改善バナー生成</span>
+              <span className={`flex items-center gap-1 font-bold ${bannerGenerationTone}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${bannerGenerationDot}`} />
+                {bannerGenerationStatusLabel}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -515,10 +530,10 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">考察セットアップ</span>
-              <span className={`flex items-center gap-1 font-bold ${isSetupComplete ? 'text-emerald-400' : 'text-amber-400'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isSetupComplete ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                {isSetupComplete ? '完了' : '未完了'}
+              <span className="text-white/50">Ads AI</span>
+              <span className={`flex items-center gap-1 font-bold ${adsAiTone}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${adsAiDot}`} />
+                {adsAiStatusLabel}
               </span>
             </div>
             {isSetupComplete && setupState?.completedAt && (
@@ -568,13 +583,13 @@ export default function Layout() {
               <button
                 onClick={() => setShowKeyModal(true)}
                 className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative ${
-                  hasAnalysisKey && hasGeminiKey && isAdsAuthenticated ? 'text-emerald-600' : 'text-secondary'
+                  !showKeyAttention ? 'text-emerald-600' : 'text-secondary'
                 }`}
-                title="API キー設定"
-                aria-label="API キー設定"
+                title="API キー・接続設定"
+                aria-label="API キー・接続設定"
               >
                 <span className="material-symbols-outlined">key</span>
-                {(!hasAnalysisKey || !hasGeminiKey || !isAdsAuthenticated) && (
+                {showKeyAttention && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full" />
                 )}
               </button>

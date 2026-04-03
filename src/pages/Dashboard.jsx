@@ -361,6 +361,15 @@ export default function Dashboard() {
 
   const latestScan = history.length > 0 ? history[0] : null
   const latestDate = latestScan?.date ?? latestScan?.created_at ?? null
+  const coreConnectionCount = [hasAnalysisKey, isAdsAuthenticated].filter(Boolean).length
+  const adsAiStatusLabel = !hasAnalysisKey
+    ? '要 Claude API'
+    : !isAdsAuthenticated
+      ? '要認証'
+      : !setupState
+        ? '要セットアップ'
+        : '利用可'
+  const creativeGenerationStatusLabel = hasGeminiKey ? '利用可（任意）' : '任意・未設定'
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -418,10 +427,10 @@ export default function Dashboard() {
                 />
                 <LiveStatCard
                   icon="key"
-                  label="API接続状況"
-                  value={[hasAnalysisKey, hasGeminiKey, isAdsAuthenticated].filter(Boolean).length}
-                  unit={`/ 3 接続`}
-                  subtitle={`AI考察: ${getAnalysisProviderLabel(analysisProvider)} / 競合LP分析: ${getAnalysisProviderLabel(analysisProvider)} / 画像生成: ${hasGeminiKey ? 'Gemini' : '未設定'} / Claude API: ${hasClaudeKey ? '設定済' : '未設定'} / 考察: ${isAdsAuthenticated ? '接続済' : '未接続'}`}
+                  label="Core 接続状況"
+                  value={coreConnectionCount}
+                  unit={`/ 2`}
+                  subtitle={`Compare / Discovery / Review: ${hasClaudeKey ? `${getAnalysisProviderLabel(analysisProvider)} で利用可` : '要 Claude API'} / Ads AI: ${adsAiStatusLabel} / 改善バナー生成: ${creativeGenerationStatusLabel}`}
                 />
               </>
             )}
@@ -579,7 +588,7 @@ export default function Dashboard() {
                 {[
                   { icon: 'compare', text: 'LP比較分析を実行', sub: '新規案件の比較結果を生成', time: '2時間前' },
                   { icon: 'bar_chart', text: '広告レポート更新', sub: '月次データを自動取得', time: '5時間前' },
-                  { icon: 'auto_fix_high', text: 'クリエイティブ診断', sub: 'バナー改善案を3件提案', time: '1日前' },
+                  { icon: 'auto_fix_high', text: 'クリエイティブ診断', sub: 'Claude レビュー結果を確認', time: '1日前' },
                   { icon: 'settings', text: 'セットアップ完了', sub: 'クエリ種別を追加設定', time: '3日前' },
                 ].map((item, i) => (
                   <div key={i} className="relative flex gap-3">

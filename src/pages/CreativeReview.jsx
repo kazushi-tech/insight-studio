@@ -748,8 +748,13 @@ export default function CreativeReview() {
             <span className="material-symbols-outlined text-sm">chevron_right</span>
             <span className="text-secondary font-bold">クリエイティブ・レビュー</span>
           </div>
-          <h2 className="display-md text-on-surface tracking-tight">Creative Review & Banner Generation</h2>
-          <p className="text-on-surface-variant text-sm mt-1">バナー画像をアップロード → AIレビュー → 改善バナー自動生成</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="display-md text-on-surface tracking-tight">Creative Review</h2>
+            <span className="inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-secondary">
+              Claude First
+            </span>
+          </div>
+          <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして Claude でレビューします。改善バナー生成は任意の追加ステップです。</p>
         </div>
       </div>
 
@@ -778,15 +783,15 @@ export default function CreativeReview() {
       )}
       {!hasGeminiKey && (
         <div className="space-y-3">
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
-            <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">改善バナー生成には Gemini API キーが必要です。レビューだけなら Claude で実行できます。</span>
+          <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-[0.75rem] px-5 py-3 text-sm text-sky-900">
+            <span className="material-symbols-outlined text-lg">info</span>
+            <span className="japanese-text">Gemini 未設定のため改善バナー生成は利用できませんが、Creative Review 本体は Claude だけで実行できます。</span>
           </div>
         </div>
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">クリエイティブレビューは Claude で実行し、改善バナー生成だけ Nano Banana2（Gemini）を使用します。</span>
+        <span className="japanese-text">クリエイティブレビューは Claude で実行し、改善バナー生成だけ Nano Banana2（Gemini）を使う optional / experimental addon として扱います。</span>
       </div>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
@@ -966,7 +971,7 @@ export default function CreativeReview() {
                 )}
 
                 {/* Generation button */}
-                {runId && (
+                {runId && hasGeminiKey && (
                   <button
                     onClick={handleGenerate}
                     disabled={!geminiKey.trim() || phase === 'generating'}
@@ -977,10 +982,16 @@ export default function CreativeReview() {
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-lg">auto_fix_high</span>
-                        改善バナーを生成（Nano Banana2）
+                        改善バナーを試作（任意 / Experimental）
                       </>
                     )}
                   </button>
+                )}
+                {runId && !hasGeminiKey && (
+                  <div className="rounded-[0.75rem] border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                    <p className="font-bold japanese-text">改善バナー生成は optional / experimental です。</p>
+                    <p className="text-xs mt-1 text-sky-800">Gemini API キーを追加すると Nano Banana2 による試作を実行できます。レビュー結果はこのまま利用できます。</p>
+                  </div>
                 )}
               </div>
             )}
@@ -990,7 +1001,7 @@ export default function CreativeReview() {
               <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
                 <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
                   <span className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-sm font-extrabold">4</span>
-                  改善バナー
+                  改善バナー（Optional / Experimental）
                 </h3>
 
                 <p className="text-sm text-on-surface-variant japanese-text">
@@ -1121,8 +1132,8 @@ export default function CreativeReview() {
             {[
               { icon: 'cloud_upload', title: '画像をアップロード', desc: 'バナー画像（PNG/JPG）を選択' },
               { icon: 'rate_review', title: 'AIレビュー', desc: 'Claudeがバナーを分析・評価' },
-              { icon: 'auto_fix_high', title: 'バナー生成', desc: 'Nano Banana2で改善版を自動生成' },
-              { icon: 'download', title: 'ダウンロード', desc: '生成されたバナーを保存' },
+              { icon: 'auto_fix_high', title: '任意: バナー生成', desc: 'Gemini / Nano Banana2 で改善版を試作' },
+              { icon: 'download', title: '保存', desc: '生成した場合のみ改善バナーを保存' },
             ].map((step, i) => (
               <div key={i} className="flex flex-col items-center text-center p-4">
                 <div className="w-12 h-12 bg-secondary/10 rounded-[0.75rem] flex items-center justify-center mb-3">

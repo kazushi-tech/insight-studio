@@ -1,12 +1,38 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const GUIDE_PAGES = [
-  { src: '/guide/page1-welcome.png', title: 'Insight Studio へようこそ' },
-  { src: '/guide/page2-api-setup.png', title: 'APIキーの設定' },
-  { src: '/guide/page3-lp-analysis.png', title: 'LP比較 & 競合発見' },
-  { src: '/guide/page4-ads-insight.png', title: '広告分析ワークフロー' },
-  { src: '/guide/page5-creative.png', title: 'クリエイティブレビュー' },
-  { src: '/guide/page6-tips.png', title: 'Tips & ショートカット' },
+  {
+    src: '/guide/page1-welcome.png',
+    title: 'Insight Studio へようこそ',
+    description: 'このガイドでは Claude First を前提に、比較・発見・レビュー・Ads AI を主要フローとして扱います。',
+  },
+  {
+    src: '/guide/page2-api-setup.png',
+    title: 'APIキーの設定',
+    description: 'Claude API キーを設定すると Compare / Discovery / Ads AI / Creative Review(review) を開始できます。',
+    callout: 'Gemini API キーは改善バナー生成だけで使う任意設定です。',
+  },
+  {
+    src: '/guide/page3-lp-analysis.png',
+    title: 'LP比較 & 競合発見',
+    description: 'LP比較と競合発見は Claude で実行します。Gemini 未設定でも利用不可にはしません。',
+  },
+  {
+    src: '/guide/page4-ads-insight.png',
+    title: '広告分析ワークフロー',
+    description: 'Ads AI は Claude API キーに加えて、案件認証と Ads セットアップ完了が前提です。',
+  },
+  {
+    src: '/guide/page5-creative.png',
+    title: 'クリエイティブレビュー',
+    description: 'Creative Review の core は Claude レビューです。',
+    callout: '改善バナー生成は Gemini を使う optional / experimental addon として扱います。',
+  },
+  {
+    src: '/guide/page6-tips.png',
+    title: 'Tips & ショートカット',
+    description: 'smoke 確認時は Compare → Discovery → Creative Review → Ads AI の順で見ると切り分けしやすくなります。',
+  },
 ]
 
 const STORAGE_KEY = 'insight-studio-guide-seen'
@@ -99,6 +125,16 @@ export default function GuideModal({ onClose }) {
             className="w-full rounded-[0.75rem] object-contain"
             draggable={false}
           />
+          {(current.description || current.callout) && (
+            <div className="mt-4 rounded-[0.75rem] bg-surface-container p-4 space-y-2">
+              {current.description && (
+                <p className="text-sm text-on-surface japanese-text">{current.description}</p>
+              )}
+              {current.callout && (
+                <p className="text-xs text-secondary japanese-text">{current.callout}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
