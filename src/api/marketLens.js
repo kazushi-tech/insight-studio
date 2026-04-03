@@ -1,7 +1,18 @@
-// Prefer the same-origin proxy in both dev and prod to avoid browser-side CORS drift.
+// Prefer the same-origin proxy during local browser runs to avoid CORS drift
+// between localhost/127.0.0.1/preview origins and the Render backend.
 const DIRECT_MARKET_LENS_ORIGIN =
   import.meta.env.VITE_MARKET_LENS_API_ORIGIN?.replace(/\/$/, '') || ''
-const BASE = DIRECT_MARKET_LENS_ORIGIN ? `${DIRECT_MARKET_LENS_ORIGIN}/api` : '/api/ml'
+
+function isLocalBrowserOrigin() {
+  if (typeof window === 'undefined') return false
+  const host = window.location.hostname
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
+}
+
+const SHOULD_FORCE_PROXY = isLocalBrowserOrigin()
+const BASE = SHOULD_FORCE_PROXY || !DIRECT_MARKET_LENS_ORIGIN
+  ? '/api/ml'
+  : `${DIRECT_MARKET_LENS_ORIGIN}/api`
 // Vercel rewrite proxy has a ~60s hard timeout. Long-running endpoints
 // (discovery/analyze, scan) must bypass the proxy and hit Render directly.
 const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
@@ -225,10 +236,9 @@ async function ensureDirectBackend() {
 async function requestJson(path, options = {}) {
   const { timeout = 30000, direct = false, _retried = false, ...restOptions } = options
   let baseUrl = BASE
-  if (direct) {
-    // Always try direct connection for long-running endpoints.
-    // Falling back to the Vercel proxy is worse — it has a 60s hard
-    // timeout that will always kill Discovery/Scan requests.
+  if (direct && !SHOULD_FORCE_PROXY) {
+    // Outside local dev/preview, long-running endpoints should still prefer
+    // the direct Render connection to avoid upstream proxy timeouts.
     await ensureDirectBackend()
     baseUrl = DIRECT_BACKEND_BASE
   }
