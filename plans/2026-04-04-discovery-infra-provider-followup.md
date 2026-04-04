@@ -125,6 +125,30 @@
 
 ---
 
+## Observation: Post-Deploy Smoke (2026-04-04 11:47 JST)
+
+Backend commit `ed3c5b4` (transport retry hardening) の deploy 確認後に 5 回の smoke を実施。
+
+### Results
+
+- **Success: 2/5 (40%)**
+- **Failure: 3/5 (60%)**
+  - `stage=search` + SSL/TLS (`WRONG_VERSION_NUMBER`): 2 件
+  - `stage=analyze` + Gemini `503 UNAVAILABLE`: 1 件
+- **Generic transport error: 0 件**
+- **Frontend regression: なし**
+
+### Assessment
+
+- Transport hardening (`ed3c5b4`) による改善効果は確認済み
+  - stage-aware error が全失敗で機能
+  - generic error への回帰なし
+- 依然として Render outbound TLS と Gemini 503 の intermittent 問題は残存
+- 成功率 40% は infra/provider track として継続追跡が必要
+- 詳細: `plans/2026-04-04-discovery-postdeploy-smoke-results.md`
+
+---
+
 ## Ownership
 
 - repo 内の記録整理と切り分け: `Codex`
