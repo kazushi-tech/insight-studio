@@ -192,6 +192,61 @@ Backend commit `74a86d7` (retry discovery analyze on gemini overload) の deploy
 
 ---
 
+## Observation: Phase A v3 Smoke (2026-04-04 14:27 JST)
+
+Phase A env 適用後に 5 回の browser UI smoke を実施。
+前回 (v2) は `74a86d7` で `3/5 (60%)` だった。
+
+### Phase A env
+
+```env
+DISCOVERY_SEARCH_TRUST_ENV=true
+DISCOVERY_SEARCH_TIMEOUT_SEC=75
+DISCOVERY_GROUNDED_SEARCH_TIMEOUT_SEC=25
+DISCOVERY_FALLBACK_SEARCH_TIMEOUT_SEC=8
+DISCOVERY_SEARCH_MAX_RETRIES=3
+DISCOVERY_SEARCH_RETRY_DELAY_SEC=0.5
+```
+
+### Results
+
+- **Success: 3/5 (60%)** — v2 と同率 (横ばい)
+- **Failure: 2/5 (40%)**
+  - `stage=search` + upstream_502 (timeout): 1 件 (86.5s)
+  - `stage=search` + SSL/TLS (`WRONG_VERSION_NUMBER`): 1 件 (32.4s)
+  - `stage=analyze` + Gemini `503`: **0 件** (維持)
+- **Generic transport error: 0 件** (維持)
+- **Frontend regression: なし** (維持)
+
+### Key Changes from v2
+
+| 指標 | v2 (74a86d7) | v3 (Phase A) |
+|------|-------------|-------------|
+| Success Rate | 60% | 60% |
+| SSL/TLS | 1 件 | 1 件 |
+| Search timeout/502 | 1 件 | 1 件 |
+| Gemini 503 | 0 件 | 0 件 |
+| upstream_502 elapsed | 100.6s | 86.5s |
+| SSL/TLS elapsed | 44.2s | 32.4s |
+
+### Assessment
+
+- Phase A の `trust_env=true` + shorter timeout + retry 3 で **failure の検出は速くなった**
+- しかし **failure の発生自体は抑制できていない** (success rate 横ばい)
+- env tuning だけでは Render outbound TLS 不安定は解消しない
+- **結論: Phase A は fast-fail 効果あり、ただし根本改善には infra レイヤー対策が必要**
+- 詳細: `plans/2026-04-04-discovery-phase-a-v3-smoke-results.md`
+
+### Updated Working Hypotheses
+
+1. ~~Gemini 側の一時過負荷で `503` が返り、現行 retry 戦略では吸収しきれていない~~ → **解消 (74a86d7)**
+2. Render 実行環境から外部サイトへの TLS ハンドシェイクが不安定 → **継続 (主残件、env tuning では解消不可)**
+3. ~~`trust_env=False` により環境依存の proxy/cert 設定を拾えていない~~ → **Phase A で `trust_env=true` に変更済み。効果は限定的**
+4. ~~search の timeout/retry バランスが最適でない可能性~~ → **Phase A で調整済み。fast-fail は効いたが failure 率は変わらず**
+5. Render outbound の TLS 問題は Python/OpenSSL/リージョン等の infra レイヤーに起因する可能性 → **新規仮説**
+
+---
+
 ## Ownership
 
 - repo 内の記録整理と切り分け: `Codex`
