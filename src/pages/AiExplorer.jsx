@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
-import { getScans } from '../api/marketLens'
+import { getScans, classifyError } from '../api/marketLens'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -169,7 +169,14 @@ export default function AiExplorer() {
       })
       .catch((e) => {
         setMlContextSummary(null)
-        setMlStatus(e.status === 404 ? 'unavailable' : 'error')
+        const info = classifyError(e)
+        if (e.status === 404 || info.category === 'not_found') {
+          setMlStatus('unavailable')
+        } else if (info.category === 'cold_start') {
+          setMlStatus('cold_start')
+        } else {
+          setMlStatus('error')
+        }
       })
       .finally(() => setMlLoading(false))
   }, [contextMode])
@@ -281,6 +288,8 @@ export default function AiExplorer() {
     ? 'text-emerald-600'
     : mlStatus === 'unavailable'
     ? 'text-amber-700'
+    : mlStatus === 'cold_start'
+    ? 'text-sky-700'
     : mlStatus === 'error'
     ? 'text-red-700'
     : 'text-on-surface-variant'
@@ -291,6 +300,8 @@ export default function AiExplorer() {
     ? 'bg-emerald-500'
     : mlStatus === 'unavailable'
     ? 'bg-amber-500'
+    : mlStatus === 'cold_start'
+    ? 'bg-sky-400 animate-pulse'
     : mlStatus === 'error'
     ? 'bg-red-500'
     : 'bg-outline-variant'
@@ -303,6 +314,8 @@ export default function AiExplorer() {
     ? '履歴なし'
     : mlStatus === 'unavailable'
     ? '連携停止中'
+    : mlStatus === 'cold_start'
+    ? 'サーバー起動中'
     : mlStatus === 'error'
     ? '読込失敗'
     : '未接続'
@@ -439,6 +452,11 @@ export default function AiExplorer() {
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
           <p className="text-xs text-amber-700 japanese-text">
             Market Lens の履歴 API が停止中のため、広告データのみで回答します。
+          </p>
+        )}
+        {contextMode === 'ads-with-ml' && mlStatus === 'cold_start' && (
+          <p className="text-xs text-sky-700 japanese-text">
+            Market Lens バックエンドが起動中です。1〜2分後にコンテキスト更新を試してください。広告データのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'error' && (

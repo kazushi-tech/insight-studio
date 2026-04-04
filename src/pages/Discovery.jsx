@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { discoveryAnalyze } from '../api/marketLens'
+import { discoveryAnalyze, classifyError } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
@@ -132,6 +132,7 @@ export default function Discovery() {
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
+  const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
   const allDiscoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
   const discoveries = allDiscoveries.filter((item) => {
@@ -157,7 +158,12 @@ export default function Discovery() {
         providerLabel,
       })
     } catch (e) {
-      failRun('discovery', e.message)
+      const info = classifyError(e)
+      // Preserve stage info from the API layer if available
+      if (e.stage) {
+        info.label = `${info.label}（${e.stage}）`
+      }
+      failRun('discovery', e.message, info)
     }
   }, [url, analysisKey, analysisProvider, providerLabel, startRun, completeRun, failRun])
 
@@ -230,7 +236,7 @@ export default function Discovery() {
 
       {/* Error */}
       {error && (
-        <ErrorBanner message={error} onRetry={handleRetry} />
+        <ErrorBanner message={error} onRetry={handleRetry} errorInfo={errorInfo} />
       )}
 
       {/* Partial Success Banner */}

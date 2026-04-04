@@ -82,7 +82,7 @@ function createRunStore() {
     notify()
   }
 
-  function failRun(kind, error) {
+  function failRun(kind, error, errorInfo) {
     const existing = runs.get(kind)
     if (!existing) return
     runs.set(kind, {
@@ -90,6 +90,7 @@ function createRunStore() {
       status: 'failed',
       finishedAt: Date.now(),
       error: typeof error === 'string' ? error : error?.message || String(error),
+      errorInfo: errorInfo || null,
     })
     syncSnapshot()
     notify()

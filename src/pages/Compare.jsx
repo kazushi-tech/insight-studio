@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { scan } from '../api/marketLens'
+import { scan, classifyError } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
@@ -214,6 +214,7 @@ export default function Compare() {
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
+  const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
@@ -235,7 +236,7 @@ export default function Compare() {
       const scanError = getScanErrorMessage(data)
 
       if (scanError) {
-        failRun('compare', scanError)
+        failRun('compare', scanError, { category: 'upstream', label: 'バックエンドエラー', guidance: 'サーバー側の分析でエラーが発生しました。入力URLや条件を変えて再試行してください。', retryable: true })
         return
       }
 
@@ -244,7 +245,8 @@ export default function Compare() {
         providerLabel,
       })
     } catch (e) {
-      failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。')
+      const info = classifyError(e)
+      failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。', info)
     }
   }, [
     urls,
@@ -363,7 +365,7 @@ export default function Compare() {
       </div>
 
       {error && (
-        <ErrorBanner message={error} onRetry={handleRetry} />
+        <ErrorBanner message={error} onRetry={handleRetry} errorInfo={errorInfo} />
       )}
 
       {/* Meta Band */}
@@ -463,8 +465,9 @@ export default function Compare() {
               <MarkdownRenderer content={report} variant="discovery" />
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
-                <span className="material-symbols-outlined text-4xl text-outline-variant mb-2">check_circle</span>
-                <p className="text-sm japanese-text">分析が完了しましたが、レポートデータが含まれていません。</p>
+                <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">info</span>
+                <p className="text-sm japanese-text font-bold">分析は完了しましたが、レポート本文が空でした。</p>
+                <p className="text-xs mt-1">対象サイトの構造によっては分析データが取得できない場合があります。別のURLで再試行してください。</p>
               </div>
             )}
           </div>

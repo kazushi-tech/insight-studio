@@ -32,6 +32,69 @@ const DISCOVERY_STAGE_LABELS = {
   analyze: '比較分析',
 }
 
+// ─── Error Classification ────────────────────────────────────
+
+/**
+ * Classify a caught error into a UI-presentable category.
+ * Works with both plain Error (network/CORS) and enhanced errors from requestJson.
+ * @param {Error} error
+ * @returns {{ category: string, label: string, guidance: string, retryable: boolean }}
+ */
+export function classifyError(error) {
+  if (!error) return { category: 'unknown', label: 'エラー', guidance: '予期しないエラーが発生しました。', retryable: true }
+
+  const status = error.status
+  const msg = (error.message || '').toLowerCase()
+
+  // Timeout / AbortError
+  if (error.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
+    return { category: 'timeout', label: 'タイムアウト', guidance: '処理に時間がかかっています。しばらく待って再試行してください。', retryable: true }
+  }
+
+  // Cold start (503)
+  if (status === 503 || msg.includes('起動中')) {
+    return { category: 'cold_start', label: 'サーバー起動中', guidance: 'バックエンドが起動中です。1〜2分後に再試行してください。', retryable: true }
+  }
+
+  // CORS / network / connection failure
+  if (
+    msg.includes('接続できませんでした') ||
+    msg.includes('cors') ||
+    msg.includes('failed to fetch') ||
+    (error instanceof TypeError && !status)
+  ) {
+    return { category: 'network', label: 'ネットワークエラー', guidance: 'バックエンドへの接続に失敗しました。ネットワーク状態またはバックエンドの起動状態を確認してください。', retryable: true }
+  }
+
+  // Auth error
+  if (status === 401 || status === 403) {
+    return { category: 'auth_error', label: '認証エラー', guidance: 'API キーが無効または権限が不足しています。設定を確認してください。', retryable: false }
+  }
+
+  // Not found
+  if (status === 404) {
+    return { category: 'not_found', label: 'リソース未検出', guidance: '指定されたリソースまたはエンドポイントが見つかりません。', retryable: false }
+  }
+
+  // Invalid input (422, 400)
+  if (status === 422 || status === 400) {
+    return { category: 'invalid_input', label: '入力エラー', guidance: '入力内容またはリクエスト形式を確認してください。', retryable: false }
+  }
+
+  // Rate limit
+  if (status === 429) {
+    return { category: 'rate_limit', label: '利用制限', guidance: '利用制限に達しました。しばらく待って再試行してください。', retryable: true }
+  }
+
+  // Upstream / backend server error
+  if (status === 500 || status === 502) {
+    return { category: 'upstream', label: 'バックエンドエラー', guidance: 'サーバー側でエラーが発生しました。しばらく待って再試行してください。', retryable: true }
+  }
+
+  // Generic fallback
+  return { category: 'unknown', label: 'エラー', guidance: '予期しないエラーが発生しました。', retryable: true }
+}
+
 function resolveAiOptions(optionsOrApiKey) {
   if (typeof optionsOrApiKey === 'string') {
     return { apiKey: optionsOrApiKey }

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import PerformanceRadar from '../components/PerformanceRadar'
 import { useAuth } from '../contexts/AuthContext'
@@ -12,6 +12,7 @@ import {
   generateBanner,
   getGeneration,
   getGenerationImageUrl,
+  classifyError,
 } from '../api/marketLens'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 import { SCORE_THRESHOLD_EXCELLENT, SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_FAIR } from '../utils/scoreThresholds'
@@ -481,7 +482,23 @@ export default function CreativeReview() {
     return 'idle'
   })
 
-  const [errorMessage, setErrorMessage] = useState('')
+  const persistedErrorState = genRun?.status === 'failed'
+    ? {
+        message: `生成失敗: ${genRun.error}`,
+        info: genRun.errorInfo || null,
+      }
+    : reviewRun?.status === 'failed'
+    ? {
+        message: `レビュー失敗: ${reviewRun.error}`,
+        info: reviewRun.errorInfo || null,
+      }
+    : {
+        message: '',
+        info: null,
+      }
+
+  const [errorMessage, setErrorMessage] = useState(() => persistedErrorState.message)
+  const [errorInfo, setErrorInfo] = useState(() => persistedErrorState.info)
   const [previewUrl, setPreviewUrl] = useState(() => reviewRun?.input?.previewUrl || null)
   const [fileName, setFileName] = useState(() => reviewRun?.input?.fileName || '')
   const [assetId, setAssetId] = useState(() => reviewRun?.input?.assetId || null)
@@ -512,22 +529,11 @@ export default function CreativeReview() {
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
 
-  // Sync phase from run store on mount
-  useEffect(() => {
-    if (reviewRun?.status === 'failed') {
-      setPhase('error')
-      setErrorMessage(reviewRun.error)
-    }
-    if (genRun?.status === 'failed') {
-      setPhase('error')
-      setErrorMessage(genRun.error)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
   // ─── helpers ───
   const resetAll = useCallback(() => {
     setPhase('idle')
     setErrorMessage('')
+    setErrorInfo(null)
     setPreviewUrl(null)
     setFileName('')
     setAssetId(null)
@@ -544,9 +550,10 @@ export default function CreativeReview() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [clearRun])
 
-  const goError = useCallback((msg) => {
+  const goError = useCallback((msg, info) => {
     setPhase('error')
     setErrorMessage(msg)
+    setErrorInfo(info || null)
   }, [])
 
   const handleReviewTextSizeChange = useCallback((size) => {
@@ -569,13 +576,14 @@ export default function CreativeReview() {
 
     setPhase('uploading')
     setErrorMessage('')
+    setErrorInfo(null)
     try {
       const data = await uploadCreativeAsset(file)
       setAssetId(data.asset_id)
       setAssetMeta(data)
       setPhase('uploaded')
     } catch (err) {
-      goError(`アップロード失敗: ${err.message}`)
+      goError(`アップロード失敗: ${err.message}`, classifyError(err))
     }
   }, [goError])
 
@@ -604,6 +612,7 @@ export default function CreativeReview() {
 
     setPhase('reviewing')
     setErrorMessage('')
+    setErrorInfo(null)
     clearRun('banner-generation')
 
     startRun('creative-review', {
@@ -641,10 +650,14 @@ export default function CreativeReview() {
       })
       setPhase('reviewed')
     } catch (err) {
-      failRun('creative-review', err.message)
-      goError(`レビュー失敗: ${err.message}`)
+      const info = classifyError(err)
+      failRun('creative-review', err.message, info)
+      // Stay in 'uploaded' phase so the user can retry without losing asset state
+      setPhase('uploaded')
+      setErrorMessage(`レビュー失敗: ${err.message}`)
+      setErrorInfo(info)
     }
-  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, startRun, completeRun, failRun, clearRun, goError])
+  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, startRun, completeRun, failRun, clearRun])
 
   // ─── 3. Generation ───
   const handleGenerate = useCallback(async () => {
@@ -652,6 +665,7 @@ export default function CreativeReview() {
 
     setPhase('generating')
     setErrorMessage('')
+    setErrorInfo(null)
 
     startRun('banner-generation', { runId })
 
@@ -678,10 +692,14 @@ export default function CreativeReview() {
         throw new Error('生成がタイムアウトしました。しばらく後にお試しください。')
       }
     } catch (err) {
-      failRun('banner-generation', err.message)
-      goError(`生成失敗: ${err.message}`)
+      const info = classifyError(err)
+      failRun('banner-generation', err.message, info)
+      // Stay in 'reviewed' so the review result and upload state remain visible
+      setPhase('reviewed')
+      setErrorMessage(`生成失敗: ${err.message}`)
+      setErrorInfo(info)
     }
-  }, [runId, geminiKey, afterReviewRunId, startRun, completeRun, failRun, goError])
+  }, [runId, geminiKey, afterReviewRunId, startRun, completeRun, failRun])
 
   const handleRegenerate = useCallback(() => {
     setRegenerationCount((c) => c + 1)
@@ -758,13 +776,18 @@ export default function CreativeReview() {
         </div>
       </div>
 
-      {/* Error Banner */}
-      {phase === 'error' && (
+      {/* Error Banner — shown whenever there's an error, regardless of phase */}
+      {errorMessage && (
         <ErrorBanner
           message={errorMessage}
+          errorInfo={errorInfo}
           onRetry={() => {
-            if (assetId) setPhase('uploaded')
-            else { resetAll() }
+            setErrorMessage('')
+            setErrorInfo(null)
+            if (phase === 'error') {
+              if (assetId) setPhase('uploaded')
+              else resetAll()
+            }
           }}
         />
       )}
