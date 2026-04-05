@@ -182,10 +182,15 @@ export default function Discovery() {
   // Cleanup on unmount
   useEffect(() => stopPolling, [stopPolling])
 
-  const pollJob = useCallback((jobId) => {
+  const pollJob = useCallback((jobId, options = {}) => {
+    const pollPath = options.pollPath || jobId
+    const initialPollIntervalMs = Number(options.pollIntervalMs) > 0
+      ? Number(options.pollIntervalMs)
+      : POLL_INTERVAL_MS
+
     async function tick() {
       try {
-        const data = await getDiscoveryJob(jobId)
+        const data = await getDiscoveryJob(pollPath)
         pollErrorCountRef.current = 0
 
         updateRunMeta('discovery', {
@@ -193,6 +198,7 @@ export default function Discovery() {
           progress_pct: data.progress_pct,
           message: data.message,
           jobId,
+          pollUrl: pollPath,
         })
 
         if (data.status === 'completed' && data.result) {
@@ -219,7 +225,10 @@ export default function Discovery() {
         }
 
         // Still running or queued — schedule next poll
-        pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS)
+        const nextPollIntervalMs = Number(data.retry_after_sec) > 0
+          ? Number(data.retry_after_sec) * 1000
+          : initialPollIntervalMs
+        pollTimerRef.current = setTimeout(tick, nextPollIntervalMs)
       } catch (e) {
         pollErrorCountRef.current += 1
         if (pollErrorCountRef.current >= POLL_MAX_NETWORK_ERRORS) {
@@ -229,11 +238,11 @@ export default function Discovery() {
           return
         }
         // Transient error — retry
-        pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS)
+        pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
       }
     }
 
-    pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS)
+    pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
   }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel])
 
   const handleDiscover = useCallback(async () => {
@@ -254,9 +263,14 @@ export default function Discovery() {
         stage: data.stage,
         progress_pct: 0,
         providerLabel,
+        pollUrl: data.poll_url,
+        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_MS,
       })
 
-      pollJob(data.job_id)
+      pollJob(data.job_id, {
+        pollPath: data.poll_url,
+        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_MS,
+      })
     } catch (e) {
       const info = classifyError(e)
       if (e.stage) {

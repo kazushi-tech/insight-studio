@@ -504,6 +504,16 @@ export function discoveryAnalyze(url, optionsOrApiKey) {
   })
 }
 
+function normalizeDiscoveryPollPath(jobIdOrPollPath) {
+  if (!jobIdOrPollPath || typeof jobIdOrPollPath !== 'string') return null
+  if (jobIdOrPollPath.startsWith('/')) return jobIdOrPollPath
+  if (jobIdOrPollPath.startsWith('http://') || jobIdOrPollPath.startsWith('https://')) {
+    const url = new URL(jobIdOrPollPath)
+    return `${url.pathname}${url.search}`
+  }
+  return `/discovery/jobs/${jobIdOrPollPath}`
+}
+
 /** POST /api/discovery/jobs — 非同期ジョブ開始 */
 export function startDiscoveryJob(url, optionsOrApiKey) {
   const { apiKey, provider, model, searchApiKey } = resolveAiOptions(optionsOrApiKey)
@@ -518,12 +528,18 @@ export function startDiscoveryJob(url, optionsOrApiKey) {
     }),
     timeout: 30000,
     direct: true,
-  })
+  }).then((data) => ({
+    ...data,
+    poll_url: normalizeDiscoveryPollPath(data?.poll_url || data?.job_id),
+    retry_after_sec: Number.isFinite(Number(data?.retry_after_sec)) && Number(data.retry_after_sec) > 0
+      ? Number(data.retry_after_sec)
+      : null,
+  }))
 }
 
 /** GET /api/discovery/jobs/{jobId} — ジョブ状態ポーリング */
-export function getDiscoveryJob(jobId) {
-  return requestJson(`/discovery/jobs/${jobId}`, {
+export function getDiscoveryJob(jobIdOrPollPath) {
+  return requestJson(normalizeDiscoveryPollPath(jobIdOrPollPath), {
     timeout: 15000,
     direct: true,
   })
