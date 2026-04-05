@@ -317,9 +317,13 @@ async function startJob({ jobsUrl, brandUrl, provider, apiKey, deadlineAt, jobSt
   if (provider) payload.provider = provider
   if (apiKey) payload.api_key = apiKey
 
+  const headers = { 'Content-Type': 'application/json' }
+  if (apiKey) headers['X-API-Key'] = apiKey
+  headers['X-Insight-User'] = 'guest:smoke-test'
+
   const response = await requestJson(jobsUrl, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
     timeoutMs: remainingTimeoutMs(deadlineAt, jobStartTimeoutMs),
   })

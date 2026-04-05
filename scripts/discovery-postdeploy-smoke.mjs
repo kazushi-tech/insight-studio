@@ -13,13 +13,12 @@ const BRAND_URL = 'https://www.petabit.co.jp'
 const ATTEMPTS = 5
 const TIMEOUT_MS = 180_000
 
-// Read API key from environment — try Claude first, fall back to Gemini
+// Read API key from environment
 const CLAUDE_KEY = process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || ''
-const GEMINI_KEY = process.env.GEMINI_API_KEY || ''
 
 // Determine which provider/key to use
-const API_KEY = CLAUDE_KEY || GEMINI_KEY
-const PROVIDER = CLAUDE_KEY ? 'anthropic' : (GEMINI_KEY ? 'google' : '')
+const API_KEY = CLAUDE_KEY
+const PROVIDER = CLAUDE_KEY ? 'anthropic' : ''
 
 if (!API_KEY) {
   console.warn('[smoke] No API key found. Will attempt request without key (backend may have defaults).')
@@ -83,7 +82,10 @@ async function runAttempt(n) {
 
     const res = await fetch(`${PROXY_BASE}${DISCOVERY_PATH}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Insight-User': 'guest:smoke-test',
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
     })
