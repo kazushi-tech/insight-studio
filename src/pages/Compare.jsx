@@ -75,9 +75,6 @@ function inferExecutionEngine(providerLabel, modelName) {
   if (normalizedProvider.includes('claude') || normalizedModel.startsWith('claude')) {
     return 'Claude'
   }
-  if (normalizedProvider.includes('gemini') || normalizedModel.startsWith('gemini')) {
-    return 'Gemini'
-  }
   return 'server-side analysis'
 }
 
@@ -304,7 +301,7 @@ export default function Compare() {
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">LP比較分析は分析用 Claude API キーを Market Lens backend に送信して実行します。Gemini は分析に使わず、レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
+        <span className="japanese-text">LP比較分析は分析用 Claude API キーを Market Lens backend に送信して実行します。レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
       </div>
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">

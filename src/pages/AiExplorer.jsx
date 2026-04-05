@@ -19,14 +19,6 @@ function formatAnalysisError(error) {
   const body = error.body || {}
   const bodyStr = JSON.stringify(body)
 
-  if (
-    msg.includes('API key not valid') ||
-    msg.includes('API_KEY_INVALID') ||
-    bodyStr.includes('generativelanguage.googleapis.com')
-  ) {
-    return 'バックエンドが Gemini API を呼び出しましたが、APIキーが無効です。バックエンド側の provider 設定を確認してください。'
-  }
-
   if (error.isAuthError) {
     return AUTH_EXPIRED_MESSAGE
   }

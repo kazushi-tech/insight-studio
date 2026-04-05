@@ -3,7 +3,7 @@ import { ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
-import { ANALYSIS_PROVIDER_ANTHROPIC, ANALYSIS_PROVIDER_GOOGLE } from '../utils/analysisProvider'
+import { ANALYSIS_PROVIDER_ANTHROPIC } from '../utils/analysisProvider'
 import { getApiKeyValidationError } from '../utils/apiKeys'
 
 function SettingsCard({ icon, title, description, children }) {
@@ -64,9 +64,6 @@ export default function Settings() {
     claudeKey,
     setClaudeKey,
     hasClaudeKey,
-    geminiKey,
-    setGeminiKey,
-    hasGeminiKey,
     isAdsAuthenticated,
     loginAds,
     logoutAds,
@@ -82,11 +79,6 @@ export default function Settings() {
   const [editingClaude, setEditingClaude] = useState(!hasClaudeKey)
   const [claudeSaved, setClaudeSaved] = useState(false)
   const [claudeError, setClaudeError] = useState(null)
-
-  const [geminiInput, setGeminiInput] = useState(geminiKey)
-  const [editingGemini, setEditingGemini] = useState(!hasGeminiKey)
-  const [geminiSaved, setGeminiSaved] = useState(false)
-  const [geminiError, setGeminiError] = useState(null)
 
   const [adsPassword, setAdsPassword] = useState('')
   const [authError, setAuthError] = useState(null)
@@ -104,11 +96,6 @@ export default function Settings() {
   }, [claudeKey, hasClaudeKey])
 
   useEffect(() => {
-    setGeminiInput(geminiKey)
-    setEditingGemini(!hasGeminiKey)
-  }, [geminiKey, hasGeminiKey])
-
-  useEffect(() => {
     if (!profileSaved) return undefined
     const id = setTimeout(() => setProfileSaved(false), 3000)
     return () => clearTimeout(id)
@@ -119,12 +106,6 @@ export default function Settings() {
     const id = setTimeout(() => setClaudeSaved(false), 3000)
     return () => clearTimeout(id)
   }, [claudeSaved])
-
-  useEffect(() => {
-    if (!geminiSaved) return undefined
-    const id = setTimeout(() => setGeminiSaved(false), 3000)
-    return () => clearTimeout(id)
-  }, [geminiSaved])
 
   useEffect(() => {
     if (!authNotice) return undefined
@@ -177,33 +158,6 @@ export default function Settings() {
     setClaudeSaved(false)
   }
 
-  function handleGeminiSave() {
-    setGeminiError(null)
-    const trimmed = geminiInput.trim()
-    if (!trimmed) {
-      setGeminiError('Gemini API キーを入力してください。')
-      return
-    }
-    const validationError = getApiKeyValidationError(trimmed, ANALYSIS_PROVIDER_GOOGLE)
-    if (validationError) {
-      setGeminiError(validationError)
-      return
-    }
-
-    setGeminiKey(trimmed)
-    setEditingGemini(false)
-    setGeminiSaved(true)
-  }
-
-  function handleGeminiDelete() {
-    if (!window.confirm('保存済みの Gemini API キーを削除しますか？')) return
-    setGeminiKey('')
-    setGeminiInput('')
-    setEditingGemini(true)
-    setGeminiError(null)
-    setGeminiSaved(false)
-  }
-
   async function handleAdsLogin() {
     setAuthError(null)
     setAuthNotice('')
@@ -228,7 +182,7 @@ export default function Settings() {
     <div className="p-10 max-w-6xl mx-auto space-y-8">
       <div className="space-y-2">
         <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">設定・レポート管理</h2>
-        <p className="text-on-surface-variant text-sm japanese-text">Claude API キーだけで Compare / Discovery / Ads AI / Creative Review(review) を始められます。Gemini は改善バナー生成だけの任意設定です。</p>
+        <p className="text-on-surface-variant text-sm japanese-text">Claude API キーで Compare / Discovery / Ads AI / Creative Review を始められます。</p>
       </div>
 
       <div className="grid grid-cols-12 gap-8 items-start">
@@ -342,88 +296,6 @@ export default function Settings() {
       </SettingsCard>
 
       <SettingsCard
-        icon="image"
-        title="画像生成 API設定（任意）"
-        description="改善バナー生成に使う Gemini API キーです。分析系の比較・発見・レビューにはこのキーを送信しません。optional / experimental な追加機能として扱います。"
-      >
-        <div className="space-y-4">
-          {!hasGeminiKey && (
-            <div className="rounded-[0.75rem] border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-              <p className="font-bold japanese-text">Gemini 未設定でも core flow は利用できます。</p>
-              <p className="text-xs mt-1 text-sky-800">Compare / Discovery / Ads AI / Creative Review(review) は Claude API キー側の設定で進められます。</p>
-            </div>
-          )}
-          {hasGeminiKey && !editingGemini ? (
-            <>
-              <div className="rounded-[0.75rem] bg-surface-container px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Saved Key</p>
-                <p className="font-mono text-sm text-on-surface">{maskSecret(geminiKey)}</p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => {
-                    setEditingGemini(true)
-                    setGeminiError(null)
-                  }}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
-                >
-                  変更
-                </button>
-                <button
-                  onClick={handleGeminiDelete}
-                  className="px-5 py-2.5 bg-error-container/40 text-error rounded-[0.75rem] font-bold text-sm hover:bg-error-container/60 transition-colors"
-                >
-                  削除
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-3">
-              <input
-                type="password"
-                className="w-full bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-                placeholder="AIza..."
-                value={geminiInput}
-                onChange={(e) => setGeminiInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleGeminiSave()}
-              />
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={handleGeminiSave}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
-                >
-                  保存
-                </button>
-                {hasGeminiKey && (
-                  <button
-                    onClick={() => {
-                      setEditingGemini(false)
-                      setGeminiInput(geminiKey)
-                      setGeminiError(null)
-                    }}
-                    className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
-                  >
-                    キャンセル
-                  </button>
-                )}
-              </div>
-              <a
-                href="https://aistudio.google.com/apikey"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-secondary hover:underline"
-              >
-                <span className="material-symbols-outlined text-sm">open_in_new</span>
-                Google AI Studio でAPIキーを取得
-              </a>
-            </div>
-          )}
-          {geminiError && <ErrorBanner message={geminiError} />}
-          {geminiSaved && <InlineNotice>Gemini API キーを更新しました。</InlineNotice>}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
         icon="cloud"
         title="接続管理"
         description="考察スタジオとの接続を管理します。ログイン状態はこのブラウザに保持されます。"
@@ -504,8 +376,6 @@ export default function Settings() {
             setLocalDisplayName(displayName)
             setClaudeInput(claudeKey)
             setEditingClaude(!hasClaudeKey)
-            setGeminiInput(geminiKey)
-            setEditingGemini(!hasGeminiKey)
             setToast({ tone: 'neutral', message: '変更を破棄しました。' })
           }}
           className="px-6 py-3 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
@@ -532,16 +402,6 @@ export default function Settings() {
               }
               setClaudeKey(claudeInput.trim())
               setEditingClaude(false)
-              saved = true
-            }
-            if (editingGemini && geminiInput.trim() && geminiInput.trim() !== geminiKey) {
-              const validationError = getApiKeyValidationError(geminiInput.trim(), ANALYSIS_PROVIDER_GOOGLE)
-              if (validationError) {
-                setToast({ tone: 'error', message: validationError })
-                return
-              }
-              setGeminiKey(geminiInput.trim())
-              setEditingGemini(false)
               saved = true
             }
             setToast({

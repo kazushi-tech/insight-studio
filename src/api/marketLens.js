@@ -124,8 +124,6 @@ function stripStageMarker(detail) {
 function stripRawProviderPrefixes(msg) {
   if (typeof msg !== 'string') return msg
   return msg
-    .replace(/^Gemini Search error:\s*/i, '')
-    .replace(/^GeminiSearchError:\s*/i, '')
     .replace(/^Anthropic Search error:\s*/i, '')
     .replace(/^Anthropic web search error:\s*/i, '')
     .replace(/^Anthropic error:\s*/i, '')
@@ -155,9 +153,6 @@ function buildErrorMessage(path, status, body) {
       return cleanedDetail || '競合発見の認証に失敗しました。API キー設定を確認してください。'
     }
     if (status === 404) return cleanedDetail || '競合サイトが見つかりませんでした。別のURLで試してください。'
-    if (status === 422 && normalizedDetail.includes('gemini provider / model')) {
-      return 'Discovery は Claude 専用です。Gemini では実行できません。Claude 設定で再試行してください。'
-    }
     if (status === 422) return cleanedDetail || 'URLの形式が正しくありません。'
     if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
     if (status === 500 && stageLabel) return `${stageLabel}でサーバーエラーが発生しました。しばらく待って再試行してください。`

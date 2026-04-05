@@ -319,7 +319,7 @@ export default function Dashboard() {
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState(null)
   const { setupState, reportBundle } = useAdsSetup()
-  const { isAdsAuthenticated, hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider } = useAuth()
+  const { isAdsAuthenticated, hasClaudeKey, hasAnalysisKey, analysisProvider } = useAuth()
   const navigate = useNavigate()
 
   const fetchHistory = useCallback(() => {
@@ -369,7 +369,7 @@ export default function Dashboard() {
       : !setupState
         ? '要セットアップ'
         : '利用可'
-  const creativeGenerationStatusLabel = hasGeminiKey ? '利用可（任意）' : '任意・未設定'
+  const creativeGenerationStatusLabel = '利用不可（Claude-only）'
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">

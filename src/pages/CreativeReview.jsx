@@ -464,8 +464,6 @@ export default function CreativeReview() {
     analysisKey,
     analysisProvider,
     hasAnalysisKey,
-    geminiKey,
-    hasGeminiKey,
   } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
@@ -661,7 +659,7 @@ export default function CreativeReview() {
 
   // ─── 3. Generation ───
   const handleGenerate = useCallback(async () => {
-    if (!runId || !geminiKey.trim()) return
+    if (!runId) return
 
     setPhase('generating')
     setErrorMessage('')
@@ -671,7 +669,7 @@ export default function CreativeReview() {
 
     try {
       const effectiveRunId = afterReviewRunId || runId
-      const result = await generateBanner({ review_run_id: effectiveRunId }, geminiKey.trim())
+      const result = await generateBanner({ review_run_id: effectiveRunId }, analysisKey.trim())
       const gId = result.id
 
       let status = result.status
@@ -699,7 +697,7 @@ export default function CreativeReview() {
       setErrorMessage(`生成失敗: ${err.message}`)
       setErrorInfo(info)
     }
-  }, [runId, geminiKey, afterReviewRunId, startRun, completeRun, failRun])
+  }, [runId, analysisKey, afterReviewRunId, startRun, completeRun, failRun])
 
   const handleRegenerate = useCallback(() => {
     setRegenerationCount((c) => c + 1)
@@ -722,7 +720,7 @@ export default function CreativeReview() {
       if (!resp.ok) throw new Error('改善バナー画像の取得に失敗しました。')
       const blob = await resp.blob()
       // blob.type が image/jpeg のみ特別扱い、それ以外は image/png として扱う
-      // Note: Gemini Vision は image/jpeg または image/png を返す
+      // image/jpeg or image/png expected
       const actualType = blob.type || 'image/png'
       const ext = actualType === 'image/jpeg' ? 'jpg' : 'png'
       const file = new File([blob], `improved-${genId}.${ext}`, { type: actualType })
@@ -804,17 +802,9 @@ export default function CreativeReview() {
           </div>
         </div>
       )}
-      {!hasGeminiKey && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 bg-sky-50 border border-sky-200 rounded-[0.75rem] px-5 py-3 text-sm text-sky-900">
-            <span className="material-symbols-outlined text-lg">info</span>
-            <span className="japanese-text">Gemini 未設定のため改善バナー生成は利用できませんが、Creative Review 本体は Claude だけで実行できます。</span>
-          </div>
-        </div>
-      )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">クリエイティブレビューは Claude で実行し、改善バナー生成だけ Nano Banana2（Gemini）を使う optional / experimental addon として扱います。</span>
+        <span className="japanese-text">クリエイティブレビューは Claude で実行します。画像生成機能は現在利用できません。</span>
       </div>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
@@ -994,26 +984,10 @@ export default function CreativeReview() {
                 )}
 
                 {/* Generation button */}
-                {runId && hasGeminiKey && (
-                  <button
-                    onClick={handleGenerate}
-                    disabled={!geminiKey.trim() || phase === 'generating'}
-                    className="px-6 py-3 bg-secondary text-on-secondary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {phase === 'generating' ? (
-                      <LoadingSpinner size="sm" label="改善バナーを生成中…" />
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-lg">auto_fix_high</span>
-                        改善バナーを試作（任意 / Experimental）
-                      </>
-                    )}
-                  </button>
-                )}
-                {runId && !hasGeminiKey && (
-                  <div className="rounded-[0.75rem] border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
-                    <p className="font-bold japanese-text">改善バナー生成は optional / experimental です。</p>
-                    <p className="text-xs mt-1 text-sky-800">Gemini API キーを追加すると Nano Banana2 による試作を実行できます。レビュー結果はこのまま利用できます。</p>
+                {runId && (
+                  <div className="rounded-[0.75rem] border border-outline-variant/20 bg-surface-container px-4 py-3 text-sm text-on-surface-variant">
+                    <p className="font-bold japanese-text">画像生成は現在利用できません</p>
+                    <p className="text-xs mt-1">Claude API はテキスト分析専用です。レビュー結果はこのまま利用できます。</p>
                   </div>
                 )}
               </div>
@@ -1155,7 +1129,7 @@ export default function CreativeReview() {
             {[
               { icon: 'cloud_upload', title: '画像をアップロード', desc: 'バナー画像（PNG/JPG）を選択' },
               { icon: 'rate_review', title: 'AIレビュー', desc: 'Claudeがバナーを分析・評価' },
-              { icon: 'auto_fix_high', title: '任意: バナー生成', desc: 'Gemini / Nano Banana2 で改善版を試作' },
+              { icon: 'auto_fix_high', title: '任意: バナー生成', desc: '画像生成（現在利用不可）' },
               { icon: 'download', title: '保存', desc: '生成した場合のみ改善バナーを保存' },
             ].map((step, i) => (
               <div key={i} className="flex flex-col items-center text-center p-4">

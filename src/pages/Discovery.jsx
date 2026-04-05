@@ -307,7 +307,7 @@ export default function Discovery() {
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">travel_explore</span>
-        <span className="japanese-text">競合発見の分析は Claude で実行します。Gemini は分析には使わず、必要な検索設定はサーバー側で処理します。</span>
+        <span className="japanese-text">競合発見の分析は Claude で実行します。必要な検索設定はサーバー側で処理します。</span>
       </div>
 
       {/* URL Input */}

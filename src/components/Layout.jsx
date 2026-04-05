@@ -7,7 +7,6 @@ import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
-  ANALYSIS_PROVIDER_GOOGLE,
   getAnalysisProviderLabel,
 } from '../utils/analysisProvider'
 import { getApiKeyValidationError } from '../utils/apiKeys'
@@ -130,11 +129,9 @@ function SidebarGroup({ item, disabledPaths }) {
 }
 
 function KeySettingsModal({ onClose }) {
-  const { claudeKey, setClaudeKey, geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
+  const { claudeKey, setClaudeKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
   const [localClaudeKey, setLocalClaudeKey] = useState(claudeKey)
-  const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
   const [claudeError, setClaudeError] = useState(null)
-  const [geminiError, setGeminiError] = useState(null)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
   const modalRef = useRef(null)
@@ -183,16 +180,6 @@ function KeySettingsModal({ onClose }) {
     }
     setClaudeError(null)
     setClaudeKey(localClaudeKey)
-  }
-
-  const handleSaveGemini = () => {
-    const validationError = getApiKeyValidationError(localGeminiKey, ANALYSIS_PROVIDER_GOOGLE)
-    if (validationError) {
-      setGeminiError(validationError)
-      return
-    }
-    setGeminiError(null)
-    setGeminiKey(localGeminiKey)
   }
 
   const handleAdsLogin = async () => {
@@ -252,40 +239,6 @@ function KeySettingsModal({ onClose }) {
             保存
           </button>
           {claudeError && <p className="text-xs text-error">{claudeError}</p>}
-        </div>
-
-        <hr className="border-surface-container" />
-
-        {/* Gemini Key */}
-        <div className="space-y-2">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（画像生成用）</label>
-          <p className="text-xs text-on-surface-variant">改善バナー生成の Nano Banana2 に使う任意キーです。Compare / Discovery / Ads AI / Creative Review(review) には使用しません</p>
-          <a
-            href="https://aistudio.google.com/apikey"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-secondary hover:text-secondary/80 underline underline-offset-2 transition-colors"
-          >
-            <span className="material-symbols-outlined text-sm">open_in_new</span>
-            Google AI Studio でAPIキーを取得
-          </a>
-          <input
-            type="password"
-            className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-            placeholder="AIza..."
-            value={localGeminiKey}
-            onChange={(e) => {
-              setLocalGeminiKey(e.target.value)
-              setGeminiError(null)
-            }}
-          />
-          <button
-            onClick={handleSaveGemini}
-            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all"
-          >
-            保存
-          </button>
-          {geminiError && <p className="text-xs text-error">{geminiError}</p>}
         </div>
 
         <hr className="border-surface-container" />
@@ -364,7 +317,7 @@ export default function Layout() {
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedCase, setSelectedCase] = useState(null)
-  const { hasClaudeKey, hasGeminiKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
+  const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
@@ -437,9 +390,6 @@ export default function Layout() {
   const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
   const aiInsightProviderLabel = getAnalysisProviderLabel(analysisProvider)
   const coreAnalysisStatusLabel = hasAnalysisKey ? `${aiInsightProviderLabel} で利用可` : 'Claude 未設定'
-  const bannerGenerationStatusLabel = hasGeminiKey ? 'Gemini で利用可' : '任意・未設定'
-  const bannerGenerationTone = hasGeminiKey ? 'text-emerald-400' : 'text-amber-300'
-  const bannerGenerationDot = hasGeminiKey ? 'bg-emerald-400' : 'bg-amber-300'
   const adsAiReady = hasAnalysisKey && isAdsAuthenticated && isSetupComplete
   const adsAiStatusLabel = !hasAnalysisKey
     ? 'Claude 未設定'
@@ -513,13 +463,6 @@ export default function Layout() {
               <span className={`flex items-center gap-1 font-bold ${hasClaudeKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasClaudeKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
                 {hasClaudeKey ? '設定済' : '未設定'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/50">改善バナー生成</span>
-              <span className={`flex items-center gap-1 font-bold ${bannerGenerationTone}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${bannerGenerationDot}`} />
-                {bannerGenerationStatusLabel}
               </span>
             </div>
             <div className="flex items-center justify-between">

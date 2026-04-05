@@ -9,13 +9,12 @@ const GUIDE_PAGES = [
   {
     src: '/guide/page2-api-setup.png',
     title: 'APIキーの設定',
-    description: 'Claude API キーを設定すると Compare / Discovery / Ads AI / Creative Review(review) を開始できます。',
-    callout: 'Gemini API キーは改善バナー生成だけで使う任意設定です。',
+    description: 'Claude API キーを設定すると Compare / Discovery / Ads AI / Creative Review を開始できます。',
   },
   {
     src: '/guide/page3-lp-analysis.png',
     title: 'LP比較 & 競合発見',
-    description: 'LP比較と競合発見は Claude で実行します。Gemini 未設定でも利用不可にはしません。',
+    description: 'LP比較と競合発見は Claude で実行します。',
   },
   {
     src: '/guide/page4-ads-insight.png',
@@ -25,8 +24,7 @@ const GUIDE_PAGES = [
   {
     src: '/guide/page5-creative.png',
     title: 'クリエイティブレビュー',
-    description: 'Creative Review の core は Claude レビューです。',
-    callout: '改善バナー生成は Gemini を使う optional / experimental addon として扱います。',
+    description: 'Creative Review は Claude でバナーを分析・評価します。',
   },
   {
     src: '/guide/page6-tips.png',
