@@ -50,7 +50,11 @@
 - `proxy` path はまだ provider / timeout 制約に引っ張られている
 - stale fallback model 由来の deterministic `404` は解消済み
 - 残件は `provider-limited stability` であり、Claude-only / async job の code path は成立
+- Claude Render Logs confirmation により `87e0f6a` の live snapshot も確認済み
 
 ## Next Step
 
-Claude に Render Logs を確認させ、`87e0f6a` の startup snapshot を転記する。
+Discovery routing の変更はここで止める。次にやるなら以下のどちらか:
+
+1. Anthropic org limit を引き上げる、または usage tier を上げる
+2. analyze 入力トークン量を減らす軽量化を設計する
