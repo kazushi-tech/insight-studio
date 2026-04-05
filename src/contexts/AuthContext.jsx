@@ -8,7 +8,6 @@ import { isCompatibleApiKey, normalizeApiKey } from '../utils/apiKeys'
 const AuthContext = createContext(null)
 
 const STORAGE_KEY_TOKEN = 'is_ads_token'
-const STORAGE_KEY_GEMINI = 'is_gemini_key'
 const STORAGE_KEY_CLAUDE = 'is_claude_key'
 
 export function AuthProvider({ children }) {
@@ -24,11 +23,6 @@ export function AuthProvider({ children }) {
     () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_CLAUDE) || '')
   )
 
-  // Gemini API key — 画像生成用
-  const [geminiKey, setGeminiKeyState] = useState(
-    () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_GEMINI) || '')
-  )
-
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -39,16 +33,6 @@ export function AuthProvider({ children }) {
       localStorage.setItem(STORAGE_KEY_CLAUDE, normalized)
     } else {
       localStorage.removeItem(STORAGE_KEY_CLAUDE)
-    }
-  }, [])
-
-  const setGeminiKey = useCallback((key) => {
-    const normalized = normalizeApiKey(key)
-    setGeminiKeyState(normalized)
-    if (normalized) {
-      localStorage.setItem(STORAGE_KEY_GEMINI, normalized)
-    } else {
-      localStorage.removeItem(STORAGE_KEY_GEMINI)
     }
   }, [])
 
@@ -95,7 +79,6 @@ export function AuthProvider({ children }) {
   }, [logoutAds])
 
   const hasClaudeKey = isCompatibleApiKey(claudeKey, ANALYSIS_PROVIDER_ANTHROPIC)
-  const hasGeminiKey = isCompatibleApiKey(geminiKey, 'google')
   const analysisKey = hasClaudeKey ? claudeKey : ''
   const analysisProvider = hasClaudeKey ? ANALYSIS_PROVIDER_ANTHROPIC : null
 
@@ -105,10 +88,6 @@ export function AuthProvider({ children }) {
     claudeKey,
     setClaudeKey,
     hasClaudeKey,
-    // Gemini key — 画像生成用
-    geminiKey,
-    setGeminiKey,
-    hasGeminiKey,
     // 分析系は Claude のみを使用
     analysisKey,
     analysisProvider,
