@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint src eslint.config.js vite.config.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "smoke:discovery:rollout:health": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=0",
+    "smoke:discovery:rollout:render-probe": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=1 --pause-ms=0",
+    "smoke:discovery:rollout:render-5": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=5",
+    "smoke:discovery:rollout:proxy-5": "node scripts/discovery-render-rollout-check.mjs --mode=proxy --attempts=5"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",

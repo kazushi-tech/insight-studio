@@ -19,6 +19,8 @@ const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
   ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
   : 'https://market-lens-ai.onrender.com/api'
 const LONG_ANALYSIS_TIMEOUT = 180000
+const DISCOVERY_AUTO_RETRY_COUNT = 1
+const DISCOVERY_AUTO_RETRY_DELAY_MS = 2500
 let _directBackendReady = false
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
@@ -124,6 +126,8 @@ function stripRawProviderPrefixes(msg) {
   return msg
     .replace(/^Gemini Search error:\s*/i, '')
     .replace(/^GeminiSearchError:\s*/i, '')
+    .replace(/^Anthropic Search error:\s*/i, '')
+    .replace(/^Anthropic web search error:\s*/i, '')
     .replace(/^Anthropic error:\s*/i, '')
     .trim()
 }
@@ -139,18 +143,21 @@ function buildErrorMessage(path, status, body) {
     const stageLabel = stage ? DISCOVERY_STAGE_LABELS[stage] || stage : null
 
     if (status === 400) {
-      if (normalizedDetail.includes('gemini api key is required for discovery search')) {
-        return '競合発見の検索設定が不足しています。サーバー側の Discovery 検索キー設定を確認してください。'
+      if (normalizedDetail.includes('claude api key is required for discovery search')) {
+        return '競合発見の検索設定が不足しています。サーバー側の Claude 設定または分析用 API キーを確認してください。'
       }
       return cleanedDetail || '競合発見の実行条件が不足しています。分析用 Claude API キーとサーバー側設定を確認してください。'
     }
     if (status === 401) {
       if (normalizedDetail.includes('api key')) {
-        return '競合発見で使用する API キーが無効です。分析用 Claude API キー、またはサーバー側の検索キー設定を確認してください。'
+        return '競合発見で使用する Claude API キーが無効です。分析用 Claude API キー、またはサーバー側設定を確認してください。'
       }
       return cleanedDetail || '競合発見の認証に失敗しました。API キー設定を確認してください。'
     }
     if (status === 404) return cleanedDetail || '競合サイトが見つかりませんでした。別のURLで試してください。'
+    if (status === 422 && normalizedDetail.includes('gemini provider / model')) {
+      return 'Discovery は Claude 専用です。Gemini では実行できません。Claude 設定で再試行してください。'
+    }
     if (status === 422) return cleanedDetail || 'URLの形式が正しくありません。'
     if (status === 429) return '本日の検索上限に達しました。明日再度お試しください。'
     if (status === 500 && stageLabel) return `${stageLabel}でサーバーエラーが発生しました。しばらく待って再試行してください。`
@@ -188,6 +195,71 @@ function buildErrorMessage(path, status, body) {
   if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
 
   return `Market Lens API error: ${status}`
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isDiscoveryRetryableError(error) {
+  const status = Number(error?.status || 0)
+  const stage = typeof error?.stage === 'string' ? error.stage.toLowerCase() : ''
+  const msg = String(error?.message || '').toLowerCase()
+
+  if (status === 400 || status === 401 || status === 403 || status === 404 || status === 422 || status === 429) {
+    return false
+  }
+
+  if (status === 502 || status === 503) {
+    return true
+  }
+
+  if (status === 500) {
+    if (msg.includes('unicodeerror') || msg.includes('internal server error')) return true
+    if (stage === 'search' || stage === 'analyze') return true
+  }
+
+  if (error?.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
+    return true
+  }
+
+  if (
+    msg.includes('起動中') ||
+    msg.includes('接続できませんでした') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('network error') ||
+    msg.includes('cors')
+  ) {
+    return true
+  }
+
+  return false
+}
+
+async function requestDiscoveryAnalyzeWithRetry(payload) {
+  let lastError = null
+
+  for (let attempt = 0; attempt <= DISCOVERY_AUTO_RETRY_COUNT; attempt += 1) {
+    try {
+      return await requestJson('/discovery/analyze', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        timeout: LONG_ANALYSIS_TIMEOUT,
+        direct: true,
+      })
+    } catch (error) {
+      lastError = error
+      const shouldRetry =
+        attempt < DISCOVERY_AUTO_RETRY_COUNT && isDiscoveryRetryableError(error)
+
+      if (!shouldRetry) break
+
+      _directBackendReady = false
+      await sleep(DISCOVERY_AUTO_RETRY_DELAY_MS)
+    }
+  }
+
+  throw lastError
 }
 
 function ensureMarketLensProfileId() {
@@ -420,10 +492,22 @@ export function scan(urls, optionsOrApiKey) {
   })
 }
 
-/** POST /api/discovery/analyze — 競合発見 Discovery */
+/** POST /api/discovery/analyze — 競合発見 Discovery (sync, legacy) */
 export function discoveryAnalyze(url, optionsOrApiKey) {
   const { apiKey, provider, model, searchApiKey } = resolveAiOptions(optionsOrApiKey)
-  return requestJson('/discovery/analyze', {
+  return requestDiscoveryAnalyzeWithRetry({
+    brand_url: url,
+    ...(apiKey ? { api_key: apiKey } : {}),
+    ...(provider ? { provider } : {}),
+    ...(model ? { model } : {}),
+    ...(searchApiKey ? { search_api_key: searchApiKey } : {}),
+  })
+}
+
+/** POST /api/discovery/jobs — 非同期ジョブ開始 */
+export function startDiscoveryJob(url, optionsOrApiKey) {
+  const { apiKey, provider, model, searchApiKey } = resolveAiOptions(optionsOrApiKey)
+  return requestJson('/discovery/jobs', {
     method: 'POST',
     body: JSON.stringify({
       brand_url: url,
@@ -432,7 +516,15 @@ export function discoveryAnalyze(url, optionsOrApiKey) {
       ...(model ? { model } : {}),
       ...(searchApiKey ? { search_api_key: searchApiKey } : {}),
     }),
-    timeout: LONG_ANALYSIS_TIMEOUT,
+    timeout: 30000,
+    direct: true,
+  })
+}
+
+/** GET /api/discovery/jobs/{jobId} — ジョブ状態ポーリング */
+export function getDiscoveryJob(jobId) {
+  return requestJson(`/discovery/jobs/${jobId}`, {
+    timeout: 15000,
     direct: true,
   })
 }

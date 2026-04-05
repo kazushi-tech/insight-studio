@@ -68,6 +68,17 @@ function createRunStore() {
     return run
   }
 
+  function updateRunMeta(kind, meta) {
+    const existing = runs.get(kind)
+    if (!existing) return
+    runs.set(kind, {
+      ...existing,
+      meta: { ...existing.meta, ...meta },
+    })
+    syncSnapshot()
+    notify()
+  }
+
   function completeRun(kind, result, meta = {}) {
     const existing = runs.get(kind)
     if (!existing) return
@@ -119,6 +130,7 @@ function createRunStore() {
     getSnapshot,
     getRun,
     startRun,
+    updateRunMeta,
     completeRun,
     failRun,
     clearRun,
@@ -153,6 +165,7 @@ export function useAnalysisRuns() {
     runs: snapshot,
     getRun: store.getRun,
     startRun: store.startRun,
+    updateRunMeta: store.updateRunMeta,
     completeRun: store.completeRun,
     failRun: store.failRun,
     clearRun: store.clearRun,

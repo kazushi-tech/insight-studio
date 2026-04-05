@@ -1,10 +1,23 @@
-import { useState, useCallback } from 'react'
-import { discoveryAnalyze, classifyError } from '../api/marketLens'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { startDiscoveryJob, getDiscoveryJob, classifyError } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+
+const POLL_INTERVAL_MS = 3000
+const POLL_MAX_NETWORK_ERRORS = 3
+
+const STAGE_LABELS = {
+  queued: 'ジョブ準備中…',
+  brand_fetch: 'ブランドURL取得中…',
+  classify_industry: '業種分類中…',
+  search: '競合検索中…',
+  fetch_competitors: '競合サイト取得中…',
+  analyze: '比較分析中…',
+  complete: '完了',
+}
 
 function formatElapsed(ms) {
   if (!ms) return null
@@ -19,29 +32,43 @@ function MetaBand({ run }) {
   const fallbackCount = Array.isArray(result?.fetched_sites)
     ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
     : 0
+  const stage = run.meta?.stage
+  const progressPct = run.meta?.progress_pct
+  const stageLabel = stage ? STAGE_LABELS[stage] || stage : null
 
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
-      {/* Status */}
-      <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
-        <span className={`w-1.5 h-1.5 rounded-full ${
-          run.status === 'running' ? 'bg-amber-400 animate-pulse' :
-          run.status === 'completed' ? 'bg-emerald-500' :
-          'bg-red-400'
-        }`} />
-        {run.status === 'running' ? '分析中…' : run.status === 'completed' ? '完了' : 'エラー'}
-      </span>
-      {result?.search_id && <span className="text-outline font-mono">search: {result.search_id}</span>}
-      {result?.industry && (
-        <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
+        {/* Status */}
+        <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            run.status === 'running' ? 'bg-amber-400 animate-pulse' :
+            run.status === 'completed' ? 'bg-emerald-500' :
+            'bg-red-400'
+          }`} />
+          {run.status === 'running' ? (stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
+        </span>
+        {result?.search_id && <span className="text-outline font-mono">search: {result.search_id}</span>}
+        {result?.industry && (
+          <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
+        )}
+        {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
+        {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
+        {run.meta?.providerLabel && (
+          <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{run.meta.providerLabel}</span>
+        )}
+        {fallbackCount > 0 && <span>{fallbackCount} 件補完</span>}
+        {elapsed && <span>{formatElapsed(elapsed)}</span>}
+      </div>
+      {/* Progress bar */}
+      {run.status === 'running' && progressPct != null && (
+        <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-full bg-secondary rounded-full transition-all duration-700 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
       )}
-      {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
-      {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
-      {run.meta?.providerLabel && (
-        <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{run.meta.providerLabel}</span>
-      )}
-      {fallbackCount > 0 && <span>{fallbackCount} 件補完</span>}
-      {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
   )
 }
@@ -124,11 +151,13 @@ export default function Discovery() {
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
-  const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
+  const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
 
   const run = getRun('discovery')
   const [url, setUrl] = useState(() => getDraft('discovery')?.url || run?.input?.url || '')
   const [fontSize, setFontSize] = useState('normal')
+  const pollTimerRef = useRef(null)
+  const pollErrorCountRef = useRef(0)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -142,40 +171,112 @@ export default function Discovery() {
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = url && hasAnalysisKey && !loading
 
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current)
+      pollTimerRef.current = null
+    }
+    pollErrorCountRef.current = 0
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => stopPolling, [stopPolling])
+
+  const pollJob = useCallback((jobId) => {
+    async function tick() {
+      try {
+        const data = await getDiscoveryJob(jobId)
+        pollErrorCountRef.current = 0
+
+        updateRunMeta('discovery', {
+          stage: data.stage,
+          progress_pct: data.progress_pct,
+          message: data.message,
+          jobId,
+        })
+
+        if (data.status === 'completed' && data.result) {
+          stopPolling()
+          completeRun('discovery', data.result, {
+            search_id: data.result.search_id,
+            providerLabel,
+            jobId,
+          })
+          return
+        }
+
+        if (data.status === 'failed') {
+          stopPolling()
+          const detail = data.error?.detail || data.message || 'ジョブが失敗しました'
+          const info = {
+            category: 'upstream',
+            label: 'ジョブエラー',
+            guidance: detail,
+            retryable: data.error?.retryable ?? true,
+          }
+          failRun('discovery', detail, info)
+          return
+        }
+
+        // Still running or queued — schedule next poll
+        pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS)
+      } catch (e) {
+        pollErrorCountRef.current += 1
+        if (pollErrorCountRef.current >= POLL_MAX_NETWORK_ERRORS) {
+          stopPolling()
+          const info = classifyError(e)
+          failRun('discovery', e.message || 'ポーリング中にエラーが発生しました', info)
+          return
+        }
+        // Transient error — retry
+        pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS)
+      }
+    }
+
+    pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_MS)
+  }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel])
+
   const handleDiscover = useCallback(async () => {
     if (!analysisKey || !analysisProvider) return
 
+    stopPolling()
     startRun('discovery', { url })
 
     try {
-      const data = await discoveryAnalyze(url, {
+      const data = await startDiscoveryJob(url, {
         apiKey: analysisKey,
         provider: analysisProvider,
         model: getAnalysisModel(analysisProvider),
       })
-      completeRun('discovery', data, {
-        search_id: data.search_id,
+
+      updateRunMeta('discovery', {
+        jobId: data.job_id,
+        stage: data.stage,
+        progress_pct: 0,
         providerLabel,
       })
+
+      pollJob(data.job_id)
     } catch (e) {
       const info = classifyError(e)
-      // Preserve stage info from the API layer if available
       if (e.stage) {
         info.label = `${info.label}（${e.stage}）`
       }
       failRun('discovery', e.message, info)
     }
-  }, [url, analysisKey, analysisProvider, providerLabel, startRun, completeRun, failRun])
+  }, [url, analysisKey, analysisProvider, providerLabel, startRun, updateRunMeta, failRun, stopPolling, pollJob])
 
   const handleRetry = useCallback(() => {
+    stopPolling()
     clearRun('discovery')
-  }, [clearRun])
+  }, [clearRun, stopPolling])
 
   const handleClear = useCallback(() => {
+    stopPolling()
     clearRun('discovery')
     clearDraft('discovery')
     setUrl('')
-  }, [clearRun, clearDraft])
+  }, [clearRun, clearDraft, stopPolling])
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -218,7 +319,7 @@ export default function Discovery() {
             {loading ? (
               <>
                 <LoadingSpinner size="sm" />
-                <span>検索中…</span>
+                <span>{STAGE_LABELS[run?.meta?.stage] || '検索中…'}</span>
               </>
             ) : (
               <>
