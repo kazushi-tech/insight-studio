@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { RbacProvider } from './contexts/RbacContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AdsSetupProvider } from './contexts/AdsSetupContext'
 import { AnalysisRunsProvider } from './contexts/AnalysisRunsContext'
@@ -24,13 +25,15 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <UserProfileProvider>
-            <AdsSetupProvider>
-              <AnalysisRunsProvider>
-                <App />
-              </AnalysisRunsProvider>
-            </AdsSetupProvider>
-          </UserProfileProvider>
+          <RbacProvider>
+            <UserProfileProvider>
+              <AdsSetupProvider>
+                <AnalysisRunsProvider>
+                  <App />
+                </AnalysisRunsProvider>
+              </AdsSetupProvider>
+            </UserProfileProvider>
+          </RbacProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

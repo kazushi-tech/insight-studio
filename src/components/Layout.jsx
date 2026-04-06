@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
+import { useRbac } from '../contexts/RbacContext'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
   getAnalysisProviderLabel,
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
     ],
   },
   { to: '/cases', icon: 'business_center', label: '案件管理' },
+  { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理', adminOnly: true },
   { to: '/settings', icon: 'settings', label: '設定' },
 ]
 
@@ -339,6 +341,7 @@ export default function Layout() {
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
+  const { canManageProjects } = useRbac()
   const navigate = useNavigate()
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
@@ -447,7 +450,9 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-0.5 flex-1">
-          {NAV_ITEMS.map((item) =>
+          {NAV_ITEMS
+            .filter((item) => !item.adminOnly || canManageProjects)
+            .map((item) =>
             item.children ? (
               <SidebarGroup key={item.label} item={item} disabledPaths={disabledPaths} />
             ) : (

@@ -273,3 +273,44 @@ export function updateCase(caseId, payload) {
     body: JSON.stringify(payload),
   })
 }
+
+// ── RBAC endpoints ──
+
+/** POST /api/auth/login-email — メール認証（RBAC用JWT取得） */
+export async function loginWithEmail(email, password) {
+  const data = await request('/auth/login-email', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+    skipAuth: true,
+  })
+  if (data.token) authToken = data.token
+  return data // { token, user: { user_id, email, role, display_name } }
+}
+
+/** POST /api/auth/register — ユーザー登録（admin用） */
+export function registerUser(userData) {
+  return request('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(userData),
+  })
+}
+
+/** POST /api/projects/:project_id/invite — メンバー招待 */
+export function inviteMember(projectId, email, permission) {
+  return request(`/projects/${encodeURIComponent(projectId)}/invite`, {
+    method: 'POST',
+    body: JSON.stringify({ email, permission }),
+  })
+}
+
+/** GET /api/projects/:project_id/members — メンバー一覧 */
+export function getProjectMembers(projectId) {
+  return request(`/projects/${encodeURIComponent(projectId)}/members`)
+}
+
+/** DELETE /api/projects/:project_id/members/:user_id — メンバー削除 */
+export function removeMember(projectId, userId) {
+  return request(`/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  })
+}

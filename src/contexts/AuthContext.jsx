@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
-import { login as adsLogin, setToken, getToken, logout as adsLogout, setOnAuthError } from '../api/adsInsights'
+import { login as adsLogin, setToken, getToken, logout as adsLogout, setOnAuthError, loginWithEmail as apiLoginWithEmail } from '../api/adsInsights'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
 } from '../utils/analysisProvider'
@@ -22,6 +22,14 @@ export function AuthProvider({ children }) {
   const [claudeKey, setClaudeKeyState] = useState(
     () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_CLAUDE) || '')
   )
+
+  // RBAC user object { user_id, email, role, display_name }
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('is_user')
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -52,6 +60,28 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Email login (RBAC) — returns JWT with user_id + role
+  const handleLoginWithEmail = useCallback(async (email, password) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await apiLoginWithEmail(email, password)
+      if (data.token) {
+        setAdsToken(data.token)
+        localStorage.setItem(STORAGE_KEY_TOKEN, data.token)
+      }
+      const userData = data.user || { user_id: data.user_id, email, role: data.role, display_name: data.display_name || email }
+      setUser(userData)
+      localStorage.setItem('is_user', JSON.stringify(userData))
+      return data
+    } catch (e) {
+      setError(e.message)
+      throw e
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   const onAdsLogout = useCallback((cb) => {
     onLogoutCallbacksRef.current.add(cb)
     return () => onLogoutCallbacksRef.current.delete(cb)
@@ -60,7 +90,9 @@ export function AuthProvider({ children }) {
   const logoutAds = useCallback(() => {
     adsLogout()
     setAdsToken(null)
+    setUser(null)
     localStorage.removeItem(STORAGE_KEY_TOKEN)
+    localStorage.removeItem('is_user')
     onLogoutCallbacksRef.current.forEach((cb) => cb())
   }, [])
 
@@ -108,6 +140,9 @@ export function AuthProvider({ children }) {
     error,
     authExpiredMessage,
     clearAuthExpiredMessage,
+    // RBAC
+    user,
+    loginWithEmail: handleLoginWithEmail,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
