@@ -10,7 +10,6 @@ import EssentialPack from './pages/EssentialPack'
 import AnalysisGraphs from './pages/AnalysisGraphs'
 import AiExplorer from './pages/AiExplorer'
 import Settings from './pages/Settings'
-import CaseManagement from './pages/CaseManagement'
 import ProjectManagement from './pages/ProjectManagement'
 import LpLayout from './pages/landing/LpLayout'
 import LandingPage from './pages/landing/LandingPage'
@@ -94,7 +93,7 @@ export default function App() {
           <Route path="ads/pack" element={<SetupGuard><EssentialPack /></SetupGuard>} />
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
           <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
-          <Route path="cases" element={<CaseManagement />} />
+          <Route path="cases" element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<ProjectManagement />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />

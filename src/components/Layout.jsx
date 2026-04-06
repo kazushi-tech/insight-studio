@@ -38,8 +38,7 @@ const NAV_ITEMS = [
       { to: '/ads/ai', label: 'AI考察', requiresSetup: true },
     ],
   },
-  { to: '/cases', icon: 'business_center', label: '案件管理' },
-  { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理', adminOnly: true },
+  { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理' },
   { to: '/settings', icon: 'settings', label: '設定' },
 ]
 

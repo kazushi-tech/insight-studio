@@ -1,13 +1,9 @@
-import { useState, useRef, useEffect } from 'react'
-
-const MOCK_MEMBERS = [
-  { userId: 'u1', displayName: '佐藤 健一', email: 'sato.k@insight-studio.jp', permission: 'owner' },
-  { userId: 'u2', displayName: '田中 瑞希', email: 'm.tanaka@design.com', permission: 'edit' },
-  { userId: 'u3', displayName: 'Alex Rivers', email: 'alex.r@studio.net', permission: 'view' },
-]
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { getProjectMembers, inviteMember, removeMember } from '../api/adsInsights'
 
 const PERMISSION_LABELS = {
   owner: '所有者',
+  admin: '管理者',
   edit: '編集可',
   view: '閲覧のみ',
 }
@@ -15,10 +11,33 @@ const PERMISSION_LABELS = {
 const PERMISSION_OPTIONS = ['view', 'edit']
 
 export default function InviteModal({ onClose, project }) {
-  const [members, setMembers] = useState(MOCK_MEMBERS)
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [inviteEmail, setInviteEmail] = useState('')
   const [invitePermission, setInvitePermission] = useState('view')
+  const [inviting, setInviting] = useState(false)
+  const [error, setError] = useState(null)
   const modalRef = useRef(null)
+
+  const projectId = project?.case_id
+
+  const fetchMembers = useCallback(async () => {
+    if (!projectId) return
+    setLoading(true)
+    try {
+      const data = await getProjectMembers(projectId)
+      setMembers(Array.isArray(data) ? data : data.members || [])
+    } catch {
+      // API may not be available yet — show empty
+      setMembers([])
+    } finally {
+      setLoading(false)
+    }
+  }, [projectId])
+
+  useEffect(() => {
+    fetchMembers()
+  }, [fetchMembers])
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -41,17 +60,30 @@ export default function InviteModal({ onClose, project }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const handleInvite = () => {
-    if (!inviteEmail.trim()) return
-    setMembers((prev) => [
-      ...prev,
-      { userId: `u${Date.now()}`, displayName: inviteEmail.split('@')[0], email: inviteEmail, permission: invitePermission },
-    ])
-    setInviteEmail('')
+  const handleInvite = async () => {
+    if (!inviteEmail.trim() || !projectId) return
+    setInviting(true)
+    setError(null)
+    try {
+      await inviteMember(projectId, inviteEmail.trim(), invitePermission)
+      setInviteEmail('')
+      await fetchMembers()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setInviting(false)
+    }
   }
 
-  const handleRemove = (userId) => {
-    setMembers((prev) => prev.filter((m) => m.userId !== userId))
+  const handleRemove = async (userId) => {
+    if (!projectId) return
+    setError(null)
+    try {
+      await removeMember(projectId, userId)
+      await fetchMembers()
+    } catch (e) {
+      setError(e.message)
+    }
   }
 
   return (
@@ -69,13 +101,20 @@ export default function InviteModal({ onClose, project }) {
           <div>
             <h2 id="invite-modal-title" className="text-2xl font-headline font-bold text-primary tracking-tight japanese-text">アクセス共有</h2>
             <p className="text-on-surface-variant text-sm mt-1 japanese-text">
-              プロジェクト「{project?.name || 'Project Alpha'}」へのアクセス権限を管理します。
+              プロジェクト「{project?.name || '—'}」へのアクセス権限を管理します。
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-surface-container rounded-full transition-colors">
             <span className="material-symbols-outlined text-on-surface-variant">close</span>
           </button>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mx-8 mb-2 p-3 rounded-lg bg-error-container/30 text-error text-sm font-bold">
+            {error}
+          </div>
+        )}
 
         {/* Invitation Form */}
         <div className="px-8 py-6 bg-surface-container-low/50">
@@ -106,9 +145,10 @@ export default function InviteModal({ onClose, project }) {
             <button
               type="button"
               onClick={handleInvite}
-              className="bg-primary-container text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all whitespace-nowrap"
+              disabled={inviting || !inviteEmail.trim()}
+              className="bg-primary-container text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all whitespace-nowrap disabled:opacity-50"
             >
-              招待
+              {inviting ? '招待中...' : '招待'}
             </button>
           </div>
         </div>
@@ -118,47 +158,53 @@ export default function InviteModal({ onClose, project }) {
           <h3 className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4 japanese-text">
             現在のメンバー ({members.length})
           </h3>
-          <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-            {members.map((member) => (
-              <div key={member.userId} className="flex items-center justify-between group">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high ring-2 ring-primary/5 flex items-center justify-center text-sm font-bold text-primary">
-                    {member.displayName.charAt(0)}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <span className="material-symbols-outlined animate-spin text-primary">progress_activity</span>
+              <span className="ml-2 text-sm text-on-surface-variant">読み込み中...</span>
+            </div>
+          ) : members.length === 0 ? (
+            <p className="text-sm text-on-surface-variant text-center py-6 japanese-text">メンバーはまだ登録されていません</p>
+          ) : (
+            <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
+              {members.map((member) => (
+                <div key={member.user_id || member.userId} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high ring-2 ring-primary/5 flex items-center justify-center text-sm font-bold text-primary">
+                      {(member.display_name || member.displayName || member.email || '?').charAt(0)}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-on-surface japanese-text">{member.display_name || member.displayName || member.email}</div>
+                      <div className="text-xs text-on-surface-variant">{member.email}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-on-surface japanese-text">{member.displayName}</div>
-                    <div className="text-xs text-on-surface-variant">{member.email}</div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${
+                      member.permission === 'owner' || member.role === 'admin'
+                        ? 'bg-secondary-container text-on-secondary-container'
+                        : 'bg-surface-variant text-on-surface-variant'
+                    }`}>
+                      {PERMISSION_LABELS[member.permission || member.role] || member.permission || member.role}
+                    </span>
+                    {member.permission !== 'owner' && member.role !== 'admin' && (
+                      <button
+                        onClick={() => handleRemove(member.user_id || member.userId)}
+                        className="p-1.5 text-outline opacity-0 group-hover:opacity-100 hover:text-error hover:bg-error-container/20 rounded-full transition-all"
+                      >
+                        <span className="material-symbols-outlined text-lg">delete</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tight ${
-                    member.permission === 'owner'
-                      ? 'bg-secondary-container text-on-secondary-container'
-                      : 'bg-surface-variant text-on-surface-variant'
-                  }`}>
-                    {PERMISSION_LABELS[member.permission]}
-                  </span>
-                  {member.permission !== 'owner' && (
-                    <button
-                      onClick={() => handleRemove(member.userId)}
-                      className="p-1.5 text-outline opacity-0 group-hover:opacity-100 hover:text-error hover:bg-error-container/20 rounded-full transition-all"
-                    >
-                      <span className="material-symbols-outlined text-lg">delete</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-8 py-6 bg-surface-container flex justify-end gap-3">
           <button onClick={onClose} className="px-6 py-2 rounded-lg text-sm font-semibold text-on-surface-variant hover:bg-surface-variant transition-colors">
-            キャンセル
-          </button>
-          <button onClick={onClose} className="button-primary px-8 py-2 text-sm uppercase tracking-wider">
-            完了
+            閉じる
           </button>
         </div>
       </div>
