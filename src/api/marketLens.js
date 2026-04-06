@@ -171,7 +171,6 @@ function buildErrorMessage(path, status, body) {
 
   if (status === 404) {
     if (path.includes('/assets')) return 'アセットが見つかりません。再アップロードしてください。'
-    if (path.includes('/generation')) return '生成結果が見つかりません。'
     return `Market Lens API endpoint ${path} が見つかりません。`
   }
 
@@ -182,7 +181,6 @@ function buildErrorMessage(path, status, body) {
   if (status === 422) {
     if (path.includes('/assets')) return 'アップロードされたファイルが不正です。PNG/JPG画像を選択してください。'
     if (path.includes('/reviews')) return 'レビューリクエストが不正です。入力内容を確認してください。'
-    if (path.includes('/generation')) return 'バナー生成リクエストが不正です。先にレビューを完了してください。'
     return 'リクエストの形式が正しくありません。入力内容を確認してください。'
   }
 
@@ -501,11 +499,15 @@ export function discoveryAnalyze(url, optionsOrApiKey) {
 
 function normalizeDiscoveryPollPath(jobIdOrPollPath) {
   if (!jobIdOrPollPath || typeof jobIdOrPollPath !== 'string') return null
-  if (jobIdOrPollPath.startsWith('/')) return jobIdOrPollPath
   if (jobIdOrPollPath.startsWith('http://') || jobIdOrPollPath.startsWith('https://')) {
     const url = new URL(jobIdOrPollPath)
     return `${url.pathname}${url.search}`
   }
+  // Already a relative path like "/discovery/jobs/xxx"
+  if (jobIdOrPollPath.startsWith('/discovery/')) return jobIdOrPollPath
+  // Legacy: "/api/discovery/..." — strip /api prefix
+  if (jobIdOrPollPath.startsWith('/api/discovery/')) return jobIdOrPollPath.slice(4)
+  // Bare job ID
   return `/discovery/jobs/${jobIdOrPollPath}`
 }
 
@@ -625,37 +627,3 @@ export function reviewAdLp(payload, optionsOrApiKey) {
   })
 }
 
-// ─── Creative Review: Generation ─────────────────────────────
-
-/**
- * POST /api/generation/banner — 改善バナー生成開始
- * @param {{ review_run_id, style_guidance? }} payload
- * @param {string} apiKey
- * @returns {{ id, status, ... }}
- */
-export function generateBanner(payload, apiKey) {
-  return requestJson('/generation/banner', {
-    method: 'POST',
-    body: JSON.stringify({ ...payload, api_key: apiKey }),
-    timeout: 300000,
-    direct: true,
-  })
-}
-
-/**
- * GET /api/generation/{genId} — 生成状態ポーリング
- * @param {string} genId
- * @returns {{ id, status, error_message? }}
- */
-export function getGeneration(genId) {
-  return requestJson(`/generation/${genId}`)
-}
-
-/**
- * 生成画像の URL を組み立てる
- * @param {string} genId
- * @returns {string}
- */
-export function getGenerationImageUrl(genId) {
-  return `${BASE}/generation/${genId}/image`
-}
