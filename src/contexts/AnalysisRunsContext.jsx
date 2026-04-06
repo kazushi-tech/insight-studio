@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useSyncExternalStore } from 'react'
 
 // ─── Run kinds ───
-// compare | discovery | creative-review | banner-generation
+// compare | discovery | creative-review
 
 const DRAFT_PREFIX = 'is-draft-'
 

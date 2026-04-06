@@ -286,7 +286,6 @@ const RUN_KIND_LABELS = {
   compare: 'LP比較分析',
   discovery: '競合発見',
   'creative-review': 'クリエイティブレビュー',
-  'banner-generation': 'バナー生成',
 }
 
 function BackgroundIndicator() {

@@ -369,7 +369,6 @@ export default function Dashboard() {
       : !setupState
         ? '要セットアップ'
         : '利用可'
-  const creativeGenerationStatusLabel = '利用不可（Claude-only）'
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -430,7 +429,7 @@ export default function Dashboard() {
                   label="Core 接続状況"
                   value={coreConnectionCount}
                   unit={`/ 2`}
-                  subtitle={`Compare / Discovery / Review: ${hasClaudeKey ? `${getAnalysisProviderLabel(analysisProvider)} で利用可` : '要 Claude API'} / Ads AI: ${adsAiStatusLabel} / 改善バナー生成: ${creativeGenerationStatusLabel}`}
+                  subtitle={`Compare / Discovery / Review: ${hasClaudeKey ? `${getAnalysisProviderLabel(analysisProvider)} で利用可` : '要 Claude API'} / Ads AI: ${adsAiStatusLabel}`}
                 />
               </>
             )}

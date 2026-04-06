@@ -6,24 +6,12 @@ import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import {
   uploadCreativeAsset,
-  getCreativeAssetDownloadUrl,
   reviewBanner,
   reviewAdLp,
-  generateBanner,
-  getGeneration,
-  getGenerationImageUrl,
   classifyError,
 } from '../api/marketLens'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
-import { SCORE_THRESHOLD_EXCELLENT, SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_FAIR } from '../utils/scoreThresholds'
 
-const POLL_INTERVAL = 5000
-const POLL_MAX = 12
-const REGENERATION_THRESHOLD = SCORE_THRESHOLD_GOOD
-const MAX_REGENERATION_ATTEMPTS = 3
-
-const calcAvgScore100 = (scores) =>
-  scores.length > 0 ? Math.round((scores.reduce((s, i) => s + (i.score || 0), 0) / scores.length) * 20) : 0
 const REVIEW_TEXT_SIZE_STORAGE_KEY = 'creative_review_text_size'
 const REVIEW_TEXT_SIZE_OPTIONS = [
   { value: 'normal', label: '標準' },
@@ -55,92 +43,6 @@ const RUBRIC_LABEL_MAP = {
   story_consistency: 'ストーリー一貫性',
 }
 
-// ─── Before/After Comparison Sub-components ───
-
-function BeforeAfterRadarComparison({ beforeReview, afterReview }) {
-  const beforeScores = beforeReview.rubric_scores
-  const afterScores = afterReview.rubric_scores
-  const beforeAvg = calcAvgScore100(beforeScores)
-  const afterAvg = calcAvgScore100(afterScores)
-  const diff = afterAvg - beforeAvg
-  const diffColor = diff > 0 ? 'text-emerald-600' : diff < 0 ? 'text-rose-500' : 'text-on-surface-variant'
-  const isCrossType = beforeReview.review_type === 'ad_lp_review'
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h4 className="text-base font-bold text-on-surface japanese-text flex items-center gap-2">
-          <span className="material-symbols-outlined text-secondary">compare</span>
-          Before / After スコア比較
-        </h4>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-on-surface-variant font-bold">{beforeAvg}</span>
-          <span className="material-symbols-outlined text-on-surface-variant text-sm">arrow_forward</span>
-          <span className="text-sm font-black text-on-surface">{afterAvg}</span>
-          <span className={`text-sm font-black ${diffColor}`}>
-            ({diff > 0 ? '+' : ''}{diff})
-          </span>
-        </div>
-      </div>
-      {isCrossType && (
-        <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-          Before は広告+LP統合レビュー（8項目）、After はバナーレビュー（5項目）のため、Total Score のみ比較可能です。軸別比較は参考値です。
-        </p>
-      )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">Before</p>
-          <PerformanceRadar rubricScores={beforeScores} reviewType={beforeReview.review_type} compact />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-on-surface-variant mb-3 uppercase tracking-widest">After</p>
-          <PerformanceRadar rubricScores={afterScores} reviewType="banner_review" compact />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function LowScoreRegenerationPrompt({ scores, onRegenerate, regenerationCount }) {
-  const avg = calcAvgScore100(scores)
-  if (avg >= REGENERATION_THRESHOLD) return null
-  const attemptsLeft = MAX_REGENERATION_ATTEMPTS - regenerationCount
-
-  return (
-    <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] p-4 flex items-center justify-between gap-4">
-      <div className="flex items-center gap-2">
-        <span className="material-symbols-outlined text-amber-600">warning</span>
-        <p className="text-sm text-amber-800 font-medium japanese-text">
-          改善バナーのスコアが {avg}/100 と低めです。{attemptsLeft > 0 ? '再生成でより良い結果が得られる場合があります。' : '再生成の上限に達しました。'}
-        </p>
-      </div>
-      {attemptsLeft > 0 ? (
-        <button
-          onClick={onRegenerate}
-          className="px-4 py-2 bg-amber-600 text-white rounded-[0.75rem] font-bold text-sm hover:bg-amber-700 transition-all whitespace-nowrap flex items-center gap-1.5"
-        >
-          <span className="material-symbols-outlined text-base">refresh</span>
-          再生成する ({attemptsLeft}/{MAX_REGENERATION_ATTEMPTS})
-        </button>
-      ) : (
-        <span className="text-xs text-amber-600 font-medium whitespace-nowrap">上限 {MAX_REGENERATION_ATTEMPTS} 回</span>
-      )}
-    </div>
-  )
-}
-
-function GoodScoreMessage({ scores }) {
-  const avg = calcAvgScore100(scores)
-  if (avg < REGENERATION_THRESHOLD) return null
-  return (
-    <div className="bg-emerald-50 border border-emerald-200 rounded-[0.75rem] p-4 flex items-center gap-2">
-      <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-      <p className="text-sm text-emerald-800 font-medium japanese-text">
-        改善バナーのスコアは {avg}/100 です。十分な品質が確認されました。
-      </p>
-    </div>
-  )
-}
 
 // ─── Section-aware Review Blocks ───
 
@@ -414,48 +316,6 @@ function MetaBand({ run }) {
   )
 }
 
-function BannerComparisonCard({ label, title, tone = 'neutral', src, alt, meta = [], fallbackText }) {
-  const toneClasses = tone === 'after'
-    ? 'border-emerald-200 bg-emerald-50/50'
-    : 'border-outline-variant/20 bg-surface-container-low/70'
-
-  return (
-    <div className={`rounded-[0.75rem] border ${toneClasses} p-4 md:p-5 space-y-4`}>
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.16em] ${
-            tone === 'after'
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-surface-container-high text-on-surface-variant'
-          }`}>
-            {label}
-          </span>
-          <h4 className="text-base font-bold text-on-surface japanese-text">{title}</h4>
-        </div>
-        {meta.length > 0 && (
-          <p className="text-xs text-on-surface-variant">
-            {meta.filter(Boolean).join(' / ')}
-          </p>
-        )}
-      </div>
-
-      <div className="rounded-[0.75rem] border border-outline-variant/20 bg-surface-container-lowest p-3 panel-card-hover min-h-[280px] flex items-center justify-center">
-        {src ? (
-          <img
-            src={src}
-            alt={alt}
-            className="max-w-full max-h-[540px] h-auto rounded-xl object-contain"
-          />
-        ) : (
-          <div className="text-center px-6 py-10 text-on-surface-variant">
-            <span className="material-symbols-outlined text-4xl mb-2 block text-outline-variant">image_not_supported</span>
-            <p className="text-sm japanese-text">{fallbackText}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ─── Main Component ───
 
@@ -468,24 +328,16 @@ export default function CreativeReview() {
   const { getRun, startRun, completeRun, failRun, clearRun } = useAnalysisRuns()
 
   const reviewRun = getRun('creative-review')
-  const genRun = getRun('banner-generation')
 
   // ─── local state (upload form — not long-running, doesn't need run store) ───
   const [phase, setPhase] = useState(() => {
-    if (genRun?.status === 'completed') return 'generated'
-    if (genRun?.status === 'running') return 'generating'
     if (reviewRun?.status === 'completed') return 'reviewed'
     if (reviewRun?.status === 'running') return 'reviewing'
     if (reviewRun?.input?.assetId) return 'uploaded'
     return 'idle'
   })
 
-  const persistedErrorState = genRun?.status === 'failed'
-    ? {
-        message: `生成失敗: ${genRun.error}`,
-        info: genRun.errorInfo || null,
-      }
-    : reviewRun?.status === 'failed'
+  const persistedErrorState = reviewRun?.status === 'failed'
     ? {
         message: `レビュー失敗: ${reviewRun.error}`,
         info: reviewRun.errorInfo || null,
@@ -508,17 +360,7 @@ export default function CreativeReview() {
 
   const reviewResult = reviewRun?.result?.review || reviewRun?.result || null
   const runId = reviewRun?.meta?.run_id || null
-  const genImageUrl = genRun?.result?.imageUrl || null
-  const genId = genRun?.result?.genId || null
-  const originalBannerUrl = previewUrl || (assetId ? getCreativeAssetDownloadUrl(assetId) : null)
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
-
-  // Phase E: After banner scoring state
-  const [afterReviewResult, setAfterReviewResult] = useState(null)
-  const [afterScoring, setAfterScoring] = useState(false)
-  const [afterError, setAfterError] = useState('')
-  const [regenerationCount, setRegenerationCount] = useState(0)
-  const [afterReviewRunId, setAfterReviewRunId] = useState(null)
 
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
@@ -540,11 +382,6 @@ export default function CreativeReview() {
     setOperatorMemo('')
     setLpUrl('')
     clearRun('creative-review')
-    clearRun('banner-generation')
-    setRegenerationCount(0)
-    setAfterReviewResult(null)
-    setAfterError('')
-    setAfterReviewRunId(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [clearRun])
 
@@ -611,7 +448,6 @@ export default function CreativeReview() {
     setPhase('reviewing')
     setErrorMessage('')
     setErrorInfo(null)
-    clearRun('banner-generation')
 
     startRun('creative-review', {
       assetId, brandInfo, operatorMemo, lpUrl,
@@ -657,102 +493,9 @@ export default function CreativeReview() {
     }
   }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, startRun, completeRun, failRun, clearRun])
 
-  // ─── 3. Generation ───
-  const handleGenerate = useCallback(async () => {
-    if (!runId) return
-
-    setPhase('generating')
-    setErrorMessage('')
-    setErrorInfo(null)
-
-    startRun('banner-generation', { runId })
-
-    try {
-      const effectiveRunId = afterReviewRunId || runId
-      const result = await generateBanner({ review_run_id: effectiveRunId }, analysisKey.trim())
-      const gId = result.id
-
-      let status = result.status
-      for (let i = 0; i < POLL_MAX && (status === 'pending' || status === 'generating'); i++) {
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL))
-        const pollData = await getGeneration(gId)
-        status = pollData.status
-        if (pollData.error_message) throw new Error(pollData.error_message)
-      }
-
-      if (status === 'completed') {
-        const imageUrl = getGenerationImageUrl(gId)
-        completeRun('banner-generation', { imageUrl, genId: gId })
-        setPhase('generated')
-      } else if (status === 'failed') {
-        throw new Error('バナー生成に失敗しました。')
-      } else {
-        throw new Error('生成がタイムアウトしました。しばらく後にお試しください。')
-      }
-    } catch (err) {
-      const info = classifyError(err)
-      failRun('banner-generation', err.message, info)
-      // Stay in 'reviewed' so the review result and upload state remain visible
-      setPhase('reviewed')
-      setErrorMessage(`生成失敗: ${err.message}`)
-      setErrorInfo(info)
-    }
-  }, [runId, analysisKey, afterReviewRunId, startRun, completeRun, failRun])
-
-  const handleRegenerate = useCallback(() => {
-    setRegenerationCount((c) => c + 1)
-    setAfterReviewResult(null)
-    setAfterError('')
-    clearRun('banner-generation')
-    handleGenerate()
-  }, [handleGenerate, clearRun])
-
-  // ─── 4. After banner scoring ───
-  const handleAfterScoring = useCallback(async () => {
-    if (!genImageUrl || !analysisKey.trim() || afterScoring) return
-    setAfterScoring(true)
-    setAfterError('')
-    setAfterReviewResult(null)
-
-    try {
-      // Fetch the generated image as a blob and upload as new asset
-      const resp = await fetch(genImageUrl)
-      if (!resp.ok) throw new Error('改善バナー画像の取得に失敗しました。')
-      const blob = await resp.blob()
-      // blob.type が image/jpeg のみ特別扱い、それ以外は image/png として扱う
-      // image/jpeg or image/png expected
-      const actualType = blob.type || 'image/png'
-      const ext = actualType === 'image/jpeg' ? 'jpg' : 'png'
-      const file = new File([blob], `improved-${genId}.${ext}`, { type: actualType })
-      const uploadData = await uploadCreativeAsset(file)
-
-      // Run banner review on the uploaded after-image
-      const envelope = await reviewBanner(
-        { asset_id: uploadData.asset_id },
-        {
-          apiKey: analysisKey.trim(),
-          provider: analysisProvider,
-          model: getAnalysisModel(analysisProvider),
-        },
-      )
-      const review = envelope.review || envelope
-      setAfterReviewResult(review)
-      if (envelope.run_id) setAfterReviewRunId(envelope.run_id)
-    } catch (err) {
-      const msg = err.message || ''
-      if (msg.includes('Evidence grounding violation') || msg.includes('Commentary guardrail')) {
-        setAfterError('スコアリングに失敗しました。再試行してください。')
-      } else {
-        setAfterError(`スコアリング失敗: ${msg}`)
-      }
-    } finally {
-      setAfterScoring(false)
-    }
-  }, [genImageUrl, genId, analysisKey, analysisProvider, afterScoring])
-
   // ─── render helpers ───
-  const isUploaded = ['uploaded', 'reviewing', 'reviewed', 'generating', 'generated'].includes(phase)
-  const isReviewed = ['reviewed', 'generating', 'generated'].includes(phase)
+  const isUploaded = ['uploaded', 'reviewing', 'reviewed'].includes(phase)
+  const isReviewed = phase === 'reviewed'
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-8">
@@ -770,7 +513,7 @@ export default function CreativeReview() {
               Claude First
             </span>
           </div>
-          <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして Claude でレビューします。改善バナー生成は任意の追加ステップです。</p>
+          <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして Claude でレビューします。</p>
         </div>
       </div>
 
@@ -804,7 +547,7 @@ export default function CreativeReview() {
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">クリエイティブレビューは Claude で実行します。画像生成機能は現在利用できません。</span>
+        <span className="japanese-text">クリエイティブレビューは Claude で実行します。</span>
       </div>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
@@ -983,135 +726,6 @@ export default function CreativeReview() {
                   <p className="text-xs text-on-surface-variant/50 font-mono">run_id: {runId}</p>
                 )}
 
-                {/* Generation button */}
-                {runId && (
-                  <div className="rounded-[0.75rem] border border-outline-variant/20 bg-surface-container px-4 py-3 text-sm text-on-surface-variant">
-                    <p className="font-bold japanese-text">画像生成は現在利用できません</p>
-                    <p className="text-xs mt-1">Claude API はテキスト分析専用です。レビュー結果はこのまま利用できます。</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ─── Step 4: Generated Banner ─── */}
-            {phase === 'generated' && genImageUrl && (
-              <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
-                <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
-                  <span className="w-7 h-7 bg-green-100 rounded-lg flex items-center justify-center text-green-700 text-sm font-extrabold">4</span>
-                  改善バナー（Optional / Experimental）
-                </h3>
-
-                <p className="text-sm text-on-surface-variant japanese-text">
-                  左が改善前、右が改善後です。並べて比較しながら差分を確認できます。
-                </p>
-
-                <div className="grid grid-cols-1 gap-5 items-stretch">
-                  <BannerComparisonCard
-                    label="Before"
-                    title="改善前のバナー"
-                    tone="before"
-                    src={originalBannerUrl}
-                    alt="改善前のバナー"
-                    meta={[
-                      fileName,
-                      assetMeta?.width && assetMeta?.height ? `${assetMeta.width} × ${assetMeta.height}px` : null,
-                    ]}
-                    fallbackText="元バナー画像を表示できませんでした。"
-                  />
-
-                  <div className="flex items-center justify-center">
-                    <div className="w-14 h-14 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
-                      <span className="material-symbols-outlined text-3xl">arrow_downward_alt</span>
-                    </div>
-                  </div>
-
-                  <BannerComparisonCard
-                    label="After"
-                    title="改善後のバナー"
-                    tone="after"
-                    src={genImageUrl}
-                    alt="生成されたバナー"
-                    meta={[
-                      'Nano Banana2',
-                      genId ? `generation ${genId}` : null,
-                    ]}
-                    fallbackText="改善後バナーを表示できませんでした。"
-                  />
-                </div>
-
-                {/* Before/After Radar Comparison */}
-                {afterReviewResult?.rubric_scores && reviewResult?.rubric_scores && (
-                  <BeforeAfterRadarComparison beforeReview={reviewResult} afterReview={afterReviewResult} />
-                )}
-
-                {afterReviewResult?.rubric_scores && (
-                  <>
-                    <LowScoreRegenerationPrompt
-                      scores={afterReviewResult.rubric_scores}
-                      onRegenerate={handleRegenerate}
-                      regenerationCount={regenerationCount}
-                    />
-                    <GoodScoreMessage scores={afterReviewResult.rubric_scores} />
-                  </>
-                )}
-
-                {afterError && (
-                  <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 rounded-lg px-4 py-2">
-                    <span className="material-symbols-outlined text-lg">error</span>
-                    {afterError}
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-3 justify-end">
-                  {!afterReviewResult && (
-                    <button
-                      onClick={handleAfterScoring}
-                      disabled={afterScoring || !analysisKey.trim()}
-                      className="px-5 py-2.5 bg-secondary/10 text-secondary rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-secondary/20 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {afterScoring ? (
-                        <LoadingSpinner size="sm" label="スコアリング中…" />
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-lg">compare</span>
-                          改善バナーをスコアリング
-                        </>
-                      )}
-                    </button>
-                  )}
-                  {originalBannerUrl && (
-                    <a
-                      href={originalBannerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
-                    >
-                      <span className="material-symbols-outlined text-lg">left_panel_open</span>
-                      元画像を開く
-                    </a>
-                  )}
-                  <div className="flex flex-wrap gap-3">
-                    <a
-                      href={genImageUrl}
-                      download={`banner-${genId}.png`}
-                      className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold flex items-center gap-2 hover:opacity-88 transition-all text-sm"
-                    >
-                      <span className="material-symbols-outlined text-lg">download</span>
-                      ダウンロード
-                    </a>
-                    <button
-                      onClick={resetAll}
-                      className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold flex items-center gap-2 hover:bg-surface-container-high transition-all text-sm"
-                    >
-                      <span className="material-symbols-outlined text-lg">restart_alt</span>
-                      新しいレビューを開始
-                    </button>
-                  </div>
-                </div>
-
-                {genId && (
-                  <p className="text-xs text-on-surface-variant/50 font-mono text-center">generation_id: {genId}</p>
-                )}
               </div>
             )}
           </div>
@@ -1125,12 +739,10 @@ export default function CreativeReview() {
             <span className="material-symbols-outlined text-secondary">info</span>
             使い方
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { icon: 'cloud_upload', title: '画像をアップロード', desc: 'バナー画像（PNG/JPG）を選択' },
               { icon: 'rate_review', title: 'AIレビュー', desc: 'Claudeがバナーを分析・評価' },
-              { icon: 'auto_fix_high', title: '任意: バナー生成', desc: '画像生成（現在利用不可）' },
-              { icon: 'download', title: '保存', desc: '生成した場合のみ改善バナーを保存' },
             ].map((step, i) => (
               <div key={i} className="flex flex-col items-center text-center p-4">
                 <div className="w-12 h-12 bg-secondary/10 rounded-[0.75rem] flex items-center justify-center mb-3">
