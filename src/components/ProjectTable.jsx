@@ -56,13 +56,13 @@ function BqConnectionChip({ caseId, bqStatus, datasetId, onBqTest }) {
   if (bqStatus && !bqStatus.loading) {
     return (
       <div className="flex justify-center">
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-error-container/30">
-          <span className="w-2 h-2 rounded-full bg-error" />
-          <span className="text-[10px] font-bold text-error uppercase">
-            {canManageProjects ? (bqStatus.error || 'エラー') : '設定中'}
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-error-container/30 max-w-[180px]">
+          <span className="w-2 h-2 rounded-full bg-error shrink-0" />
+          <span className="text-[10px] font-bold text-error uppercase truncate" title={canManageProjects ? bqStatus.error : undefined}>
+            {canManageProjects ? 'エラー' : '設定中'}
           </span>
           {canManageProjects && onBqTest && (
-            <button onClick={() => onBqTest(caseId)} className="ml-1 text-[10px] underline text-error hover:text-error/80">再テスト</button>
+            <button onClick={() => onBqTest(caseId)} className="ml-1 shrink-0 text-[10px] underline text-error hover:text-error/80">再テスト</button>
           )}
         </div>
       </div>
@@ -161,7 +161,13 @@ export default function ProjectTable({ projects, loading, bqStatuses, onShare, o
       {/* Table */}
       <section className="bg-surface-container-lowest rounded-[0.75rem] panel-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-separate border-spacing-0">
+            <colgroup>
+              <col style={{ width: '45%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '15%' }} />
+              <col style={{ width: '20%' }} />
+            </colgroup>
             <thead>
               <tr className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant/10">
                 <th className="px-6 py-4 font-bold text-xs uppercase tracking-wider">プロジェクト名 & ID</th>
@@ -172,15 +178,20 @@ export default function ProjectTable({ projects, loading, bqStatuses, onShare, o
             </thead>
             <tbody className="divide-y divide-outline-variant/10">
               {projects.map((project) => (
-                <tr key={project.case_id} className="hover:bg-surface-container-low/50 transition-colors">
-                  <td className="px-6 py-5">
-                    <p className="font-bold text-on-surface">{project.name}</p>
-                    <p className="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: {project.case_id}</p>
-                    {project.description && (
-                      <p className="text-xs text-on-surface-variant mt-0.5">{project.description}</p>
-                    )}
+                <tr key={project.case_id} className="group hover:bg-surface-container-low/50 transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)] border-l-3 border-l-transparent hover:border-l-primary">
+                  <td className="px-6 py-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="material-symbols-outlined text-lg text-on-surface-variant/60 mt-0.5 shrink-0">folder</span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-on-surface truncate">{project.name}</p>
+                        <p className="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: {project.case_id}</p>
+                        {project.description && (
+                          <p className="text-xs text-on-surface-variant mt-0.5 truncate">{project.description}</p>
+                        )}
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-6 py-5">
+                  <td className="px-6 py-4">
                     <BqConnectionChip
                       caseId={project.case_id}
                       bqStatus={bqStatuses?.[project.case_id]}
@@ -188,17 +199,17 @@ export default function ProjectTable({ projects, loading, bqStatuses, onShare, o
                       onBqTest={onBqTest}
                     />
                   </td>
-                  <td className="px-6 py-5">
+                  <td className="px-6 py-4">
                     <StatusChip status={project.status} />
                   </td>
-                  <td className="px-6 py-5 text-right">
+                  <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       {canManageProjects && (
                         <>
-                          <button className="p-2 text-on-surface-variant hover:text-primary transition-colors" title="編集" onClick={() => onEdit?.(project)}>
+                          <button className="p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/8 transition-all" title="編集" onClick={() => onEdit?.(project)}>
                             <span className="material-symbols-outlined text-lg">edit</span>
                           </button>
-                          <button className="p-2 text-on-surface-variant hover:text-primary transition-colors" title="共有" onClick={() => onShare?.(project)}>
+                          <button className="p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/8 transition-all" title="共有" onClick={() => onShare?.(project)}>
                             <span className="material-symbols-outlined text-lg">share</span>
                           </button>
                         </>
