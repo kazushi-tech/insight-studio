@@ -38,7 +38,7 @@ function extractPeriods(data) {
 export default function SetupWizard() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAdsAuthenticated } = useAuth()
+  const { isAdsAuthenticated, authExpiredMessage, clearAuthExpiredMessage } = useAuth()
   const { completeSetup, getCurrentDatasetId, currentCase } = useAdsSetup()
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState(new Set())
@@ -232,7 +232,17 @@ export default function SetupWizard() {
         <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-primary/10 text-primary">BigQuery</span>
       </div>
 
-      {!isAdsAuthenticated && (
+      {authExpiredMessage && (
+        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-[0.75rem] px-5 py-3 text-sm text-red-800">
+          <span className="material-symbols-outlined text-lg">error</span>
+          <span className="japanese-text flex-1">{authExpiredMessage}</span>
+          <button onClick={clearAuthExpiredMessage} className="text-red-600 hover:text-red-800 shrink-0">
+            <span className="material-symbols-outlined text-lg">close</span>
+          </button>
+        </div>
+      )}
+
+      {!isAdsAuthenticated && !authExpiredMessage && (
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>

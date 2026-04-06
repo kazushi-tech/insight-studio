@@ -73,8 +73,14 @@ export function AuthProvider({ children }) {
     }
   }, [adsToken])
 
+  const [authExpiredMessage, setAuthExpiredMessage] = useState(null)
+  const clearAuthExpiredMessage = useCallback(() => setAuthExpiredMessage(null), [])
+
   useEffect(() => {
-    setOnAuthError(() => logoutAds())
+    setOnAuthError(() => {
+      logoutAds()
+      setAuthExpiredMessage('セッションの有効期限が切れました。再ログインしてください。')
+    })
     return () => setOnAuthError(null)
   }, [logoutAds])
 
@@ -100,6 +106,8 @@ export function AuthProvider({ children }) {
     isAdsAuthenticated: !!adsToken,
     loading,
     error,
+    authExpiredMessage,
+    clearAuthExpiredMessage,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

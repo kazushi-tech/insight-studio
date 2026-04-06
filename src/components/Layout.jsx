@@ -9,7 +9,7 @@ import {
   ANALYSIS_PROVIDER_ANTHROPIC,
   getAnalysisProviderLabel,
 } from '../utils/analysisProvider'
-import { getApiKeyValidationError } from '../utils/apiKeys'
+import { getApiKeyValidationError, validateClaudeKeyRemote } from '../utils/apiKeys'
 import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
@@ -134,6 +134,7 @@ function KeySettingsModal({ onClose }) {
   const [claudeError, setClaudeError] = useState(null)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
+  const [claudeValidating, setClaudeValidating] = useState(false)
   const modalRef = useRef(null)
 
   useEffect(() => {
@@ -172,13 +173,23 @@ function KeySettingsModal({ onClose }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
-  const handleSaveClaude = () => {
+  const handleSaveClaude = async () => {
     const validationError = getApiKeyValidationError(localClaudeKey, ANALYSIS_PROVIDER_ANTHROPIC)
     if (validationError) {
       setClaudeError(validationError)
       return
     }
     setClaudeError(null)
+    setClaudeValidating(true)
+    try {
+      const remoteError = await validateClaudeKeyRemote(localClaudeKey)
+      if (remoteError) {
+        setClaudeError(remoteError)
+        return
+      }
+    } finally {
+      setClaudeValidating(false)
+    }
     setClaudeKey(localClaudeKey)
   }
 
@@ -234,9 +245,10 @@ function KeySettingsModal({ onClose }) {
           />
           <button
             onClick={handleSaveClaude}
-            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all"
+            disabled={claudeValidating}
+            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all disabled:opacity-50"
           >
-            保存
+            {claudeValidating ? '検証中...' : '保存'}
           </button>
           {claudeError && <p className="text-xs text-error">{claudeError}</p>}
         </div>

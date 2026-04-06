@@ -9,6 +9,16 @@ import { UserProfileProvider } from './contexts/UserProfileContext'
 import './index.css'
 import App from './App.jsx'
 
+// Global error handlers — catch unhandled errors that slip through component boundaries
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[Insight Studio] Unhandled promise rejection:', event.reason)
+  event.preventDefault() // Prevent default browser error logging noise
+})
+
+window.addEventListener('error', (event) => {
+  console.error('[Insight Studio] Uncaught error:', event.error || event.message)
+})
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

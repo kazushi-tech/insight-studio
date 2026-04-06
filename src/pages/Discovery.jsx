@@ -8,6 +8,7 @@ import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisPro
 
 const POLL_INTERVAL_MS = 3000
 const POLL_MAX_NETWORK_ERRORS = 3
+const POLL_MAX_DURATION_MS = 5 * 60 * 1000 // 5 minutes absolute timeout
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -158,6 +159,8 @@ export default function Discovery() {
   const [fontSize, setFontSize] = useState('normal')
   const pollTimerRef = useRef(null)
   const pollErrorCountRef = useRef(0)
+  const pollStartTimeRef = useRef(0)
+  const pollStoppedRef = useRef(false)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -172,6 +175,7 @@ export default function Discovery() {
   const canSubmit = url && hasAnalysisKey && !loading
 
   const stopPolling = useCallback(() => {
+    pollStoppedRef.current = true
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
@@ -188,7 +192,23 @@ export default function Discovery() {
       ? Number(options.pollIntervalMs)
       : POLL_INTERVAL_MS
 
+    pollStoppedRef.current = false
+    pollStartTimeRef.current = Date.now()
+
     async function tick() {
+      // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
+      if (pollStoppedRef.current) return
+
+      // Guard: absolute timeout
+      if (Date.now() - pollStartTimeRef.current > POLL_MAX_DURATION_MS) {
+        stopPolling()
+        failRun('discovery', '分析がタイムアウトしました（5分）。再試行してください。', {
+          category: 'timeout', label: 'タイムアウト',
+          guidance: '分析に時間がかかりすぎています。再試行してください。', retryable: true,
+        })
+        return
+      }
+
       try {
         const data = await getDiscoveryJob(pollPath)
         pollErrorCountRef.current = 0

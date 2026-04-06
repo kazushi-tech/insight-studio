@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
 import { ANALYSIS_PROVIDER_ANTHROPIC } from '../utils/analysisProvider'
-import { getApiKeyValidationError } from '../utils/apiKeys'
+import { getApiKeyValidationError, validateClaudeKeyRemote } from '../utils/apiKeys'
 
 function SettingsCard({ icon, title, description, children }) {
   return (
@@ -79,6 +79,7 @@ export default function Settings() {
   const [editingClaude, setEditingClaude] = useState(!hasClaudeKey)
   const [claudeSaved, setClaudeSaved] = useState(false)
   const [claudeError, setClaudeError] = useState(null)
+  const [claudeValidating, setClaudeValidating] = useState(false)
 
   const [adsPassword, setAdsPassword] = useState('')
   const [authError, setAuthError] = useState(null)
@@ -131,7 +132,7 @@ export default function Settings() {
     setProfileSaved(true)
   }
 
-  function handleClaudeSave() {
+  async function handleClaudeSave() {
     setClaudeError(null)
     const trimmed = claudeInput.trim()
     if (!trimmed) {
@@ -142,6 +143,17 @@ export default function Settings() {
     if (validationError) {
       setClaudeError(validationError)
       return
+    }
+
+    setClaudeValidating(true)
+    try {
+      const remoteError = await validateClaudeKeyRemote(trimmed)
+      if (remoteError) {
+        setClaudeError(remoteError)
+        return
+      }
+    } finally {
+      setClaudeValidating(false)
     }
 
     setClaudeKey(trimmed)
@@ -262,9 +274,10 @@ export default function Settings() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleClaudeSave}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  disabled={claudeValidating}
+                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all disabled:opacity-50"
                 >
-                  保存
+                  {claudeValidating ? '検証中...' : '保存'}
                 </button>
                 {hasClaudeKey && (
                   <button
