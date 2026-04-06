@@ -55,15 +55,15 @@ export async function validateClaudeKeyRemote(apiKey) {
       }),
     })
 
-    if (res.ok) return null
+    if (res.ok) return { error: null, warning: null }
 
     const body = await res.json().catch(() => ({}))
-    if (res.status === 401) return 'APIキーが無効です。正しいキーを入力してください。'
-    if (res.status === 403) return 'このAPIキーにはアクセス権限がありません。'
-    if (res.status === 429) return null // Rate limited but key is valid
-    return body?.error?.message || `APIキー検証エラー (HTTP ${res.status})`
+    if (res.status === 401) return { error: 'APIキーが無効です。正しいキーを入力してください。', warning: null }
+    if (res.status === 403) return { error: 'このAPIキーにはアクセス権限がありません。', warning: null }
+    if (res.status === 429) return { error: null, warning: null } // Rate limited but key is valid
+    return { error: body?.error?.message || `APIキー検証エラー (HTTP ${res.status})`, warning: null }
   } catch {
     // Network error — cannot validate, allow save with warning
-    return null
+    return { error: null, warning: 'ネットワークエラーのため検証をスキップしました。キーは保存されますが、正しいか確認してください。' }
   }
 }

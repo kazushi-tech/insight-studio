@@ -132,6 +132,7 @@ function KeySettingsModal({ onClose }) {
   const { claudeKey, setClaudeKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
   const [localClaudeKey, setLocalClaudeKey] = useState(claudeKey)
   const [claudeError, setClaudeError] = useState(null)
+  const [claudeWarning, setClaudeWarning] = useState(null)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
   const [claudeValidating, setClaudeValidating] = useState(false)
@@ -180,12 +181,16 @@ function KeySettingsModal({ onClose }) {
       return
     }
     setClaudeError(null)
+    setClaudeWarning(null)
     setClaudeValidating(true)
     try {
-      const remoteError = await validateClaudeKeyRemote(localClaudeKey)
-      if (remoteError) {
-        setClaudeError(remoteError)
+      const result = await validateClaudeKeyRemote(localClaudeKey)
+      if (result.error) {
+        setClaudeError(result.error)
         return
+      }
+      if (result.warning) {
+        setClaudeWarning(result.warning)
       }
     } finally {
       setClaudeValidating(false)
@@ -241,6 +246,7 @@ function KeySettingsModal({ onClose }) {
             onChange={(e) => {
               setLocalClaudeKey(e.target.value)
               setClaudeError(null)
+              setClaudeWarning(null)
             }}
           />
           <button
@@ -251,6 +257,7 @@ function KeySettingsModal({ onClose }) {
             {claudeValidating ? '検証中...' : '保存'}
           </button>
           {claudeError && <p className="text-xs text-error">{claudeError}</p>}
+          {claudeWarning && <p className="text-xs text-amber-600">{claudeWarning}</p>}
         </div>
 
         <hr className="border-surface-container" />

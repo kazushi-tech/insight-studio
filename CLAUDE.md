@@ -18,7 +18,7 @@ Market Lens AI と考察スタジオ(ads-insights)を統合した広告運用・
 
 ```
 Insight Studio (このリポ / Vercel)
-├── /api/ml/*   → Market Lens API (market-lens-ai.vercel.app)
+├── /api/ml/*   → Market Lens API (market-lens-ai.onrender.com)
 └── /api/ads/*  → 考察スタジオ API (ads-insights-9q5s.onrender.com)
 ```
 
@@ -54,5 +54,5 @@ npm run build        # プロダクションビルド
 
 | サービス | リポ | バックエンドURL |
 |----------|------|---------------|
-| Market Lens AI | market-lens-ai | market-lens-ai.vercel.app |
+| Market Lens AI | market-lens-ai | market-lens-ai.onrender.com |
 | 考察スタジオ | ads-insights | ads-insights-9q5s.onrender.com |

@@ -147,10 +147,13 @@ export default function Settings() {
 
     setClaudeValidating(true)
     try {
-      const remoteError = await validateClaudeKeyRemote(trimmed)
-      if (remoteError) {
-        setClaudeError(remoteError)
+      const result = await validateClaudeKeyRemote(trimmed)
+      if (result.error) {
+        setClaudeError(result.error)
         return
+      }
+      if (result.warning) {
+        setToast({ message: result.warning, tone: 'neutral' })
       }
     } finally {
       setClaudeValidating(false)
