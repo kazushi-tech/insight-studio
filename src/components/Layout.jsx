@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -38,7 +38,7 @@ const NAV_ITEMS = [
       { to: '/ads/ai', label: 'AI考察', requiresSetup: true },
     ],
   },
-  { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理' },
+  { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理', adminOnly: true },
   { to: '/settings', icon: 'settings', label: '設定' },
 ]
 
@@ -340,8 +340,13 @@ export default function Layout() {
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
-  const { canManageProjects } = useRbac()
+  const { canManageProjects, isClient } = useRbac()
   const navigate = useNavigate()
+
+  // Client role requires login — redirect if not authenticated
+  if (isClient && !isAdsAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
   const handleCaseSelect = useCallback((caseInfo) => {

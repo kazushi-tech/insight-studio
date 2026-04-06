@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { getCases } from '../api/adsInsights'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { useRbac } from '../contexts/RbacContext'
 
 export default function CaseSelector({ onCaseSelect }) {
   const { currentCase, isSetupComplete } = useAdsSetup()
+  const { isClient, canAccessProject } = useRbac()
   const [isOpen, setIsOpen] = useState(false)
   const [cases, setCases] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -47,7 +49,11 @@ export default function CaseSelector({ onCaseSelect }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filteredCases = cases.filter((c) =>
+  const accessibleCases = isClient
+    ? cases.filter((c) => canAccessProject(c.case_id || c.id))
+    : cases
+
+  const filteredCases = accessibleCases.filter((c) =>
     c.name?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 

@@ -11,6 +11,7 @@ import AnalysisGraphs from './pages/AnalysisGraphs'
 import AiExplorer from './pages/AiExplorer'
 import Settings from './pages/Settings'
 import ProjectManagement from './pages/ProjectManagement'
+import Login from './pages/Login'
 import LpLayout from './pages/landing/LpLayout'
 import LandingPage from './pages/landing/LandingPage'
 import LpPricing from './pages/landing/LpPricing'
@@ -20,6 +21,7 @@ import LpCreative from './pages/landing/LpCreative'
 import LpDiscovery from './pages/landing/LpDiscovery'
 import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
+import { useRbac } from './contexts/RbacContext'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -70,10 +72,18 @@ function SetupGuard({ children }) {
   return children
 }
 
+function AdminGuard({ children }) {
+  const { isAdmin } = useRbac()
+  if (!isAdmin) return <Navigate to="/" replace />
+  return children
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
+        {/* Login — outside Layout, dark standalone page */}
+        <Route path="login" element={<Login />} />
         {/* LP pages — outside Layout, own navbar/footer */}
         <Route path="lp" element={<LpLayout />}>
           <Route index element={<LandingPage />} />
@@ -94,7 +104,7 @@ export default function App() {
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
           <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
           <Route path="cases" element={<Navigate to="/projects" replace />} />
-          <Route path="projects" element={<ProjectManagement />} />
+          <Route path="projects" element={<AdminGuard><ProjectManagement /></AdminGuard>} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

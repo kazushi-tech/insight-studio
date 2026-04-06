@@ -105,6 +105,15 @@ export function AuthProvider({ children }) {
     }
   }, [adsToken])
 
+  // Token refresh: APIレスポンスに新しいトークンが含まれていたら差し替える
+  const refreshTokenIfNeeded = useCallback((response) => {
+    if (response?.refreshed_token) {
+      setAdsToken(response.refreshed_token)
+      setToken(response.refreshed_token)
+      localStorage.setItem(STORAGE_KEY_TOKEN, response.refreshed_token)
+    }
+  }, [])
+
   const [authExpiredMessage, setAuthExpiredMessage] = useState(null)
   const clearAuthExpiredMessage = useCallback(() => setAuthExpiredMessage(null), [])
 
@@ -143,6 +152,8 @@ export function AuthProvider({ children }) {
     // RBAC
     user,
     loginWithEmail: handleLoginWithEmail,
+    // Token refresh
+    refreshTokenIfNeeded,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
