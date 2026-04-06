@@ -333,6 +333,7 @@ export default function CreativeReview() {
   const [phase, setPhase] = useState(() => {
     if (reviewRun?.status === 'completed') return 'reviewed'
     if (reviewRun?.status === 'running') return 'reviewing'
+    if (reviewRun?.status === 'failed' && reviewRun?.input?.assetId) return 'uploaded'
     if (reviewRun?.input?.assetId) return 'uploaded'
     return 'idle'
   })
@@ -477,7 +478,13 @@ export default function CreativeReview() {
         })
       }
 
-      const review = envelope.review || envelope
+      const review = envelope?.review || envelope
+
+      // Empty response guard
+      if (!review || (typeof review === 'object' && !review.summary && !review.good_points && !review.improvements && !review.rubric_scores && !review.markdown && Object.keys(review).length === 0)) {
+        throw new Error('バックエンドから空のレスポンスが返されました。AIの応答生成に失敗した可能性があります。しばらく待って再試行してください。')
+      }
+
       completeRun('creative-review', { review, envelope }, {
         run_id: envelope.run_id,
         providerLabel,

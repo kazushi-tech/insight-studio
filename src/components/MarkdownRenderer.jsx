@@ -310,7 +310,7 @@ function getComponents(size = 'normal', variant = null) {
 
       if (isDiscovery) {
         return (
-          <th className={`px-4 py-3 text-xs font-bold text-primary/80 whitespace-nowrap ${align} ${columnClass}`}>
+          <th className={`px-5 py-3.5 text-[13px] font-bold text-primary whitespace-nowrap border-b-2 border-primary/15 ${align} ${columnClass}`}>
             {children}
           </th>
         )
@@ -355,9 +355,9 @@ function getComponents(size = 'normal', variant = null) {
         return (
           <td
             title={text}
-            className={`px-4 py-3 align-top leading-relaxed ${align} ${
+            className={`px-5 py-4 align-top leading-relaxed ${align} ${
               numeric ? 'text-right font-mono tabular-nums whitespace-nowrap' : ''
-            } ${!numeric ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : ''}`}
+            } ${!numeric ? 'whitespace-normal break-words [overflow-wrap:anywhere]' : ''} border-b border-outline-variant/8`}
           >
             {content}
           </td>

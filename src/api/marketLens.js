@@ -93,6 +93,11 @@ export function classifyError(error) {
     return { category: 'upstream', label: 'バックエンドエラー', guidance: 'サーバー側でエラーが発生しました。しばらく待って再試行してください。', retryable: true }
   }
 
+  // LLM output parse/validation errors (retryable — transient formatting issue)
+  if (msg.includes('llm output parse') || msg.includes('json parse error') || msg.includes('output validation failed')) {
+    return { category: 'upstream', label: 'AI出力解析エラー', guidance: 'AIの出力フォーマットが想定と異なりました。再試行してください。', retryable: true }
+  }
+
   // Generic fallback
   return { category: 'unknown', label: 'エラー', guidance: '予期しないエラーが発生しました。', retryable: true }
 }
@@ -253,6 +258,22 @@ async function requestDiscoveryAnalyzeWithRetry(payload) {
   }
 
   throw lastError
+}
+
+// ─── Creative Review auto-retry ──────────────────────────────
+
+const REVIEW_AUTO_RETRY_COUNT = 1
+const REVIEW_AUTO_RETRY_DELAY_MS = 2000
+
+function isReviewRetryableError(error) {
+  const status = Number(error?.status || 0)
+  const msg = String(error?.message || '').toLowerCase()
+
+  if (msg.includes('llm output parse') || msg.includes('json parse error')) return true
+  if (status === 500 || status === 502 || status === 503) return true
+  if (error?.name === 'AbortError' || msg.includes('timeout')) return true
+
+  return false
 }
 
 function ensureMarketLensProfileId() {
@@ -592,19 +613,31 @@ export function getCreativeAssetDownloadUrl(assetId) {
  * @param {{ asset_id, brand_info?, operator_memo? }} payload
  * @param {string|{ apiKey?: string, provider?: string, model?: string }} optionsOrApiKey
  */
-export function reviewBanner(payload, optionsOrApiKey) {
+export async function reviewBanner(payload, optionsOrApiKey) {
   const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
-  return requestJson('/reviews/banner', {
-    method: 'POST',
-    body: JSON.stringify({
-      ...payload,
-      ...(apiKey ? { api_key: apiKey } : {}),
-      ...(provider ? { provider } : {}),
-      ...(model ? { model } : {}),
-    }),
-    timeout: LONG_ANALYSIS_TIMEOUT,
-    direct: true,
+  const body = JSON.stringify({
+    ...payload,
+    ...(apiKey ? { api_key: apiKey } : {}),
+    ...(provider ? { provider } : {}),
+    ...(model ? { model } : {}),
   })
+
+  let lastError = null
+  for (let attempt = 0; attempt <= REVIEW_AUTO_RETRY_COUNT; attempt += 1) {
+    try {
+      return await requestJson('/reviews/banner', {
+        method: 'POST',
+        body,
+        timeout: LONG_ANALYSIS_TIMEOUT,
+        direct: true,
+      })
+    } catch (error) {
+      lastError = error
+      if (!(attempt < REVIEW_AUTO_RETRY_COUNT && isReviewRetryableError(error))) break
+      await sleep(REVIEW_AUTO_RETRY_DELAY_MS)
+    }
+  }
+  throw lastError
 }
 
 /**
@@ -612,18 +645,30 @@ export function reviewBanner(payload, optionsOrApiKey) {
  * @param {{ asset_id, landing_page: { url }, brand_info?, operator_memo? }} payload
  * @param {string|{ apiKey?: string, provider?: string, model?: string }} optionsOrApiKey
  */
-export function reviewAdLp(payload, optionsOrApiKey) {
+export async function reviewAdLp(payload, optionsOrApiKey) {
   const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
-  return requestJson('/reviews/ad-lp', {
-    method: 'POST',
-    body: JSON.stringify({
-      ...payload,
-      ...(apiKey ? { api_key: apiKey } : {}),
-      ...(provider ? { provider } : {}),
-      ...(model ? { model } : {}),
-    }),
-    timeout: LONG_ANALYSIS_TIMEOUT,
-    direct: true,
+  const body = JSON.stringify({
+    ...payload,
+    ...(apiKey ? { api_key: apiKey } : {}),
+    ...(provider ? { provider } : {}),
+    ...(model ? { model } : {}),
   })
+
+  let lastError = null
+  for (let attempt = 0; attempt <= REVIEW_AUTO_RETRY_COUNT; attempt += 1) {
+    try {
+      return await requestJson('/reviews/ad-lp', {
+        method: 'POST',
+        body,
+        timeout: LONG_ANALYSIS_TIMEOUT,
+        direct: true,
+      })
+    } catch (error) {
+      lastError = error
+      if (!(attempt < REVIEW_AUTO_RETRY_COUNT && isReviewRetryableError(error))) break
+      await sleep(REVIEW_AUTO_RETRY_DELAY_MS)
+    }
+  }
+  throw lastError
 }
 
