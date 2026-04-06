@@ -238,16 +238,15 @@ export async function regenerateAdsReportBundle(setupState) {
     throw new Error('セットアップ条件が不足しています。')
   }
 
-  const results = []
-
-  for (const period of setupState.periods) {
-    const result = await generateBatchWithRetry({
-      query_types: setupState.queryTypes,
-      dataset_id: setupState.datasetId,
-      period,
-    })
-    results.push(result)
-  }
+  const results = await Promise.all(
+    setupState.periods.map(period =>
+      generateBatchWithRetry({
+        query_types: setupState.queryTypes,
+        dataset_id: setupState.datasetId,
+        period,
+      })
+    )
+  )
 
   return buildAdsReportBundle({ setupState, results })
 }

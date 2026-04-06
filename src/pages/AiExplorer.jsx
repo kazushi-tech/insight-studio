@@ -9,6 +9,7 @@ import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
 import {
   buildAiChartContext,
+  extractMarkdownSummary,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
@@ -51,7 +52,7 @@ function isAssistantMessage(message) {
 }
 
 function toConversationHistory(messages) {
-  return messages.slice(-10).map((message) => ({
+  return messages.slice(-6).map((message) => ({
     role: isAssistantMessage(message) ? 'assistant' : 'user',
     text:
       typeof message?.text === 'string' && message.text.length > 500
@@ -99,8 +100,13 @@ export default function AiExplorer() {
   const [mlStatus, setMlStatus] = useState('idle')
   const chatEndRef = useRef(null)
 
+  const draftTimerRef = useRef(null)
   useEffect(() => {
-    setDraft('ai-explorer', { messages: messages.slice(-50), contextMode })
+    clearTimeout(draftTimerRef.current)
+    draftTimerRef.current = setTimeout(() => {
+      setDraft('ai-explorer', { messages: messages.slice(-50), contextMode })
+    }, 500)
+    return () => clearTimeout(draftTimerRef.current)
   }, [messages, contextMode, setDraft])
 
   function handleFontSizeChange(size) {
@@ -199,6 +205,11 @@ export default function AiExplorer() {
           ? `${prompt}\n\n[補助コンテキスト: Market Lens]\n${mlContextSummary}`
           : prompt
 
+      const isFirstMessage = messages.length === 0
+      const packContext = isFirstMessage
+        ? reportBundle.reportMd
+        : extractMarkdownSummary(reportBundle.reportMd) || reportBundle.reportMd
+
       const data = await neonGenerate(
         {
           mode: 'question',
@@ -206,7 +217,7 @@ export default function AiExplorer() {
           provider: analysisProvider || 'anthropic',
           temperature: 0.7,
           message: enrichedPrompt,
-          point_pack_md: reportBundle.reportMd,
+          point_pack_md: packContext,
           style_reference: '',
           style_preset: 'mixed',
           data_source: 'bq',

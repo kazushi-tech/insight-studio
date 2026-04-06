@@ -19,8 +19,8 @@ const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
   ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
   : 'https://market-lens-ai.onrender.com/api'
 const LONG_ANALYSIS_TIMEOUT = 180000
-const DISCOVERY_AUTO_RETRY_COUNT = 1
-const DISCOVERY_AUTO_RETRY_DELAY_MS = 2500
+const DISCOVERY_AUTO_RETRY_COUNT = 2
+const DISCOVERY_AUTO_RETRY_DELAYS_MS = [1500, 4000]
 let _directBackendReady = false
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
@@ -254,7 +254,7 @@ async function requestDiscoveryAnalyzeWithRetry(payload) {
       if (!shouldRetry) break
 
       _directBackendReady = false
-      await sleep(DISCOVERY_AUTO_RETRY_DELAY_MS)
+      await sleep(DISCOVERY_AUTO_RETRY_DELAYS_MS[attempt] ?? 4000)
     }
   }
 
@@ -263,8 +263,8 @@ async function requestDiscoveryAnalyzeWithRetry(payload) {
 
 // ─── Creative Review auto-retry ──────────────────────────────
 
-const REVIEW_AUTO_RETRY_COUNT = 1
-const REVIEW_AUTO_RETRY_DELAY_MS = 2000
+const REVIEW_AUTO_RETRY_COUNT = 2
+const REVIEW_AUTO_RETRY_DELAYS_MS = [1500, 4000]
 
 function isReviewRetryableError(error) {
   const status = Number(error?.status || 0)
@@ -635,7 +635,7 @@ export async function reviewBanner(payload, optionsOrApiKey) {
     } catch (error) {
       lastError = error
       if (!(attempt < REVIEW_AUTO_RETRY_COUNT && isReviewRetryableError(error))) break
-      await sleep(REVIEW_AUTO_RETRY_DELAY_MS)
+      await sleep(REVIEW_AUTO_RETRY_DELAYS_MS[attempt] ?? 4000)
     }
   }
   throw lastError
@@ -667,7 +667,7 @@ export async function reviewAdLp(payload, optionsOrApiKey) {
     } catch (error) {
       lastError = error
       if (!(attempt < REVIEW_AUTO_RETRY_COUNT && isReviewRetryableError(error))) break
-      await sleep(REVIEW_AUTO_RETRY_DELAY_MS)
+      await sleep(REVIEW_AUTO_RETRY_DELAYS_MS[attempt] ?? 4000)
     }
   }
   throw lastError

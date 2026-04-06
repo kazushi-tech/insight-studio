@@ -6,7 +6,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 
-const POLL_INTERVAL_MS = 3000
+const POLL_INTERVAL_INITIAL_MS = 2000
+const POLL_INTERVAL_SLOW_MS = 5000
+const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_MAX_DURATION_MS = 5 * 60 * 1000 // 5 minutes absolute timeout
 
@@ -190,7 +192,7 @@ export default function Discovery() {
     const pollPath = options.pollPath || jobId
     const initialPollIntervalMs = Number(options.pollIntervalMs) > 0
       ? Number(options.pollIntervalMs)
-      : POLL_INTERVAL_MS
+      : POLL_INTERVAL_INITIAL_MS
 
     pollStoppedRef.current = false
     pollStartTimeRef.current = Date.now()
@@ -244,10 +246,14 @@ export default function Discovery() {
           return
         }
 
-        // Still running or queued — schedule next poll
+        // Still running or queued — schedule next poll with adaptive backoff
+        const elapsed = Date.now() - pollStartTimeRef.current
+        const baseInterval = elapsed > POLL_SLOWDOWN_AFTER_MS
+          ? POLL_INTERVAL_SLOW_MS
+          : POLL_INTERVAL_INITIAL_MS
         const nextPollIntervalMs = Number(data.retry_after_sec) > 0
           ? Number(data.retry_after_sec) * 1000
-          : initialPollIntervalMs
+          : baseInterval
         pollTimerRef.current = setTimeout(tick, nextPollIntervalMs)
       } catch (e) {
         pollErrorCountRef.current += 1
@@ -257,12 +263,16 @@ export default function Discovery() {
           failRun('discovery', e.message || 'ポーリング中にエラーが発生しました', info)
           return
         }
-        // Transient error — retry
-        pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
+        // Transient error — retry with adaptive interval
+        const elapsedOnError = Date.now() - pollStartTimeRef.current
+        const retryInterval = elapsedOnError > POLL_SLOWDOWN_AFTER_MS
+          ? POLL_INTERVAL_SLOW_MS
+          : POLL_INTERVAL_INITIAL_MS
+        pollTimerRef.current = setTimeout(tick, retryInterval)
       }
     }
 
-    pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
+    pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_INITIAL_MS)
   }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel])
 
   const handleDiscover = useCallback(async () => {
