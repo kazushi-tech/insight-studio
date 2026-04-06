@@ -72,6 +72,12 @@ function SetupGuard({ children }) {
   return children
 }
 
+function AuthGuard({ children }) {
+  const { isAuthenticated } = useRbac()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return children
+}
+
 function AdminGuard({ children }) {
   const { isAdmin } = useRbac()
   if (!isAdmin) return <Navigate to="/" replace />
@@ -93,8 +99,8 @@ export default function App() {
           <Route path="creative" element={<LpCreative />} />
           <Route path="discovery" element={<LpDiscovery />} />
         </Route>
-        {/* App pages */}
-        <Route element={<Layout />}>
+        {/* App pages — require login */}
+        <Route element={<AuthGuard><Layout /></AuthGuard>}>
           <Route index element={<Dashboard />} />
           <Route path="compare" element={<Compare />} />
           <Route path="discovery" element={<Discovery />} />

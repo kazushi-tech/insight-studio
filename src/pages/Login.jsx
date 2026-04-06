@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 // Dark theme tokens (isolated from app's light theme)
@@ -25,8 +25,11 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { loginWithEmail } = useAuth()
+  const { loginWithEmail, user } = useAuth()
   const navigate = useNavigate()
+
+  // Already logged in — go to home
+  if (user) return <Navigate to="/" replace />
 
   const handleSubmit = async (e) => {
     e.preventDefault()

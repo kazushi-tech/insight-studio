@@ -6,11 +6,12 @@ const RbacContext = createContext(null)
 export function RbacProvider({ children }) {
   const { user } = useAuth()
 
-  // RBAC未導入時（user=null）は全員admin扱い — Phase 1は誰でも見える
-  const isAdmin = !user || user.role === 'admin'
+  const isAuthenticated = !!user
+  const isAdmin = user?.role === 'admin'
   const isClient = user?.role === 'client'
 
   const value = useMemo(() => ({
+    isAuthenticated,
     isAdmin,
     isClient,
     user,
@@ -23,7 +24,7 @@ export function RbacProvider({ children }) {
       if (isClient) return user?.projectIds?.includes(projectId) ?? false
       return false
     },
-  }), [isAdmin, isClient, user])
+  }), [isAuthenticated, isAdmin, isClient, user])
 
   return <RbacContext.Provider value={value}>{children}</RbacContext.Provider>
 }

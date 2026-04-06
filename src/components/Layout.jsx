@@ -343,10 +343,7 @@ export default function Layout() {
   const { canManageProjects, isClient } = useRbac()
   const navigate = useNavigate()
 
-  // Client role requires login — redirect if not authenticated
-  if (isClient && !isAdsAuthenticated) {
-    return <Navigate to="/login" replace />
-  }
+  // Auth guard in App.jsx handles login redirect for all roles
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
   const handleCaseSelect = useCallback((caseInfo) => {
