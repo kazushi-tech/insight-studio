@@ -78,6 +78,12 @@ export function classifyError(error) {
     return { category: 'not_found', label: 'リソース未検出', guidance: '指定されたリソースまたはエンドポイントが見つかりません。', retryable: false }
   }
 
+  // LLM output parse/validation errors (retryable — transient formatting issue)
+  // NOTE: Must precede 422/400 check so that LLM parse errors arriving as 422 are not misclassified as input errors
+  if (msg.includes('llm output parse') || msg.includes('json parse error') || msg.includes('output validation failed')) {
+    return { category: 'upstream', label: 'AI出力解析エラー', guidance: 'AIの出力フォーマットが想定と異なりました。再試行してください。', retryable: true }
+  }
+
   // Invalid input (422, 400)
   if (status === 422 || status === 400) {
     return { category: 'invalid_input', label: '入力エラー', guidance: '入力内容またはリクエスト形式を確認してください。', retryable: false }
@@ -91,11 +97,6 @@ export function classifyError(error) {
   // Upstream / backend server error
   if (status === 500 || status === 502) {
     return { category: 'upstream', label: 'バックエンドエラー', guidance: 'サーバー側でエラーが発生しました。しばらく待って再試行してください。', retryable: true }
-  }
-
-  // LLM output parse/validation errors (retryable — transient formatting issue)
-  if (msg.includes('llm output parse') || msg.includes('json parse error') || msg.includes('output validation failed')) {
-    return { category: 'upstream', label: 'AI出力解析エラー', guidance: 'AIの出力フォーマットが想定と異なりました。再試行してください。', retryable: true }
   }
 
   // Generic fallback

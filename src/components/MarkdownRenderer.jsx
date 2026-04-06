@@ -55,6 +55,174 @@ function getColumnClass(header, cellIndex) {
   return 'min-w-[5.5rem]'
 }
 
+/* ── Axis Mapping Visual ── */
+
+function extractText(node) {
+  if (typeof node === 'string') return node
+  if (Array.isArray(node)) return node.map(extractText).join('')
+  if (node?.props?.children) return extractText(node.props.children)
+  return ''
+}
+
+function isAxisMappingBlock(text) {
+  return /【.+?】/.test(text) && /←[―─\-－—–]+→/.test(text)
+}
+
+function parseAxisMappings(text) {
+  const lines = text.split('\n')
+  const axes = []
+  let i = 0
+
+  while (i < lines.length) {
+    const trimmed = lines[i].trim()
+    const titleMatch = trimmed.match(/^【(.+?)】$/)
+
+    if (titleMatch) {
+      const title = titleMatch[1]
+      i++
+      while (i < lines.length && !lines[i].trim()) i++
+      if (i >= lines.length) break
+
+      const scaleLine = lines[i]
+      const scaleMatch = scaleLine.match(/(.+?)\s*←[―─\-－—–]+→\s*(.+)/)
+
+      if (scaleMatch) {
+        const leftLabel = scaleMatch[1].trim()
+        const rightLabel = scaleMatch[2].trim()
+        const arrowStart = scaleLine.indexOf('←')
+        const arrowEnd = scaleLine.indexOf('→')
+        const arrowSpan = Math.max(1, arrowEnd - arrowStart)
+        i++
+
+        const companies = []
+        const descriptions = []
+
+        while (i < lines.length) {
+          const line = lines[i]
+          if (!line.trim()) {
+            if (i + 1 < lines.length && lines[i + 1].trim().match(/^【/)) break
+            i++
+            continue
+          }
+          if (line.trim().match(/^【/)) break
+
+          const tokens = [...line.matchAll(/\S+/g)]
+          const allParens = tokens.length > 0 && tokens.every(t => /^[（(].+[）)]$/.test(t[0]))
+
+          if (allParens && companies.length > 0) {
+            for (const token of tokens) {
+              const center = token.index + token[0].length / 2
+              const pos = Math.max(0, Math.min(1, (center - arrowStart) / arrowSpan))
+              descriptions.push({ text: token[0].replace(/^[（(]|[）)]$/g, ''), position: pos })
+            }
+          } else {
+            for (const token of tokens) {
+              const center = token.index + token[0].length / 2
+              const pos = Math.max(0, Math.min(1, (center - arrowStart) / arrowSpan))
+              companies.push({ name: token[0], position: pos })
+            }
+          }
+          i++
+        }
+
+        for (const comp of companies) {
+          const closest = descriptions.reduce((best, d) =>
+            (!best || Math.abs(d.position - comp.position) < Math.abs(best.position - comp.position)) ? d : best
+          , null)
+          if (closest && Math.abs(closest.position - comp.position) < 0.2) {
+            comp.description = closest.text
+          }
+        }
+
+        axes.push({ title, leftLabel, rightLabel, companies })
+      } else {
+        i++
+      }
+    } else {
+      i++
+    }
+  }
+
+  return axes
+}
+
+const AXIS_PALETTE = [
+  { dot: '#6366F1', bg: '#EEF2FF', text: '#4338CA' },
+  { dot: '#D4A843', bg: '#FEF9EE', text: '#92710E' },
+  { dot: '#0D9488', bg: '#F0FDFA', text: '#0F766E' },
+  { dot: '#E11D48', bg: '#FFF1F2', text: '#BE123C' },
+  { dot: '#7C3AED', bg: '#F5F3FF', text: '#6D28D9' },
+  { dot: '#EA580C', bg: '#FFF7ED', text: '#C2410C' },
+]
+
+function AxisMappingChart({ axes }) {
+  const allCompanies = [...new Set(axes.flatMap(a => a.companies.map(c => c.name)))]
+  const colorOf = name => AXIS_PALETTE[allCompanies.indexOf(name) % AXIS_PALETTE.length]
+
+  return (
+    <div className="space-y-3 my-4">
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-5 gap-y-1.5 px-2 mb-1">
+        {allCompanies.map((name) => {
+          const c = colorOf(name)
+          return (
+            <span key={name} className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: c.text }}>
+              <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: c.dot }} />
+              {name}
+            </span>
+          )
+        })}
+      </div>
+
+      {/* Axis rows */}
+      {axes.map((axis, i) => (
+        <div key={i} className="rounded-xl bg-surface-container-lowest/60 border border-outline-variant/8 px-5 pt-3 pb-10">
+          <div className="text-xs font-bold text-on-surface/80 mb-6 tracking-wide">{axis.title}</div>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] text-on-surface-variant/70 min-w-[4rem] text-right shrink-0 leading-tight font-medium">
+              {axis.leftLabel}
+            </span>
+            <div className="relative flex-1 h-[3px] rounded-full bg-gradient-to-r from-outline-variant/15 via-outline-variant/25 to-outline-variant/15">
+              {axis.companies.map((comp, j) => {
+                const c = colorOf(comp.name)
+                const leftPct = Math.max(3, Math.min(97, comp.position * 100))
+                const isBelow = j % 2 === 1
+                return (
+                  <div key={j} className="absolute" style={{ left: `${leftPct}%`, top: '50%', transform: 'translate(-50%, -50%)' }}>
+                    <div
+                      className="w-[14px] h-[14px] rounded-full border-[2.5px] shadow-sm"
+                      style={{ backgroundColor: c.dot, borderColor: 'white' }}
+                    />
+                    <div
+                      className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold px-2 py-0.5 rounded-lg shadow-sm"
+                      style={{
+                        backgroundColor: c.bg,
+                        color: c.text,
+                        top: isBelow ? '1.1rem' : undefined,
+                        bottom: isBelow ? undefined : '1.1rem',
+                      }}
+                    >
+                      {comp.name}
+                      {comp.description && (
+                        <span className="font-normal opacity-60 ml-0.5 text-[9px]">({comp.description})</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <span className="text-[11px] text-on-surface-variant/70 min-w-[4rem] shrink-0 leading-tight font-medium">
+              {axis.rightLabel}
+            </span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ── End Axis Mapping Visual ── */
+
 function makeHeadingId(text) {
   const base = 'toc-' + String(text).replace(/[^\w\u3000-\u9fff]/g, '-').toLowerCase()
   return `${base}-${Math.random().toString(36).slice(2, 6)}`
@@ -197,11 +365,20 @@ function getComponents(size = 'normal', variant = null) {
         <code className={`px-1.5 py-0.5 rounded bg-surface-container ${preset.code}`}>{children}</code>
       )
     },
-    pre: ({ children }) => (
-      <pre className={`overflow-x-auto rounded-[0.75rem] bg-surface-container p-4 ${preset.pre} text-on-surface-variant`}>
-        {children}
-      </pre>
-    ),
+    pre: ({ children }) => {
+      if (isDiscovery) {
+        const text = extractText(children)
+        if (isAxisMappingBlock(text)) {
+          const axes = parseAxisMappings(text)
+          if (axes.length > 0) return <AxisMappingChart axes={axes} />
+        }
+      }
+      return (
+        <pre className={`overflow-x-auto rounded-[0.75rem] bg-surface-container p-4 ${preset.pre} text-on-surface-variant`}>
+          {children}
+        </pre>
+      )
+    },
     blockquote: ({ children }) => (
       <blockquote className={`border-l-3 border-secondary/50 bg-surface-container-low/50 pl-4 pr-3 py-3 rounded-r-[0.5rem] ${preset.quote} text-on-surface-variant italic`}>
         {children}
