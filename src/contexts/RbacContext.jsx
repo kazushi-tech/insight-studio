@@ -6,7 +6,8 @@ const RbacContext = createContext(null)
 export function RbacProvider({ children }) {
   const { user } = useAuth()
 
-  const isAdmin = user?.role === 'admin'
+  // RBAC未導入時（user=null）は全員admin扱い — Phase 1は誰でも見える
+  const isAdmin = !user || user.role === 'admin'
   const isClient = user?.role === 'client'
 
   const value = useMemo(() => ({
@@ -16,8 +17,7 @@ export function RbacProvider({ children }) {
     canManageProjects: isAdmin,
     canViewAllProjects: isAdmin,
     canInviteClients: isAdmin,
-    // client sees only own projects; admin sees all
-    visibleProjects: null, // populated by API call with role filter
+    visibleProjects: null,
     canAccessProject(projectId) {
       if (isAdmin) return true
       if (isClient) return user?.projectIds?.includes(projectId) ?? false
