@@ -210,6 +210,10 @@ export function AdsSetupProvider({ children }) {
     setSetupState(state)
     setReportBundle(nextReportBundle)
     saveState(state, currentCase?.case_id)
+    // Setup completion implies the current case is authenticated
+    // (data was successfully fetched from backend during wizard)
+    setIsCaseAuthenticated(true)
+    localStorage.setItem(CASE_AUTH_KEY, 'true')
   }, [currentCase?.case_id, getCurrentDatasetId])
 
   return (
