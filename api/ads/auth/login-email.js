@@ -1,5 +1,16 @@
-import { createHash } from 'node:crypto'
-import jwt from 'jsonwebtoken'
+import { createHash, createHmac } from 'node:crypto'
+
+function signJwt(payload, secret) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const now = Math.floor(Date.now() / 1000)
+  const body = Buffer.from(
+    JSON.stringify({ ...payload, iat: now, exp: now + 7 * 24 * 60 * 60 }),
+  ).toString('base64url')
+  const signature = createHmac('sha256', secret)
+    .update(`${header}.${body}`)
+    .digest('base64url')
+  return `${header}.${body}.${signature}`
+}
 
 export default function handler(req, res) {
   if (req.method !== 'POST') {
@@ -32,10 +43,9 @@ export default function handler(req, res) {
     return res.status(401).json({ error: 'Invalid email or password' })
   }
 
-  const token = jwt.sign(
+  const token = signJwt(
     { user_id: matched.user_id, email: matched.email, role: matched.role },
     jwtSecret,
-    { expiresIn: '7d' },
   )
 
   return res.status(200).json({
