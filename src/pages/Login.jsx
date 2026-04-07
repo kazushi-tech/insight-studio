@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getCasesPublic, loginCase } from '../api/adsInsights'
 
 // Dark theme tokens (isolated from app's light theme)
 const DK = {
@@ -20,30 +21,62 @@ const DK = {
 }
 
 export default function Login() {
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { loginWithEmail, user } = useAuth()
-  const navigate = useNavigate()
+  const { loginWithEmail, loginWithCase, user } = useAuth()
+
+  // Prefetch active cases for parallel login attempts
+  const [activeCases, setActiveCases] = useState([])
+  useEffect(() => {
+    getCasesPublic()
+      .then((cases) => setActiveCases(Array.isArray(cases) ? cases : []))
+      .catch(() => setActiveCases([]))
+  }, [])
 
   // Already logged in — go to home
   if (user) return <Navigate to="/" replace />
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email || !password) {
-      setError('メールアドレスとパスワードを入力してください')
+    if (!password) {
+      setError('パスワードを入力してください')
       return
     }
     setLoading(true)
     setError('')
     try {
-      await loginWithEmail(email, password)
-      navigate('/', { replace: true })
-    } catch (err) {
-      setError(err.message || 'ログインに失敗しました')
+      // Admin + all cases in parallel
+      const adminPromise = loginWithEmail('admin', password)
+        .then((r) => ({ type: 'admin', data: r }))
+        .catch(() => null)
+
+      const casePromises = activeCases.map((c) =>
+        loginCase(c.case_id || c.id, password)
+          .then((r) => ({ type: 'case', data: r }))
+          .catch(() => null)
+      )
+
+      const results = await Promise.all([adminPromise, ...casePromises])
+
+      // Admin password matched
+      if (results[0]?.type === 'admin') {
+        // Already handled by loginWithEmail in AuthContext
+        return
+      }
+
+      // Case password matched
+      const matched = results.find((r) => r?.type === 'case')
+      if (matched) {
+        loginWithCase(matched.data)
+        return
+      }
+
+      // Nothing matched
+      setError('パスワードが正しくありません')
+    } catch {
+      setError('ログインに失敗しました')
     } finally {
       setLoading(false)
     }
@@ -113,39 +146,6 @@ export default function Login() {
           )}
 
           <form className="w-full space-y-6" onSubmit={handleSubmit}>
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label
-                className="block text-xs font-semibold ml-1"
-                style={{ color: DK.textMuted }}
-              >
-                メールアドレス
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors"
-                  style={{ color: DK.textMuted }}
-                >
-                  <span className="material-symbols-outlined text-[20px]">mail</span>
-                </div>
-                <input
-                  type="email"
-                  placeholder="example@insight.studio"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError('') }}
-                  disabled={loading}
-                  className="w-full h-12 pl-12 pr-4 border-none rounded-xl transition-all duration-200 outline-none"
-                  style={{
-                    backgroundColor: DK.input,
-                    color: DK.text,
-                    border: inputRing,
-                    '--tw-ring-color': DK.ring,
-                  }}
-                  onFocus={(e) => { e.target.style.boxShadow = inputRingFocus; e.target.style.backgroundColor = DK.inputFocus }}
-                  onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = DK.input }}
-                />
-              </div>
-            </div>
-
             {/* Password Field */}
             <div className="space-y-2">
               <label
@@ -166,6 +166,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError('') }}
                   disabled={loading}
+                  autoFocus
                   className="w-full h-12 pl-12 pr-12 border-none rounded-xl transition-all duration-200 outline-none"
                   style={{
                     backgroundColor: DK.input,

@@ -82,6 +82,24 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  // Case login — パスワード1つで案件にログイン
+  const handleLoginWithCase = useCallback((caseResult) => {
+    // caseResult = { case_id, name, dataset_id, token? }
+    if (caseResult.token) {
+      setAdsToken(caseResult.token)
+      setToken(caseResult.token)
+      localStorage.setItem(STORAGE_KEY_TOKEN, caseResult.token)
+    }
+    const userData = {
+      role: 'case_user',
+      case_id: caseResult.case_id,
+      display_name: caseResult.name || caseResult.case_id,
+      dataset_id: caseResult.dataset_id,
+    }
+    setUser(userData)
+    localStorage.setItem('is_user', JSON.stringify(userData))
+  }, [])
+
   const onAdsLogout = useCallback((cb) => {
     onLogoutCallbacksRef.current.add(cb)
     return () => onLogoutCallbacksRef.current.delete(cb)
@@ -152,6 +170,7 @@ export function AuthProvider({ children }) {
     // RBAC
     user,
     loginWithEmail: handleLoginWithEmail,
+    loginWithCase: handleLoginWithCase,
     // Token refresh
     refreshTokenIfNeeded,
   }

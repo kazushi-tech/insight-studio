@@ -205,6 +205,11 @@ export function getCases() {
   return request('/cases', { suppressAuthErrorHandler: true })
 }
 
+/** GET /api/cases — 案件一覧（認証なし・ログイン画面用） */
+export function getCasesPublic() {
+  return request('/cases', { skipAuth: true, suppressAuthErrorHandler: true })
+}
+
 /** POST /api/cases/login — 案件認証 */
 export async function loginCase(caseId, password) {
   const data = await request('/cases/login', {

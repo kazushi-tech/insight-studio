@@ -73,14 +73,25 @@ function SetupGuard({ children }) {
 }
 
 function AuthGuard({ children }) {
-  const { isAuthenticated } = useRbac()
+  const { isAuthenticated, isCaseUser } = useRbac()
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  // Case users default to ads wizard
+  if (isCaseUser && window.location.pathname === '/') {
+    return <Navigate to="/ads/wizard" replace />
+  }
   return children
 }
 
 function AdminGuard({ children }) {
   const { isAdmin } = useRbac()
   if (!isAdmin) return <Navigate to="/" replace />
+  return children
+}
+
+/** Guard that blocks case_user from admin/general pages */
+function NonCaseGuard({ children }) {
+  const { isCaseUser } = useRbac()
+  if (isCaseUser) return <Navigate to="/ads/wizard" replace />
   return children
 }
 
@@ -102,16 +113,16 @@ export default function App() {
         {/* App pages — require login */}
         <Route element={<AuthGuard><Layout /></AuthGuard>}>
           <Route index element={<Dashboard />} />
-          <Route path="compare" element={<Compare />} />
-          <Route path="discovery" element={<Discovery />} />
-          <Route path="creative-review" element={<CreativeReview />} />
+          <Route path="compare" element={<NonCaseGuard><Compare /></NonCaseGuard>} />
+          <Route path="discovery" element={<NonCaseGuard><Discovery /></NonCaseGuard>} />
+          <Route path="creative-review" element={<NonCaseGuard><CreativeReview /></NonCaseGuard>} />
           <Route path="ads/wizard" element={<SetupWizard />} />
           <Route path="ads/pack" element={<SetupGuard><EssentialPack /></SetupGuard>} />
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
           <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
           <Route path="cases" element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<AdminGuard><ProjectManagement /></AdminGuard>} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="settings" element={<NonCaseGuard><Settings /></NonCaseGuard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

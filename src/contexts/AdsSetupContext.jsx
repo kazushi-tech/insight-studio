@@ -116,7 +116,7 @@ function migrateLegacyStorage() {
 }
 
 export function AdsSetupProvider({ children }) {
-  const { onAdsLogout, syncTokenFromApi } = useAuth()
+  const { onAdsLogout, syncTokenFromApi, user } = useAuth()
   const [currentCase, setCurrentCase] = useState(() => {
     try {
       const saved = localStorage.getItem(CASE_STORAGE_KEY)
@@ -129,11 +129,26 @@ export function AdsSetupProvider({ children }) {
     return localStorage.getItem(CASE_AUTH_KEY) === 'true'
   })
 
+  // Auto-set case for case_user login
+  useEffect(() => {
+    if (user?.role === 'case_user' && user.case_id) {
+      const caseInfo = {
+        case_id: user.case_id,
+        name: user.display_name || user.case_id,
+        dataset_id: user.dataset_id,
+      }
+      setCurrentCase(caseInfo)
+      setIsCaseAuthenticated(true)
+      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
+      localStorage.setItem(CASE_AUTH_KEY, 'true')
+    }
+  }, [user?.role, user?.case_id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Run legacy migration on first mount
   useEffect(() => {
     migrateLegacyStorage()
-    // If no case is set, auto-select petabit (パスワード未入力なので isCaseAuthenticated は false のまま)
-    if (!currentCase) {
+    // If no case is set and not a case_user, auto-select petabit
+    if (!currentCase && user?.role !== 'case_user') {
       const petabitCase = { case_id: 'petabit', name: 'ペタビット', dataset_id: 'analytics_311324674' }
       setCurrentCase(petabitCase)
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))

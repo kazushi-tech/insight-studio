@@ -9,11 +9,13 @@ export function RbacProvider({ children }) {
   const isAuthenticated = !!user
   const isAdmin = user?.role === 'admin'
   const isClient = user?.role === 'client'
+  const isCaseUser = user?.role === 'case_user'
 
   const value = useMemo(() => ({
     isAuthenticated,
     isAdmin,
     isClient,
+    isCaseUser,
     user,
     canManageProjects: isAdmin,
     canViewAllProjects: isAdmin,
@@ -22,9 +24,10 @@ export function RbacProvider({ children }) {
     canAccessProject(projectId) {
       if (isAdmin) return true
       if (isClient) return user?.projectIds?.includes(projectId) ?? false
+      if (isCaseUser) return user?.case_id === projectId
       return false
     },
-  }), [isAuthenticated, isAdmin, isClient, user])
+  }), [isAuthenticated, isAdmin, isClient, isCaseUser, user])
 
   return <RbacContext.Provider value={value}>{children}</RbacContext.Provider>
 }

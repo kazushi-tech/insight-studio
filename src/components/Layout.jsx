@@ -336,11 +336,11 @@ export default function Layout() {
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedCase, setSelectedCase] = useState(null)
-  const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
+  const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
-  const { canManageProjects, isClient } = useRbac()
+  const { canManageProjects, isClient, isCaseUser } = useRbac()
   const navigate = useNavigate()
 
   // Auth guard in App.jsx handles login redirect for all roles
@@ -460,6 +460,11 @@ export default function Layout() {
         <nav className="flex flex-col gap-0.5 flex-1">
           {NAV_ITEMS
             .filter((item) => !item.adminOnly || canManageProjects)
+            .filter((item) => {
+              if (!isCaseUser) return true
+              // Case users only see 広告考察
+              return item.label === '広告考察'
+            })
             .map((item) =>
             item.children ? (
               <SidebarGroup key={item.label} item={item} disabledPaths={disabledPaths} />
@@ -549,7 +554,14 @@ export default function Layout() {
         {/* Top Header */}
         <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface/90 backdrop-blur-md border-b border-outline-variant/10">
           <div className="flex-1">
-            <CaseSelector onCaseSelect={handleCaseSelect} />
+            {isCaseUser ? (
+              <div className="flex items-center gap-2 text-on-surface font-bold">
+                <span className="material-symbols-outlined text-secondary">folder</span>
+                {authUser?.display_name || '案件'}
+              </div>
+            ) : (
+              <CaseSelector onCaseSelect={handleCaseSelect} />
+            )}
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
