@@ -446,7 +446,13 @@ async function requestJson(path, options = {}) {
  * multipart/form-data などブラウザに任せたい場合に使う。
  */
 async function requestRaw(path, options = {}) {
-  const { timeout = 60000, ...restOptions } = options
+  const { timeout = 60000, direct = false, ...restOptions } = options
+
+  let baseUrl = BASE
+  if (direct && !SHOULD_FORCE_PROXY) {
+    await ensureDirectBackend()
+    baseUrl = DIRECT_BACKEND_BASE
+  }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -454,7 +460,7 @@ async function requestRaw(path, options = {}) {
   let res
   try {
     const headers = await buildRequestHeaders(restOptions.headers)
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${baseUrl}${path}`, {
       headers,
       ...restOptions,
       signal: controller.signal,
@@ -595,6 +601,8 @@ export function uploadCreativeAsset(file) {
   return requestRaw('/assets', {
     method: 'POST',
     body: formData,
+    direct: true,
+    timeout: 30000,
   })
 }
 

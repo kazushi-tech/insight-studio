@@ -1,4 +1,5 @@
 const BASE = '/api/ads'
+const ADS_DIRECT_BASE = 'https://ads-insights-9q5s.onrender.com/api'
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 
@@ -55,6 +56,7 @@ function isUnauthorizedErrorPayload(body) {
 
 async function request(path, options = {}) {
   const {
+    direct = false,
     skipAuth = false,
     suppressAuthErrorHandler = false,
     headers: customHeaders = {},
@@ -69,12 +71,14 @@ async function request(path, options = {}) {
 
   const didSendAuth = Boolean(headers.get('Authorization'))
 
+  const base = direct ? ADS_DIRECT_BASE : BASE
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
 
   let res
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${base}${path}`, {
       ...fetchOptions,
       headers,
       signal: controller.signal,
@@ -184,6 +188,7 @@ export function neonGenerate(payload, apiKey) {
     headers,
     body: JSON.stringify(body),
     timeout: 120000,
+    direct: true,
   })
 }
 

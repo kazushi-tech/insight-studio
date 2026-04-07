@@ -210,23 +210,45 @@ export default function AiExplorer() {
         ? reportBundle.reportMd
         : extractMarkdownSummary(reportBundle.reportMd) || reportBundle.reportMd
 
-      const data = await neonGenerate(
-        {
-          mode: 'question',
-          model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
-          provider: analysisProvider || 'anthropic',
-          temperature: 0.7,
-          message: enrichedPrompt,
-          point_pack_md: packContext,
-          style_reference: '',
-          style_preset: 'mixed',
-          data_source: 'bq',
-          bq_query_types: setupState?.queryTypes ?? [],
-          conversation_history: toConversationHistory(nextMessages),
-          ai_chart_context: chartContext,
-        },
-        analysisKey,
-      )
+      const neonPayload = {
+        mode: 'question',
+        model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
+        provider: analysisProvider || 'anthropic',
+        temperature: 0.7,
+        message: enrichedPrompt,
+        point_pack_md: packContext,
+        style_reference: '',
+        style_preset: 'mixed',
+        data_source: 'bq',
+        bq_query_types: setupState?.queryTypes ?? [],
+        conversation_history: toConversationHistory(nextMessages),
+        ai_chart_context: chartContext,
+      }
+
+      const MAX_RETRIES = 2
+      const RETRY_DELAYS = [1500, 4000]
+      let data = null
+      let lastError = null
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            setStatus(`リトライ中 (${attempt}/${MAX_RETRIES})...`)
+            await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]))
+          }
+          data = await neonGenerate(neonPayload, analysisKey)
+          break
+        } catch (err) {
+          lastError = err
+          const retryable =
+            err.message?.includes('timeout') ||
+            err.message?.includes('タイムアウト') ||
+            [500, 502, 503].includes(err.status)
+          if (!retryable || attempt === MAX_RETRIES) {
+            throw err
+          }
+        }
+      }
 
       const normalized = normalizeAdsPayload(data)
       if (data?.ok === false || normalized?.ok === false) {

@@ -343,6 +343,12 @@ export default function Layout() {
   const { canManageProjects, isClient, isCaseUser } = useRbac()
   const navigate = useNavigate()
 
+  // Pre-warm backends (fire-and-forget) to avoid cold-start delays
+  useEffect(() => {
+    fetch('https://market-lens-ai.onrender.com/api/health').catch(() => {})
+    fetch('https://ads-insights-9q5s.onrender.com/api/health').catch(() => {})
+  }, [])
+
   // Auth guard in App.jsx handles login redirect for all roles
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
 
