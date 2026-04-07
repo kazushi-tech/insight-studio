@@ -55,6 +55,7 @@ export default function handler(req, res) {
       email: matched.email,
       role: matched.role,
       display_name: matched.display_name,
+      projectIds: matched.project_ids || [],
     },
   })
 }
