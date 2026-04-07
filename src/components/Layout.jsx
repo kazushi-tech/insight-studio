@@ -338,7 +338,7 @@ export default function Layout() {
   const [selectedCase, setSelectedCase] = useState(null)
   const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated } = useAuth()
   const { isDark, toggleTheme } = useTheme()
-  const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase } = useAdsSetup()
+  const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
   const { canManageProjects, isClient } = useRbac()
   const navigate = useNavigate()
@@ -348,13 +348,20 @@ export default function Layout() {
 
   const handleCaseSelect = useCallback((caseInfo) => {
     if (caseInfo === null) {
-      // Clear case selection
       clearCase()
       return
     }
-    setSelectedCase(caseInfo)
-    setShowAuthModal(true)
-  }, [clearCase])
+    if (canManageProjects) {
+      selectCase({
+        case_id: caseInfo.case_id || caseInfo.id,
+        name: caseInfo.name,
+        dataset_id: caseInfo.dataset_id,
+      })
+    } else {
+      setSelectedCase(caseInfo)
+      setShowAuthModal(true)
+    }
+  }, [clearCase, canManageProjects, selectCase])
 
   const handleCaseAuthenticate = useCallback(async (caseId, password) => {
     await authenticateCase(caseId, password)
