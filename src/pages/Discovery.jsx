@@ -22,6 +22,35 @@ const STAGE_LABELS = {
   complete: '完了',
 }
 
+// Typical duration per stage (seconds) — used for estimated remaining time
+const STAGE_TYPICAL_SEC = {
+  queued: 2,
+  brand_fetch: 5,
+  classify_industry: 5,
+  search: 20,
+  fetch_competitors: 15,
+  analyze: 90,
+}
+const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
+
+function estimateRemaining(currentStage, elapsedMs) {
+  const idx = STAGE_ORDER.indexOf(currentStage)
+  if (idx < 0) return null
+  // sum typical seconds for remaining stages (including current stage's remaining portion)
+  const elapsedSec = (elapsedMs || 0) / 1000
+  const currentTypical = STAGE_TYPICAL_SEC[currentStage] || 10
+  const currentRemaining = Math.max(0, currentTypical - elapsedSec * 0.3) // rough heuristic
+  let total = currentRemaining
+  for (let i = idx + 1; i < STAGE_ORDER.length; i++) {
+    total += STAGE_TYPICAL_SEC[STAGE_ORDER[i]] || 10
+  }
+  const rounded = Math.ceil(total / 10) * 10 // round up to nearest 10s
+  if (rounded < 10) return '残り約10秒'
+  if (rounded < 60) return `残り約${rounded}秒`
+  const min = Math.ceil(rounded / 60)
+  return `残り約${min}分`
+}
+
 function formatElapsed(ms) {
   if (!ms) return null
   const sec = Math.round(ms / 1000)
@@ -32,12 +61,14 @@ function MetaBand({ run }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
+  const runningElapsed = run.startedAt && run.status === 'running' ? Date.now() - run.startedAt : null
   const fallbackCount = Array.isArray(result?.fetched_sites)
     ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
     : 0
   const stage = run.meta?.stage
   const progressPct = run.meta?.progress_pct
   const stageLabel = stage ? STAGE_LABELS[stage] || stage : null
+  const remaining = run.status === 'running' && stage ? estimateRemaining(stage, runningElapsed) : null
 
   return (
     <div className="space-y-2">
@@ -51,6 +82,9 @@ function MetaBand({ run }) {
           }`} />
           {run.status === 'running' ? (stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
         </span>
+        {remaining && (
+          <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-bold">{remaining}</span>
+        )}
         {result?.search_id && <span className="text-outline font-mono">search: {result.search_id}</span>}
         {result?.industry && (
           <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
@@ -204,9 +238,11 @@ export default function Discovery() {
       // Guard: absolute timeout
       if (Date.now() - pollStartTimeRef.current > POLL_MAX_DURATION_MS) {
         stopPolling()
-        failRun('discovery', '分析がタイムアウトしました（5分）。再試行してください。', {
+        const lastStage = run?.meta?.stage
+        const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
+        failRun('discovery', `分析がタイムアウトしました（5分）${stageHint}。再試行してください。`, {
           category: 'timeout', label: 'タイムアウト',
-          guidance: '分析に時間がかかりすぎています。再試行してください。', retryable: true,
+          guidance: `分析に時間がかかりすぎています${stageHint}。再試行してください。`, retryable: true,
         })
         return
       }
@@ -215,9 +251,18 @@ export default function Discovery() {
         const data = await getDiscoveryJob(pollPath)
         pollErrorCountRef.current = 0
 
+        // Pseudo-progress: during analyze stage, increment 90→99% based on elapsed time
+        let displayProgress = data.progress_pct
+        if (data.stage === 'analyze' && displayProgress != null) {
+          const analyzeElapsed = (Date.now() - pollStartTimeRef.current) / 1000
+          // Increment ~1% every 5 seconds, capped at 99%
+          const bonus = Math.min(9, Math.floor(analyzeElapsed / 5))
+          displayProgress = Math.min(99, Math.max(displayProgress, 90 + bonus))
+        }
+
         updateRunMeta('discovery', {
           stage: data.stage,
-          progress_pct: data.progress_pct,
+          progress_pct: displayProgress,
           message: data.message,
           jobId,
           pollUrl: pollPath,
@@ -294,12 +339,12 @@ export default function Discovery() {
         progress_pct: 0,
         providerLabel,
         pollUrl: data.poll_url,
-        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_MS,
+        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_INITIAL_MS,
       })
 
       pollJob(data.job_id, {
         pollPath: data.poll_url,
-        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_MS,
+        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_INITIAL_MS,
       })
     } catch (e) {
       const info = classifyError(e)
