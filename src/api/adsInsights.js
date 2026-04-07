@@ -3,6 +3,35 @@ const ADS_DIRECT_BASE = 'https://ads-insights-9q5s.onrender.com/api'
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 
+// --- direct バックエンド準備 ---
+const isLocalOrigin = () => {
+  try {
+    const h = window.location.hostname
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'
+  } catch { return false }
+}
+const SHOULD_FORCE_PROXY = isLocalOrigin()
+let _directReady = false
+
+async function ensureDirectAdsBackend() {
+  if (_directReady) return true
+  const RETRY_DELAYS = [0, 5000, 10000]
+  for (const delay of RETRY_DELAYS) {
+    try {
+      if (delay) await new Promise(r => setTimeout(r, delay))
+      const res = await fetch(`${ADS_DIRECT_BASE}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(30000),
+      })
+      if (res.ok) {
+        _directReady = true
+        return true
+      }
+    } catch { /* retry */ }
+  }
+  return false
+}
+
 let authToken = null
 let onAuthError = null
 
@@ -71,7 +100,11 @@ async function request(path, options = {}) {
 
   const didSendAuth = Boolean(headers.get('Authorization'))
 
-  const base = direct ? ADS_DIRECT_BASE : BASE
+  let base = BASE
+  if (direct && !SHOULD_FORCE_PROXY) {
+    const ready = await ensureDirectAdsBackend()
+    base = ready ? ADS_DIRECT_BASE : BASE  // フォールバック
+  }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -85,6 +118,10 @@ async function request(path, options = {}) {
     })
   } catch (e) {
     clearTimeout(timeoutId)
+    // CORS やネットワークエラーで direct フラグをリセット
+    if (direct && e.name !== 'AbortError') {
+      _directReady = false
+    }
     if (e.name === 'AbortError') {
       const sec = Math.round(timeout / 1000)
       throw new Error(

@@ -99,6 +99,14 @@ export default function AiExplorer() {
   const [mlLoading, setMlLoading] = useState(false)
   const [mlStatus, setMlStatus] = useState('idle')
   const chatEndRef = useRef(null)
+  const abortRef = useRef(null)
+
+  // アンマウント時にリトライ中のリクエストをキャンセル
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort()
+    }
+  }, [])
 
   const draftTimerRef = useRef(null)
   useEffect(() => {
@@ -225,20 +233,31 @@ export default function AiExplorer() {
         ai_chart_context: chartContext,
       }
 
+      const controller = new AbortController()
+      abortRef.current = controller
+
       const MAX_RETRIES = 2
       const RETRY_DELAYS = [1500, 4000]
       let data = null
       let lastError = null
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (controller.signal.aborted) return
         try {
           if (attempt > 0) {
             setStatus(`リトライ中 (${attempt}/${MAX_RETRIES})...`)
-            await new Promise((r) => setTimeout(r, RETRY_DELAYS[attempt - 1]))
+            await new Promise((resolve, reject) => {
+              const id = setTimeout(resolve, RETRY_DELAYS[attempt - 1])
+              controller.signal.addEventListener('abort', () => {
+                clearTimeout(id)
+                reject(new DOMException('Aborted', 'AbortError'))
+              }, { once: true })
+            })
           }
           data = await neonGenerate(neonPayload, analysisKey)
           break
         } catch (err) {
+          if (err.name === 'AbortError') return
           lastError = err
           const retryable =
             err.message?.includes('timeout') ||
