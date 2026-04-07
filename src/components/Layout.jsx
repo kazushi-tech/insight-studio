@@ -336,7 +336,7 @@ export default function Layout() {
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedCase, setSelectedCase] = useState(null)
-  const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated, user: authUser } = useAuth()
+  const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
@@ -460,11 +460,6 @@ export default function Layout() {
         <nav className="flex flex-col gap-0.5 flex-1">
           {NAV_ITEMS
             .filter((item) => !item.adminOnly || canManageProjects)
-            .filter((item) => {
-              if (!isCaseUser) return true
-              // Case users only see 広告考察
-              return item.label === '広告考察'
-            })
             .map((item) =>
             item.children ? (
               <SidebarGroup key={item.label} item={item} disabledPaths={disabledPaths} />
@@ -604,6 +599,14 @@ export default function Layout() {
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container">
                 {avatarInitial}
               </div>
+              <button
+                onClick={logoutAds}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                title="ログアウト"
+                aria-label="ログアウト"
+              >
+                <span className="material-symbols-outlined">logout</span>
+              </button>
             </div>
           </div>
         </header>

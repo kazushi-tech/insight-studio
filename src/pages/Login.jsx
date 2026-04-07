@@ -35,8 +35,10 @@ export default function Login() {
       .catch(() => setActiveCases([]))
   }, [])
 
-  // Already logged in — go to home
-  if (user) return <Navigate to="/" replace />
+  // Already logged in — case_user は直接 wizard へ、admin はホームへ
+  if (user) {
+    return <Navigate to={user.role === 'case_user' ? '/ads/wizard' : '/'} replace />
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
