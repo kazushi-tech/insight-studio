@@ -51,6 +51,9 @@ export function AuthProvider({ children }) {
       const data = await adsLogin(password)
       setAdsToken(data.token)
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token)
+      const userData = { role: 'admin', display_name: 'オペレーター' }
+      setUser(userData)
+      localStorage.setItem('is_user', JSON.stringify(userData))
       return data
     } catch (e) {
       setError(e.message)

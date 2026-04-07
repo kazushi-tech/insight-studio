@@ -25,13 +25,13 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { loginWithEmail, loginWithCase, user } = useAuth()
+  const { loginAds, loginWithCase, user } = useAuth()
 
   // Prefetch active cases for parallel login attempts
   const [activeCases, setActiveCases] = useState([])
   useEffect(() => {
     getCasesPublic()
-      .then((cases) => setActiveCases(Array.isArray(cases) ? cases : []))
+      .then((data) => setActiveCases(data.cases || (Array.isArray(data) ? data : [])))
       .catch(() => setActiveCases([]))
   }, [])
 
@@ -48,7 +48,7 @@ export default function Login() {
     setError('')
     try {
       // Admin + all cases in parallel
-      const adminPromise = loginWithEmail('admin', password)
+      const adminPromise = loginAds(password)
         .then((r) => ({ type: 'admin', data: r }))
         .catch(() => null)
 
