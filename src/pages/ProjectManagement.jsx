@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRbac } from '../contexts/RbacContext'
 import { useAuth } from '../contexts/AuthContext'
-import { getCases, getCaseBqStatus } from '../api/adsInsights'
+import { getCases, getCaseBqStatus, updateCase } from '../api/adsInsights'
 import ProjectTable from '../components/ProjectTable'
 import ProjectFormModal from '../components/ProjectFormModal'
 import InviteModal from '../components/InviteModal'
@@ -15,6 +15,8 @@ export default function ProjectManagement() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [bqStatuses, setBqStatuses] = useState({})
+  const [deletingProject, setDeletingProject] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const fetchProjects = useCallback(async () => {
     setLoading(true)
@@ -62,6 +64,20 @@ export default function ProjectManagement() {
     fetchProjects()
   }, [fetchProjects])
 
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deletingProject) return
+    setDeleteLoading(true)
+    try {
+      await updateCase(deletingProject.case_id, { is_active: false })
+      setDeletingProject(null)
+      fetchProjects()
+    } catch {
+      // error silently handled
+    } finally {
+      setDeleteLoading(false)
+    }
+  }, [deletingProject, fetchProjects])
+
   return (
     <div className="p-8 max-w-7xl mx-auto w-full space-y-8 relative">
       {/* Header */}
@@ -89,6 +105,7 @@ export default function ProjectManagement() {
         bqStatuses={bqStatuses}
         onShare={(project) => canManageProjects && setSharingProject(project)}
         onEdit={(project) => canManageProjects && setEditingProject(project)}
+        onDelete={(project) => canManageProjects && setDeletingProject(project)}
         onBqTest={handleBqTest}
       />
 
@@ -109,6 +126,41 @@ export default function ProjectManagement() {
           project={sharingProject}
           onClose={() => setSharingProject(null)}
         />
+      )}
+      {deletingProject && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-surface rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center">
+                <span className="material-symbols-outlined text-2xl text-error">delete_forever</span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-on-surface japanese-text">プロジェクトを削除</h3>
+                <p className="text-xs text-on-surface-variant">この操作は元に戻せません</p>
+              </div>
+            </div>
+            <p className="text-sm text-on-surface-variant japanese-text">
+              <strong className="text-on-surface">{deletingProject.name}</strong>（ID: {deletingProject.case_id}）を削除しますか？
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeletingProject(null)}
+                disabled={deleteLoading}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteLoading}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-error text-on-error hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+              >
+                {deleteLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
+                削除する
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

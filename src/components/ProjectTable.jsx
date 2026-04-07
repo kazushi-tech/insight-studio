@@ -91,7 +91,7 @@ function BqConnectionChip({ caseId, bqStatus, datasetId, onBqTest }) {
   )
 }
 
-export default function ProjectTable({ projects, loading, bqStatuses, onShare, onEdit, onBqTest }) {
+export default function ProjectTable({ projects, loading, bqStatuses, onShare, onEdit, onDelete, onBqTest }) {
   const { canManageProjects } = useRbac()
 
   const activeCount = projects.filter((p) => p.status === 'active').length
@@ -211,6 +211,9 @@ export default function ProjectTable({ projects, loading, bqStatuses, onShare, o
                           </button>
                           <button className="p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-primary/8 transition-all" title="共有" onClick={() => onShare?.(project)}>
                             <span className="material-symbols-outlined text-lg">share</span>
+                          </button>
+                          <button className="p-2 rounded-lg text-on-surface-variant hover:text-error hover:bg-error/8 transition-all" title="削除" onClick={() => onDelete?.(project)}>
+                            <span className="material-symbols-outlined text-lg">delete</span>
                           </button>
                         </>
                       )}
