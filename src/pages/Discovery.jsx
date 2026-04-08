@@ -10,8 +10,8 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 5 * 60 * 1000 // 5 minutes absolute timeout
-const POLL_STALE_THRESHOLD = 4 // consecutive polls with unchanged updated_at → stale
+const POLL_MAX_DURATION_MS = 90_000 // 90s absolute timeout
+const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -26,11 +26,11 @@ const STAGE_LABELS = {
 // Typical duration per stage (seconds) — used for estimated remaining time
 const STAGE_TYPICAL_SEC = {
   queued: 2,
-  brand_fetch: 5,
-  classify_industry: 5,
+  brand_fetch: 4,
+  classify_industry: 4,
   search: 20,
-  fetch_competitors: 15,
-  analyze: 90,
+  fetch_competitors: 8,
+  analyze: 15,
 }
 const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
 
@@ -203,7 +203,7 @@ export default function Discovery() {
   const pollStoppedRef = useRef(false)
   const lastStageRef = useRef(run?.meta?.stage || null)
   const lastUpdatedAtRef = useRef(null)
-  const staleCountRef = useRef(0)
+  const staleStartRef = useRef(null)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -252,7 +252,7 @@ export default function Discovery() {
     pollStoppedRef.current = false
     pollStartTimeRef.current = Date.now()
     lastUpdatedAtRef.current = null
-    staleCountRef.current = 0
+    staleStartRef.current = null
 
     async function tick() {
       // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
@@ -263,7 +263,7 @@ export default function Discovery() {
         stopPolling()
         const lastStage = lastStageRef.current
         const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
-        failRun('discovery', `分析がタイムアウトしました（5分）${stageHint}。再試行してください。`, {
+        failRun('discovery', `分析がタイムアウトしました${stageHint}。再試行してください。`, {
           category: 'timeout', label: 'タイムアウト',
           guidance: `分析に時間がかかりすぎています${stageHint}。再試行してください。`, retryable: true,
         })
@@ -274,12 +274,13 @@ export default function Discovery() {
         const data = await getDiscoveryJob(pollPath)
         pollErrorCountRef.current = 0
 
-        // Stale detection: if updated_at hasn't changed across consecutive polls, fail
+        // Stale detection: if updated_at hasn't changed for POLL_STALE_TIMEOUT_MS, fail
         if ((data.status === 'running' || data.status === 'queued') && data.updated_at) {
           const updatedAtStr = String(data.updated_at)
           if (updatedAtStr === lastUpdatedAtRef.current) {
-            staleCountRef.current += 1
-            if (staleCountRef.current >= POLL_STALE_THRESHOLD) {
+            if (!staleStartRef.current) {
+              staleStartRef.current = Date.now()
+            } else if (Date.now() - staleStartRef.current > POLL_STALE_TIMEOUT_MS) {
               stopPolling()
               const lastStage = lastStageRef.current
               const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
@@ -291,7 +292,7 @@ export default function Discovery() {
             }
           } else {
             lastUpdatedAtRef.current = updatedAtStr
-            staleCountRef.current = 0
+            staleStartRef.current = null
           }
         }
 
@@ -300,7 +301,7 @@ export default function Discovery() {
         if (data.stage === 'analyze' && displayProgress != null) {
           const analyzeElapsed = (Date.now() - pollStartTimeRef.current) / 1000
           // Increment ~1% every 5 seconds, capped at 99%
-          const bonus = Math.min(9, Math.floor(analyzeElapsed / 5))
+          const bonus = Math.min(9, Math.floor(analyzeElapsed / 2))
           displayProgress = Math.min(99, Math.max(displayProgress, 90 + bonus))
         }
 
@@ -455,7 +456,7 @@ export default function Discovery() {
             )}
           </button>
         </div>
-        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析には 30〜90 秒ほどかかることがあります。</p>
+        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析には 30〜60 秒ほどかかります。</p>
       </div>
 
       {/* Meta Band */}
