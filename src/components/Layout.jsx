@@ -10,6 +10,8 @@ import {
   ANALYSIS_PROVIDER_ANTHROPIC,
   getAnalysisProviderLabel,
 } from '../utils/analysisProvider'
+import { warmMarketLensBackend } from '../api/marketLens'
+import { warmAdsInsightsBackend } from '../api/adsInsights'
 import { getApiKeyValidationError, validateClaudeKeyRemote } from '../utils/apiKeys'
 import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
@@ -340,13 +342,13 @@ export default function Layout() {
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
-  const { canManageProjects, isClient, isCaseUser } = useRbac()
+  const { canManageProjects, isCaseUser } = useRbac()
   const navigate = useNavigate()
 
   // Pre-warm backends (fire-and-forget) to avoid cold-start delays
   useEffect(() => {
-    fetch('https://market-lens-ai.onrender.com/api/health').catch(() => {})
-    fetch('https://ads-insights-9q5s.onrender.com/api/health').catch(() => {})
+    void warmMarketLensBackend()
+    void warmAdsInsightsBackend()
   }, [])
 
   // Auth guard in App.jsx handles login redirect for all roles

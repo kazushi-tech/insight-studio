@@ -12,24 +12,40 @@ const isLocalOrigin = () => {
 }
 const SHOULD_FORCE_PROXY = isLocalOrigin()
 let _directReady = false
+let _directWarmPromise = null
 
 async function ensureDirectAdsBackend() {
   if (_directReady) return true
-  const RETRY_DELAYS = [0, 5000, 10000]
-  for (const delay of RETRY_DELAYS) {
-    try {
-      if (delay) await new Promise(r => setTimeout(r, delay))
-      const res = await fetch(`${ADS_DIRECT_BASE}/health`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(30000),
-      })
-      if (res.ok) {
-        _directReady = true
-        return true
-      }
-    } catch { /* retry */ }
+  if (_directWarmPromise) return _directWarmPromise
+
+  _directWarmPromise = (async () => {
+    const RETRY_DELAYS = [0, 5000, 10000]
+    for (const delay of RETRY_DELAYS) {
+      try {
+        if (delay) await new Promise(r => setTimeout(r, delay))
+        const res = await fetch(`${ADS_DIRECT_BASE}/health`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(30000),
+        })
+        if (res.ok) {
+          _directReady = true
+          return true
+        }
+      } catch { /* retry */ }
+    }
+    return false
+  })()
+
+  try {
+    return await _directWarmPromise
+  } finally {
+    _directWarmPromise = null
   }
-  return false
+}
+
+export function warmAdsInsightsBackend() {
+  if (SHOULD_FORCE_PROXY) return Promise.resolve(false)
+  return ensureDirectAdsBackend()
 }
 
 let authToken = null
@@ -83,13 +99,20 @@ function isUnauthorizedErrorPayload(body) {
   return markers.some((value) => value === 'unauthorized')
 }
 
+function isFetchNetworkError(error) {
+  return error instanceof TypeError || /Failed to fetch/i.test(String(error?.message))
+}
+
 async function request(path, options = {}) {
   const {
     direct = false,
+    directStrategy = 'verified',
+    allowProxyFallback = true,
     skipAuth = false,
     suppressAuthErrorHandler = false,
     headers: customHeaders = {},
     timeout = 30000,
+    _retried = false,
     ...fetchOptions
   } = options
 
@@ -101,13 +124,21 @@ async function request(path, options = {}) {
   const didSendAuth = Boolean(headers.get('Authorization'))
 
   let base = BASE
-  if (direct && !SHOULD_FORCE_PROXY) {
-    const ready = await ensureDirectAdsBackend()
-    base = ready ? ADS_DIRECT_BASE : BASE  // フォールバック
+  const shouldUseDirect = direct && !SHOULD_FORCE_PROXY
+  if (shouldUseDirect) {
+    if (directStrategy === 'optimistic') {
+      base = ADS_DIRECT_BASE
+    } else {
+      const ready = await ensureDirectAdsBackend()
+      base = ready || !allowProxyFallback
+        ? ADS_DIRECT_BASE
+        : BASE
+    }
   }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
+  const usingDirectBackend = shouldUseDirect && base === ADS_DIRECT_BASE
 
   let res
   try {
@@ -118,9 +149,21 @@ async function request(path, options = {}) {
     })
   } catch (e) {
     clearTimeout(timeoutId)
-    // CORS やネットワークエラーで direct フラグをリセット
-    if (direct && e.name !== 'AbortError') {
-      _directReady = false
+    if (direct && !_retried && isFetchNetworkError(e)) {
+      if (usingDirectBackend) {
+        _directReady = false
+      }
+      return request(path, {
+        direct,
+        directStrategy: 'verified',
+        allowProxyFallback,
+        skipAuth,
+        suppressAuthErrorHandler,
+        headers: customHeaders,
+        timeout,
+        _retried: true,
+        ...fetchOptions,
+      })
     }
     if (e.name === 'AbortError') {
       const sec = Math.round(timeout / 1000)
@@ -133,6 +176,29 @@ async function request(path, options = {}) {
     throw e
   }
   clearTimeout(timeoutId)
+  if (usingDirectBackend) {
+    _directReady = true
+  }
+
+  if (
+    usingDirectBackend &&
+    directStrategy === 'optimistic' &&
+    !_retried &&
+    (res.status === 502 || res.status === 503)
+  ) {
+    _directReady = false
+    return request(path, {
+      direct,
+      directStrategy: 'verified',
+      allowProxyFallback,
+      skipAuth,
+      suppressAuthErrorHandler,
+      headers: customHeaders,
+      timeout,
+      _retried: true,
+      ...fetchOptions,
+    })
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -226,6 +292,8 @@ export function neonGenerate(payload, apiKey) {
     body: JSON.stringify(body),
     timeout: 120000,
     direct: true,
+    directStrategy: 'optimistic',
+    allowProxyFallback: false,
   })
 }
 

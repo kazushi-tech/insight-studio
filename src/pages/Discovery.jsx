@@ -57,11 +57,13 @@ function formatElapsed(ms) {
   return sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${sec % 60}秒`
 }
 
-function MetaBand({ run }) {
+function MetaBand({ run, now }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
-  const runningElapsed = run.startedAt && run.status === 'running' ? Date.now() - run.startedAt : null
+  const runningElapsed = run.startedAt && run.status === 'running'
+    ? Math.max(0, now - run.startedAt)
+    : null
   const fallbackCount = Array.isArray(result?.fetched_sites)
     ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
     : 0
@@ -188,15 +190,17 @@ export default function Discovery() {
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
-  const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
+  const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
 
   const run = getRun('discovery')
   const [url, setUrl] = useState(() => getDraft('discovery')?.url || run?.input?.url || '')
   const [fontSize, setFontSize] = useState('normal')
+  const [tickNow, setTickNow] = useState(() => Date.now())
   const pollTimerRef = useRef(null)
   const pollErrorCountRef = useRef(0)
   const pollStartTimeRef = useRef(0)
   const pollStoppedRef = useRef(false)
+  const lastStageRef = useRef(run?.meta?.stage || null)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -209,6 +213,20 @@ export default function Discovery() {
   })
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = url && hasAnalysisKey && !loading
+
+  useEffect(() => {
+    if (!loading) return undefined
+
+    const timerId = window.setInterval(() => {
+      setTickNow(Date.now())
+    }, 1000)
+
+    return () => window.clearInterval(timerId)
+  }, [loading])
+
+  useEffect(() => {
+    lastStageRef.current = run?.meta?.stage || null
+  }, [run?.meta?.stage])
 
   const stopPolling = useCallback(() => {
     pollStoppedRef.current = true
@@ -238,7 +256,7 @@ export default function Discovery() {
       // Guard: absolute timeout
       if (Date.now() - pollStartTimeRef.current > POLL_MAX_DURATION_MS) {
         stopPolling()
-        const lastStage = run?.meta?.stage
+        const lastStage = lastStageRef.current
         const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
         failRun('discovery', `分析がタイムアウトしました（5分）${stageHint}。再試行してください。`, {
           category: 'timeout', label: 'タイムアウト',
@@ -317,7 +335,7 @@ export default function Discovery() {
       }
     }
 
-    pollTimerRef.current = setTimeout(tick, POLL_INTERVAL_INITIAL_MS)
+    pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
   }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel])
 
   const handleDiscover = useCallback(async () => {
@@ -359,13 +377,6 @@ export default function Discovery() {
     stopPolling()
     clearRun('discovery')
   }, [clearRun, stopPolling])
-
-  const handleClear = useCallback(() => {
-    stopPolling()
-    clearRun('discovery')
-    clearDraft('discovery')
-    setUrl('')
-  }, [clearRun, clearDraft, stopPolling])
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
@@ -422,7 +433,7 @@ export default function Discovery() {
       </div>
 
       {/* Meta Band */}
-      <MetaBand run={run} />
+      <MetaBand run={run} now={tickNow} />
 
       {/* Error */}
       {error && (

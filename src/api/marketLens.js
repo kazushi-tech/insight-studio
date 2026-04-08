@@ -23,6 +23,7 @@ const CREATIVE_UPLOAD_TIMEOUT = 90000
 const DISCOVERY_AUTO_RETRY_COUNT = 2
 const DISCOVERY_AUTO_RETRY_DELAYS_MS = [1500, 4000]
 let _directBackendReady = false
+let _directBackendWarmPromise = null
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
 const STORAGE_KEY_MARKET_LENS_PROFILE_ID = 'insight-studio-market-lens-profile-id'
@@ -256,6 +257,8 @@ async function requestDiscoveryAnalyzeWithRetry(payload) {
         body: JSON.stringify(payload),
         timeout: LONG_ANALYSIS_TIMEOUT,
         direct: true,
+        directStrategy: 'optimistic',
+        allowProxyFallback: false,
       })
     } catch (error) {
       lastError = error
@@ -373,40 +376,67 @@ async function buildRequestHeaders(customHeaders = {}) {
  */
 async function ensureDirectBackend() {
   if (_directBackendReady) return true
-  const RETRY_DELAYS = [0, 5000, 10000]
-  for (let i = 0; i < RETRY_DELAYS.length; i++) {
-    if (RETRY_DELAYS[i] > 0) {
-      await new Promise((r) => setTimeout(r, RETRY_DELAYS[i]))
-    }
-    try {
-      const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(30000),
-      })
-      if (res.ok) {
-        _directBackendReady = true
-        return true
+  if (_directBackendWarmPromise) return _directBackendWarmPromise
+
+  _directBackendWarmPromise = (async () => {
+    const RETRY_DELAYS = [0, 5000, 10000]
+    for (let i = 0; i < RETRY_DELAYS.length; i++) {
+      if (RETRY_DELAYS[i] > 0) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS[i]))
       }
-    } catch {
-      // CORS failure or network error — retry
+      try {
+        const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(30000),
+        })
+        if (res.ok) {
+          _directBackendReady = true
+          return true
+        }
+      } catch {
+        // CORS failure or network error — retry
+      }
     }
+    return false
+  })()
+
+  try {
+    return await _directBackendWarmPromise
+  } finally {
+    _directBackendWarmPromise = null
   }
-  return false
+}
+
+export function warmMarketLensBackend() {
+  if (SHOULD_FORCE_PROXY) return Promise.resolve(false)
+  return ensureDirectBackend()
 }
 
 async function requestJson(path, options = {}) {
-  const { timeout = 30000, direct = false, _retried = false, ...restOptions } = options
+  const {
+    timeout = 30000,
+    direct = false,
+    directStrategy = 'verified',
+    allowProxyFallback = true,
+    _retried = false,
+    ...restOptions
+  } = options
   let baseUrl = BASE
-  if (direct && !SHOULD_FORCE_PROXY) {
-    // Outside local dev/preview, long-running endpoints should still prefer
-    // the direct Render connection to avoid upstream proxy timeouts.
-    const ready = await ensureDirectBackend()
-    baseUrl = ready ? DIRECT_BACKEND_BASE : BASE
+  const shouldUseDirect = direct && !SHOULD_FORCE_PROXY
+  if (shouldUseDirect) {
+    if (directStrategy === 'optimistic') {
+      baseUrl = DIRECT_BACKEND_BASE
+    } else {
+      const ready = await ensureDirectBackend()
+      baseUrl = ready || !allowProxyFallback
+        ? DIRECT_BACKEND_BASE
+        : BASE
+    }
   }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
-  const usingDirectBackend = direct && !SHOULD_FORCE_PROXY && baseUrl === DIRECT_BACKEND_BASE
+  const usingDirectBackend = shouldUseDirect && baseUrl === DIRECT_BACKEND_BASE
 
   let res
   try {
@@ -418,11 +448,18 @@ async function requestJson(path, options = {}) {
     })
   } catch (e) {
     clearTimeout(timeoutId)
-    // On CORS / network error for direct requests, reset readiness and retry once.
-    // This handles Render deploys where the service briefly returns 503 without CORS headers.
     if (direct && !_retried && isFetchNetworkError(e)) {
-      _directBackendReady = false
-      return requestJson(path, { timeout, direct, _retried: true, ...restOptions })
+      if (usingDirectBackend) {
+        _directBackendReady = false
+      }
+      return requestJson(path, {
+        timeout,
+        direct,
+        directStrategy: 'verified',
+        allowProxyFallback,
+        _retried: true,
+        ...restOptions,
+      })
     }
     if (e.name === 'AbortError') {
       if (path === '/scan' || path === '/discovery/analyze') {
@@ -438,6 +475,23 @@ async function requestJson(path, options = {}) {
   clearTimeout(timeoutId)
   if (usingDirectBackend) {
     _directBackendReady = true
+  }
+
+  if (
+    usingDirectBackend &&
+    directStrategy === 'optimistic' &&
+    !_retried &&
+    (res.status === 502 || res.status === 503)
+  ) {
+    _directBackendReady = false
+    return requestJson(path, {
+      timeout,
+      direct,
+      directStrategy: 'verified',
+      allowProxyFallback,
+      _retried: true,
+      ...restOptions,
+    })
   }
 
   if (!res.ok) {
@@ -543,6 +597,8 @@ export function scan(urls, optionsOrApiKey) {
     }),
     timeout: LONG_ANALYSIS_TIMEOUT,
     direct: true,
+    directStrategy: 'optimistic',
+    allowProxyFallback: false,
   }).then((data) => {
     rememberTrackedScan(data?.run_id)
     return data
@@ -589,6 +645,7 @@ export function startDiscoveryJob(url, optionsOrApiKey) {
     }),
     timeout: 30000,
     direct: true,
+    directStrategy: 'optimistic',
   }).then((data) => ({
     ...data,
     poll_url: normalizeDiscoveryPollPath(data?.poll_url || data?.job_id),
@@ -603,6 +660,7 @@ export function getDiscoveryJob(jobIdOrPollPath) {
   return requestJson(normalizeDiscoveryPollPath(jobIdOrPollPath), {
     timeout: 15000,
     direct: true,
+    directStrategy: 'optimistic',
   })
 }
 
@@ -677,6 +735,8 @@ export async function reviewBanner(payload, optionsOrApiKey) {
         body,
         timeout: LONG_ANALYSIS_TIMEOUT,
         direct: true,
+        directStrategy: 'optimistic',
+        allowProxyFallback: false,
       })
     } catch (error) {
       lastError = error
@@ -709,6 +769,8 @@ export async function reviewAdLp(payload, optionsOrApiKey) {
         body,
         timeout: LONG_ANALYSIS_TIMEOUT,
         direct: true,
+        directStrategy: 'optimistic',
+        allowProxyFallback: false,
       })
     } catch (error) {
       lastError = error
