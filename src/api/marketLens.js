@@ -474,7 +474,7 @@ async function requestJson(path, options = {}) {
     }
     if (e.name === 'AbortError') {
       if (path === '/scan' || path === '/discovery/analyze') {
-        throw new Error('分析の完了まで時間がかかっています。対象サイトの取得やバックエンドの起動待ちで数十秒かかることがあります。少し待って再実行してください。')
+        throw new Error('分析がタイムアウトしました。対象サイトの取得やバックエンドの起動待ちで数十秒かかることがあります。少し待って再実行してください。')
       }
       throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
     }

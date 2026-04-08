@@ -12,6 +12,8 @@ const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_MAX_DURATION_MS = 240_000 // 4min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
+const STAGE_MAX_MULTIPLIER = 4
+const STAGE_MIN_TIMEOUT_MS = 60_000
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -37,15 +39,18 @@ const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fe
 function estimateRemaining(currentStage, elapsedMs) {
   const idx = STAGE_ORDER.indexOf(currentStage)
   if (idx < 0) return null
-  // sum typical seconds for remaining stages (including current stage's remaining portion)
   const elapsedSec = (elapsedMs || 0) / 1000
   const currentTypical = STAGE_TYPICAL_SEC[currentStage] || 10
-  const currentRemaining = Math.max(0, currentTypical - elapsedSec * 0.3) // rough heuristic
+  const totalTypical = STAGE_ORDER.reduce((sum, s) => sum + (STAGE_TYPICAL_SEC[s] || 10), 0)
+  if (elapsedSec > totalTypical * 1.5) {
+    return '予想以上に時間がかかっています'
+  }
+  const currentRemaining = Math.max(0, currentTypical - elapsedSec * 0.3)
   let total = currentRemaining
   for (let i = idx + 1; i < STAGE_ORDER.length; i++) {
     total += STAGE_TYPICAL_SEC[STAGE_ORDER[i]] || 10
   }
-  const rounded = Math.ceil(total / 10) * 10 // round up to nearest 10s
+  const rounded = Math.ceil(total / 10) * 10
   if (rounded < 10) return '残り約10秒'
   if (rounded < 60) return `残り約${rounded}秒`
   const min = Math.ceil(rounded / 60)
@@ -204,6 +209,7 @@ export default function Discovery() {
   const lastStageRef = useRef(run?.meta?.stage || null)
   const lastUpdatedAtRef = useRef(null)
   const staleStartRef = useRef(null)
+  const stageStartTimeRef = useRef(null)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -253,6 +259,7 @@ export default function Discovery() {
     pollStartTimeRef.current = Date.now()
     lastUpdatedAtRef.current = null
     staleStartRef.current = null
+    stageStartTimeRef.current = Date.now()
 
     async function tick() {
       // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
@@ -312,6 +319,28 @@ export default function Discovery() {
           jobId,
           pollUrl: pollPath,
         })
+
+        // Per-stage stall detection
+        if (data.stage && (data.status === 'running' || data.status === 'queued')) {
+          if (data.stage !== lastStageRef.current) {
+            stageStartTimeRef.current = Date.now()
+          }
+          if (stageStartTimeRef.current) {
+            const stageElapsedMs = Date.now() - stageStartTimeRef.current
+            const typicalMs = (STAGE_TYPICAL_SEC[data.stage] || 10) * 1000
+            const stageMaxMs = Math.max(typicalMs * STAGE_MAX_MULTIPLIER, STAGE_MIN_TIMEOUT_MS)
+            if (stageElapsedMs > stageMaxMs) {
+              stopPolling()
+              const stageName = STAGE_LABELS[data.stage] || data.stage
+              failRun('discovery', `「${stageName.replace(/…$/, '')}」が長時間停止しています。再試行してください。`, {
+                category: 'timeout', label: 'ステージ停滞',
+                guidance: `「${stageName.replace(/…$/, '')}」ステージが${Math.round(stageElapsedMs / 1000)}秒以上進行していません。再試行してください。`,
+                retryable: true,
+              })
+              return
+            }
+          }
+        }
 
         if (data.status === 'completed' && data.result) {
           stopPolling()
