@@ -19,6 +19,7 @@ const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
   ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
   : 'https://market-lens-ai.onrender.com/api'
 const LONG_ANALYSIS_TIMEOUT = 180000
+const CREATIVE_UPLOAD_TIMEOUT = 90000
 const DISCOVERY_AUTO_RETRY_COUNT = 2
 const DISCOVERY_AUTO_RETRY_DELAYS_MS = [1500, 4000]
 let _directBackendReady = false
@@ -198,6 +199,16 @@ function buildErrorMessage(path, status, body) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isFetchNetworkError(error) {
+  return error instanceof TypeError || /Failed to fetch/i.test(String(error?.message))
+}
+
+function buildBackendConnectionErrorMessage(usingDirectBackend) {
+  return usingDirectBackend
+    ? 'Market Lens backend に接続できませんでした。CORS 設定またはバックエンドの起動状態を確認してください。'
+    : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
 }
 
 function isDiscoveryRetryableError(error) {
@@ -395,6 +406,7 @@ async function requestJson(path, options = {}) {
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
+  const usingDirectBackend = direct && !SHOULD_FORCE_PROXY && baseUrl === DIRECT_BACKEND_BASE
 
   let res
   try {
@@ -408,7 +420,7 @@ async function requestJson(path, options = {}) {
     clearTimeout(timeoutId)
     // On CORS / network error for direct requests, reset readiness and retry once.
     // This handles Render deploys where the service briefly returns 503 without CORS headers.
-    if (direct && !_retried && (e instanceof TypeError || /Failed to fetch/i.test(String(e?.message)))) {
+    if (direct && !_retried && isFetchNetworkError(e)) {
       _directBackendReady = false
       return requestJson(path, { timeout, direct, _retried: true, ...restOptions })
     }
@@ -418,16 +430,15 @@ async function requestJson(path, options = {}) {
       }
       throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
     }
-    if (e instanceof TypeError || /Failed to fetch/i.test(String(e?.message))) {
-      throw new Error(
-        DIRECT_MARKET_LENS_ORIGIN
-          ? 'Market Lens backend に接続できませんでした。CORS 設定またはバックエンドの起動状態を確認してください。'
-          : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
-      )
+    if (isFetchNetworkError(e)) {
+      throw new Error(buildBackendConnectionErrorMessage(usingDirectBackend || Boolean(DIRECT_MARKET_LENS_ORIGIN)))
     }
     throw e
   }
   clearTimeout(timeoutId)
+  if (usingDirectBackend) {
+    _directBackendReady = true
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -446,16 +457,29 @@ async function requestJson(path, options = {}) {
  * multipart/form-data などブラウザに任せたい場合に使う。
  */
 async function requestRaw(path, options = {}) {
-  const { timeout = 60000, direct = false, ...restOptions } = options
+  const {
+    timeout = 60000,
+    direct = false,
+    directStrategy = 'verified',
+    allowProxyFallback = true,
+    _retried = false,
+    ...restOptions
+  } = options
 
   let baseUrl = BASE
-  if (direct && !SHOULD_FORCE_PROXY) {
-    const ready = await ensureDirectBackend()
-    baseUrl = ready ? DIRECT_BACKEND_BASE : BASE
+  const shouldUseDirect = direct && !SHOULD_FORCE_PROXY
+  if (shouldUseDirect) {
+    if (directStrategy === 'optimistic') {
+      baseUrl = DIRECT_BACKEND_BASE
+    } else {
+      const ready = await ensureDirectBackend()
+      baseUrl = ready ? DIRECT_BACKEND_BASE : BASE
+    }
   }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
+  const usingDirectBackend = shouldUseDirect && baseUrl === DIRECT_BACKEND_BASE
 
   let res
   try {
@@ -467,19 +491,31 @@ async function requestRaw(path, options = {}) {
     })
   } catch (e) {
     clearTimeout(timeoutId)
+    if (usingDirectBackend && isFetchNetworkError(e)) {
+      _directBackendReady = false
+      if (!_retried && allowProxyFallback) {
+        return requestRaw(path, {
+          timeout,
+          direct,
+          directStrategy: 'verified',
+          allowProxyFallback,
+          _retried: true,
+          ...restOptions,
+        })
+      }
+    }
     if (e.name === 'AbortError') {
       throw new Error('アップロードがタイムアウトしました。ファイルサイズを確認してください。')
     }
-    if (e instanceof TypeError || /Failed to fetch/i.test(String(e?.message))) {
-      throw new Error(
-        DIRECT_MARKET_LENS_ORIGIN
-          ? 'Market Lens backend に接続できませんでした。CORS 設定またはバックエンドの起動状態を確認してください。'
-          : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
-      )
+    if (isFetchNetworkError(e)) {
+      throw new Error(buildBackendConnectionErrorMessage(usingDirectBackend || Boolean(DIRECT_MARKET_LENS_ORIGIN)))
     }
     throw e
   }
   clearTimeout(timeoutId)
+  if (usingDirectBackend) {
+    _directBackendReady = true
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -601,7 +637,10 @@ export function uploadCreativeAsset(file) {
   return requestRaw('/assets', {
     method: 'POST',
     body: formData,
-    timeout: 30000,
+    direct: true,
+    directStrategy: 'optimistic',
+    allowProxyFallback: false,
+    timeout: CREATIVE_UPLOAD_TIMEOUT,
   })
 }
 
@@ -679,4 +718,3 @@ export async function reviewAdLp(payload, optionsOrApiKey) {
   }
   throw lastError
 }
-
