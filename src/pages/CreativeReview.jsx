@@ -185,8 +185,9 @@ function RubricSection({ review }) {
   const items = review?.rubric_scores
   if (!Array.isArray(items) || items.length === 0) return null
 
-  const avgScore = items.length > 0
-    ? (items.reduce((sum, item) => sum + (item.score || 0), 0) / items.length).toFixed(1)
+  const scoredItems = items.filter((item) => item.score != null)
+  const avgScore = scoredItems.length > 0
+    ? (scoredItems.reduce((sum, item) => sum + item.score, 0) / scoredItems.length).toFixed(1)
     : null
 
   return (
@@ -201,22 +202,82 @@ function RubricSection({ review }) {
       <div className="grid grid-cols-2 gap-3">
         {items.map((item) => {
           const label = RUBRIC_LABEL_MAP[item.rubric_id] || item.rubric_id
-          const score = item.score || 0
-          const pct = (score / 5) * 100
-          const barColor = score >= 4 ? 'bg-emerald-500' : score >= 3 ? 'bg-amber-400' : 'bg-rose-400'
+          const isNA = item.score == null
+          const score = isNA ? 0 : item.score
+          const pct = isNA ? 0 : (score / 5) * 100
+          const barColor = isNA ? '' : score >= 4 ? 'bg-emerald-500' : score >= 3 ? 'bg-amber-400' : 'bg-rose-400'
           return (
-            <div key={item.rubric_id} className="bg-surface-container/40 rounded-[0.75rem] px-4 py-3">
+            <div key={item.rubric_id} className={`bg-surface-container/40 rounded-[0.75rem] px-4 py-3 ${isNA ? 'opacity-60' : ''}`}>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-bold text-on-surface japanese-text">{label}</span>
-                <span className="text-sm font-black tabular-nums text-on-surface">{score}<span className="text-on-surface-variant font-normal text-xs">/5</span></span>
+                {isNA ? (
+                  <span className="text-sm font-black tabular-nums text-on-surface-variant">N/A</span>
+                ) : (
+                  <span className="text-sm font-black tabular-nums text-on-surface">{score}<span className="text-on-surface-variant font-normal text-xs">/5</span></span>
+                )}
               </div>
               <div className="h-1.5 bg-surface-container rounded-full overflow-hidden">
-                <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                {isNA ? (
+                  <div className="h-full w-full rounded-full" style={{ backgroundImage: 'repeating-linear-gradient(90deg, var(--color-outline-variant) 0px, var(--color-outline-variant) 4px, transparent 4px, transparent 7px)', opacity: 0.4 }} />
+                ) : (
+                  <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                )}
               </div>
               {item.comment && <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">{item.comment}</p>}
             </div>
           )
         })}
+      </div>
+    </SectionCard>
+  )
+}
+
+function CategoryContextSection({ review, size }) {
+  const ctx = review?.category_context
+  if (!ctx) return null
+
+  const md = [
+    `**業界カテゴリ:** ${ctx.inferred_category}`,
+    '',
+    ...(ctx.observations || []).map((obs) => `- ${obs}`),
+  ].join('\n')
+
+  return (
+    <SectionCard
+      icon="category"
+      title="業界コンテキスト"
+      borderColor="border-indigo-200"
+      bgColor="bg-indigo-50/30"
+    >
+      <div className="text-indigo-900">
+        <MarkdownRenderer content={md} size={size} />
+      </div>
+    </SectionCard>
+  )
+}
+
+function ValuePropositionSection({ review, size }) {
+  const vpa = review?.value_proposition_analysis
+  if (!vpa) return null
+
+  const md = [
+    `| 項目 | 内容 |`,
+    `| --- | --- |`,
+    `| 購入条件 | ${esc(vpa.purchase_threshold)} |`,
+    `| インセンティブ | ${esc(vpa.incentive)} |`,
+    `| 知覚価値評価 | ${esc(vpa.perceived_value_assessment)} |`,
+    `| 伝達の明確さ | ${esc(vpa.communication_clarity)} |`,
+  ].join('\n')
+
+  return (
+    <SectionCard
+      icon="payments"
+      title="価値提案分析"
+      borderColor="border-violet-200"
+      bgColor="bg-violet-50/30"
+    >
+      <div className="text-violet-900">
+        <MarkdownRenderer content={md} size={size} />
       </div>
     </SectionCard>
   )
@@ -275,8 +336,10 @@ function ReviewResultDisplay({ review, size }) {
     <div className="space-y-5">
       <SummarySection review={review} size={size} />
       <NeutralInfoSection review={review} size={size} />
+      <CategoryContextSection review={review} size={size} />
       <GoodPointsSection review={review} size={size} />
       <ImprovementsSection review={review} size={size} />
+      <ValuePropositionSection review={review} size={size} />
       <TestIdeasSection review={review} size={size} />
       <EvidenceSection review={review} size={size} />
       <RubricSection review={review} />

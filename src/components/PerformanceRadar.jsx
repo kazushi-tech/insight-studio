@@ -84,19 +84,25 @@ function computeAxes(rubricScores, reviewType) {
   })
 
   const axes = {}
+  const naAxes = new Set()
   let totalSum = 0
   let totalCount = 0
 
   for (const key of axisOrder) {
     const group = axisGroups[key]
     const scores = group.ids.map((id) => scoreMap[id]).filter((v) => v != null)
-    axes[key] = scores.length > 0 ? clampScore(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
-    totalSum += scores.reduce((a, b) => a + b, 0)
-    totalCount += scores.length
+    if (scores.length === 0) {
+      axes[key] = 0
+      naAxes.add(key)
+    } else {
+      axes[key] = clampScore(scores.reduce((a, b) => a + b, 0) / scores.length)
+      totalSum += scores.reduce((a, b) => a + b, 0)
+      totalCount += scores.length
+    }
   }
 
   const totalScore = totalCount > 0 ? Math.round((totalSum / totalCount) * 20) : 0
-  return { axes, totalScore, axisOrder, axisGroups }
+  return { axes, totalScore, axisOrder, axisGroups, naAxes }
 }
 
 function scoreColor(score) {
@@ -136,7 +142,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
   const computed = computeAxes(rubricScores, reviewType)
   if (!computed) return null
 
-  const { axes, totalScore, axisOrder, axisGroups } = computed
+  const { axes, totalScore, axisOrder, axisGroups, naAxes } = computed
   const fillId = `performance-radar-fill-${chartId}`
   const glowId = `performance-radar-glow-${chartId}`
   const totalBg = totalScore >= SCORE_THRESHOLD_EXCELLENT ? 'bg-emerald-600' : totalScore >= SCORE_THRESHOLD_GOOD ? 'bg-primary-container' : totalScore >= SCORE_THRESHOLD_FAIR ? 'bg-amber-500' : 'bg-rose-500'
@@ -144,9 +150,15 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
     key,
     label: axisGroups[key].label,
     score: axes[key],
+    isNA: naAxes.has(key),
   }))
-  const strongestAxis = axisEntries.reduce((best, current) => current.score > best.score ? current : best)
-  const weakestAxis = axisEntries.reduce((worst, current) => current.score < worst.score ? current : worst)
+  const scoredEntries = axisEntries.filter((e) => !e.isNA)
+  const strongestAxis = scoredEntries.length > 0
+    ? scoredEntries.reduce((best, current) => current.score > best.score ? current : best)
+    : axisEntries[0]
+  const weakestAxis = scoredEntries.length > 0
+    ? scoredEntries.reduce((worst, current) => current.score < worst.score ? current : worst)
+    : axisEntries[0]
   const radarPolygonPoints = diamondPoints(axes, axisOrder)
 
   return (
@@ -215,6 +227,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
             {axisOrder.map((axisKey) => {
               const outerPoint = axisPoint(axisKey, 1)
               const currentPoint = axisPoint(axisKey, clampScore(axes[axisKey]) / 5)
+              const isNA = naAxes.has(axisKey)
 
               return (
                 <g key={axisKey}>
@@ -226,16 +239,19 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
                     stroke="var(--color-outline-variant)"
                     strokeWidth="1"
                     opacity="0.40"
+                    strokeDasharray={isNA ? '4 3' : undefined}
                   />
-                  <line
-                    x1={RADAR_GEOMETRY.center}
-                    y1={RADAR_GEOMETRY.center}
-                    x2={currentPoint.x}
-                    y2={currentPoint.y}
-                    stroke="var(--color-primary-container)"
-                    strokeWidth="2"
-                    opacity="0.38"
-                  />
+                  {!isNA && (
+                    <line
+                      x1={RADAR_GEOMETRY.center}
+                      y1={RADAR_GEOMETRY.center}
+                      x2={currentPoint.x}
+                      y2={currentPoint.y}
+                      stroke="var(--color-primary-container)"
+                      strokeWidth="2"
+                      opacity="0.38"
+                    />
+                  )}
                 </g>
               )
             })}
@@ -292,15 +308,22 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
           {axisOrder.map((axisKey) => {
             const meta = AXIS_META[axisKey]
             const score = axes[axisKey]
+            const isNA = naAxes.has(axisKey)
 
             return (
               <div key={axisKey} className={`absolute ${meta.labelClassName} pointer-events-none`}>
                 <p className="text-xs font-black tracking-[0.16em] text-on-surface-variant/75 uppercase whitespace-nowrap">
                   {meta.label}
                 </p>
-                <p className={`${compact ? 'text-lg' : 'text-[1.75rem] md:text-4xl'} font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
-                  {score.toFixed(1)}
-                </p>
+                {isNA ? (
+                  <p className={`${compact ? 'text-lg' : 'text-[1.75rem] md:text-4xl'} font-black tabular-nums leading-none whitespace-nowrap text-on-surface-variant/50`}>
+                    N/A
+                  </p>
+                ) : (
+                  <p className={`${compact ? 'text-lg' : 'text-[1.75rem] md:text-4xl'} font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
+                    {score.toFixed(1)}
+                  </p>
+                )}
               </div>
             )
           })}
@@ -312,19 +335,28 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
         {axisOrder.map((key) => {
           const group = axisGroups[key]
           const score = axes[key]
-          const pct = (score / 5) * 100
+          const isNA = naAxes.has(key)
+          const pct = isNA ? 0 : (score / 5) * 100
           return (
-            <div key={key} className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
+            <div key={key} className={`bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4 ${isNA ? 'opacity-60' : ''}`}>
               <p className="text-xs font-bold text-on-surface japanese-text">{group.label}</p>
               <div className="mt-3 flex items-end justify-between gap-3">
-                <p className={`text-3xl font-black tabular-nums leading-none ${scoreColor(score)}`}>
-                  {score.toFixed(1)}
-                  <span className="text-on-surface-variant font-medium text-xs ml-0.5">/5</span>
-                </p>
-                <span className="text-sm font-bold text-on-surface-variant tabular-nums">{Math.round(pct)}%</span>
+                {isNA ? (
+                  <p className="text-3xl font-black tabular-nums leading-none text-on-surface-variant/50">N/A</p>
+                ) : (
+                  <p className={`text-3xl font-black tabular-nums leading-none ${scoreColor(score)}`}>
+                    {score.toFixed(1)}
+                    <span className="text-on-surface-variant font-medium text-xs ml-0.5">/5</span>
+                  </p>
+                )}
+                {!isNA && <span className="text-sm font-bold text-on-surface-variant tabular-nums">{Math.round(pct)}%</span>}
               </div>
               <div className="h-2 bg-surface-container-high rounded-full overflow-hidden mt-3">
-                <div className={`h-full ${barColor(score)} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                {isNA ? (
+                  <div className="h-full w-full rounded-full" style={{ backgroundImage: 'repeating-linear-gradient(90deg, var(--color-outline-variant) 0px, var(--color-outline-variant) 4px, transparent 4px, transparent 7px)', opacity: 0.4 }} />
+                ) : (
+                  <div className={`h-full ${barColor(score)} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                )}
               </div>
             </div>
           )
