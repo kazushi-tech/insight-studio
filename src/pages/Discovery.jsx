@@ -10,7 +10,7 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 180_000 // 3min absolute timeout
+const POLL_MAX_DURATION_MS = 240_000 // 4min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
 
 const STAGE_LABELS = {
