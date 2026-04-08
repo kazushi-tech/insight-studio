@@ -10,7 +10,7 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 90_000 // 90s absolute timeout
+const POLL_MAX_DURATION_MS = 180_000 // 3min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
 
 const STAGE_LABELS = {
@@ -26,11 +26,11 @@ const STAGE_LABELS = {
 // Typical duration per stage (seconds) — used for estimated remaining time
 const STAGE_TYPICAL_SEC = {
   queued: 2,
-  brand_fetch: 4,
+  brand_fetch: 5,
   classify_industry: 4,
   search: 20,
   fetch_competitors: 8,
-  analyze: 15,
+  analyze: 50,
 }
 const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
 
@@ -456,7 +456,7 @@ export default function Discovery() {
             )}
           </button>
         </div>
-        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析には 30〜60 秒ほどかかります。</p>
+        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析には 1〜2 分ほどかかります。</p>
       </div>
 
       {/* Meta Band */}
