@@ -275,6 +275,39 @@ async function requestDiscoveryAnalyzeWithRetry(payload) {
   throw lastError
 }
 
+// ─── Discovery Job auto-retry (cold-start / 502 / 503) ─────
+
+const DISCOVERY_JOB_RETRY_COUNT = 2
+const DISCOVERY_JOB_RETRY_DELAYS_MS = [2000, 5000]
+
+async function requestDiscoveryJobWithRetry(payload) {
+  let lastError = null
+
+  for (let attempt = 0; attempt <= DISCOVERY_JOB_RETRY_COUNT; attempt += 1) {
+    try {
+      return await requestJson('/discovery/jobs', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        timeout: 30000,
+        direct: true,
+        directStrategy: attempt === 0 ? 'optimistic' : 'verified',
+        allowProxyFallback: true,
+      })
+    } catch (error) {
+      lastError = error
+      const shouldRetry =
+        attempt < DISCOVERY_JOB_RETRY_COUNT && isDiscoveryRetryableError(error)
+
+      if (!shouldRetry) break
+
+      _directBackendReady = false
+      await sleep(DISCOVERY_JOB_RETRY_DELAYS_MS[attempt] ?? 5000)
+    }
+  }
+
+  throw lastError
+}
+
 // ─── Scan auto-retry (cold-start / 502 / 503) ───────────────
 
 const SCAN_AUTO_RETRY_COUNT = 2
@@ -673,18 +706,12 @@ function normalizeDiscoveryPollPath(jobIdOrPollPath) {
 /** POST /api/discovery/jobs — 非同期ジョブ開始 */
 export function startDiscoveryJob(url, optionsOrApiKey) {
   const { apiKey, provider, model, searchApiKey } = resolveAiOptions(optionsOrApiKey)
-  return requestJson('/discovery/jobs', {
-    method: 'POST',
-    body: JSON.stringify({
-      brand_url: url,
-      ...(apiKey ? { api_key: apiKey } : {}),
-      ...(provider ? { provider } : {}),
-      ...(model ? { model } : {}),
-      ...(searchApiKey ? { search_api_key: searchApiKey } : {}),
-    }),
-    timeout: 30000,
-    direct: true,
-    directStrategy: 'optimistic',
+  return requestDiscoveryJobWithRetry({
+    brand_url: url,
+    ...(apiKey ? { api_key: apiKey } : {}),
+    ...(provider ? { provider } : {}),
+    ...(model ? { model } : {}),
+    ...(searchApiKey ? { search_api_key: searchApiKey } : {}),
   }).then((data) => ({
     ...data,
     poll_url: normalizeDiscoveryPollPath(data?.poll_url || data?.job_id),

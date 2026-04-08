@@ -399,6 +399,12 @@ export default function Discovery() {
     startRun('discovery', { url })
 
     try {
+      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
+      await Promise.race([
+        warmMarketLensBackend(),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ])
+
       const data = await startDiscoveryJob(url, {
         apiKey: analysisKey,
         provider: analysisProvider,
