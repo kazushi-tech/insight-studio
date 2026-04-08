@@ -389,8 +389,8 @@ async function requestJson(path, options = {}) {
   if (direct && !SHOULD_FORCE_PROXY) {
     // Outside local dev/preview, long-running endpoints should still prefer
     // the direct Render connection to avoid upstream proxy timeouts.
-    await ensureDirectBackend()
-    baseUrl = DIRECT_BACKEND_BASE
+    const ready = await ensureDirectBackend()
+    baseUrl = ready ? DIRECT_BACKEND_BASE : BASE
   }
 
   const controller = new AbortController()
@@ -450,8 +450,8 @@ async function requestRaw(path, options = {}) {
 
   let baseUrl = BASE
   if (direct && !SHOULD_FORCE_PROXY) {
-    await ensureDirectBackend()
-    baseUrl = DIRECT_BACKEND_BASE
+    const ready = await ensureDirectBackend()
+    baseUrl = ready ? DIRECT_BACKEND_BASE : BASE
   }
 
   const controller = new AbortController()
@@ -601,7 +601,6 @@ export function uploadCreativeAsset(file) {
   return requestRaw('/assets', {
     method: 'POST',
     body: formData,
-    direct: true,
     timeout: 30000,
   })
 }
