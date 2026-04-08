@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { startDiscoveryJob, getDiscoveryJob, classifyError } from '../api/marketLens'
+import { startDiscoveryJob, getDiscoveryJob, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
@@ -12,8 +12,8 @@ const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_MAX_DURATION_MS = 240_000 // 4min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
-const STAGE_MAX_MULTIPLIER = 4
-const STAGE_MIN_TIMEOUT_MS = 60_000
+const STAGE_MAX_MULTIPLIER = 3
+const STAGE_MIN_TIMEOUT_MS = 30_000
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -206,10 +206,9 @@ export default function Discovery() {
   const pollErrorCountRef = useRef(0)
   const pollStartTimeRef = useRef(0)
   const pollStoppedRef = useRef(false)
-  const lastStageRef = useRef(run?.meta?.stage || null)
+  const stageTrackRef = useRef(null)  // { stage: string, startTime: number }
   const lastUpdatedAtRef = useRef(null)
   const staleStartRef = useRef(null)
-  const stageStartTimeRef = useRef(null)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -233,10 +232,6 @@ export default function Discovery() {
     return () => window.clearInterval(timerId)
   }, [loading])
 
-  useEffect(() => {
-    lastStageRef.current = run?.meta?.stage || null
-  }, [run?.meta?.stage])
-
   const stopPolling = useCallback(() => {
     pollStoppedRef.current = true
     if (pollTimerRef.current) {
@@ -244,6 +239,11 @@ export default function Discovery() {
       pollTimerRef.current = null
     }
     pollErrorCountRef.current = 0
+  }, [])
+
+  // Warm up backend on mount (cold-start mitigation)
+  useEffect(() => {
+    void warmMarketLensBackend()
   }, [])
 
   // Cleanup on unmount
@@ -259,7 +259,7 @@ export default function Discovery() {
     pollStartTimeRef.current = Date.now()
     lastUpdatedAtRef.current = null
     staleStartRef.current = null
-    stageStartTimeRef.current = Date.now()
+    stageTrackRef.current = null
 
     async function tick() {
       // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
@@ -268,7 +268,7 @@ export default function Discovery() {
       // Guard: absolute timeout
       if (Date.now() - pollStartTimeRef.current > POLL_MAX_DURATION_MS) {
         stopPolling()
-        const lastStage = lastStageRef.current
+        const lastStage = stageTrackRef.current?.stage
         const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
         failRun('discovery', `分析がタイムアウトしました${stageHint}。再試行してください。`, {
           category: 'timeout', label: 'タイムアウト',
@@ -289,7 +289,7 @@ export default function Discovery() {
               staleStartRef.current = Date.now()
             } else if (Date.now() - staleStartRef.current > POLL_STALE_TIMEOUT_MS) {
               stopPolling()
-              const lastStage = lastStageRef.current
+              const lastStage = stageTrackRef.current?.stage
               const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
               failRun('discovery', `サーバーが応答しなくなりました${stageHint}。再試行してください。`, {
                 category: 'stale', label: 'サーバー無応答',
@@ -320,25 +320,23 @@ export default function Discovery() {
           pollUrl: pollPath,
         })
 
-        // Per-stage stall detection
+        // Per-stage stall detection (synchronous — no React timing dependency)
         if (data.stage && (data.status === 'running' || data.status === 'queued')) {
-          if (data.stage !== lastStageRef.current) {
-            stageStartTimeRef.current = Date.now()
+          if (!stageTrackRef.current || data.stage !== stageTrackRef.current.stage) {
+            stageTrackRef.current = { stage: data.stage, startTime: Date.now() }
           }
-          if (stageStartTimeRef.current) {
-            const stageElapsedMs = Date.now() - stageStartTimeRef.current
-            const typicalMs = (STAGE_TYPICAL_SEC[data.stage] || 10) * 1000
-            const stageMaxMs = Math.max(typicalMs * STAGE_MAX_MULTIPLIER, STAGE_MIN_TIMEOUT_MS)
-            if (stageElapsedMs > stageMaxMs) {
-              stopPolling()
-              const stageName = STAGE_LABELS[data.stage] || data.stage
-              failRun('discovery', `「${stageName.replace(/…$/, '')}」が長時間停止しています。再試行してください。`, {
-                category: 'timeout', label: 'ステージ停滞',
-                guidance: `「${stageName.replace(/…$/, '')}」ステージが${Math.round(stageElapsedMs / 1000)}秒以上進行していません。再試行してください。`,
-                retryable: true,
-              })
-              return
-            }
+          const stageElapsedMs = Date.now() - stageTrackRef.current.startTime
+          const typicalMs = (STAGE_TYPICAL_SEC[data.stage] || 10) * 1000
+          const stageMaxMs = Math.max(typicalMs * STAGE_MAX_MULTIPLIER, STAGE_MIN_TIMEOUT_MS)
+          if (stageElapsedMs > stageMaxMs) {
+            stopPolling()
+            const stageName = STAGE_LABELS[data.stage] || data.stage
+            failRun('discovery', `「${stageName.replace(/…$/, '')}」が長時間停止しています。再試行してください。`, {
+              category: 'timeout', label: 'ステージ停滞',
+              guidance: `「${stageName.replace(/…$/, '')}」ステージが${Math.round(stageElapsedMs / 1000)}秒以上進行していません。再試行してください。`,
+              retryable: true,
+            })
+            return
           }
         }
 

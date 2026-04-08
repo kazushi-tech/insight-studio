@@ -275,6 +275,41 @@ async function requestDiscoveryAnalyzeWithRetry(payload) {
   throw lastError
 }
 
+// ─── Scan auto-retry (cold-start / 502 / 503) ───────────────
+
+const SCAN_AUTO_RETRY_COUNT = 2
+const SCAN_AUTO_RETRY_DELAYS_MS = [2000, 5000]
+
+async function requestScanWithRetry(payload, options) {
+  let lastError = null
+
+  for (let attempt = 0; attempt <= SCAN_AUTO_RETRY_COUNT; attempt += 1) {
+    try {
+      return await requestJson('/scan', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        timeout: LONG_ANALYSIS_TIMEOUT,
+        direct: true,
+        directStrategy: 'optimistic',
+        allowProxyFallback: true,
+        ...options,
+      })
+    } catch (error) {
+      lastError = error
+      // タイムアウト(AbortError)はリトライしない — バックエンドが本当に遅い
+      if (error.name === 'AbortError') break
+      const status = error.status || error.statusCode
+      const retryable = [502, 503].includes(status)
+        || isFetchNetworkError(error)
+        || (status === 500 && /unicodeerror|internal server error/i.test(error.message))
+      if (!retryable || attempt >= SCAN_AUTO_RETRY_COUNT) break
+      _directBackendReady = false
+      await sleep(SCAN_AUTO_RETRY_DELAYS_MS[attempt] ?? 5000)
+    }
+  }
+  throw lastError
+}
+
 // ─── Creative Review auto-retry ──────────────────────────────
 
 const REVIEW_AUTO_RETRY_COUNT = 2
@@ -598,18 +633,11 @@ async function requestRaw(path, options = {}) {
 /** POST /api/scan — LP比較分析 */
 export function scan(urls, optionsOrApiKey) {
   const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
-  return requestJson('/scan', {
-    method: 'POST',
-    body: JSON.stringify({
-      urls,
-      ...(apiKey ? { api_key: apiKey } : {}),
-      ...(provider ? { provider } : {}),
-      ...(model ? { model } : {}),
-    }),
-    timeout: LONG_ANALYSIS_TIMEOUT,
-    direct: true,
-    directStrategy: 'optimistic',
-    allowProxyFallback: false,
+  return requestScanWithRetry({
+    urls,
+    ...(apiKey ? { api_key: apiKey } : {}),
+    ...(provider ? { provider } : {}),
+    ...(model ? { model } : {}),
   }).then((data) => {
     rememberTrackedScan(data?.run_id)
     return data

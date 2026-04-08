@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { scan, classifyError } from '../api/marketLens'
+import { useState, useCallback, useEffect } from 'react'
+import { scan, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
@@ -204,6 +204,11 @@ function ExtractedDataPanel({ extracted }) {
 export default function Compare() {
   const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
   const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
+
+  // Warm up backend on mount (cold-start mitigation)
+  useEffect(() => {
+    void warmMarketLensBackend()
+  }, [])
 
   const run = getRun('compare')
   const defaults = { target: '', compA: '', compB: '' }
