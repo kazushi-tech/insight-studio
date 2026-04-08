@@ -10,7 +10,7 @@ import {
   reviewAdLp,
   classifyError,
 } from '../api/marketLens'
-import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { getCreativeReviewModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 const REVIEW_TEXT_SIZE_STORAGE_KEY = 'creative_review_text_size'
 const REVIEW_TEXT_SIZE_OPTIONS = [
@@ -362,6 +362,7 @@ export default function CreativeReview() {
   const reviewResult = reviewRun?.result?.review || reviewRun?.result || null
   const runId = reviewRun?.meta?.run_id || null
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
+  const reviewModel = getCreativeReviewModel(analysisProvider)
 
   const [reviewTextSize, setReviewTextSize] = useState(
     () => localStorage.getItem(REVIEW_TEXT_SIZE_STORAGE_KEY) || 'large',
@@ -468,13 +469,13 @@ export default function CreativeReview() {
         envelope = await reviewAdLp(payload, {
           apiKey: analysisKey.trim(),
           provider: analysisProvider,
-          model: getAnalysisModel(analysisProvider),
+          model: reviewModel,
         })
       } else {
         envelope = await reviewBanner(payload, {
           apiKey: analysisKey.trim(),
           provider: analysisProvider,
-          model: getAnalysisModel(analysisProvider),
+          model: reviewModel,
         })
       }
 
@@ -498,7 +499,7 @@ export default function CreativeReview() {
       setErrorMessage(`レビュー失敗: ${err.message}`)
       setErrorInfo(info)
     }
-  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, startRun, completeRun, failRun, clearRun])
+  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, reviewModel, startRun, completeRun, failRun, clearRun])
 
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed'].includes(phase)

@@ -1,5 +1,6 @@
 export const ANALYSIS_PROVIDER_ANTHROPIC = 'anthropic'
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6'
+export const CREATIVE_REVIEW_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
 
 export function normalizeAnalysisProvider(provider) {
   const normalized = String(provider || '').trim().toLowerCase()
@@ -12,6 +13,12 @@ export function normalizeAnalysisProvider(provider) {
 export function getAnalysisModel(provider) {
   return normalizeAnalysisProvider(provider) === ANALYSIS_PROVIDER_ANTHROPIC
     ? DEFAULT_ANTHROPIC_MODEL
+    : undefined
+}
+
+export function getCreativeReviewModel(provider) {
+  return normalizeAnalysisProvider(provider) === ANALYSIS_PROVIDER_ANTHROPIC
+    ? CREATIVE_REVIEW_ANTHROPIC_MODEL
     : undefined
 }
 
