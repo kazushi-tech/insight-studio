@@ -284,8 +284,19 @@ function isReviewRetryableError(error) {
   const status = Number(error?.status || 0)
   const msg = String(error?.message || '').toLowerCase()
 
+  // Deterministic failures — never retry
+  if (status === 400 || status === 401 || status === 402 || status === 403 || status === 404 || status === 422) return false
+
   if (msg.includes('llm output parse') || msg.includes('json parse error')) return true
-  if (status === 500 || status === 502 || status === 503) return true
+
+  if (status === 500 || status === 502 || status === 503) {
+    // Provider auth/model/billing errors arriving as 502 should not be retried
+    if (msg.includes('api キー') || msg.includes('api key') || msg.includes('権限')) return false
+    if (msg.includes('モデル設定')) return false
+    if (msg.includes('クレジット') || msg.includes('請求')) return false
+    return true
+  }
+
   if (error?.name === 'AbortError' || msg.includes('timeout')) return true
 
   return false

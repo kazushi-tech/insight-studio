@@ -11,6 +11,7 @@ const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_MAX_DURATION_MS = 5 * 60 * 1000 // 5 minutes absolute timeout
+const POLL_STALE_THRESHOLD = 4 // consecutive polls with unchanged updated_at → stale
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -201,6 +202,8 @@ export default function Discovery() {
   const pollStartTimeRef = useRef(0)
   const pollStoppedRef = useRef(false)
   const lastStageRef = useRef(run?.meta?.stage || null)
+  const lastUpdatedAtRef = useRef(null)
+  const staleCountRef = useRef(0)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -248,6 +251,8 @@ export default function Discovery() {
 
     pollStoppedRef.current = false
     pollStartTimeRef.current = Date.now()
+    lastUpdatedAtRef.current = null
+    staleCountRef.current = 0
 
     async function tick() {
       // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
@@ -268,6 +273,27 @@ export default function Discovery() {
       try {
         const data = await getDiscoveryJob(pollPath)
         pollErrorCountRef.current = 0
+
+        // Stale detection: if updated_at hasn't changed across consecutive polls, fail
+        if ((data.status === 'running' || data.status === 'queued') && data.updated_at) {
+          const updatedAtStr = String(data.updated_at)
+          if (updatedAtStr === lastUpdatedAtRef.current) {
+            staleCountRef.current += 1
+            if (staleCountRef.current >= POLL_STALE_THRESHOLD) {
+              stopPolling()
+              const lastStage = lastStageRef.current
+              const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
+              failRun('discovery', `サーバーが応答しなくなりました${stageHint}。再試行してください。`, {
+                category: 'stale', label: 'サーバー無応答',
+                guidance: `分析ジョブが進行していません${stageHint}。再試行してください。`, retryable: true,
+              })
+              return
+            }
+          } else {
+            lastUpdatedAtRef.current = updatedAtStr
+            staleCountRef.current = 0
+          }
+        }
 
         // Pseudo-progress: during analyze stage, increment 90→99% based on elapsed time
         let displayProgress = data.progress_pct
