@@ -5,6 +5,9 @@ import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useAuth } from '../contexts/AuthContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { getScoreLabel } from '../utils/scoreThresholds'
+import { copyReportToClipboard, buildCompareReportText } from '../utils/reportExport'
+import { recordScore, getPreviousScore, formatScoreDelta } from '../utils/scoreHistory'
 
 
 function formatElapsed(ms) {
@@ -252,6 +255,12 @@ export default function Compare() {
         run_id: data.run_id,
         providerLabel,
       })
+
+      // Record score for history comparison
+      const finalScore = data.overall_score ?? data.score
+      if (finalScore != null) {
+        recordScore('compare', { score: finalScore, label: urls.target, timestamp: Date.now() })
+      }
     } catch (e) {
       const info = classifyError(e)
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。', info)
@@ -439,13 +448,32 @@ export default function Compare() {
                     <span className="text-7xl font-black tabular-nums text-primary-container">{overallScore ?? '--'}</span>
                     <span className="text-2xl font-bold text-white/50">/100</span>
                   </div>
+                  {overallScore != null && (() => {
+                    const { label, color } = getScoreLabel(overallScore)
+                    return (
+                      <span className={`mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold ${color}`}>
+                        {label}
+                      </span>
+                    )
+                  })()}
+                  {(() => {
+                    const prev = getPreviousScore('compare')
+                    const delta = formatScoreDelta(overallScore, prev)
+                    if (!delta) return null
+                    const isUp = delta.startsWith('+')
+                    return (
+                      <span className={`mt-2 ml-2 inline-block px-2.5 py-1 rounded-full text-xs font-bold ${isUp ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                        {delta} vs前回
+                      </span>
+                    )
+                  })()}
                 </div>
                 <div className="flex-1 grid grid-cols-2 lg:grid-cols-5 gap-4 text-sm">
-                  {scores.ux != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">UXコンバージョン率</span><span className="text-2xl font-bold">{scores.ux}</span></div>}
-                  {scores.conversion != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">コンバージョン</span><span className="text-2xl font-bold">{scores.conversion}</span></div>}
-                  {scores.brand != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">ブランド信頼性</span><span className="text-2xl font-bold">{scores.brand}</span></div>}
-                  {scores.trust != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">信頼性</span><span className="text-2xl font-bold">{scores.trust}</span></div>}
-                  {scores.seo != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">SEO最適化</span><span className="text-2xl font-bold">{scores.seo}</span></div>}
+                  {scores.ux != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">UXコンバージョン率</span><span className="text-2xl font-bold">{scores.ux}</span>{(() => { const { label, color } = getScoreLabel(scores.ux); return <span className={`ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${color}`}>{label}</span> })()}</div>}
+                  {scores.conversion != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">コンバージョン</span><span className="text-2xl font-bold">{scores.conversion}</span>{(() => { const { label, color } = getScoreLabel(scores.conversion); return <span className={`ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${color}`}>{label}</span> })()}</div>}
+                  {scores.brand != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">ブランド信頼性</span><span className="text-2xl font-bold">{scores.brand}</span>{(() => { const { label, color } = getScoreLabel(scores.brand); return <span className={`ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${color}`}>{label}</span> })()}</div>}
+                  {scores.trust != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">信頼性</span><span className="text-2xl font-bold">{scores.trust}</span>{(() => { const { label, color } = getScoreLabel(scores.trust); return <span className={`ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${color}`}>{label}</span> })()}</div>}
+                  {scores.seo != null && <div className="text-center"><span className="block text-xs text-white/60 mb-1">SEO最適化</span><span className="text-2xl font-bold">{scores.seo}</span>{(() => { const { label, color } = getScoreLabel(scores.seo); return <span className={`ml-1.5 inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${color}`}>{label}</span> })()}</div>}
                 </div>
               </div>
               {result?.summary && (
@@ -456,9 +484,23 @@ export default function Compare() {
 
           {/* Report — primary display with green left accent */}
           <div className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-primary-container' : ''}`}>
-            <div className="flex items-center gap-2 text-on-surface-variant mb-6">
-              <span className="material-symbols-outlined text-secondary">description</span>
-              <span className="text-sm font-bold">分析レポート</span>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <span className="material-symbols-outlined text-secondary">description</span>
+                <span className="text-sm font-bold">分析レポート</span>
+              </div>
+              {result && (
+                <button
+                  onClick={() => {
+                    const text = buildCompareReportText({ overallScore, scores, summary: result?.summary, report })
+                    copyReportToClipboard(text)
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-outlined text-sm">content_copy</span>
+                  レポートをコピー
+                </button>
+              )}
             </div>
             {extracted && (
               <ExtractedDataPanel extracted={extracted} />

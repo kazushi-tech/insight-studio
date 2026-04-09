@@ -5,6 +5,89 @@ import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
+import { recordScore } from '../utils/scoreHistory'
+import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
+
+Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
+
+/**
+ * Score distribution bar chart: your site vs competitors.
+ */
+function ScoreDistributionChart({ discoveries }) {
+  const canvasRef = useRef(null)
+  const chartRef = useRef(null)
+
+  useEffect(() => {
+    if (!canvasRef.current || !discoveries?.length) return
+
+    const scored = discoveries.filter((d) => d.score != null)
+    if (scored.length === 0) return
+
+    if (chartRef.current) {
+      chartRef.current.destroy()
+    }
+
+    const labels = scored.map((d) => {
+      const host = d.domain || (d.url ? new URL(d.url).hostname : '?')
+      return host.length > 20 ? host.slice(0, 18) + '…' : host
+    })
+    const data = scored.map((d) => d.score)
+    const colors = scored.map((_, i) => i === 0 ? 'rgba(45, 106, 79, 0.85)' : 'rgba(45, 106, 79, 0.35)')
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Score',
+          data,
+          backgroundColor: colors,
+          borderRadius: 6,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        scales: {
+          x: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { font: { size: 11 } } },
+          y: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `Score: ${ctx.raw}/100`,
+            },
+          },
+        },
+      },
+    })
+
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.destroy()
+        chartRef.current = null
+      }
+    }
+  }, [discoveries])
+
+  if (!discoveries?.filter((d) => d.score != null).length) return null
+
+  return (
+    <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
+      <div className="flex items-center gap-2 text-on-surface-variant mb-4">
+        <span className="material-symbols-outlined text-secondary text-lg">bar_chart</span>
+        <span className="text-sm font-bold">スコア分布</span>
+      </div>
+      <div style={{ height: Math.max(120, discoveries.filter((d) => d.score != null).length * 40 + 40) }}>
+        <canvas ref={canvasRef} />
+      </div>
+    </div>
+  )
+}
 
 const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
@@ -394,6 +477,14 @@ export default function Discovery() {
             providerLabel,
             jobId,
           })
+
+          // Record avg score from fetched sites
+          const sites = data.result?.fetched_sites || []
+          const scoredSites = sites.filter(s => s.score != null && s.analysis_source !== 'failed')
+          if (scoredSites.length > 0) {
+            const avgScore = Math.round(scoredSites.reduce((sum, s) => sum + s.score, 0) / scoredSites.length)
+            recordScore('discovery', { score: avgScore, timestamp: Date.now() })
+          }
           return
         }
 
@@ -611,6 +702,13 @@ export default function Discovery() {
               <span className="material-symbols-outlined">description</span>
               <span className="text-sm font-bold">分析レポート</span>
             </div>
+            <button
+              onClick={() => copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">content_copy</span>
+              レポートをコピー
+            </button>
             <div className="flex items-center gap-1 bg-surface-container rounded-full p-1">
               <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
               {FONT_SIZES.map(({ key, label }) => (
@@ -631,6 +729,9 @@ export default function Discovery() {
           <MarkdownRenderer content={result.report_md} size={fontSize} variant="discovery" />
         </>
       )}
+
+      {/* Score Distribution Chart */}
+      {discoveries.length > 0 && <ScoreDistributionChart discoveries={discoveries} />}
 
       {/* Discovered LPs */}
       {discoveries.length > 0 && (

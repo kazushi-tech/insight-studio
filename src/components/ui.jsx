@@ -59,6 +59,7 @@ const ERROR_CATEGORY_STYLES = {
   upstream:      { icon: 'cloud_off',      bg: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-800',   btnText: 'text-rose-700' },
   not_found:     { icon: 'search_off',     bg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-700',  btnText: 'text-slate-600' },
   rate_limit:    { icon: 'hourglass_top',  bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-800',  btnText: 'text-amber-700' },
+  overloaded:    { icon: 'cloud_queue',    bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', btnText: 'text-violet-700' },
 }
 
 /**

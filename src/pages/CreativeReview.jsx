@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import MarkdownRenderer from '../components/MarkdownRenderer'
-import PerformanceRadar from '../components/PerformanceRadar'
+import PerformanceRadar, { AXIS_GROUPS_BY_TYPE } from '../components/PerformanceRadar'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -11,6 +11,8 @@ import {
   classifyError,
 } from '../api/marketLens'
 import { getCreativeReviewModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { copyReportToClipboard, buildCreativeReviewReportText } from '../utils/reportExport'
+import { recordScore } from '../utils/scoreHistory'
 
 const REVIEW_TEXT_SIZE_STORAGE_KEY = 'creative_review_text_size'
 const REVIEW_TEXT_SIZE_OPTIONS = [
@@ -181,6 +183,38 @@ function EvidenceSection({ review, size }) {
   )
 }
 
+function RubricScoreGuide() {
+  const [open, setOpen] = useState(false)
+  const levels = [
+    { score: 5, label: '優秀', desc: '業界トップレベル。改善の余地はほぼない', color: 'bg-emerald-100 text-emerald-700' },
+    { score: 4, label: '良好', desc: '水準以上。微調整でさらに向上可能', color: 'bg-sky-100 text-sky-700' },
+    { score: 3, label: '平均', desc: '業界平均レベル。改善の余地がある', color: 'bg-amber-100 text-amber-700' },
+    { score: 2, label: '要改善', desc: '平均以下。優先的な改善が必要', color: 'bg-orange-100 text-orange-700' },
+    { score: 1, label: '問題あり', desc: '重大な問題。即時対応が望ましい', color: 'bg-rose-100 text-rose-700' },
+  ]
+  return (
+    <div className="mb-4">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+      >
+        <span className={"material-symbols-outlined text-sm transition-transform " + (open ? 'rotate-90' : '')}>chevron_right</span>
+        採点ガイド
+      </button>
+      {open && (
+        <div className="mt-2 grid grid-cols-5 gap-2">
+          {levels.map(({ score, label, desc, color }) => (
+            <div key={score} className={"rounded-lg px-3 py-2 " + color}>
+              <p className="text-xs font-black">{score}/5 {label}</p>
+              <p className="text-[10px] mt-0.5 opacity-80">{desc}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function RubricSection({ review }) {
   const items = review?.rubric_scores
   if (!Array.isArray(items) || items.length === 0) return null
@@ -307,6 +341,64 @@ function esc(value) {
   return String(value).trim().replace(/\|/g, '\\|').replace(/\r?\n+/g, ' ') || '-'
 }
 
+function RubricCategoryHeatmap({ review }) {
+  const items = review?.rubric_scores
+  if (!Array.isArray(items) || items.length === 0) return null
+
+  // Detect review type like PerformanceRadar does
+  const adLpIds = new Set(['ad_to_lp_message_match', 'benefit_clarity', 'input_friction', 'story_consistency'])
+  const reviewType = items.some(s => adLpIds.has(s.rubric_id)) ? 'ad_lp_review' : 'banner_review'
+  const axisGroups = AXIS_GROUPS_BY_TYPE[reviewType] || AXIS_GROUPS_BY_TYPE.banner_review
+
+  const scoreMap = {}
+  items.forEach((item) => {
+    if (item.rubric_id && item.score != null) scoreMap[item.rubric_id] = item.score
+  })
+
+  return (
+    <SectionCard
+      icon="grid_view"
+      title="カテゴリ別ヒートマップ"
+      borderColor="border-outline-variant/20"
+      bgColor="bg-surface-container-lowest"
+    >
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {Object.entries(axisGroups).map(([key, group]) => {
+          const scores = group.ids.map((id) => scoreMap[id]).filter((v) => v != null)
+          const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null
+          const pct = avg != null ? (avg / 5) * 100 : 0
+          const heatColor = avg == null ? 'bg-surface-container/40' : avg >= 4 ? 'bg-emerald-100' : avg >= 3 ? 'bg-amber-50' : 'bg-rose-50'
+          const textColor = avg == null ? 'text-on-surface-variant/50' : avg >= 4 ? 'text-emerald-700' : avg >= 3 ? 'text-amber-700' : 'text-rose-700'
+          return (
+            <div key={key} className={'rounded-lg p-3 ' + heatColor}>
+              <p className="text-xs font-bold text-on-surface mb-2">{group.label}</p>
+              <div className="flex items-end gap-2">
+                {avg != null ? (
+                  <>
+                    <span className={'text-2xl font-black tabular-nums ' + textColor}>{avg.toFixed(1)}</span>
+                    <span className="text-xs text-on-surface-variant mb-0.5">/5</span>
+                  </>
+                ) : (
+                  <span className="text-lg font-bold text-on-surface-variant/50">N/A</span>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {group.ids.map((id) => {
+                  const s = scoreMap[id]
+                  const dotColor = s == null ? 'bg-surface-container' : s >= 4 ? 'bg-emerald-400' : s >= 3 ? 'bg-amber-300' : 'bg-rose-400'
+                  return (
+                    <span key={id} className={'inline-block w-4 h-4 rounded ' + dotColor} title={`${RUBRIC_LABEL_MAP[id] || id}: ${s ?? 'N/A'}`} />
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </SectionCard>
+  )
+}
+
 function ReviewResultDisplay({ review, size }) {
   if (!review) return null
 
@@ -335,6 +427,7 @@ function ReviewResultDisplay({ review, size }) {
   return (
     <div className="space-y-5">
       <SummarySection review={review} size={size} />
+      <RubricCategoryHeatmap review={review} />
       <NeutralInfoSection review={review} size={size} />
       <CategoryContextSection review={review} size={size} />
       <GoodPointsSection review={review} size={size} />
@@ -554,6 +647,15 @@ export default function CreativeReview() {
         providerLabel,
       })
       setPhase('reviewed')
+
+      // Record rubric average score for history
+      if (review?.rubric_scores?.length) {
+        const scored = review.rubric_scores.filter(s => s.score != null)
+        if (scored.length > 0) {
+          const avg = Math.round((scored.reduce((sum, s) => sum + s.score, 0) / scored.length) * 20)
+          recordScore('creative-review', { score: avg, timestamp: Date.now() })
+        }
+      }
     } catch (err) {
       const info = classifyError(err)
       failRun('creative-review', err.message, info)
@@ -762,10 +864,19 @@ export default function CreativeReview() {
             {isReviewed && reviewResult && (
               <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <h3 className="text-lg font-bold text-on-surface japanese-text flex items-center gap-2">
-                    <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
-                    レビュー結果
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-on-surface japanese-text flex items-center gap-2">
+                      <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">3</span>
+                      レビュー結果
+                    </h3>
+                    <button
+                      onClick={() => copyReportToClipboard(buildCreativeReviewReportText({ review: reviewResult }))}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">content_copy</span>
+                      レポートをコピー
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2 self-start md:self-auto">
                     <span className="text-xs font-bold text-on-surface-variant japanese-text">文字サイズ</span>
                     <div className="inline-flex rounded-full bg-surface-container p-1">
