@@ -28,11 +28,11 @@ const STAGE_LABELS = {
 
 // Typical duration per stage (seconds) — used for estimated remaining time
 const STAGE_TYPICAL_SEC = {
-  queued: 2,
-  brand_fetch: 5,
-  classify_industry: 4,
-  search: 20,
-  fetch_competitors: 8,
+  queued: 5,
+  brand_fetch: 10,
+  classify_industry: 8,
+  search: 45,
+  fetch_competitors: 20,
   analyze: 70,
 }
 const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
