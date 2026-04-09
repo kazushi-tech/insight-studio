@@ -12,8 +12,6 @@ const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_MAX_DURATION_MS = 360_000 // 6min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
-const STAGE_MAX_MULTIPLIER = 3
-const STAGE_MIN_TIMEOUT_MS = 30_000
 const DISCOVERY_AUTO_RESUBMIT_MAX = 1
 
 const STAGE_LABELS = {
@@ -346,23 +344,10 @@ export default function Discovery() {
           pollUrl: pollPath,
         })
 
-        // Per-stage stall detection (synchronous — no React timing dependency)
+        // Track current stage (for error messages only — no stall detection)
         if (data.stage && (data.status === 'running' || data.status === 'queued')) {
           if (!stageTrackRef.current || data.stage !== stageTrackRef.current.stage) {
             stageTrackRef.current = { stage: data.stage, startTime: Date.now() }
-          }
-          const stageElapsedMs = Date.now() - stageTrackRef.current.startTime
-          const typicalMs = (STAGE_TYPICAL_SEC[data.stage] || 10) * 1000
-          const stageMaxMs = Math.max(typicalMs * STAGE_MAX_MULTIPLIER, STAGE_MIN_TIMEOUT_MS)
-          if (stageElapsedMs > stageMaxMs) {
-            stopPolling()
-            const stageName = STAGE_LABELS[data.stage] || data.stage
-            failRun('discovery', `「${stageName.replace(/…$/, '')}」が長時間停止しています。再試行してください。`, {
-              category: 'timeout', label: 'ステージ停滞',
-              guidance: `「${stageName.replace(/…$/, '')}」ステージが${Math.round(stageElapsedMs / 1000)}秒以上進行していません。再試行してください。`,
-              retryable: true,
-            })
-            return
           }
         }
 
@@ -479,10 +464,10 @@ export default function Discovery() {
     submitOptionsRef.current = { url, requestOptions }
 
     try {
-      // Warm up backend before submitting — wait up to 8s (no-op if already warm)
+      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
       await Promise.race([
         warmMarketLensBackend(),
-        new Promise((resolve) => setTimeout(resolve, 8000)),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
       ])
 
       const data = await startDiscoveryJob(url, requestOptions)

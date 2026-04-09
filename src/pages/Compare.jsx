@@ -227,10 +227,10 @@ export default function Compare() {
     startRun('compare', { urls })
 
     try {
-      // Warm up backend before submitting — wait up to 8s (no-op if already warm)
+      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
       await Promise.race([
         warmMarketLensBackend(),
-        new Promise((resolve) => setTimeout(resolve, 8000)),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
       ])
 
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
