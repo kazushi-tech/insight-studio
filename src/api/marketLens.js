@@ -96,6 +96,11 @@ export function classifyError(error) {
     return { category: 'rate_limit', label: '利用制限', guidance: '利用制限に達しました。しばらく待って再試行してください。', retryable: true }
   }
 
+  // Claude API overloaded (529)
+  if (status === 529 || msg.includes('overloaded')) {
+    return { category: 'overloaded', label: 'AI一時過負荷', guidance: 'AIサービスが一時的に混み合っています。数分後に再試行してください。', retryable: true }
+  }
+
   // Upstream / backend server error
   if (status === 500 || status === 502) {
     return { category: 'upstream', label: 'バックエンドエラー', guidance: 'サーバー側でエラーが発生しました。しばらく待って再試行してください。', retryable: true }
@@ -193,6 +198,7 @@ function buildErrorMessage(path, status, body) {
   }
 
   if (status === 500) return detail || 'バックエンドでサーバーエラーが発生しました。しばらく待って再試行してください。'
+  if (status === 529) return 'AIサービスが一時的に混み合っています。数分後に再試行してください。'
   if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
 
   return `Market Lens API error: ${status}`
@@ -238,9 +244,11 @@ function isDiscoveryRetryableError(error) {
   }
 
   if (status === 500) {
-    if (msg.includes('unicodeerror') || msg.includes('internal server error')) return true
+    if (msg.includes('unicodeerror') || msg.includes('internal server error') || msg.includes('overloaded') || msg.includes('529')) return true
     if (stage === 'search' || stage === 'analyze') return true
   }
+
+  if (status === 529) return true
 
   if (error?.isTimeout || error?.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
     return true
@@ -347,7 +355,8 @@ async function requestScanWithRetry(payload, options) {
       const retryable = isTimeout
         || [502, 503].includes(status)
         || isFetchNetworkError(error)
-        || (status === 500 && /unicodeerror|internal server error/i.test(error.message))
+        || (status === 500 && /unicodeerror|internal server error|overloaded|529/i.test(error.message))
+        || status === 529
       if (!retryable || attempt >= SCAN_AUTO_RETRY_COUNT) break
       _directBackendReady = false
       await sleep(SCAN_AUTO_RETRY_DELAYS_MS[attempt] ?? 5000)
@@ -370,13 +379,15 @@ function isReviewRetryableError(error) {
 
   if (msg.includes('llm output parse') || msg.includes('json parse error')) return true
 
-  if (status === 500 || status === 502 || status === 503) {
+  if (status === 500 || status === 502 || status === 503 || status === 529) {
     // Provider auth/model/billing errors arriving as 502 should not be retried
     if (msg.includes('api キー') || msg.includes('api key') || msg.includes('権限')) return false
     if (msg.includes('モデル設定')) return false
     if (msg.includes('クレジット') || msg.includes('請求')) return false
     return true
   }
+
+  if (msg.includes('overloaded')) return true
 
   if (error?.isTimeout || error?.name === 'AbortError' || msg.includes('timeout')) return true
 
