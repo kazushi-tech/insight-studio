@@ -293,7 +293,7 @@ export function neonGenerate(payload, apiKey) {
     timeout: 120000,
     direct: true,
     directStrategy: 'optimistic',
-    allowProxyFallback: false,
+    allowProxyFallback: true,
   })
 }
 

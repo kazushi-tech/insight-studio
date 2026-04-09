@@ -16,14 +16,20 @@ import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 
 function formatAnalysisError(error) {
-  const msg = error.message || ''
-  const body = error.body || {}
-  const bodyStr = JSON.stringify(body)
+  if (error.isAuthError) return AUTH_EXPIRED_MESSAGE
 
-  if (error.isAuthError) {
-    return AUTH_EXPIRED_MESSAGE
+  const info = classifyError(error)
+  if (info.category === 'network') {
+    return 'バックエンドへの接続に失敗しました。ネットワーク接続またはバックエンドの起動状態を確認し、再試行してください。'
+  }
+  if (info.category === 'cold_start') {
+    return 'バックエンドサーバーが起動中です。1〜2分後に再試行してください。'
+  }
+  if (info.category === 'timeout') {
+    return info.label + '。' + info.guidance
   }
 
+  const msg = error.message || ''
   return msg.length > 200 ? msg.slice(0, 200) + '…' : msg
 }
 
@@ -166,6 +172,8 @@ export default function AiExplorer() {
     setMlLoading(true)
     setMlStatus('loading')
 
+    let retried = false
+
     getScans()
       .then((data) => {
         const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
@@ -174,8 +182,30 @@ export default function AiExplorer() {
         setMlStatus(summary ? 'ready' : 'empty')
       })
       .catch((e) => {
-        setMlContextSummary(null)
         const info = classifyError(e)
+        if (!retried && (info.category === 'cold_start' || info.category === 'network')) {
+          retried = true
+          setTimeout(() => {
+            setMlLoading(true)
+            setMlStatus('loading')
+            getScans()
+              .then((data) => {
+                const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
+                const summary = summarizeHistory(items)
+                setMlContextSummary(summary)
+                setMlStatus(summary ? 'ready' : 'empty')
+              })
+              .catch(() => {
+                setMlContextSummary(null)
+                setMlStatus('error')
+              })
+              .finally(() => setMlLoading(false))
+          }, 5000)
+          setMlStatus('cold_start')
+          setMlLoading(false)
+          return
+        }
+        setMlContextSummary(null)
         if (e.status === 404 || info.category === 'not_found') {
           setMlStatus('unavailable')
         } else if (info.category === 'cold_start') {
@@ -184,7 +214,7 @@ export default function AiExplorer() {
           setMlStatus('error')
         }
       })
-      .finally(() => setMlLoading(false))
+      .finally(() => { if (!retried) setMlLoading(false) })
   }, [contextMode])
 
   const chartContext = useMemo(
@@ -262,7 +292,9 @@ export default function AiExplorer() {
           const retryable =
             err.message?.includes('timeout') ||
             err.message?.includes('タイムアウト') ||
-            [500, 502, 503].includes(err.status)
+            [500, 502, 503].includes(err.status) ||
+            err.message?.includes('Failed to fetch') ||
+            (err instanceof TypeError && !err.status)
           if (!retryable || attempt === MAX_RETRIES) {
             throw err
           }
