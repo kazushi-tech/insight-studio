@@ -291,9 +291,6 @@ export function neonGenerate(payload, apiKey) {
     headers,
     body: JSON.stringify(body),
     timeout: 120000,
-    direct: true,
-    directStrategy: 'optimistic',
-    allowProxyFallback: true,
   })
 }
 
