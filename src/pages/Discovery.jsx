@@ -10,9 +10,17 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 360_000 // 6min absolute timeout
+const POLL_MAX_DURATION_MS = 180_000 // 3min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
 const DISCOVERY_AUTO_RESUBMIT_MAX = 1
+const STAGE_TIMEOUT_MS = {
+  queued: 30_000,
+  brand_fetch: 30_000,
+  classify_industry: 30_000,
+  search: 70_000,
+  fetch_competitors: 45_000,
+  analyze: 150_000,
+}
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -39,6 +47,15 @@ function getPollIntervalMs(retryAfterSec) {
   return Number(retryAfterSec) > 0
     ? Number(retryAfterSec) * 1000
     : POLL_INTERVAL_INITIAL_MS
+}
+
+function getStageTimeoutMs(stage) {
+  return STAGE_TIMEOUT_MS[stage] || 60_000
+}
+
+function parseTimestampMs(value) {
+  const parsed = Date.parse(String(value || ''))
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function isAnalyzeTimeoutFailure(detail, retryable, stage) {
@@ -349,6 +366,25 @@ export default function Discovery() {
           if (!stageTrackRef.current || data.stage !== stageTrackRef.current.stage) {
             stageTrackRef.current = { stage: data.stage, startTime: Date.now() }
           }
+
+          const backendStageStartedAtMs = parseTimestampMs(data.stage_started_at)
+          const stageElapsedMs = backendStageStartedAtMs
+            ? Math.max(0, Date.now() - backendStageStartedAtMs)
+            : Math.max(0, Date.now() - stageTrackRef.current.startTime)
+          const stageTimeoutMs = getStageTimeoutMs(data.stage)
+          if (stageElapsedMs > stageTimeoutMs) {
+            stopPolling()
+            const stageName = STAGE_LABELS[data.stage] || data.stage
+            const cleanStageName = stageName.replace(/…$/, '')
+            const elapsedLabel = formatElapsed(stageElapsedMs) || `${Math.round(stageElapsedMs / 1000)}秒`
+            failRun('discovery', `「${cleanStageName}」が長時間停止しています。再試行してください。`, {
+              category: 'timeout',
+              label: 'ステージ停滞',
+              guidance: `「${cleanStageName}」ステージが${elapsedLabel}以上進行していません。再試行してください。`,
+              retryable: true,
+            })
+            return
+          }
         }
 
         if (data.status === 'completed' && data.result) {
@@ -553,7 +589,7 @@ export default function Discovery() {
             )}
           </button>
         </div>
-        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析は通常1〜2分、サーバー起動直後は3〜5分ほどかかります。</p>
+        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析は通常30〜120秒です。長時間進まないジョブは自動で停止判定します。</p>
       </div>
 
       {/* Meta Band */}

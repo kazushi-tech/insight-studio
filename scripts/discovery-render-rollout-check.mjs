@@ -317,9 +317,10 @@ async function startJob({ jobsUrl, brandUrl, provider, apiKey, deadlineAt, jobSt
   if (provider) payload.provider = provider
   if (apiKey) payload.api_key = apiKey
 
+  const ownerId = 'guest:smoke-test'
   const headers = { 'Content-Type': 'application/json' }
   if (apiKey) headers['X-API-Key'] = apiKey
-  headers['X-Insight-User'] = 'guest:smoke-test'
+  headers['X-Insight-User'] = ownerId
 
   const response = await requestJson(jobsUrl, {
     method: 'POST',
@@ -359,6 +360,7 @@ async function startJob({ jobsUrl, brandUrl, provider, apiKey, deadlineAt, jobSt
     status: response.status,
     body: response.body,
     jobId: response.body.job_id,
+    ownerId,
     pollIntervalMs: Number(response.body.retry_after_sec || 0) > 0
       ? Number(response.body.retry_after_sec) * 1000
       : DEFAULTS.pollIntervalMs,
@@ -368,6 +370,8 @@ async function startJob({ jobsUrl, brandUrl, provider, apiKey, deadlineAt, jobSt
 async function pollJob({
   baseUrl,
   jobId,
+  ownerId,
+  apiKey,
   deadlineAt,
   pollIntervalMs,
   pollRequestTimeoutMs,
@@ -375,6 +379,9 @@ async function pollJob({
 }) {
   const pollUrl = `${baseUrl}/discovery/jobs/${jobId}`
   let transientErrors = 0
+  const headers = {}
+  if (apiKey) headers['X-API-Key'] = apiKey
+  if (ownerId) headers['X-Insight-User'] = ownerId
   let lastSnapshot = {
     status: 'queued',
     stage: 'queued',
@@ -385,6 +392,7 @@ async function pollJob({
   while (Date.now() < deadlineAt) {
     try {
       const response = await requestJson(pollUrl, {
+        headers,
         timeoutMs: remainingTimeoutMs(deadlineAt, pollRequestTimeoutMs),
       })
 
@@ -550,6 +558,8 @@ async function runAttempt({
   const pollResult = await pollJob({
     baseUrl,
     jobId: startResult.jobId,
+    ownerId: startResult.ownerId,
+    apiKey,
     deadlineAt,
     pollIntervalMs: startResult.pollIntervalMs || pollIntervalMs,
     pollRequestTimeoutMs,
