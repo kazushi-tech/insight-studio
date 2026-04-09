@@ -10,10 +10,11 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 240_000 // 4min absolute timeout
+const POLL_MAX_DURATION_MS = 360_000 // 6min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
 const STAGE_MAX_MULTIPLIER = 3
 const STAGE_MIN_TIMEOUT_MS = 30_000
+const DISCOVERY_AUTO_RESUBMIT_MAX = 1
 
 const STAGE_LABELS = {
   queued: 'ジョブ準備中…',
@@ -32,9 +33,24 @@ const STAGE_TYPICAL_SEC = {
   classify_industry: 4,
   search: 20,
   fetch_competitors: 8,
-  analyze: 50,
+  analyze: 70,
 }
 const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
+
+function getPollIntervalMs(retryAfterSec) {
+  return Number(retryAfterSec) > 0
+    ? Number(retryAfterSec) * 1000
+    : POLL_INTERVAL_INITIAL_MS
+}
+
+function isAnalyzeTimeoutFailure(detail, retryable, stage) {
+  if (!retryable) return false
+  const normalizedDetail = String(detail || '').toLowerCase()
+  const normalizedStage = String(stage || '').toLowerCase()
+  const mentionsTimeout = normalizedDetail.includes('タイムアウト') || normalizedDetail.includes('timeout')
+  const mentionsAnalyze = normalizedDetail.includes('analyze') || normalizedStage === 'analyze'
+  return mentionsTimeout && mentionsAnalyze
+}
 
 function estimateRemaining(currentStage, elapsedMs) {
   const idx = STAGE_ORDER.indexOf(currentStage)
@@ -76,6 +92,7 @@ function MetaBand({ run, now }) {
   const stage = run.meta?.stage
   const progressPct = run.meta?.progress_pct
   const stageLabel = stage ? STAGE_LABELS[stage] || stage : null
+  const statusLabel = run.meta?.statusLabel
   const remaining = run.status === 'running' && stage ? estimateRemaining(stage, runningElapsed) : null
 
   return (
@@ -88,7 +105,7 @@ function MetaBand({ run, now }) {
             run.status === 'completed' ? 'bg-emerald-500' :
             'bg-red-400'
           }`} />
-          {run.status === 'running' ? (stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
+          {run.status === 'running' ? (statusLabel || stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
         </span>
         {remaining && (
           <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-bold">{remaining}</span>
@@ -209,6 +226,8 @@ export default function Discovery() {
   const stageTrackRef = useRef(null)  // { stage: string, startTime: number }
   const lastUpdatedAtRef = useRef(null)
   const staleStartRef = useRef(null)
+  const resubmitCountRef = useRef(0)
+  const submitOptionsRef = useRef(null)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -232,14 +251,24 @@ export default function Discovery() {
     return () => window.clearInterval(timerId)
   }, [loading])
 
-  const stopPolling = useCallback(() => {
-    pollStoppedRef.current = true
+  const resetPollingTracking = useCallback((resetStartTime = false) => {
     if (pollTimerRef.current) {
       clearTimeout(pollTimerRef.current)
       pollTimerRef.current = null
     }
     pollErrorCountRef.current = 0
+    lastUpdatedAtRef.current = null
+    staleStartRef.current = null
+    stageTrackRef.current = null
+    if (resetStartTime || !pollStartTimeRef.current) {
+      pollStartTimeRef.current = Date.now()
+    }
   }, [])
+
+  const stopPolling = useCallback(() => {
+    pollStoppedRef.current = true
+    resetPollingTracking(false)
+  }, [resetPollingTracking])
 
   // Warm up backend on mount (cold-start mitigation)
   useEffect(() => {
@@ -249,17 +278,13 @@ export default function Discovery() {
   // Cleanup on unmount
   useEffect(() => stopPolling, [stopPolling])
 
-  const pollJob = useCallback((jobId, options = {}) => {
+  const pollJob = useCallback(function pollJobCallback(jobId, options = {}) {
     const pollPath = options.pollPath || jobId
-    const initialPollIntervalMs = Number(options.pollIntervalMs) > 0
-      ? Number(options.pollIntervalMs)
-      : POLL_INTERVAL_INITIAL_MS
+    const initialPollIntervalMs = getPollIntervalMs(options.pollIntervalMs)
+    const resetStartTime = options.resetStartTime !== false
 
     pollStoppedRef.current = false
-    pollStartTimeRef.current = Date.now()
-    lastUpdatedAtRef.current = null
-    staleStartRef.current = null
-    stageTrackRef.current = null
+    resetPollingTracking(resetStartTime)
 
     async function tick() {
       // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
@@ -316,6 +341,7 @@ export default function Discovery() {
           stage: data.stage,
           progress_pct: displayProgress,
           message: data.message,
+          statusLabel: null,
           jobId,
           pollUrl: pollPath,
         })
@@ -351,13 +377,60 @@ export default function Discovery() {
         }
 
         if (data.status === 'failed') {
-          stopPolling()
           const detail = data.error?.detail || data.message || 'ジョブが失敗しました'
+          const retryable = data.error?.retryable ?? true
+          const failedStage = data.error?.stage || data.stage
+          if (
+            isAnalyzeTimeoutFailure(detail, retryable, failedStage) &&
+            resubmitCountRef.current < DISCOVERY_AUTO_RESUBMIT_MAX &&
+            submitOptionsRef.current?.url
+          ) {
+            try {
+              updateRunMeta('discovery', {
+                stage: 'queued',
+                progress_pct: 0,
+                message: '自動再試行中…',
+                statusLabel: '自動再試行中…',
+              })
+
+              const nextData = await startDiscoveryJob(
+                submitOptionsRef.current.url,
+                submitOptionsRef.current.requestOptions,
+              )
+              if (pollStoppedRef.current) return
+
+              resubmitCountRef.current += 1
+              updateRunMeta('discovery', {
+                jobId: nextData.job_id,
+                stage: nextData.stage,
+                progress_pct: 0,
+                providerLabel,
+                pollUrl: nextData.poll_url,
+                pollIntervalMs: getPollIntervalMs(nextData.retry_after_sec),
+                message: '自動再試行中…',
+                statusLabel: '自動再試行中…',
+              })
+
+              pollJobCallback(nextData.job_id, {
+                pollPath: nextData.poll_url,
+                pollIntervalMs: nextData.retry_after_sec,
+                resetStartTime: false,
+              })
+              return
+            } catch (resubmitError) {
+              stopPolling()
+              const info = classifyError(resubmitError)
+              failRun('discovery', resubmitError.message || detail, info)
+              return
+            }
+          }
+
+          stopPolling()
           const info = {
             category: 'upstream',
             label: 'ジョブエラー',
             guidance: detail,
-            retryable: data.error?.retryable ?? true,
+            retryable,
           }
           failRun('discovery', detail, info)
           return
@@ -390,26 +463,29 @@ export default function Discovery() {
     }
 
     pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
-  }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel])
+  }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel, resetPollingTracking])
 
   const handleDiscover = useCallback(async () => {
     if (!analysisKey || !analysisProvider) return
 
     stopPolling()
     startRun('discovery', { url })
+    resubmitCountRef.current = 0
+    const requestOptions = {
+      apiKey: analysisKey,
+      provider: analysisProvider,
+      model: getAnalysisModel(analysisProvider),
+    }
+    submitOptionsRef.current = { url, requestOptions }
 
     try {
-      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
+      // Warm up backend before submitting — wait up to 8s (no-op if already warm)
       await Promise.race([
         warmMarketLensBackend(),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
+        new Promise((resolve) => setTimeout(resolve, 8000)),
       ])
 
-      const data = await startDiscoveryJob(url, {
-        apiKey: analysisKey,
-        provider: analysisProvider,
-        model: getAnalysisModel(analysisProvider),
-      })
+      const data = await startDiscoveryJob(url, requestOptions)
 
       updateRunMeta('discovery', {
         jobId: data.job_id,
@@ -417,12 +493,13 @@ export default function Discovery() {
         progress_pct: 0,
         providerLabel,
         pollUrl: data.poll_url,
-        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_INITIAL_MS,
+        pollIntervalMs: getPollIntervalMs(data.retry_after_sec),
+        statusLabel: null,
       })
 
       pollJob(data.job_id, {
         pollPath: data.poll_url,
-        pollIntervalMs: data.retry_after_sec ? data.retry_after_sec * 1000 : POLL_INTERVAL_INITIAL_MS,
+        pollIntervalMs: data.retry_after_sec,
       })
     } catch (e) {
       const info = classifyError(e)
@@ -435,6 +512,8 @@ export default function Discovery() {
 
   const handleRetry = useCallback(() => {
     stopPolling()
+    resubmitCountRef.current = 0
+    submitOptionsRef.current = null
     clearRun('discovery')
   }, [clearRun, stopPolling])
 
@@ -489,7 +568,7 @@ export default function Discovery() {
             )}
           </button>
         </div>
-        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析には 1〜2 分ほどかかります。</p>
+        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析は通常1〜2分、サーバー起動直後は3〜5分ほどかかります。</p>
       </div>
 
       {/* Meta Band */}

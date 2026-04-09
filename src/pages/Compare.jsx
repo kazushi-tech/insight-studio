@@ -203,7 +203,7 @@ function ExtractedDataPanel({ extracted }) {
 
 export default function Compare() {
   const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
-  const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft, clearDraft } = useAnalysisRuns()
+  const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
 
   // Warm up backend on mount (cold-start mitigation)
   useEffect(() => {
@@ -227,10 +227,10 @@ export default function Compare() {
     startRun('compare', { urls })
 
     try {
-      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
+      // Warm up backend before submitting — wait up to 8s (no-op if already warm)
       await Promise.race([
         warmMarketLensBackend(),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
+        new Promise((resolve) => setTimeout(resolve, 8000)),
       ])
 
       const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
@@ -269,12 +269,6 @@ export default function Compare() {
   const handleRetry = useCallback(() => {
     clearRun('compare')
   }, [clearRun])
-
-  const handleClear = useCallback(() => {
-    clearRun('compare')
-    clearDraft('compare')
-    setUrls({ target: '', compA: '', compB: '' })
-  }, [clearRun, clearDraft])
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
@@ -368,7 +362,7 @@ export default function Compare() {
               </>
             )}
           </button>
-          <p className="text-xs text-on-surface-variant japanese-text">重いLPは 30〜90 秒ほどかかることがあります。</p>
+          <p className="text-xs text-on-surface-variant japanese-text">初回はサーバー起動で2〜4分、2回目以降は30〜90秒ほどかかることがあります。</p>
         </div>
       </div>
 

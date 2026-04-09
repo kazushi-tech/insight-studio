@@ -18,7 +18,7 @@ const BASE = SHOULD_FORCE_PROXY || !DIRECT_MARKET_LENS_ORIGIN
 const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
   ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
   : 'https://market-lens-ai.onrender.com/api'
-const LONG_ANALYSIS_TIMEOUT = 180000
+const LONG_ANALYSIS_TIMEOUT = 240000
 const CREATIVE_UPLOAD_TIMEOUT = 90000
 const DISCOVERY_AUTO_RETRY_COUNT = 2
 const DISCOVERY_AUTO_RETRY_DELAYS_MS = [1500, 4000]
@@ -51,8 +51,8 @@ export function classifyError(error) {
   const msg = (error.message || '').toLowerCase()
 
   // Timeout / AbortError
-  if (error.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
-    return { category: 'timeout', label: 'タイムアウト', guidance: '処理に時間がかかっています。しばらく待って再試行してください。', retryable: true }
+  if (error.isTimeout || error.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
+    return { category: 'timeout', label: 'タイムアウト', guidance: 'サーバーが起動中だった場合、再試行すると高速に完了します。', retryable: true }
   }
 
   // Cold start (503)
@@ -212,6 +212,18 @@ function buildBackendConnectionErrorMessage(usingDirectBackend) {
     : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
 }
 
+function createTimeoutError(path) {
+  const isLongAnalysisPath = path === '/scan' || path === '/discovery/analyze'
+  const error = new Error(
+    isLongAnalysisPath
+      ? '分析がタイムアウトしました。サーバーが起動中だった場合、再試行すると高速に完了します。'
+      : 'リクエストがタイムアウトしました。ネットワーク接続を確認してください。',
+  )
+  error.isTimeout = true
+  error.path = path
+  return error
+}
+
 function isDiscoveryRetryableError(error) {
   const status = Number(error?.status || 0)
   const stage = typeof error?.stage === 'string' ? error.stage.toLowerCase() : ''
@@ -230,7 +242,7 @@ function isDiscoveryRetryableError(error) {
     if (stage === 'search' || stage === 'analyze') return true
   }
 
-  if (error?.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
+  if (error?.isTimeout || error?.name === 'AbortError' || msg.includes('タイムアウト') || msg.includes('timeout')) {
     return true
   }
 
@@ -329,10 +341,11 @@ async function requestScanWithRetry(payload, options) {
       })
     } catch (error) {
       lastError = error
-      // タイムアウト(AbortError)はリトライしない — バックエンドが本当に遅い
-      if (error.name === 'AbortError') break
+      const isTimeout = error?.isTimeout || error?.name === 'AbortError'
+      if (isTimeout && attempt >= 1) break
       const status = error.status || error.statusCode
-      const retryable = [502, 503].includes(status)
+      const retryable = isTimeout
+        || [502, 503].includes(status)
         || isFetchNetworkError(error)
         || (status === 500 && /unicodeerror|internal server error/i.test(error.message))
       if (!retryable || attempt >= SCAN_AUTO_RETRY_COUNT) break
@@ -365,7 +378,7 @@ function isReviewRetryableError(error) {
     return true
   }
 
-  if (error?.name === 'AbortError' || msg.includes('timeout')) return true
+  if (error?.isTimeout || error?.name === 'AbortError' || msg.includes('timeout')) return true
 
   return false
 }
@@ -540,12 +553,7 @@ async function requestJson(path, options = {}) {
         ...restOptions,
       })
     }
-    if (e.name === 'AbortError') {
-      if (path === '/scan' || path === '/discovery/analyze') {
-        throw new Error('分析がタイムアウトしました。対象サイトの取得やバックエンドの起動待ちで数十秒かかることがあります。少し待って再実行してください。')
-      }
-      throw new Error('リクエストがタイムアウトしました。ネットワーク接続を確認してください。')
-    }
+    if (e.name === 'AbortError') throw createTimeoutError(path)
     if (isFetchNetworkError(e)) {
       throw new Error(buildBackendConnectionErrorMessage(usingDirectBackend || Boolean(DIRECT_MARKET_LENS_ORIGIN)))
     }
