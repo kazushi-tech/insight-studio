@@ -164,20 +164,23 @@ export default function SetupWizard() {
         const periodsArray = [...selectedPeriods]
         const currentGenerated = new Set(generatedPeriods)
         const pendingPeriods = periodsArray.filter((period) => !currentGenerated.has(period))
-        const results = []
-        for (let index = 0; index < pendingPeriods.length; index += 1) {
-          const period = pendingPeriods[index]
-          setLoadingLabel(`レポートを生成中… (${currentGenerated.size + 1}/${periodsArray.length})`)
-          const data = await generateBatchWithRetry({
-            query_types: queryTypeIds,
-            dataset_id: getCurrentDatasetId(),
-            period,
-          })
-          results.push(data)
-          currentGenerated.add(period)
-          completedCount = currentGenerated.size
-          setGeneratedPeriods(new Set(currentGenerated))
-        }
+        setLoadingLabel(`レポートを生成中… (0/${periodsArray.length})`)
+
+        const results = await Promise.all(
+          pendingPeriods.map((period) =>
+            generateBatchWithRetry({
+              query_types: queryTypeIds,
+              dataset_id: getCurrentDatasetId(),
+              period,
+            }).then((data) => {
+              currentGenerated.add(period)
+              completedCount = currentGenerated.size
+              setGeneratedPeriods(new Set(currentGenerated))
+              setLoadingLabel(`レポートを生成中… (${currentGenerated.size}/${periodsArray.length})`)
+              return data
+            }),
+          ),
+        )
         const reportBundle = buildAdsReportBundle({
           setupState: {
             queryTypes: queryTypeIds,
