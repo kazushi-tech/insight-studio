@@ -9,6 +9,7 @@ import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
 import {
   buildAiChartContext,
+  buildAnalysisInstructions,
   extractMarkdownSummary,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
@@ -34,9 +35,9 @@ function formatAnalysisError(error) {
 }
 
 const QUICK_PROMPTS = [
-  { icon: 'warning', label: 'リスクを要約して', color: 'text-red-500' },
-  { icon: 'lightbulb', label: 'ROI改善のアイデア', color: 'text-emerald-500' },
-  { icon: 'compare_arrows', label: '先月と比較して', color: 'text-purple-500' },
+  { icon: 'warning', label: 'コンバージョン流出ポイントを特定して', color: 'text-red-500' },
+  { icon: 'lightbulb', label: '最も効果的な流入チャネルとその理由', color: 'text-emerald-500' },
+  { icon: 'compare_arrows', label: '期間比較で一番変化が大きい指標は？', color: 'text-purple-500' },
 ]
 
 function summarizeHistory(items) {
@@ -61,8 +62,8 @@ function toConversationHistory(messages) {
   return messages.slice(-6).map((message) => ({
     role: isAssistantMessage(message) ? 'assistant' : 'user',
     text:
-      typeof message?.text === 'string' && message.text.length > 500
-        ? `${message.text.slice(0, 500)}…(省略)`
+      typeof message?.text === 'string' && message.text.length > 800
+        ? `${message.text.slice(0, 800)}…(省略)`
         : message?.text ?? '',
   }))
 }
@@ -238,10 +239,17 @@ export default function AiExplorer() {
     setStatus('考察生成中...')
 
     try {
-      const enrichedPrompt =
+      const analysisInstructions = buildAnalysisInstructions(
+        setupState?.queryTypes ?? [],
+        setupState?.periods ?? [],
+      )
+      const enrichedPrompt = [
+        analysisInstructions,
         contextMode === 'ads-with-ml' && mlContextSummary
-          ? `${prompt}\n\n[補助コンテキスト: Market Lens]\n${mlContextSummary}`
-          : prompt
+          ? `[補助コンテキスト: Market Lens]\n${mlContextSummary}`
+          : '',
+        `---\n${prompt}`,
+      ].filter(Boolean).join('\n\n')
 
       const isFirstMessage = messages.length === 0
       const packContext = isFirstMessage
@@ -252,7 +260,7 @@ export default function AiExplorer() {
         mode: 'question',
         model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
         provider: analysisProvider || 'anthropic',
-        temperature: 0.7,
+        temperature: messages.length === 0 ? 0.5 : 0.7,
         message: enrichedPrompt,
         point_pack_md: packContext,
         style_reference: '',
@@ -314,8 +322,18 @@ export default function AiExplorer() {
       const assistantMessage = { role: 'assistant', text: aiContent }
       setMessages([...nextMessages, assistantMessage])
 
-      if (aiContent.length < 100 && !aiContent.includes('不明') && !aiContent.includes('未取得')) {
-        setStatus('⚠️ AI応答が短いです。質問を具体化すると改善する場合があります。')
+      const hasTable = /\|.+\|/.test(aiContent)
+      const hasBoldMetric = /\*\*[\d,.]+[%％]?(\s*(増|減|上昇|低下|改善|悪化))?(\*\*)?/.test(aiContent)
+      const hasNumericRef = /\d{2,}([,.]\d+)*(%|％|件|人|回|円|万|億)/.test(aiContent)
+      const isLowQuality = aiContent.length < 100
+        ? !aiContent.includes('不明') && !aiContent.includes('未取得')
+        : !hasTable && !hasBoldMetric && !hasNumericRef
+      if (isLowQuality) {
+        const hints = [
+          !hasTable && !hasBoldMetric ? '表や数値比較' : '',
+          !hasNumericRef ? '具体的な指標値' : '',
+        ].filter(Boolean).join('・') || '具体性'
+        setStatus(`⚠️ 応答に${hints}が不足しています。「コンバージョン流出ポイント」「期間比較で最も変化した指標」等、具体的な質問で改善します。`)
       } else {
         setStatus('✓ 考察生成完了')
       }
@@ -413,7 +431,7 @@ export default function AiExplorer() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="px-10 pt-5 pb-3 space-y-3">
+      <div className="px-6 pt-5 pb-3 space-y-3">
         {!isAdsAuthenticated && (
           <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
@@ -559,7 +577,7 @@ export default function AiExplorer() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-10 pt-3 pb-6 space-y-6" aria-live="polite">
+      <div className="flex-1 overflow-y-auto px-6 pt-3 pb-6 space-y-6" aria-live="polite">
         {messages.length === 0 && (
           <div className="text-center py-20 text-on-surface-variant">
             <div className="w-16 h-16 bg-primary-container/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -578,14 +596,14 @@ export default function AiExplorer() {
               </div>
               <div>
                 <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
-                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6 max-w-3xl ${message.isError ? 'border border-red-200' : ''}`}>
+                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6 max-w-5xl ${message.isError ? 'border border-red-200' : ''}`}>
                   <MarkdownRenderer content={message.text} className="text-sm" size={fontSize} />
                 </div>
               </div>
             </div>
           ) : (
             <div key={index} className="flex justify-end gap-4">
-              <div className="bg-primary-container text-on-primary rounded-2xl rounded-tr-none px-6 py-4 max-w-2xl">
+              <div className="bg-primary-container text-on-primary rounded-2xl rounded-tr-none px-6 py-4 max-w-3xl">
                 <p className={`${USER_TEXT_SIZE[fontSize]} leading-relaxed text-on-primary japanese-text`}>{message.text}</p>
               </div>
               <div className="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-sm font-bold text-on-secondary-container shrink-0">
@@ -612,7 +630,7 @@ export default function AiExplorer() {
         <div ref={chatEndRef} />
       </div>
 
-      <div className="px-10 pb-6 pt-2 backdrop-blur-sm">
+      <div className="px-6 pb-6 pt-2 backdrop-blur-sm">
         <div className="flex items-center gap-3 rounded-full bg-surface-container px-6 py-2">
           <input
             className="flex-1 bg-transparent outline-none text-sm"

@@ -155,6 +155,31 @@ export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest')
   return groups.filter(isMeaningfulChartGroup)
 }
 
+export function buildAnalysisInstructions(queryTypes = [], periods = []) {
+  const typeLabels = {
+    pv_analysis: 'ページビュー分析',
+    traffic_analysis: 'トラフィック分析',
+    cv_analysis: 'コンバージョン分析',
+    device_analysis: 'デバイス分析',
+    user_analysis: 'ユーザー行動分析',
+  }
+  const types = queryTypes.map(t => typeLabels[t] || t).join('、')
+  const periodInfo = periods.length > 1
+    ? `複数期間（${periods.join('、')}）の比較データ`
+    : periods[0] ? `期間: ${periods[0]}` : ''
+
+  return [
+    `【分析フレームワーク】`,
+    `以下のデータを含む: ${types || '広告パフォーマンスデータ'}。${periodInfo}`,
+    `評価レンズ:`,
+    `- ビジネス影響: 指標が収益・リードに与える影響`,
+    `- ファネル品質: PV→セッション→エンゲージメント→CVの転換率`,
+    `- チャネル効率: 有料vsオーガニックのROI`,
+    `- ユーザー行動: デバイス・時間帯パターン`,
+    `出力要件: 具体的な数値、変化率、優先順位付きアクションを含める。表面的な再説明は避ける。`,
+  ].join('\n')
+}
+
 export function buildAiChartContext(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
 
@@ -253,16 +278,20 @@ export async function regenerateAdsReportBundle(setupState) {
 
 export function extractMarkdownSummary(markdown) {
   if (typeof markdown !== 'string') return null
-
-  const lines = markdown
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((line) => !line.startsWith('#'))
-    .filter((line) => !line.startsWith('|'))
-    .filter((line) => !line.startsWith('- '))
-
-  return lines.find((line) => line.length >= 20) ?? null
+  const lines = markdown.split(/\r?\n/)
+  const summaryLines = []
+  let lastWasHeading = false
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (/^#{1,3}\s/.test(trimmed)) {
+      summaryLines.push(trimmed)
+      lastWasHeading = true
+    } else if (lastWasHeading && trimmed.length > 0) {
+      summaryLines.push(trimmed)
+      lastWasHeading = false
+    }
+  }
+  return summaryLines.join('\n') || null
 }
 
 export function extractMarkdownHeadings(markdown) {
