@@ -559,22 +559,24 @@ export default function AiExplorer() {
           </p>
         )}
 
-        <div className="space-y-2">
-          <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Quick Analysis</p>
-          <div className="grid grid-cols-3 gap-6">
-            {QUICK_PROMPTS.map((prompt) => (
-              <button
-                key={prompt.label}
-                onClick={() => handleSend(prompt.label)}
-                disabled={promptDisabled}
-                className="flex flex-col items-start gap-3 p-5 rounded-xl bg-surface-container-lowest ghost-border hover:shadow-[0_10px_30px_rgba(25,29,30,0.06)] transition-shadow text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className={`material-symbols-outlined text-[22px] ${prompt.color}`}>{prompt.icon}</span>
-                <span className="japanese-text">{prompt.label}</span>
-              </button>
-            ))}
+        {messages.length === 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Quick Analysis</p>
+            <div className="grid grid-cols-3 gap-6">
+              {QUICK_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt.label}
+                  onClick={() => handleSend(prompt.label)}
+                  disabled={promptDisabled}
+                  className="flex flex-col items-start gap-3 p-5 rounded-xl bg-surface-container-lowest ghost-border hover:shadow-[0_10px_30px_rgba(25,29,30,0.06)] transition-shadow text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className={`material-symbols-outlined text-[22px] ${prompt.color}`}>{prompt.icon}</span>
+                  <span className="japanese-text">{prompt.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pt-3 pb-6 space-y-6" aria-live="polite">
@@ -596,7 +598,7 @@ export default function AiExplorer() {
               </div>
               <div>
                 <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
-                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-6 max-w-5xl ${message.isError ? 'border border-red-200' : ''}`}>
+                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-8 max-w-5xl ${message.isError ? 'border border-red-200' : ''}`}>
                   <MarkdownRenderer content={message.text} className="text-sm" size={fontSize} />
                 </div>
               </div>
@@ -631,6 +633,21 @@ export default function AiExplorer() {
       </div>
 
       <div className="px-6 pb-6 pt-2 backdrop-blur-sm">
+        {messages.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {QUICK_PROMPTS.map((prompt) => (
+              <button
+                key={prompt.label}
+                onClick={() => handleSend(prompt.label)}
+                disabled={promptDisabled}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container text-xs font-medium text-on-surface-variant hover:bg-surface-container-high transition-all disabled:opacity-50"
+              >
+                <span className={`material-symbols-outlined text-sm ${prompt.color}`}>{prompt.icon}</span>
+                <span className="japanese-text">{prompt.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex items-center gap-3 rounded-full bg-surface-container px-6 py-2">
           <input
             className="flex-1 bg-transparent outline-none text-sm"
