@@ -95,7 +95,7 @@ const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_MAX_DURATION_MS = 180_000 // 3min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
-const DISCOVERY_AUTO_RESUBMIT_MAX = 1
+const DISCOVERY_AUTO_RESUBMIT_MAX = 2
 const STAGE_TIMEOUT_MS = {
   queued: 30_000,
   brand_fetch: 30_000,
@@ -155,7 +155,10 @@ function isAutoResubmitEligible(detail, retryable, stage, errorInfo) {
   const normalizedDetail = String(detail || '').toLowerCase()
   const normalizedStage = String(stage || '').toLowerCase()
 
-  // Timeout in analyze stage
+  // Any retryable timeout error at any stage (broadest catch)
+  if (normalizedDetail.includes('timeout') || normalizedDetail.includes('タイムアウト')) return true
+
+  // Timeout in analyze stage (kept for specificity)
   if (isAnalyzeTimeoutFailure(detail, retryable, stage)) return true
 
   // Server unresponsive / stale
@@ -520,7 +523,7 @@ export default function Discovery() {
             try {
               // Warm backend before resubmit to avoid immediate cold-start failure
               await Promise.race([
-                warmMarketLensBackend(),
+                warmMarketLensBackend().catch(() => null),
                 new Promise((resolve) => setTimeout(resolve, 5000)),
               ])
 
@@ -619,7 +622,7 @@ export default function Discovery() {
     try {
       // Warm up backend before submitting — wait up to 3s (no-op if already warm)
       await Promise.race([
-        warmMarketLensBackend(),
+        warmMarketLensBackend().catch(() => null),
         new Promise((resolve) => setTimeout(resolve, 3000)),
       ])
 
