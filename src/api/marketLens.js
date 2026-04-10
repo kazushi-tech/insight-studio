@@ -377,7 +377,7 @@ function isReviewRetryableError(error) {
   // Deterministic failures — never retry
   if (status === 400 || status === 401 || status === 402 || status === 403 || status === 404 || status === 422) return false
 
-  if (msg.includes('llm output parse') || msg.includes('json parse error')) return true
+  if (msg.includes('llm output parse') || msg.includes('json parse error') || msg.includes('output validation failed')) return true
 
   if (status === 500 || status === 502 || status === 503 || status === 529) {
     // Provider auth/model/billing errors arriving as 502 should not be retried
@@ -741,12 +741,21 @@ export function startDiscoveryJob(url, optionsOrApiKey) {
 }
 
 /** GET /api/discovery/jobs/{jobId} — ジョブ状態ポーリング */
-export function getDiscoveryJob(jobIdOrPollPath) {
-  return requestJson(normalizeDiscoveryPollPath(jobIdOrPollPath), {
-    timeout: 15000,
-    direct: true,
-    directStrategy: 'optimistic',
-  })
+export async function getDiscoveryJob(jobIdOrPollPath) {
+  try {
+    return await requestJson(normalizeDiscoveryPollPath(jobIdOrPollPath), {
+      timeout: 15000,
+      direct: true,
+      directStrategy: 'optimistic',
+    })
+  } catch (error) {
+    // Reset backend readiness on network/server errors so next attempt re-verifies
+    const status = Number(error?.status || 0)
+    if (!status || status >= 500) {
+      _directBackendReady = false
+    }
+    throw error
+  }
 }
 
 /** GET /api/scans — スキャン履歴 */

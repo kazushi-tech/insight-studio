@@ -150,6 +150,26 @@ function isAnalyzeTimeoutFailure(detail, retryable, stage) {
   return mentionsTimeout && mentionsAnalyze
 }
 
+function isAutoResubmitEligible(detail, retryable, stage, errorInfo) {
+  if (!retryable) return false
+  const normalizedDetail = String(detail || '').toLowerCase()
+  const normalizedStage = String(stage || '').toLowerCase()
+
+  // Timeout in analyze stage
+  if (isAnalyzeTimeoutFailure(detail, retryable, stage)) return true
+
+  // Server unresponsive / stale
+  if (errorInfo?.category === 'stale' || normalizedDetail.includes('応答しなくなりました')) return true
+
+  // Stage stall
+  if (errorInfo?.category === 'timeout' && normalizedDetail.includes('停止しています')) return true
+
+  // Generic server unresponsive / 503
+  if (normalizedDetail.includes('サーバー') && (normalizedDetail.includes('起動中') || normalizedDetail.includes('エラー'))) return true
+
+  return false
+}
+
 function estimateRemaining(currentStage, elapsedMs) {
   const idx = STAGE_ORDER.indexOf(currentStage)
   if (idx < 0) return null
@@ -493,11 +513,17 @@ export default function Discovery() {
           const retryable = data.error?.retryable ?? true
           const failedStage = data.error?.stage || data.stage
           if (
-            isAnalyzeTimeoutFailure(detail, retryable, failedStage) &&
+            isAutoResubmitEligible(detail, retryable, failedStage, null) &&
             resubmitCountRef.current < DISCOVERY_AUTO_RESUBMIT_MAX &&
             submitOptionsRef.current?.url
           ) {
             try {
+              // Warm backend before resubmit to avoid immediate cold-start failure
+              await Promise.race([
+                warmMarketLensBackend(),
+                new Promise((resolve) => setTimeout(resolve, 5000)),
+              ])
+
               updateRunMeta('discovery', {
                 stage: 'queued',
                 progress_pct: 0,
