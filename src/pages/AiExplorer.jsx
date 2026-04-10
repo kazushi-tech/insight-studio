@@ -260,7 +260,7 @@ export default function AiExplorer() {
         mode: 'question',
         model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
         provider: analysisProvider || 'anthropic',
-        temperature: messages.length === 0 ? 0.5 : 0.7,
+        temperature: messages.length === 0 ? 0.3 : 0.6,
         message: enrichedPrompt,
         point_pack_md: packContext,
         style_reference: '',
