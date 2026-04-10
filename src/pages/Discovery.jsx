@@ -93,7 +93,7 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 180_000 // 3min absolute timeout
+const POLL_MAX_DURATION_MS = 120_000 // 2min absolute timeout
 const POLL_STALE_TIMEOUT_MS = 30_000 // 30s of unchanged updated_at → stale (heartbeat is 10s)
 const DISCOVERY_AUTO_RESUBMIT_MAX = 2
 const STAGE_TIMEOUT_MS = {
@@ -155,20 +155,20 @@ function isAutoResubmitEligible(detail, retryable, stage, errorInfo) {
   const normalizedDetail = String(detail || '').toLowerCase()
   const normalizedStage = String(stage || '').toLowerCase()
 
-  // Any retryable timeout error at any stage (broadest catch)
-  if (normalizedDetail.includes('timeout') || normalizedDetail.includes('タイムアウト')) return true
-
-  // Timeout in analyze stage (kept for specificity)
-  if (isAnalyzeTimeoutFailure(detail, retryable, stage)) return true
+  // A real timeout usually means the workload is too heavy; do not loop
+  // into another full job and turn one failure into 3-4 minutes of waiting.
+  if (normalizedDetail.includes('timeout') || normalizedDetail.includes('タイムアウト')) return false
+  if (isAnalyzeTimeoutFailure(detail, retryable, stage)) return false
+  if (normalizedDetail.includes('停止しています')) return false
 
   // Server unresponsive / stale
   if (errorInfo?.category === 'stale' || normalizedDetail.includes('応答しなくなりました')) return true
 
-  // Stage stall
-  if (errorInfo?.category === 'timeout' && normalizedDetail.includes('停止しています')) return true
-
-  // Generic server unresponsive / 503
-  if (normalizedDetail.includes('サーバー') && (normalizedDetail.includes('起動中') || normalizedDetail.includes('エラー'))) return true
+  // Only auto-resubmit transient infrastructure failures.
+  if (normalizedDetail.includes('接続できませんでした') || normalizedDetail.includes('failed to fetch') || normalizedDetail.includes('cors')) return true
+  if (normalizedDetail.includes('サーバー') && normalizedDetail.includes('起動中')) return true
+  if (normalizedDetail.includes('job not found')) return true
+  if (normalizedStage === 'queued' && normalizedDetail.includes('internal server error')) return true
 
   return false
 }
