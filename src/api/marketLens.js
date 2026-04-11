@@ -762,16 +762,26 @@ export async function getDiscoveryJob(jobIdOrPollPath) {
 }
 
 /** GET /api/scans — スキャン履歴 */
-export async function getScans() {
+export async function getScans(options = {}) {
+  const { includeUntracked = false } = options
   const data = await requestJson('/scans')
   const items = data?.scans ?? data?.history ?? data?.results ?? (Array.isArray(data) ? data : [])
-  const filteredItems = filterTrackedScans(items)
+  const filteredItems = includeUntracked ? items : filterTrackedScans(items)
 
   if (Array.isArray(data)) return filteredItems
   if (Array.isArray(data?.scans)) return { ...data, scans: filteredItems }
   if (Array.isArray(data?.history)) return { ...data, history: filteredItems }
   if (Array.isArray(data?.results)) return { ...data, results: filteredItems }
   return filteredItems
+}
+
+/** GET /api/scans/{runId} — スキャン詳細 */
+export async function getScan(runId) {
+  const data = await requestJson(`/scans/${runId}`)
+  if (data?.run_id) {
+    rememberTrackedScan(data.run_id)
+  }
+  return data
 }
 
 /** GET /api/health */

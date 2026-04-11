@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { scan, classifyError, warmMarketLensBackend } from '../api/marketLens'
+import { scan, getScan, getScans, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
@@ -25,6 +25,91 @@ function getHostname(value) {
   } catch {
     return ''
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function normalizeComparableUrl(value) {
+  if (!value || typeof value !== 'string') return ''
+
+  try {
+    const parsed = new URL(value.trim())
+    parsed.hash = ''
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/'
+    const search = parsed.search || ''
+    const port = parsed.port ? `:${parsed.port}` : ''
+    return `${parsed.protocol}//${parsed.hostname.toLowerCase()}${port}${pathname}${search}`
+  } catch {
+    return value.trim().replace(/\/+$/, '').toLowerCase()
+  }
+}
+
+function normalizeUrlList(urls) {
+  return (Array.isArray(urls) ? urls : [])
+    .map((value) => normalizeComparableUrl(value))
+    .filter(Boolean)
+}
+
+function haveSameUrlList(left, right) {
+  const leftUrls = normalizeUrlList(left)
+  const rightUrls = normalizeUrlList(right)
+  return leftUrls.length === rightUrls.length
+    && leftUrls.every((value, index) => value === rightUrls[index])
+}
+
+function readHistoryItems(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.scans)) return data.scans
+  if (Array.isArray(data?.history)) return data.history
+  if (Array.isArray(data?.results)) return data.results
+  return []
+}
+
+function parseHistoryTimestamp(value) {
+  const ts = Date.parse(value || '')
+  return Number.isFinite(ts) ? ts : 0
+}
+
+async function findMatchingCompletedScan(urlList, { startedAt, lookbackMs = 2 * 60 * 1000 } = {}) {
+  const history = await getScans({ includeUntracked: true })
+  const items = readHistoryItems(history)
+  const threshold = Math.max(0, (startedAt || Date.now()) - lookbackMs)
+
+  const candidate = items
+    .filter((item) => {
+      if (!item?.run_id || item.status !== 'completed') return false
+      if (!haveSameUrlList(item.urls, urlList)) return false
+      return parseHistoryTimestamp(item.created_at) >= threshold
+    })
+    .sort((left, right) => parseHistoryTimestamp(right.created_at) - parseHistoryTimestamp(left.created_at))[0]
+
+  if (!candidate?.run_id) return null
+  return getScan(candidate.run_id)
+}
+
+async function recoverTimedOutScan(urlList, { startedAt, timeoutMs = 90000, intervalMs = 5000, onProgress } = {}) {
+  const deadline = Date.now() + timeoutMs
+  let attempt = 0
+
+  while (Date.now() <= deadline) {
+    attempt += 1
+    const remainingMs = Math.max(0, deadline - Date.now())
+    onProgress?.({ attempt, remainingMs })
+
+    try {
+      const recovered = await findMatchingCompletedScan(urlList, { startedAt })
+      if (recovered) return recovered
+    } catch {
+      // History lookup failures should not mask the original timeout.
+    }
+
+    if (Date.now() >= deadline) break
+    await sleep(intervalMs)
+  }
+
+  return null
 }
 
 function getScanErrorMessage(data) {
@@ -105,6 +190,7 @@ function MetaBand({ run, modelName }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
+  const recovering = Boolean(run.meta?.recoveryMode)
 
   return (
     <div className="flex items-center gap-4 text-xs text-on-surface-variant">
@@ -122,6 +208,9 @@ function MetaBand({ run, modelName }) {
       )}
       {run.meta?.providerLabel && (
         <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
+      )}
+      {recovering && (
+        <span className="px-3 py-1 bg-sky-50 text-sky-700 rounded-full font-bold">履歴確認中</span>
       )}
       {modelName && (
         <span className="px-3 py-1 bg-surface-container rounded-full font-mono">{modelName}</span>
@@ -207,7 +296,7 @@ function ExtractedDataPanel({ extracted }) {
 
 export default function Compare() {
   const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
-  const { getRun, startRun, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
+  const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
 
   // Warm up backend on mount (cold-start mitigation)
   useEffect(() => {
@@ -222,13 +311,31 @@ export default function Compare() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
+  const recoveryMode = loading && Boolean(run?.meta?.recoveryMode)
+  const recoveryMessage = run?.meta?.recoveryMessage || 'タイムアウト後の完了結果を確認しています…'
+  const recoveredFromHistory = run?.status === 'completed' && Boolean(run?.meta?.recoveredFromHistory)
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
 
   const handleScan = useCallback(async () => {
     if (!analysisKey || !analysisProvider) return
 
-    startRun('compare', { urls })
+    const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
+    const startedRun = startRun('compare', { urls })
+    updateRunMeta('compare', { providerLabel })
+
+    const finalizeRun = (data, meta = {}) => {
+      completeRun('compare', data, {
+        run_id: data.run_id,
+        providerLabel,
+        ...meta,
+      })
+
+      const finalScore = data.overall_score ?? data.score
+      if (finalScore != null) {
+        recordScore('compare', { score: finalScore, label: urls.target, timestamp: Date.now() })
+      }
+    }
 
     try {
       // Warm up backend before submitting — wait up to 3s (no-op if already warm)
@@ -236,8 +343,6 @@ export default function Compare() {
         warmMarketLensBackend(),
         new Promise((resolve) => setTimeout(resolve, 3000)),
       ])
-
-      const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
 
       const data = await scan(urlList, {
         apiKey: analysisKey,
@@ -252,18 +357,34 @@ export default function Compare() {
         return
       }
 
-      completeRun('compare', data, {
-        run_id: data.run_id,
-        providerLabel,
-      })
-
-      // Record score for history comparison
-      const finalScore = data.overall_score ?? data.score
-      if (finalScore != null) {
-        recordScore('compare', { score: finalScore, label: urls.target, timestamp: Date.now() })
-      }
+      finalizeRun(data)
     } catch (e) {
       const info = classifyError(e)
+      if (info.category === 'timeout' || e?.isTimeout || e?.name === 'AbortError') {
+        updateRunMeta('compare', {
+          recoveryMode: true,
+          recoveryMessage: 'タイムアウト後の完了結果を確認しています…',
+        })
+
+        const recovered = await recoverTimedOutScan(urlList, {
+          startedAt: startedRun.startedAt,
+          onProgress: ({ remainingMs }) => {
+            updateRunMeta('compare', {
+              recoveryMode: true,
+              recoveryMessage: `タイムアウト後の完了結果を確認しています… 残り約${Math.max(1, Math.ceil(remainingMs / 1000))}秒`,
+            })
+          },
+        })
+
+        if (recovered) {
+          finalizeRun(recovered, {
+            recoveredFromHistory: true,
+            recoveryMode: false,
+            recoveryMessage: '',
+          })
+          return
+        }
+      }
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。', info)
     }
   }, [
@@ -272,6 +393,7 @@ export default function Compare() {
     analysisProvider,
     providerLabel,
     startRun,
+    updateRunMeta,
     completeRun,
     failRun,
   ])
@@ -386,6 +508,20 @@ export default function Compare() {
 
       {error && (
         <ErrorBanner message={error} onRetry={handleRetry} errorInfo={errorInfo} />
+      )}
+
+      {recoveryMode && (
+        <div className="flex items-center gap-3 rounded-[0.75rem] border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-800">
+          <span className="material-symbols-outlined text-lg">history</span>
+          <span className="japanese-text">{recoveryMessage}</span>
+        </div>
+      )}
+
+      {recoveredFromHistory && (
+        <div className="flex items-center gap-3 rounded-[0.75rem] border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+          <span className="material-symbols-outlined text-lg">task_alt</span>
+          <span className="japanese-text">ブラウザ側ではタイムアウトしましたが、server 側で完了していた比較結果を履歴から復旧しました。</span>
+        </div>
       )}
 
       {/* Meta Band */}
