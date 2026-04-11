@@ -7,6 +7,7 @@ import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
 import { recordScore } from '../utils/scoreHistory'
+import { checkReportQuality, splitReportSections, stripModelDates } from '../utils/reportQuality'
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
@@ -688,40 +689,72 @@ export default function Discovery() {
       {result?.fetched_sites && <PartialSuccessBanner fetchedSites={result.fetched_sites} />}
 
       {/* Report */}
-      {result?.report_md && (
-        <>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <span className="material-symbols-outlined">description</span>
-              <span className="text-sm font-bold">分析レポート</span>
+      {result?.report_md && (() => {
+        const { body: discBody, appendix: discAppendix } = splitReportSections(result.report_md)
+        const cleanBody = stripModelDates(discBody)
+        const { isQualityFailure: discQFail, issues: discQIssues } = checkReportQuality(cleanBody)
+
+        return (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <span className="material-symbols-outlined">description</span>
+                <span className="text-sm font-bold">分析レポート</span>
+              </div>
+              <button
+                onClick={() => copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined text-sm">content_copy</span>
+                レポートをコピー
+              </button>
+              <div className="flex items-center gap-1 bg-surface-container rounded-full p-1">
+                <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
+                {FONT_SIZES.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setFontSize(key)}
+                    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                      fontSize === key
+                        ? 'bg-primary-container text-on-primary-container'
+                        : 'text-on-surface-variant hover:bg-surface-container-low'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={() => copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
-            >
-              <span className="material-symbols-outlined text-sm">content_copy</span>
-              レポートをコピー
-            </button>
-            <div className="flex items-center gap-1 bg-surface-container rounded-full p-1">
-              <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
-              {FONT_SIZES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setFontSize(key)}
-                  className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
-                    fontSize === key
-                      ? 'bg-primary-container text-on-primary-container'
-                      : 'text-on-surface-variant hover:bg-surface-container-low'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <MarkdownRenderer content={result.report_md} size={fontSize} variant="discovery" />
-        </>
-      )}
+            {discQFail ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+                <span className="material-symbols-outlined text-4xl text-amber-400 mb-2 block">warning</span>
+                <p className="text-sm japanese-text font-bold">レポートの品質基準未達</p>
+                <ul className="text-xs mt-2 space-y-1 text-amber-700">
+                  {discQIssues.map((issue, i) => (
+                    <li key={i}>{issue}</li>
+                  ))}
+                </ul>
+                <p className="text-xs mt-3 text-amber-600">再試行してください。</p>
+              </div>
+            ) : (
+              <>
+                <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
+                {discAppendix && (
+                  <details className="mt-8">
+                    <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm">info</span>
+                      Appendix（監査・再確認用）
+                    </summary>
+                    <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                      <MarkdownRenderer content={discAppendix} size={fontSize} />
+                    </div>
+                  </details>
+                )}
+              </>
+            )}
+          </>
+        )
+      })()}
 
       {/* Score Distribution Chart */}
       {discoveries.length > 0 && <ScoreDistributionChart discoveries={discoveries} />}

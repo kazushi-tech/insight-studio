@@ -8,6 +8,7 @@ import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisPro
 import { getScoreLabel } from '../utils/scoreThresholds'
 import { copyReportToClipboard, buildCompareReportText } from '../utils/reportExport'
 import { recordScore, getPreviousScore, formatScoreDelta } from '../utils/scoreHistory'
+import { checkReportQuality, splitReportSections, stripModelDates } from '../utils/reportQuality'
 
 
 function formatElapsed(ms) {
@@ -284,7 +285,10 @@ export default function Compare() {
   const hasScores = overallScore != null || Object.values(scores).some((v) => v != null)
   const rawReport = result?.report_md ?? result?.report ?? result?.analysis ?? ''
   const executionMeta = parseExecutionMeta(rawReport)
-  const report = executionMeta ? stripExecutionMeta(rawReport) : rawReport
+  const strippedReport = executionMeta ? stripExecutionMeta(rawReport) : rawReport
+  const { body: reportBody, appendix: reportAppendix } = splitReportSections(strippedReport)
+  const report = stripModelDates(reportBody)
+  const { isQualityFailure, issues: qualityIssues } = checkReportQuality(report)
   const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
   const executionMetaEntries = getExecutionMetaEntries(executionMeta, {
     providerLabel: run?.meta?.providerLabel,
@@ -506,7 +510,33 @@ export default function Compare() {
               <ExtractedDataPanel extracted={extracted} />
             )}
             {report ? (
-              <MarkdownRenderer content={report} variant="discovery" />
+              isQualityFailure ? (
+                <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">warning</span>
+                  <p className="text-sm japanese-text font-bold">レポートの品質基準未達</p>
+                  <ul className="text-xs mt-2 space-y-1 text-on-surface-variant">
+                    {qualityIssues.map((issue, i) => (
+                      <li key={i}>{issue}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs mt-3">再試行してください。</p>
+                </div>
+              ) : (
+                <>
+                  <MarkdownRenderer content={report} variant="discovery" />
+                  {reportAppendix && (
+                    <details className="mt-8">
+                      <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-2">
+                        <span className="material-symbols-outlined text-sm">info</span>
+                        Appendix（監査・再確認用）
+                      </summary>
+                      <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                        <MarkdownRenderer content={reportAppendix} />
+                      </div>
+                    </details>
+                  )}
+                </>
+              )
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
                 <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">info</span>
