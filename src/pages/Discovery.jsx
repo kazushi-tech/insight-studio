@@ -692,7 +692,12 @@ export default function Discovery() {
       {result?.report_md && (() => {
         const { body: discBody, appendix: discAppendix } = splitReportSections(result.report_md)
         const cleanBody = stripModelDates(discBody)
-        const { isQualityFailure: discQFail, issues: discQIssues } = checkReportQuality(cleanBody)
+        const discBackendQuality = {
+          qualityStatus: result?.quality_status,
+          qualityIssues: result?.quality_issues,
+          qualityIsCritical: result?.quality_is_critical,
+        }
+        const { isQualityFailure: discQFail, issues: discQIssues } = checkReportQuality(result.report_md, discBackendQuality)
 
         return (
           <>
@@ -726,15 +731,40 @@ export default function Discovery() {
               </div>
             </div>
             {discQFail ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
-                <span className="material-symbols-outlined text-4xl text-amber-400 mb-2 block">warning</span>
-                <p className="text-sm japanese-text font-bold">レポートの品質基準未達</p>
-                <ul className="text-xs mt-2 space-y-1 text-amber-700">
-                  {discQIssues.map((issue, i) => (
-                    <li key={i}>{issue}</li>
-                  ))}
-                </ul>
-                <p className="text-xs mt-3 text-amber-600">再試行してください。</p>
+              <div className="space-y-6">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center space-y-4">
+                  <span className="material-symbols-outlined text-4xl text-amber-400 mb-2 block">warning</span>
+                  <p className="text-sm japanese-text font-bold">レポートの品質基準未達</p>
+                  <ul className="text-xs mt-2 space-y-1 text-amber-700">
+                    {discQIssues.map((issue, i) => (
+                      <li key={i}>{issue}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs mt-3 text-amber-600">再試行で復旧する場合があります。必要なら部分レポートを確認できます。</p>
+                  {result?.search_id && (
+                    <p className="text-xs font-mono text-amber-700">search: {result.search_id}</p>
+                  )}
+                </div>
+                <div className="space-y-4">
+                  <details className="rounded-xl bg-surface-container p-4">
+                    <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors">
+                      部分レポートを表示
+                    </summary>
+                    <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                      <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
+                    </div>
+                  </details>
+                  {discAppendix && (
+                    <details className="rounded-xl bg-surface-container p-4">
+                      <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors">
+                        品質監査・Appendix を表示
+                      </summary>
+                      <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                        <MarkdownRenderer content={discAppendix} size={fontSize} />
+                      </div>
+                    </details>
+                  )}
+                </div>
               </div>
             ) : (
               <>
