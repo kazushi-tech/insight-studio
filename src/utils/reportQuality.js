@@ -82,6 +82,13 @@ export function checkReportQuality(reportMd, backendQuality = null) {
     issues.push('必須セクション欠損: エグゼクティブサマリー')
   }
 
+  // Task E: Section 5-2 completeness check (multi-URL reports)
+  const hasSection51 = /5-1[.．].*LP/.test(reportMd)
+  const hasSection52 = /5-2[.．].*検索広告/.test(reportMd)
+  if (hasSection51 && !hasSection52) {
+    issues.push('Section 5-2 欠損: 検索広告施策セクションが見つかりません')
+  }
+
   return {
     isQualityFailure: issues.length > 0,
     issues: uniqueIssues(issues),
