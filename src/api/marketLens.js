@@ -344,7 +344,10 @@ async function requestScanWithRetry(payload, options) {
         timeout: LONG_ANALYSIS_TIMEOUT,
         direct: true,
         directStrategy: 'optimistic',
-        allowProxyFallback: true,
+        // /scan routinely runs longer than the Vercel rewrite budget.
+        // If direct Render access is temporarily unavailable, retry direct
+        // after re-verifying backend readiness instead of degrading to proxy.
+        allowProxyFallback: false,
         ...options,
       })
     } catch (error) {
