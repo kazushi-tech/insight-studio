@@ -89,6 +89,29 @@ export function checkReportQuality(reportMd, backendQuality = null) {
     issues.push('Section 5-2 欠損: 検索広告施策セクションが見つかりません')
   }
 
+  // Task B v3: L5 only ad copy detection
+  if (/(?:推奨訴求|広告見出し|コピー案)[^\n]*(?:アンチドーピング対応|品質認証取得|認証済み)/.test(reportMd)) {
+    issues.push('L5転用警告: L5 only 情報が広告コピーに転用されている可能性')
+  }
+
+  // Task C v3: Price copy without data
+  if (/(?:5-1|5-2|実行プラン|LP改善|施策)[^\n]*¥[\d,]+/.test(reportMd)) {
+    // Check if pricing is unknown for any brand
+    if (/Pricing[^\n]*取得不可/.test(reportMd) || /価格[^\n]*取得不可/.test(reportMd)) {
+      issues.push('価格未取得警告: 価格未取得ブランドに¥表記の価格コピーが含まれています')
+    }
+  }
+
+  // Task D v3: Fixed budget ratio without qualification
+  const ratioMatch = reportMd.match(/(?:指名防衛|指名)\s*(\d{2,3})\s*[/:／：]\s*(?:非指名|カテゴリ)\s*(\d{2,3})/)
+  if (ratioMatch) {
+    const ctxStart = Math.max(0, ratioMatch.index - 100)
+    const ctx = reportMd.slice(ctxStart, ratioMatch.index + ratioMatch[0].length + 50)
+    if (!/(?:目安|仮説|初期|レンジ|Phase|phase)/.test(ctx)) {
+      issues.push('予算配分警告: 固定比率が条件なしで記載されています（phase設計推奨）')
+    }
+  }
+
   return {
     isQualityFailure: issues.length > 0,
     issues: uniqueIssues(issues),
