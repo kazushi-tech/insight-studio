@@ -3,25 +3,60 @@
  * Tasks A, C: Hard-fail quality gate + body/appendix separation.
  */
 
+function uniqueIssues(items) {
+  return [...new Set((items || []).filter(Boolean))]
+}
+
+function extractAppendixQualityIssues(reportMd) {
+  if (!reportMd || typeof reportMd !== 'string') return []
+
+  const auditMatch = reportMd.match(/##\s+Appendix A\.\s+品質監査[\s\S]*?(?=\n##\s+Appendix|\n<!-- appendix-end -->|$)/)
+  if (!auditMatch) return []
+
+  return uniqueIssues(
+    auditMatch[0]
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('- '))
+      .map((line) => line.slice(2).trim()),
+  )
+}
+
 /**
  * Check if a report has critical quality issues that should block display (Task A).
- * Detects the backend's quality-failure marker and local truncation checks.
- * @param {string} reportMd - Raw markdown report
+ * Prefers backend structured quality fields; falls back to appendix audit and local checks.
+ * @param {string} reportMd - Raw markdown report (body or full report)
+ * @param {{ qualityStatus?: string, qualityIssues?: string[], qualityIsCritical?: boolean } | null} backendQuality
  * @returns {{ isQualityFailure: boolean, issues: string[] }}
  */
-export function checkReportQuality(reportMd) {
+export function checkReportQuality(reportMd, backendQuality = null) {
   if (!reportMd || typeof reportMd !== 'string') {
     return { isQualityFailure: false, issues: [] }
   }
 
-  const issues = []
+  const backendIssues = uniqueIssues([
+    ...(Array.isArray(backendQuality?.qualityIssues) ? backendQuality.qualityIssues : []),
+    ...extractAppendixQualityIssues(reportMd),
+  ])
+  const hasStructuredBackendStatus = typeof backendQuality?.qualityIsCritical === 'boolean'
+  const issues = [...backendIssues]
 
-  // 1. Backend quality-failure marker (Task A)
-  if (/品質基準未達/.test(reportMd)) {
+  if (hasStructuredBackendStatus) {
+    if (issues.length === 0 && backendQuality?.qualityIsCritical) {
+      issues.push('品質基準未達: レポート生成品質に問題が検出されました')
+    }
+    return {
+      isQualityFailure: backendQuality.qualityIsCritical,
+      issues: uniqueIssues(issues),
+    }
+  }
+
+  // Legacy backend compatibility: appendix / marker-only detection.
+  if (/品質基準未達/.test(reportMd) && issues.length === 0) {
     issues.push('品質基準未達: レポート生成品質に問題が検出されました')
   }
 
-  // 2. Local truncation detection
+  // Local truncation detection
   const lines = reportMd.trim().split('\n')
   const lastLines = lines.slice(-5)
 
@@ -42,14 +77,14 @@ export function checkReportQuality(reportMd) {
     }
   }
 
-  // 3. Missing critical sections
+  // Missing critical sections
   if (!/エグゼクティブサマリー/.test(reportMd)) {
     issues.push('必須セクション欠損: エグゼクティブサマリー')
   }
 
   return {
     isQualityFailure: issues.length > 0,
-    issues,
+    issues: uniqueIssues(issues),
   }
 }
 

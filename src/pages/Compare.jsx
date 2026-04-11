@@ -286,9 +286,14 @@ export default function Compare() {
   const rawReport = result?.report_md ?? result?.report ?? result?.analysis ?? ''
   const executionMeta = parseExecutionMeta(rawReport)
   const strippedReport = executionMeta ? stripExecutionMeta(rawReport) : rawReport
+  const backendQuality = {
+    qualityStatus: result?.quality_status,
+    qualityIssues: result?.quality_issues,
+    qualityIsCritical: result?.quality_is_critical,
+  }
   const { body: reportBody, appendix: reportAppendix } = splitReportSections(strippedReport)
   const report = stripModelDates(reportBody)
-  const { isQualityFailure, issues: qualityIssues } = checkReportQuality(report)
+  const { isQualityFailure, issues: qualityIssues } = checkReportQuality(strippedReport, backendQuality)
   const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
   const executionMetaEntries = getExecutionMetaEntries(executionMeta, {
     providerLabel: run?.meta?.providerLabel,
@@ -511,15 +516,40 @@ export default function Compare() {
             )}
             {report ? (
               isQualityFailure ? (
-                <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
-                  <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">warning</span>
-                  <p className="text-sm japanese-text font-bold">レポートの品質基準未達</p>
-                  <ul className="text-xs mt-2 space-y-1 text-on-surface-variant">
-                    {qualityIssues.map((issue, i) => (
-                      <li key={i}>{issue}</li>
-                    ))}
-                  </ul>
-                  <p className="text-xs mt-3">再試行してください。</p>
+                <div className="space-y-6">
+                  <div className="flex flex-col items-center justify-center py-8 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-4xl text-amber-400 mb-2">warning</span>
+                    <p className="text-sm japanese-text font-bold">レポートの品質基準未達</p>
+                    <ul className="text-xs mt-2 space-y-1 text-on-surface-variant text-left">
+                      {qualityIssues.map((issue, i) => (
+                        <li key={i}>{issue}</li>
+                      ))}
+                    </ul>
+                    <p className="text-xs mt-3">再試行すると復旧する場合があります。必要なら部分レポートと監査内容も確認できます。</p>
+                    {result?.run_id && (
+                      <p className="text-xs mt-2 font-mono text-outline">run: {result.run_id}</p>
+                    )}
+                  </div>
+                  <div className="space-y-4">
+                    <details className="rounded-xl bg-surface-container p-4">
+                      <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors">
+                        部分レポートを表示
+                      </summary>
+                      <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                        <MarkdownRenderer content={report} variant="discovery" />
+                      </div>
+                    </details>
+                    {reportAppendix && (
+                      <details className="rounded-xl bg-surface-container p-4">
+                        <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors">
+                          品質監査・Appendix を表示
+                        </summary>
+                        <div className="mt-4 pt-4 border-t border-outline-variant/10">
+                          <MarkdownRenderer content={reportAppendix} />
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>
