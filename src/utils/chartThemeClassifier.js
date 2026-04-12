@@ -129,12 +129,14 @@ export function extractTopInsights(chartGroups = []) {
     insights.push({
       title: title.slice(0, 40),
       value: formatted,
+      isPercent: usePercent,
       delta: delta !== null ? `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%` : null,
       deltaPositive: delta !== null ? delta >= 0 : null,
       evidenceType,
       evidenceId: `E-${String(insights.length + 1).padStart(2, '0')}`,
       isAnomaly,
       takeaway: datasets[0]?.label ?? '',
+      themeId: classifyChartTheme(group),
     })
   }
 

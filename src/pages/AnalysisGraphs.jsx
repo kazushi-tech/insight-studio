@@ -9,7 +9,6 @@ import {
   getDisplayChartGroups,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
-import { resolveChartType } from '../utils/chartTypeInference'
 import {
   groupChartsByTheme,
   extractTopInsights,
@@ -36,36 +35,45 @@ function TopInsightCard({ insight }) {
 
   return (
     <a
-      href={`#theme-section-${insight.evidenceType}`}
-      className={`bg-surface-container-lowest p-6 rounded-xl border-l-4 ${borderColor} shadow-sm flex flex-col gap-4 hover:shadow-md transition-shadow cursor-pointer`}
+      href={`#theme-section-${insight.themeId ?? 'other'}`}
+      className={`bg-surface-container-lowest p-5 rounded-xl border-l-4 ${borderColor} shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow cursor-pointer`}
     >
-      <div className="flex justify-between items-start">
-        <span className="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded uppercase tracking-wider">
-          [{style.label}] [{insight.evidenceId}]
+      {/* 指標名 + Evidence badge */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-on-surface japanese-text line-clamp-1">{insight.title}</h3>
+        <span className={`evidence-tag ${style.bg} ${style.text} border ${style.border} shrink-0`}>
+          {style.label}
         </span>
-        {insight.delta && (
-          <span className={`font-bold text-sm flex items-center gap-0.5 ${insight.deltaPositive ? 'text-success' : 'text-error'}`}>
-            <span className="material-symbols-outlined text-sm">
-              {insight.isAnomaly ? 'warning' : insight.deltaPositive ? 'trending_up' : 'trending_down'}
-            </span>
-            {insight.isAnomaly ? 'High Alert' : insight.delta}
-          </span>
-        )}
       </div>
-      <div>
-        <p className="text-3xl font-black text-on-surface">{insight.value}</p>
-        <p className="text-sm font-bold text-on-surface mt-1 japanese-text">{insight.title}</p>
+
+      {/* 数値 + 系列ラベル */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-3xl font-black text-on-surface tabular-nums">{insight.value}</span>
         {insight.takeaway && (
-          <p className="text-on-surface-variant text-sm mt-2 leading-relaxed japanese-text line-clamp-2">
-            {insight.takeaway}
-          </p>
-        )}
-        {insight.evidenceType === 'proxy' && (
-          <div className="mt-3 pt-3 border-t border-outline-variant/20">
-            <p className="text-[10px] text-on-surface-variant/80 italic">算出根拠: 推定値 (Proxy)</p>
-          </div>
+          <span className="text-xs font-medium text-on-surface-variant truncate">{insight.takeaway}</span>
         )}
       </div>
+
+      {/* 比較差分 */}
+      {insight.delta && (
+        <div className="flex items-center gap-2 pt-2 border-t border-outline-variant/10">
+          <span className={`material-symbols-outlined text-sm ${insight.isAnomaly ? 'text-error' : insight.deltaPositive ? 'text-success' : 'text-error'}`}>
+            {insight.isAnomaly ? 'warning' : insight.deltaPositive ? 'trending_up' : 'trending_down'}
+          </span>
+          <span className={`text-sm font-bold tabular-nums ${insight.isAnomaly ? 'text-error' : insight.deltaPositive ? 'text-success' : 'text-error'}`}>
+            {insight.delta}
+          </span>
+          <span className="text-[10px] text-on-surface-variant font-bold uppercase">前期間比</span>
+          {insight.isAnomaly && (
+            <span className="text-[10px] font-bold text-error bg-error/10 px-1.5 py-0.5 rounded">ALERT</span>
+          )}
+        </div>
+      )}
+
+      {/* Proxy 注釈 */}
+      {insight.evidenceType === 'proxy' && (
+        <p className="text-[10px] text-on-surface-variant/80 italic">算出根拠: 推定値 (Proxy)</p>
+      )}
     </a>
   )
 }
@@ -107,7 +115,7 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
   const summary = useMemo(() => computeThemeSummary(theme.groups), [theme.groups])
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20">
+    <div id={`theme-section-${theme.id}`} className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20 scroll-mt-24">
       {/* Section Header */}
       <button
         onClick={onToggle}
@@ -152,45 +160,53 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
             ))}
           </div>
 
-          {/* Analyst View: Raw Data Table */}
+          {/* Analyst View: Raw Data Tables */}
           {viewMode === 'analyst' && theme.groups.length > 0 && (
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold text-xs text-on-surface-variant uppercase tracking-widest flex items-center gap-2">
-                  <span className="material-symbols-outlined text-sm">table_chart</span>
-                  詳細データ分析テーブル (ANALYST VIEW)
-                </h4>
-              </div>
-              <div className="overflow-x-auto rounded-lg border border-outline-variant/30 shadow-sm">
-                <table className="w-full text-left text-sm border-collapse">
-                  <thead className="bg-surface-container-high text-on-surface-variant font-bold text-xs">
-                    <tr>
-                      <th className="px-6 py-4">グラフ名</th>
-                      <th className="px-6 py-4 text-right">データ系列</th>
-                      <th className="px-6 py-4 text-right">データ点数</th>
-                      <th className="px-6 py-4 text-right">チャートタイプ</th>
-                      <th className="px-6 py-4 text-right">期間</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/10 text-on-surface bg-surface-container-lowest">
-                    {theme.groups.map((group, idx) => (
-                      <tr key={idx} className="hover:bg-surface-container-low transition-colors">
-                        <td className="px-6 py-4 font-semibold japanese-text">{group.title ?? '無題'}</td>
-                        <td className="px-6 py-4 text-right font-medium tabular-nums">
-                          {Array.isArray(group.datasets) ? group.datasets.length : 0}
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium tabular-nums">
-                          {Array.isArray(group.labels) ? group.labels.length : 0}
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium">{resolveChartType(group)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-on-surface-variant">
-                          {group._periodTag || '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="mt-8 space-y-6">
+              <h4 className="font-bold text-xs text-on-surface-variant uppercase tracking-widest flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">table_chart</span>
+                生データテーブル (RAW DATA)
+              </h4>
+              {theme.groups.map((group, gIdx) => {
+                const labels = Array.isArray(group.labels) ? group.labels : []
+                const datasets = Array.isArray(group.datasets) ? group.datasets : []
+                if (labels.length === 0 || datasets.length === 0) return null
+
+                return (
+                  <div key={gIdx} className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <p className="text-xs font-bold text-on-surface japanese-text">{group.title ?? '無題'}</p>
+                      {group._periodTag && (
+                        <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{group._periodTag}</span>
+                      )}
+                    </div>
+                    <div className="overflow-x-auto rounded-lg border border-outline-variant/30 shadow-sm max-h-[400px] overflow-y-auto">
+                      <table className="w-full text-left text-sm border-collapse">
+                        <thead className="bg-surface-container-high text-on-surface-variant font-bold text-xs sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-3 sticky left-0 bg-surface-container-high z-20 whitespace-nowrap">日付 / カテゴリ</th>
+                            {datasets.map((ds, dsIdx) => (
+                              <th key={dsIdx} className="px-4 py-3 text-right whitespace-nowrap">{ds.label || `系列${dsIdx + 1}`}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-outline-variant/10 text-on-surface bg-surface-container-lowest">
+                          {labels.map((label, rowIdx) => (
+                            <tr key={rowIdx} className="hover:bg-surface-container-low transition-colors">
+                              <td className="px-4 py-2 font-medium text-on-surface-variant sticky left-0 bg-surface-container-lowest whitespace-nowrap text-xs">{label}</td>
+                              {datasets.map((ds, dsIdx) => (
+                                <td key={dsIdx} className="px-4 py-2 text-right font-medium tabular-nums text-xs">
+                                  {ds.data?.[rowIdx] != null ? ds.data[rowIdx] : '-'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -225,17 +241,22 @@ function AnomalySection({ chartGroups, viewMode }) {
 
         if (stdDev === 0) continue
 
+        // セッション・件数系かを判定（非負メトリクス）
+        const title = (group.title ?? '').toLowerCase()
+        const isNonNegative = !/率|%|％|cvr|ctr|rate|ratio|share/i.test(title)
+
         // 2σ以上の逸脱を検出
         for (let i = 0; i < data.length; i++) {
           if (data[i] === null) continue
           const zScore = Math.abs((data[i] - mean) / stdDev)
           if (zScore >= 2) {
+            const lowerBound = mean - stdDev
             detected.push({
               chartTitle: group.title ?? '無題',
               date: labels[i] ?? `point-${i}`,
               actual: data[i],
               expected: mean,
-              expectedRange: [mean - stdDev, mean + stdDev],
+              expectedRange: [isNonNegative ? Math.max(0, lowerBound) : lowerBound, mean + stdDev],
               zScore: zScore.toFixed(1),
               direction: data[i] < mean ? 'down' : 'up',
               seriesLabel: ds.label ?? '',
