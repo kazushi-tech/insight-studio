@@ -9,20 +9,20 @@ export default function ExcelImportStatusStrip({ excelImport, onReupload, onRemo
         </span>
         <div className="min-w-0">
           <p className="text-sm font-bold text-on-surface japanese-text truncate">
-            Excel\u30c7\u30fc\u30bf\u53cd\u6620\u6e08\u307f\uff08{excelImport.fileName}\uff09
+            Excelデータ反映済み（{excelImport.fileName}）
           </p>
           <p className="text-[10px] text-on-surface-variant">
-            \u6700\u7d42\u66f4\u65b0: {new Date(excelImport.importedAt).toLocaleString('ja-JP')}
+            最終更新: {new Date(excelImport.importedAt).toLocaleString('ja-JP')}
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
         <button onClick={onReupload} className="text-[11px] font-bold text-on-surface-variant hover:text-on-surface px-3 py-1 rounded-lg hover:bg-surface-container-low transition-colors">
-          \u518d\u30a2\u30c3\u30d7\u30ed\u30fc\u30c9
+          再アップロード
         </button>
         <button onClick={onRemove} className="text-[11px] font-bold text-error/70 hover:text-error px-3 py-1 rounded-lg hover:bg-error/5 transition-colors">
-          \u89e3\u9664
+          解除
         </button>
       </div>
     </div>

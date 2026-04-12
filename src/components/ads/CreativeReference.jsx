@@ -6,7 +6,7 @@ export default function CreativeReference({ creativeRefs }) {
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
-        <h3 className="text-lg font-extrabold text-on-surface japanese-text">\u30af\u30ea\u30a8\u30a4\u30c6\u30a3\u30d6\u30ea\u30d5\u30a1\u30ec\u30f3\u30b9</h3>
+        <h3 className="text-lg font-extrabold text-on-surface japanese-text">クリエイティブリファレンス</h3>
         <SourceBadge source="excel" />
       </div>
 
@@ -28,14 +28,34 @@ export default function CreativeReference({ creativeRefs }) {
                 )}
               </div>
             ) : (
-              <div className="aspect-video bg-surface-container-low flex items-center justify-center">
-                <span className="material-symbols-outlined text-3xl text-outline-variant">image</span>
+              <div className="aspect-video bg-surface-container-low p-3 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="material-symbols-outlined text-2xl text-outline-variant">text_fields</span>
+                  <span className="text-[9px] font-bold text-on-surface-variant border border-outline-variant/30 px-1.5 py-0.5 rounded-full">
+                    TEXT AD
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-on-surface line-clamp-2 japanese-text">
+                    {ref.name ?? `Creative ${idx + 1}`}
+                  </p>
+                  {ref.description && (
+                    <p className="text-[10px] text-on-surface-variant line-clamp-3 japanese-text">
+                      {ref.description}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
             <div className="p-3 space-y-1">
               <p className="text-xs font-bold text-on-surface truncate japanese-text">
                 {ref.name ?? `Creative ${idx + 1}`}
               </p>
+              {ref.subtitle && (
+                <p className="text-[10px] text-on-surface-variant truncate japanese-text">
+                  {ref.subtitle}
+                </p>
+              )}
               {ref.kpis && (
                 <div className="flex gap-2 flex-wrap">
                   {ref.kpis.click != null && (
