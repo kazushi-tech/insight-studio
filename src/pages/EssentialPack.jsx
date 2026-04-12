@@ -5,7 +5,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
-import { extractMarkdownSummary, regenerateAdsReportBundle } from '../utils/adsReports'
+import { regenerateAdsReportBundle } from '../utils/adsReports'
 import { extractKpis } from '../utils/kpiExtractor'
 import {
   extractExecutiveCards,
@@ -234,14 +234,38 @@ function RecommendedActionCard({ action }) {
 }
 
 /* ── Refined Insights Section ── */
-function RefinedInsightsSection({ insights, reportMd }) {
-  if (!reportMd) return null
+function RefinedInsightsSection({ insights }) {
+  if (!insights || insights.length === 0) return null
 
-  // Markdown からセクションを使って分析ブロックを構築
-  const sections = splitMarkdownByTopLevelSections(reportMd)
-  const reportSections = sections.filter((s) => s.kind === 'report')
+  const observations = insights.filter((b) => b.type === 'observation')
+  const hypotheses = insights.filter((b) => b.type === 'hypothesis')
+  const actions = insights.filter((b) => b.type === 'action')
 
-  if (reportSections.length === 0 && insights.length === 0) return null
+  const columns = []
+  if (observations.length > 0) {
+    columns.push({
+      key: 'observation', label: '観測事実', sublabel: 'Observed Facts',
+      icon: 'visibility', style: TYPE_STYLES.observed, items: observations,
+    })
+  }
+  if (hypotheses.length > 0) {
+    columns.push({
+      key: 'hypothesis', label: '要因仮説', sublabel: 'Root Cause',
+      icon: 'psychology', style: TYPE_STYLES.inferred, items: hypotheses,
+    })
+  }
+  if (actions.length > 0) {
+    columns.push({
+      key: 'action', label: '改善示唆', sublabel: 'Action Plan',
+      icon: 'rocket_launch', style: TYPE_STYLES.derived, items: actions,
+    })
+  }
+
+  if (columns.length === 0) return null
+
+  const gridCols =
+    columns.length === 3 ? 'md:grid-cols-3' :
+    columns.length === 2 ? 'md:grid-cols-2' : ''
 
   return (
     <section className="space-y-4">
@@ -252,80 +276,32 @@ function RefinedInsightsSection({ insights, reportMd }) {
         <div className="h-px flex-1 bg-outline-variant/15" />
       </div>
 
-      <div className="space-y-6">
-        {/* 実際のレポートセクションから精緻化ブロックを表示 */}
-        {reportSections.slice(0, 3).map((section, idx) => {
-          const isInferred = /推論|仮説|推定|inference|inferred/i.test(section.heading)
-          const typeKey = isInferred ? 'inferred' : 'observed'
-          const style = TYPE_STYLES[typeKey]
-          const icon = isInferred ? 'psychology' : 'visibility'
-          const typeLabel = isInferred ? '推定インサイト (Inferred Insight)' : '観測事実 (Observed Fact)'
-          const evidenceId = `E-${String(idx + 1).padStart(2, '0')}`
-
-          const kpis = extractKpis(section.md)
-          const summaryText = extractMarkdownSummary(section.md)
-
-          return (
-            <div key={section.id} className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/15">
-              <div className="bg-surface-container-low px-6 py-3 flex items-center justify-between border-b border-outline-variant/10">
-                <div className="flex items-center gap-3">
-                  <span className={`material-symbols-outlined ${style.text}`}>{icon}</span>
-                  <span className="text-sm font-bold text-on-surface">{typeLabel}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className={`text-[11px] font-bold ${style.text} tracking-tighter`}>リンク済み: {evidenceId}</span>
-                  <span className={`evidence-tag ${style.badgeBg} ${style.text} border ${style.border}`}>
-                    {isInferred ? '推定インサイト (Inferred)' : '直接証拠 (Direct Evidence)'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant/15">
-                {/* 観測事実 */}
-                <div className={`p-6 space-y-3 ${style.bg.replace('/5', '/[0.01]')}`}>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold ${style.text} uppercase tracking-widest block`}>根拠 [{evidenceId}]</span>
-                  </div>
-                  <p className="text-sm text-on-surface leading-relaxed font-medium japanese-text">
-                    {section.heading}
-                  </p>
-                  {kpis.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {kpis.slice(0, 2).map((kpi, i) => (
-                        <span key={i} className="text-[10px] font-bold bg-surface-container-high px-1.5 py-0.5 rounded text-on-surface-variant">
-                          {kpi.label}: {kpi.value}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* 要因仮説 */}
-                <div className="p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">要因仮説 (Root Cause)</span>
-                    <span className={`text-[9px] font-bold ${style.badgeBg} ${style.text} px-1.5 py-0.5 rounded`}>
-                      仮説強度: {isInferred ? '中 (Weak Signal)' : '高 (Strong Inference)'}
-                    </span>
-                  </div>
-                  <div className="text-sm text-on-surface leading-relaxed japanese-text">
-                    <MarkdownRenderer content={section.md} variant="essential-pack" />
-                  </div>
-                </div>
-
-                {/* 改善示唆 */}
-                <div className="p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">改善示唆 (Action Plan)</span>
-                    <span className={`text-[9px] font-bold ${style.text} border ${style.border} px-1.5 py-0.5 rounded`}>
-                      優先度: {isInferred ? '中' : '高'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+      <div className={`grid grid-cols-1 ${gridCols} gap-5`}>
+        {columns.map((col) => (
+          <div key={col.key} className={`${col.style.bg} border ${col.style.border} rounded-xl p-5 space-y-3`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`material-symbols-outlined text-sm ${col.style.text}`}>{col.icon}</span>
+              <span className={`text-[10px] font-bold ${col.style.text} uppercase tracking-widest`}>
+                {col.label} ({col.sublabel})
+              </span>
             </div>
-          )
-        })}
+            <div className="space-y-3">
+              {col.items.map((item) => (
+                <div key={item.evidenceId} className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-on-surface japanese-text">{item.heading}</span>
+                    <span className={`text-[9px] font-bold ${col.style.badgeBg} ${col.style.text} px-1.5 py-0.5 rounded shrink-0`}>
+                      {item.evidenceId}
+                    </span>
+                  </div>
+                  <p className="text-sm text-on-surface-variant leading-relaxed japanese-text line-clamp-4">
+                    {item.summary}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   )
@@ -573,7 +549,7 @@ export default function EssentialPack() {
 
   return (
     <div ref={mainRef} className="flex-1 min-w-0 overflow-y-auto pb-48">
-      <div className="px-10 py-8 max-w-[1400px] mx-auto space-y-10">
+      <div className="px-8 py-8 max-w-[1680px] space-y-8">
 
         {/* ── 認証警告 ── */}
         {!isAdsAuthenticated && (
@@ -663,7 +639,7 @@ export default function EssentialPack() {
 
         {/* ── Section 3: AI 精緻化分析 ── */}
         {currentReport && (
-          <RefinedInsightsSection insights={refinedInsights} reportMd={currentReport} />
+          <RefinedInsightsSection insights={refinedInsights} />
         )}
 
         {/* ── Section 4: 詳細レポート (Accordion) ── */}
