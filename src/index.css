@@ -55,6 +55,8 @@
   --color-tertiary-text: #713638;
   --color-success: #2e7d32;
   --color-warning: #e65100;
+  --color-accent-gold: #D4A843;
+  --color-accent-gold-container: #f5ecd4;
 }
 
 :root[data-theme='dark'] {
@@ -108,6 +110,8 @@
   --color-tertiary-text: #e0a0a1;
   --color-success: #66bb6a;
   --color-warning: #ffb74d;
+  --color-accent-gold: #e8c46e;
+  --color-accent-gold-container: #3a3220;
 }
 
 @layer base {
@@ -500,6 +504,24 @@
 :root[data-theme='dark'] .glass-panel {
   background: var(--color-surface-container-lowest);
   opacity: 0.92;
+}
+
+.evidence-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .material-symbols-outlined {
