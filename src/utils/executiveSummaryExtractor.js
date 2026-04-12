@@ -186,6 +186,26 @@ export function extractRefinedInsights(reportMd) {
   return blocks
 }
 
+/* ── Markdown テキスト整形ヘルパー ── */
+
+function sanitizeMdText(text) {
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')        // [text](url) → text
+    .replace(/`([^`]*)`/g, '$1')                      // `code` → code
+    .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')         // **bold** / *italic*
+    .replace(/_{1,2}([^_]+)_{1,2}/g, '$1')            // __bold__ / _italic_
+    .replace(/^\s*#{1,6}\s+/gm, '')                    // # heading → plain
+    .replace(/\s+/g, ' ')                              // normalize whitespace
+    .trim()
+}
+
+function isValidActionTitle(title) {
+  if (!title || title.length < 5) return false
+  if (/^[a-z_\s.]+$/i.test(title) && title.length < 30) return false
+  if ((title.match(/_/g) || []).length > 2) return false
+  return true
+}
+
 /**
  * Markdown からアクション/推奨セクションを抽出
  */
@@ -214,11 +234,23 @@ export function extractRecommendedAction(reportMd) {
   const content = actionLines.join('\n').trim()
   if (!content) return null
 
-  // 最初のアクション項目を抽出
-  const firstBullet = content.match(/^\s*[-*]\s+(.+)/m)
-  const title = firstBullet
-    ? firstBullet[1].replace(/\*\*/g, '').trim()
-    : content.split('\n')[0].replace(/\*\*/g, '').trim()
+  // 全箇条書きを整形して検証、最初の有効なタイトルを使う
+  const allBullets = content.match(/^\s*[-*]\s+(.+)/gm) || []
+  let title = ''
+
+  for (const raw of allBullets) {
+    const candidate = sanitizeMdText(raw.replace(/^\s*[-*]\s+/, ''))
+    if (isValidActionTitle(candidate)) {
+      title = candidate
+      break
+    }
+  }
+
+  // 箇条書きに有効なものが無ければ先頭行を使う
+  if (!title) {
+    const firstLine = sanitizeMdText(content.split('\n')[0] || '')
+    if (isValidActionTitle(firstLine)) title = firstLine
+  }
 
   if (!title) return null
 
@@ -227,10 +259,125 @@ export function extractRecommendedAction(reportMd) {
   const isHigh = /高|high|p1|今週/i.test(content)
 
   return {
-    title: title.slice(0, 60),
+    title: title.slice(0, 80),
     priority: isUrgent ? '至急' : isHigh ? '高' : '中',
     content,
   }
+}
+
+/* ── Pack-specific カード抽出 ── */
+
+const PACK_CARD_SLOTS = [
+  {
+    id: 'conclusion',
+    label: '結論 / 主要成果',
+    icon: 'verified',
+    patterns: /結論|主要|成果|サマリー|概要|結果|総括|まとめ|summary|conclusion|finding|result|overview|パフォーマンス|performance/i,
+  },
+  {
+    id: 'opportunity',
+    label: '最大機会',
+    icon: 'trending_up',
+    patterns: /機会|改善|成長|増加|好調|伸長|ポジティブ|opportunity|growth|improve|upside|potential|提案|施策|推奨|recommend|強み|strength/i,
+  },
+  {
+    id: 'risk',
+    label: '最大リスク',
+    icon: 'warning',
+    patterns: /リスク|課題|低下|悪化|懸念|問題|減少|下落|直帰|離脱|risk|decline|concern|issue|threat|bounce|exit|注意|alert|弱み|weakness/i,
+  },
+]
+
+/**
+ * レポート Markdown から要点パック専用カード (結論/機会/リスク) を抽出
+ */
+export function extractPackCards(reportMd) {
+  if (!reportMd) return []
+
+  const lines = reportMd.split(/\r?\n/)
+  const h2Sections = []
+  let currentHeading = null
+  let currentLines = []
+
+  const flush = () => {
+    if (!currentHeading || currentLines.length === 0) return
+    const content = currentLines.join('\n').trim()
+    if (!content) return
+    h2Sections.push({ heading: currentHeading, content })
+  }
+
+  for (const line of lines) {
+    const h2Match = line.match(/^##\s+(.+)/)
+    const h1Match = !h2Match && line.match(/^#\s+(.+)/)
+    if (h2Match || h1Match) {
+      flush()
+      currentHeading = (h2Match || h1Match)[1].replace(/[#*`]/g, '').trim()
+      currentLines = []
+      continue
+    }
+    if (currentHeading) currentLines.push(line)
+  }
+  flush()
+
+  const cards = []
+  const usedSections = new Set()
+
+  for (const slot of PACK_CARD_SLOTS) {
+    let bestSection = null
+    for (const section of h2Sections) {
+      if (usedSections.has(section.heading)) continue
+      if (slot.patterns.test(section.heading)) {
+        bestSection = section
+        break
+      }
+    }
+
+    // conclusion は最初のセクションをフォールバック
+    if (!bestSection && slot.id === 'conclusion') {
+      for (const section of h2Sections) {
+        if (!usedSections.has(section.heading)) {
+          bestSection = section
+          break
+        }
+      }
+    }
+
+    if (!bestSection) continue
+    usedSections.add(bestSection.heading)
+
+    // 最初の 1-2 段落（散文のみ、テーブル・リストは除外）
+    const paragraphs = bestSection.content
+      .split(/\n\n+/)
+      .map((p) => sanitizeMdText(p))
+      .filter((p) => p.length > 10 && !p.startsWith('|'))
+
+    let summary = ''
+    if (paragraphs.length > 0) {
+      summary = paragraphs.slice(0, 2).join(' ')
+    } else {
+      // 散文が無ければ箇条書きから要約
+      const bullets = bestSection.content.match(/^\s*[-*]\s+(.+)/gm)
+      if (bullets) {
+        summary = bullets
+          .slice(0, 3)
+          .map((b) => sanitizeMdText(b.replace(/^\s*[-*]\s+/, '')))
+          .join('。')
+      }
+    }
+
+    if (summary.length > 150) summary = summary.slice(0, 147) + '…'
+    if (!summary) continue
+
+    cards.push({
+      id: slot.id,
+      label: slot.label,
+      icon: slot.icon,
+      summary,
+      heading: bestSection.heading,
+    })
+  }
+
+  return cards
 }
 
 /* ── Data Quality Alert 抽出 ── */

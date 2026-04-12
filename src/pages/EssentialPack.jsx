@@ -8,8 +8,7 @@ import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { regenerateAdsReportBundle } from '../utils/adsReports'
 import { extractKpis } from '../utils/kpiExtractor'
 import {
-  extractExecutiveCards,
-  computeCoverageSummary,
+  extractPackCards,
   extractRefinedInsights,
   extractRecommendedAction,
   extractDataQualityAlerts,
@@ -153,58 +152,24 @@ function ExecutiveSummaryHeader({ setupState, reportBundle, selectedPeriod, peri
   )
 }
 
-/* ── Executive Summary Card ── */
-function ExecutiveCard({ card, index }) {
-  const style = TYPE_STYLES[card.evidenceType] || TYPE_STYLES.observed
-  const isRisk = card.cardType === 'risk'
-  const borderClass = isRisk ? 'border-error/20' : 'border-outline-variant/20'
+/* ── Pack Card (結論 / 機会 / リスク) ── */
+const CARD_THEME = {
+  conclusion: { color: 'text-secondary', border: 'border-l-secondary', bg: 'bg-secondary/5' },
+  opportunity: { color: 'text-primary', border: 'border-l-primary', bg: 'bg-primary/5' },
+  risk: { color: 'text-tertiary', border: 'border-l-tertiary', bg: 'bg-tertiary/5' },
+}
+
+function PackCard({ card }) {
+  const theme = CARD_THEME[card.id] || CARD_THEME.conclusion
 
   return (
-    <div className={`bg-surface-container-lowest p-6 rounded-xl border ${borderClass} shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between`}>
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          {isRisk ? (
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold text-error bg-error/5 px-2 py-0.5 rounded border border-error/10 uppercase tracking-widest flex items-center gap-1 w-fit">
-                <span className="material-symbols-outlined text-[12px] font-bold">warning</span>
-                品質状態: 要注意
-              </span>
-              <span className={`text-[9px] font-bold ${style.text} ${style.bg} px-2 py-0.5 rounded border ${style.border} uppercase tracking-widest w-fit`}>
-                {style.label}
-              </span>
-            </div>
-          ) : (
-            <span className={`text-[10px] font-bold ${style.text} ${style.bg} px-2 py-0.5 rounded border ${style.border} uppercase tracking-widest`}>
-              {style.label}
-            </span>
-          )}
-          <span className={`${style.badgeBg} ${style.text} text-[10px] font-bold px-2 py-0.5 rounded-full`}>
-            [{card.evidenceId}]
-          </span>
-        </div>
-
-        <div className="text-sm font-bold text-on-surface mb-1">{card.label}</div>
-        <div className="flex flex-col mb-2">
-          <div className={`text-3xl font-extrabold tabular-nums ${isRisk ? 'text-tertiary' : style.text}`}>
-            {card.value}
-          </div>
-          {card.trend && (
-            <div className="flex items-center gap-1 mt-1">
-              <span className={`text-[11px] font-bold ${card.tone === 'positive' ? 'text-success' : card.tone === 'negative' ? 'text-error' : 'text-on-surface-variant'}`}>
-                {card.trend}
-              </span>
-              <span className="text-[9px] text-on-surface-variant font-bold uppercase">前期間比</span>
-            </div>
-          )}
-        </div>
+    <div className={`bg-surface-container-lowest p-5 rounded-xl border-l-4 ${theme.border} shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3`}>
+      <div className="flex items-center gap-2">
+        <span className={`material-symbols-outlined text-base ${theme.color}`}>{card.icon}</span>
+        <span className={`text-[10px] font-bold ${theme.color} uppercase tracking-widest`}>{card.label}</span>
       </div>
-
-      <div className="mt-4 pt-4 border-t border-outline-variant/10">
-        <div className="flex items-center justify-between text-[9px] font-bold text-on-surface-variant uppercase">
-          <span>分類: {style.label}</span>
-          <span className="material-symbols-outlined text-sm text-outline-variant">open_in_new</span>
-        </div>
-      </div>
+      <p className="text-sm font-bold text-on-surface japanese-text leading-relaxed">{card.heading}</p>
+      <p className="text-sm text-on-surface-variant leading-relaxed japanese-text line-clamp-3">{card.summary}</p>
     </div>
   )
 }
@@ -319,65 +284,27 @@ function EvidenceDrawer({ cards, reportBundle }) {
             <span className="material-symbols-outlined text-on-surface-variant transition-transform group-open:rotate-180">keyboard_arrow_up</span>
             <span className="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest">根拠データ (Raw Evidence Drawer)</span>
           </div>
-          <div className="flex gap-8 items-center">
-            <div className="flex gap-4">
-              {reportBundle?.generatedAt && (
-                <span className="text-[10px] text-primary font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 bg-primary rounded-full" />
-                  最終同期: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}
-                </span>
-              )}
-            </div>
+          <div className="flex gap-4 items-center">
+            {reportBundle?.generatedAt && (
+              <span className="text-[10px] text-primary font-bold flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-primary rounded-full" />
+                最終同期: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}
+              </span>
+            )}
           </div>
         </summary>
         <div className="px-8 pb-10 pt-6 bg-surface-container-lowest max-h-[500px] overflow-y-auto">
-          {/* Card-to-Evidence Mapping */}
-          <div className="mb-8 p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
-            <h4 className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Card-to-Evidence Mapping</h4>
-            <div className="flex flex-wrap gap-4">
-              {cards.map((card) => {
-                const style = TYPE_STYLES[card.evidenceType] || TYPE_STYLES.observed
-                return (
-                  <div key={card.evidenceId} className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest rounded-lg border border-outline-variant/20 shadow-sm">
-                    <span className="text-[10px] font-bold text-on-surface">{card.label}</span>
-                    <span className="material-symbols-outlined text-xs text-outline">arrow_forward</span>
-                    <span className={`text-[10px] font-bold ${style.text}`}>[{card.evidenceId}] {EVIDENCE_TYPES[card.evidenceType]?.en ?? 'Observed'}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Evidence Details */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {cards.map((card) => {
-              const style = TYPE_STYLES[card.evidenceType] || TYPE_STYLES.observed
+              const theme = CARD_THEME[card.id] || CARD_THEME.conclusion
               return (
-                <div key={card.evidenceId} className={`space-y-4 p-5 border border-outline-variant/15 rounded-xl ${style.bg.replace('/5', '/[0.02]')}`}>
-                  <div className="flex items-center justify-between border-b border-outline-variant/10 pb-2">
-                    <h4 className="text-[11px] font-extrabold text-on-surface">{card.evidenceId}: {card.label}</h4>
-                    <span className={`text-[9px] font-bold ${style.badgeBg} ${style.text} px-1.5 py-0.5 rounded`}>
-                      {EVIDENCE_TYPES[card.evidenceType]?.en ?? 'OBSERVED'}
-                    </span>
+                <div key={card.id} className={`p-5 border border-outline-variant/15 rounded-xl ${theme.bg}`}>
+                  <div className="flex items-center gap-2 mb-3 border-b border-outline-variant/10 pb-2">
+                    <span className={`material-symbols-outlined text-sm ${theme.color}`}>{card.icon}</span>
+                    <h4 className={`text-[11px] font-extrabold ${theme.color} uppercase`}>{card.label}</h4>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-on-surface-variant">Raw Value</span>
-                      <span className={`font-bold ${style.text}`}>{card.value}</span>
-                    </div>
-                    {card.trend && (
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-on-surface-variant">Trend</span>
-                        <span className={`font-bold ${card.tone === 'positive' ? 'text-success' : card.tone === 'negative' ? 'text-error' : 'text-on-surface-variant'}`}>
-                          {card.trend}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-on-surface-variant">分類</span>
-                      <span className="font-bold">{style.label}</span>
-                    </div>
-                  </div>
+                  <p className="text-xs font-bold text-on-surface mb-1">{card.heading}</p>
+                  <p className="text-xs text-on-surface-variant leading-relaxed japanese-text">{card.summary}</p>
                 </div>
               )
             })}
@@ -472,36 +399,31 @@ export default function EssentialPack() {
   }, [periodReports, reportBundle?.reportMd, selectedPeriod])
 
   const sections = useMemo(() => splitMarkdownByTopLevelSections(currentReport), [currentReport])
-  const useAccordion = sections.length > 1
 
   /* ── Executive Summary 用データ抽出 ── */
-  const executiveCards = useMemo(
-    () => extractExecutiveCards(currentReport, chartGroups),
-    [currentReport, chartGroups],
-  )
-  const coverage = useMemo(() => computeCoverageSummary(executiveCards), [executiveCards])
+  const packCards = useMemo(() => extractPackCards(currentReport), [currentReport])
   const refinedInsights = useMemo(() => extractRefinedInsights(currentReport), [currentReport])
   const recommendedAction = useMemo(() => extractRecommendedAction(currentReport), [currentReport])
   const qualityAlerts = useMemo(
     () => extractDataQualityAlerts(currentReport, chartGroups),
     [currentReport, chartGroups],
   )
+  const coverage = useMemo(() => {
+    const counts = { observed: 0, derived: 0, proxy: 0, inferred: 0, total: 0 }
+    for (const i of refinedInsights) {
+      if (i.type === 'observation') counts.observed++
+      else if (i.type === 'hypothesis') counts.inferred++
+      else if (i.type === 'action') counts.derived++
+      counts.total++
+    }
+    return counts
+  }, [refinedInsights])
 
-  /* ── accordion 初期状態 ── */
+  /* ── accordion 初期状態: 全セクション折りたたみ ── */
   useEffect(() => {
     if (!sections.length) return
     const init = {}
-    let firstReportDone = false
-    for (const s of sections) {
-      if (s.kind === 'summary') {
-        init[s.id] = true
-      } else if (!firstReportDone) {
-        init[s.id] = true
-        firstReportDone = true
-      } else {
-        init[s.id] = false
-      }
-    }
+    for (const s of sections) init[s.id] = false
     setOpenSections(init)
   }, [sections])
 
@@ -519,7 +441,7 @@ export default function EssentialPack() {
 
   const collapseAll = useCallback(() => {
     const next = {}
-    for (const s of sections) next[s.id] = s.kind === 'summary'
+    for (const s of sections) next[s.id] = false
     setOpenSections(next)
   }, [sections])
 
@@ -627,11 +549,15 @@ export default function EssentialPack() {
           </div>
         )}
 
-        {/* ── Section 2: Executive Cards ── */}
-        {currentReport && (executiveCards.length > 0 || recommendedAction) && (
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {executiveCards.map((card, i) => (
-              <ExecutiveCard key={card.evidenceId} card={card} index={i} />
+        {/* ── Section 2: Pack Cards (結論/機会/リスク + 推奨アクション) ── */}
+        {currentReport && (packCards.length > 0 || recommendedAction) && (
+          <section className={`grid grid-cols-1 gap-5 ${
+            (packCards.length + (recommendedAction ? 1 : 0)) >= 4 ? 'md:grid-cols-2 lg:grid-cols-4' :
+            (packCards.length + (recommendedAction ? 1 : 0)) >= 3 ? 'md:grid-cols-3' :
+            'md:grid-cols-2'
+          }`}>
+            {packCards.map((card) => (
+              <PackCard key={card.id} card={card} />
             ))}
             <RecommendedActionCard action={recommendedAction} />
           </section>
@@ -642,8 +568,8 @@ export default function EssentialPack() {
           <RefinedInsightsSection insights={refinedInsights} />
         )}
 
-        {/* ── Section 4: 詳細レポート (Accordion) ── */}
-        {currentReport && useAccordion && (
+        {/* ── Section 4: 詳細レポート (全セクション折りたたみ) ── */}
+        {currentReport && sections.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-on-surface japanese-text">
@@ -665,73 +591,46 @@ export default function EssentialPack() {
                 id={section.id}
                 className="rounded-xl ghost-border scroll-mt-20 overflow-x-hidden transition-all"
               >
-                {section.kind === 'summary' ? (
-                  <SectionContent section={section} />
-                ) : (
-                  <>
-                    <button
-                      onClick={() => toggleSection(section.id)}
-                      aria-expanded={!!openSections[section.id]}
-                      className={`w-full flex items-center justify-between px-6 py-4 text-left transition-colors rounded-t-xl ${
-                        openSections[section.id]
-                          ? 'bg-surface-container-lowest text-on-surface'
-                          : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
-                      }`}
-                    >
-                      <span className="flex items-center gap-3">
-                        <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                          openSections[section.id] ? 'bg-primary-container/10 text-primary-container' : 'bg-surface-container text-on-surface-variant'
-                        }`}>
-                          <span className="material-symbols-outlined text-lg">article</span>
-                        </span>
-                        <span className="font-bold text-sm japanese-text">{section.heading}</span>
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  aria-expanded={!!openSections[section.id]}
+                  className={`w-full flex items-center justify-between px-6 py-4 text-left transition-colors rounded-t-xl ${
+                    openSections[section.id]
+                      ? 'bg-surface-container-lowest text-on-surface'
+                      : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <span className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                      openSections[section.id] ? 'bg-primary-container/10 text-primary-container' : 'bg-surface-container text-on-surface-variant'
+                    }`}>
+                      <span className="material-symbols-outlined text-lg">
+                        {section.kind === 'summary' ? 'summarize' : 'article'}
                       </span>
-                      <span
-                        className="material-symbols-outlined text-base transition-transform duration-200"
-                        style={{ transform: openSections[section.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                      >
-                        expand_more
-                      </span>
-                    </button>
-                    {openSections[section.id] && (
-                      <div className="bg-surface-container-lowest p-6 border-t border-outline-variant/8">
-                        <SectionContent section={section} showSummaryHeader={false} />
-                      </div>
-                    )}
-                  </>
+                    </span>
+                    <span className="font-bold text-sm japanese-text">{section.heading}</span>
+                  </span>
+                  <span
+                    className="material-symbols-outlined text-base transition-transform duration-200"
+                    style={{ transform: openSections[section.id] ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  >
+                    expand_more
+                  </span>
+                </button>
+                {openSections[section.id] && (
+                  <div className="bg-surface-container-lowest p-6 border-t border-outline-variant/8">
+                    <SectionContent section={section} showSummaryHeader={false} />
+                  </div>
                 )}
               </div>
             ))}
           </section>
         )}
-
-        {/* ── 単一セクション表示 ── */}
-        {currentReport && !useAccordion && sections.length > 0 && (
-          <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-secondary">article</span>
-              <h3 className="text-xl font-bold japanese-text">
-                {selectedPeriod === 'all' ? '統合レポート' : `${selectedPeriod} レポート`}
-              </h3>
-            </div>
-            <SectionContent
-              section={{
-                ...(sections[0] ?? {
-                  heading: selectedPeriod === 'all' ? '統合レポート' : `${selectedPeriod} レポート`,
-                  md: currentReport,
-                  kind: 'report',
-                }),
-                kind: 'report',
-              }}
-              showSummaryHeader={false}
-            />
-          </div>
-        )}
       </div>
 
       {/* ── Evidence Drawer (固定下部) ── */}
-      {currentReport && executiveCards.length > 0 && (
-        <EvidenceDrawer cards={executiveCards} reportBundle={reportBundle} />
+      {currentReport && (packCards.length > 0 || refinedInsights.length > 0) && (
+        <EvidenceDrawer cards={packCards} reportBundle={reportBundle} />
       )}
     </div>
   )
