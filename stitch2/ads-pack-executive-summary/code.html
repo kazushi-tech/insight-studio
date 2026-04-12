@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>期間要約 (Executive Summary) - Insight Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#2d6a4f",
+                        "on-primary": "#ffffff",
+                        "background": "#f8f8f5",
+                        "surface": "#ffffff",
+                        "on-surface": "#1a1c19",
+                        "on-surface-variant": "#404943",
+                        "outline": "#707973",
+                        "outline-variant": "#bfc9c1",
+                        "secondary": "#456553",
+                        "tertiary": "#713638",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f4f4ef",
+                        "surface-container-high": "#e8e8e3",
+                        "surface-container-highest": "#e3e3de"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.75rem",
+                        "lg": "1rem",
+                        "xl": "1.25rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-headline { font-family: 'Manrope', sans-serif; }
+        .evidence-tag {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased flex overflow-hidden">
+<!-- SideNavBar -->
+<aside class="w-[240px] h-screen fixed left-0 top-0 bg-[#14291e] flex flex-col py-6 font-manrope antialiased text-sm font-medium z-20">
+<div class="px-6 mb-8">
+<div class="text-xl font-bold tracking-tight text-white">Insight Studio</div>
+<div class="text-[#bfc9c1] text-[10px] uppercase tracking-widest mt-1">Analytics Intelligence</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="text-[#bfc9c1] hover:text-white mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-colors hover:bg-white/10 rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>ダッシュボード</span>
+</a>
+<a class="bg-primary text-white rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-all" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>競合LP分析</span>
+</a>
+<a class="text-[#bfc9c1] hover:text-white mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-colors hover:bg-white/10 rounded-lg" href="#">
+<span class="material-symbols-outlined">ads_click</span>
+<span>広告考察</span>
+</a>
+<a class="text-[#bfc9c1] hover:text-white mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-colors hover:bg-white/10 rounded-lg" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span>レポート</span>
+</a>
+<a class="text-[#bfc9c1] hover:text-white mx-2 my-1 px-4 py-3 flex items-center gap-3 transition-colors hover:bg-white/10 rounded-lg mt-auto" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>設定</span>
+</a>
+</nav>
+<div class="px-4 py-4 mt-auto">
+<div class="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
+<img alt="User Profile" class="w-8 h-8 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBf6SH3gl4uPdsrRSk9mNcae2U8QEK9VikZ3GJz_JLn035MJoAqIwy8GIys7vsGh3czre-7zf1yNgAkNGy5qfouVeCe7_I_DIenrUFISyLS9et1O5nwNhlwLyoFLafmKTEZb9s94I7oY6IzS9hZNBuDbwRpo37x_04FsmGko0ZWunTkpW-ILDNGZqT0LMXjyW6Bjm_0Xz51SWpFkNbkXCet-RfyEeqVt8fE-avucU5UsbqaQBxte5jjwFbxFmU5gqgnxQkydtekLJff"/>
+<div class="overflow-hidden">
+<p class="text-white text-xs font-bold truncate">Tanaka Ichiro</p>
+<p class="text-[#bfc9c1] text-[10px] truncate">Premium Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="ml-[240px] flex-1 h-screen overflow-y-auto pb-48">
+<!-- TopAppBar -->
+<header class="h-16 sticky top-0 right-0 z-10 bg-background/80 backdrop-blur-md flex items-center justify-between px-8 w-full border-b border-outline-variant/15">
+<div class="flex items-center gap-6">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container-low border-none rounded-full text-sm w-64 focus:ring-2 focus:ring-primary transition-all" placeholder="キーワードで検索..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-surface-container-high rounded-full p-2 transition-all"><span class="material-symbols-outlined text-on-surface-variant">dark_mode</span></button>
+<button class="hover:bg-surface-container-high rounded-full p-2 transition-all relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-background"></span>
+</button>
+<button class="hover:bg-surface-container-high rounded-full p-2 transition-all"><span class="material-symbols-outlined text-on-surface-variant">help</span></button>
+<div class="h-8 w-[1px] bg-outline-variant/30 mx-2"></div>
+<span class="text-sm font-headline font-bold text-primary">Tanaka Ichiro</span>
+</div>
+</header>
+<!-- Content Body -->
+<div class="px-10 py-8 max-w-[1400px] mx-auto space-y-10">
+<!-- Section 1: Page Header & Context -->
+<section class="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+<div class="space-y-1">
+<div class="flex items-center gap-2 text-primary font-bold text-xs tracking-widest uppercase">
+<span class="material-symbols-outlined text-sm">auto_awesome</span>
+                    期間要約 (Executive Summary)
+                </div>
+<h1 class="text-4xl font-extrabold tracking-tight text-on-surface">期間要約 <span class="text-on-surface-variant font-normal text-2xl ml-2"><span class="text-on-surface-variant/40 font-normal text-xl ml-2">(EXECUTIVE SUMMARY)</span></span></h1>
+<div class="flex items-center gap-4 mt-4 text-sm text-on-surface-variant font-medium whitespace-nowrap">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">folder</span> 次世代サプリメントLP最適化</span>
+<span class="flex items-center gap-1.5 text-on-surface"><span class="material-symbols-outlined text-[18px]">calendar_today</span> 2026-04-01 〜 2026-04-10</span>
+</div>
+</div>
+<!-- Coverage Summary & Alert -->
+<div class="flex items-center gap-6">
+<!-- Data Quality Alert -->
+<div class="bg-error/5 border border-error/20 px-4 py-2 rounded-xl flex items-center gap-3" id="alert-summary">
+<span class="material-symbols-outlined text-error text-[20px]">warning</span>
+<div>
+<p class="text-[10px] font-bold text-error uppercase">データ品質アラート (Data Alert)</p>
+<p class="text-[11px] text-on-surface-variant">E-03: サンプル数が基準値を下回っています</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 min-w-[320px]">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">カバレッジサマリー (Coverage)</span>
+<span class="text-[10px] text-outline">Total 5 Evidences</span>
+</div>
+<div class="flex gap-1.5">
+<div class="bg-primary/10 border border-primary/20 px-2 py-1 rounded flex flex-col items-center min-w-[64px]">
+<span class="text-[9px] text-primary font-bold">実測 (Observed)</span>
+<span class="text-sm font-extrabold text-primary">2</span>
+</div>
+<div class="bg-secondary/10 border border-secondary/20 px-2 py-1 rounded flex flex-col items-center min-w-[64px]">
+<span class="text-[9px] text-secondary font-bold">導出 (Derived)</span>
+<span class="text-sm font-extrabold text-secondary">1</span>
+</div>
+<div class="bg-outline-variant/5 border border-outline-variant/20 px-2 py-1 rounded flex flex-col items-center min-w-[64px] opacity-40">
+<span class="text-[9px] text-on-surface-variant font-bold">代替 (Proxy)</span>
+<span class="text-sm font-extrabold text-on-surface-variant">0</span>
+</div>
+<div class="bg-tertiary/10 border border-tertiary/20 px-2 py-1 rounded flex flex-col items-center min-w-[64px]">
+<span class="text-[9px] text-tertiary font-bold">推論 (Inferred)</span>
+<span class="text-sm font-extrabold text-tertiary">2</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Executive Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+<!-- 結論 (Observed) -->
+<a class="bg-surface p-6 rounded-xl border border-outline-variant/20 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group cursor-pointer" href="#E-01-detail">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-[10px] font-bold text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/10 uppercase tracking-widest">実測 (Observed)</span>
+<div class="flex flex-col items-end gap-1">
+<span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">高信頼 [E-01]</span>
+</div>
+</div>
+<div class="text-sm font-bold text-on-surface mb-1">コンバージョン率 <span class="text-[10px] text-on-surface-variant font-normal">(CVR)</span></div>
+<div class="flex flex-col mb-2">
+<div class="text-3xl font-extrabold text-primary">1.84%</div>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-[11px] font-bold text-primary">+12.4%</span>
+<span class="text-[9px] text-on-surface-variant font-bold uppercase">前期間比</span>
+</div>
+</div>
+<p class="text-[11px] text-on-surface font-medium leading-relaxed">クリエイティブAが向上を牽引。全セグメントで統計的有意差を確認。</p>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/10">
+<div class="flex items-center justify-between text-[9px] font-bold text-on-surface-variant uppercase">
+<div class="flex flex-col">
+<span>分類: 実測 (Observed)</span>
+<span class="text-outline font-medium">情報源: GA4 [E-01]</span>
+</div>
+<span class="material-symbols-outlined text-sm text-outline-variant group-hover:text-primary transition-colors">open_in_new</span>
+</div>
+</div>
+</a>
+<!-- 最大機会 (Derived) -->
+<a class="bg-surface p-6 rounded-xl border border-outline-variant/20 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group cursor-pointer" href="#E-02-detail">
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-[10px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20 uppercase tracking-widest">導出 (Derived)</span>
+<div class="flex flex-col items-end gap-1">
+<span class="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full">中信頼 [E-02]</span>
+</div>
+</div>
+<div class="text-sm font-bold text-on-surface mb-1">潜在検索需要</div>
+<div class="flex items-baseline gap-1 mb-1">
+<div class="text-3xl font-extrabold text-secondary">320k</div>
+<span class="text-[10px] text-on-surface-variant font-bold">回 / 月</span>
+</div>
+<p class="text-[11px] text-on-surface font-medium leading-relaxed mb-2">夜間22時以降のモバイル流入に潜在需要。競合が手薄な未開拓リーチ層。</p>
+<div class="bg-secondary/5 p-2 rounded border border-secondary/10">
+<p class="text-[9px] text-secondary font-bold leading-tight">計算根拠:</p>
+<p class="text-[9px] text-outline italic leading-tight">検索需要と現在のクリックシェアから導出</p>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/10">
+<div class="flex items-center justify-between text-[9px] font-bold text-on-surface-variant uppercase">
+<div class="flex flex-col">
+<span>分類: 導出 (Derived)</span>
+<span class="text-outline font-medium">情報源: Search Console [E-02]</span>
+</div>
+<span class="material-symbols-outlined text-sm text-outline-variant group-hover:text-secondary transition-colors">open_in_new</span>
+</div>
+</div>
+</a>
+<!-- 最大リスク (Observed) -->
+<a class="bg-surface p-6 rounded-xl border border-error/20 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group cursor-pointer" href="#E-03-detail">
+<div>
+<div class="flex items-center justify-between mb-4"><div class="flex flex-col gap-1">
+<span class="text-[10px] font-bold text-error bg-error/5 px-2 py-0.5 rounded border border-error/10 uppercase tracking-widest flex items-center gap-1 w-fit">
+<span class="material-symbols-outlined text-[12px] font-bold">warning</span>
+                            品質状態: 要注意
+                        </span>
+<span class="text-[9px] font-bold text-tertiary bg-tertiary/5 px-2 py-0.5 rounded border border-tertiary/10 uppercase tracking-widest w-fit">実測 (Observed)</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-on-surface-variant/60 text-[9px] font-bold px-2 py-0.5 rounded-full border border-outline-variant/30">信頼度: 中 [E-03]</span>
+</div></div>
+<div class="text-sm font-bold text-on-surface mb-1">離脱率 <span class="text-[10px] text-on-surface-variant font-normal">(Exit Rate)</span></div>
+<div class="flex flex-col mb-2">
+<div class="text-3xl font-extrabold text-tertiary">48.5%</div>
+<div class="flex items-center gap-1 mt-1">
+<span class="text-[11px] font-bold text-tertiary">+8.5pt</span>
+<span class="text-[9px] text-on-surface-variant font-bold uppercase">前期間比</span>
+</div>
+</div>
+<p class="text-[11px] text-on-surface font-medium leading-relaxed">「お客様の声」セクションでの離脱率急増。信憑性への疑義、または読了時間の長さ。</p>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/10">
+<div class="flex items-center justify-between text-[9px] font-bold text-on-surface-variant uppercase">
+<div class="flex flex-col">
+<span>分類: 実測 (Observed)</span>
+<span class="text-outline font-medium">情報源: Clarity / sample 2,400</span>
+</div>
+<span class="material-symbols-outlined text-sm text-outline-variant group-hover:text-tertiary transition-colors">open_in_new</span>
+</div>
+</div>
+</a>
+<!-- 最優先アクション (Recommended Action) -->
+<div class="bg-primary text-white p-6 rounded-xl shadow-lg flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl">rocket_launch</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center justify-between mb-4">
+<span class="text-[10px] font-bold text-white/90 bg-white/10 px-2 py-0.5 rounded border border-white/20 uppercase tracking-widest">推奨アクション <span class="text-[8px] opacity-70">(Recommended)</span></span>
+<span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">至急 (Urgent)</span>
+</div>
+<div class="text-xl font-bold mb-1">FVコンテンツ再定義</div>
+<div class="text-[10px] text-white/70 font-bold mb-4 uppercase tracking-tighter">根拠データ (Based on): E-02, E-05</div>
+<div class="space-y-2 mb-4">
+<div class="flex justify-between text-[10px] border-b border-white/10 pb-1">
+<span class="text-white/60">期待効果 (Impact)</span>
+<span class="font-bold">高 (High)</span>
+</div>
+<div class="flex justify-between text-[10px] border-b border-white/10 pb-1">
+<span class="text-white/60">改善レンジ (Est.)</span>
+<span class="font-bold">+2.0% 〜 5.0%</span>
+</div>
+<div class="flex justify-between text-[10px] border-b border-white/10 pb-1">
+<span class="text-white/60">責任者 (Owner)</span>
+<span class="font-bold">制作チーム</span>
+</div>
+<div class="flex justify-between text-[10px]">
+<span class="text-white/60">期限 (Due)</span>
+<span class="font-bold text-white">2026-04-15</span>
+</div>
+</div>
+</div>
+<button class="bg-white text-primary text-[11px] font-bold w-full py-2.5 rounded-xl uppercase tracking-wider hover:bg-white/90 transition-colors flex items-center justify-center gap-2 relative z-10">
+                    施策詳細を確認
+                    <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Section 3: AI 自動考察 (整合性強化) -->
+<section class="space-y-4">
+<div class="flex items-center gap-2">
+<h2 class="text-xl font-extrabold text-on-surface">AI 精緻化分析 <span class="text-on-surface-variant font-normal text-sm ml-1">(Refined Insights)</span></h2>
+<div class="h-px flex-1 bg-outline-variant/15"></div>
+</div>
+<div class="space-y-6">
+<!-- Block 1: 実測事実ベース (Direct Evidence) -->
+<div class="bg-surface rounded-xl overflow-hidden shadow-sm border border-outline-variant/15">
+<div class="bg-surface-container-low px-6 py-3 flex items-center justify-between border-b border-outline-variant/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">visibility</span>
+<span class="text-sm font-bold text-on-surface">観測事実 (Observed Fact)</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[11px] font-bold text-primary tracking-tighter">リンク済み: E-04</span>
+<span class="evidence-tag bg-primary/10 text-primary border border-primary/20">直接証拠 (Direct Evidence)</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant/15">
+<div class="p-6 space-y-3 bg-primary/[0.01]">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-primary uppercase tracking-widest block">根拠 [E-04]</span>
+<span class="bg-surface-container-high text-[9px] px-1.5 py-0.5 rounded text-on-surface-variant font-bold">GA4</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed font-medium">新規ユーザー比率が前週比15%増。一方で平均滞在時間は20秒減少している。</p>
+</div>
+<div class="p-6 space-y-3">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">要因仮説 (Root Cause)</span>
+<span class="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">仮説強度: 高 (Strong Inference)</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed">広告誘導による流入は増えたが、クリエイティブとコンテンツのミスマッチが発生し直帰を誘発。</p>
+</div>
+<div class="p-6 space-y-3"><div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">改善示唆 (Action Plan)</span>
+<span class="text-[9px] font-bold text-primary border border-primary/30 px-1.5 py-0.5 rounded">優先度: 高</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed">流入キーワードに合わせたFVの動的な出し分けを検討。</p></div>
+</div>
+</div>
+<!-- Block 2: 推論ベース (Inferred Insight) -->
+<div class="bg-surface rounded-xl overflow-hidden shadow-sm border border-outline-variant/15">
+<div class="bg-surface-container-low px-6 py-3 flex items-center justify-between border-b border-outline-variant/10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">psychology</span>
+<span class="text-sm font-bold text-on-surface">推定インサイト (Inferred Insight)</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[11px] font-bold text-secondary tracking-tighter">リンク済み: E-05</span>
+<span class="evidence-tag bg-secondary/10 text-secondary border border-secondary/20">推定インサイト (Inferred)</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant/15">
+<div class="p-6 space-y-3 bg-secondary/[0.01]">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-secondary uppercase tracking-widest block">根拠 [E-05]</span>
+<span class="bg-surface-container-high text-[9px] px-1.5 py-0.5 rounded text-on-surface-variant font-bold">Scroll Map</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed font-medium">価格表へのスクロール到達率が12%低下。成分表の閲覧時間は平均15秒増加している。</p>
+</div>
+<div class="p-6 space-y-3">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">要因仮説 (Root Cause)</span>
+<span class="text-[9px] font-bold bg-secondary/10 text-secondary px-1.5 py-0.5 rounded">仮説強度: 中 (Weak Signal)</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed">導入文が冗長で、ユーザーが十分な納得感を得る前に価格への関心を失っている可能性。</p>
+</div>
+<div class="p-6 space-y-3"><div class="flex items-center justify-between">
+<span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest block">改善示唆 (Action Plan)</span>
+<span class="text-[9px] font-bold text-secondary border border-secondary/30 px-1.5 py-0.5 rounded">優先度: 中</span>
+</div>
+<p class="text-sm text-on-surface leading-relaxed">導入文の30%削減、および主要ベネフィットの再定義（箇条書き化）。</p></div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Raw Evidence Drawer (Enhanced) -->
+<div class="fixed bottom-0 left-[240px] right-0 z-30">
+<details class="group bg-surface border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
+<summary class="flex items-center justify-between px-8 py-3 cursor-pointer list-none hover:bg-surface-container-low transition-colors select-none">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-on-surface-variant transition-transform group-open:rotate-180">keyboard_arrow_up</span>
+<span class="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest">根拠データ (Raw Evidence Drawer)</span>
+</div>
+<div class="flex gap-8 items-center">
+<div class="flex gap-4">
+<span class="text-[10px] text-on-surface-variant font-bold border-r border-outline-variant/30 pr-4">情報源: GA4, Search Console, Heatmap</span>
+<span class="text-[10px] text-primary font-bold flex items-center gap-1.5">
+<span class="w-2 h-2 bg-primary rounded-full"></span>
+                        最終同期: 2026-04-10 14:02 (JST)
+                    </span>
+</div>
+</div>
+</summary>
+<div class="px-8 pb-10 pt-6 bg-white max-h-[500px] overflow-y-auto">
+<!-- Mapping Summary -->
+<div class="mb-8 p-4 bg-surface-container-low rounded-xl border border-outline-variant/10">
+<h4 class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-3">Card-to-Evidence Mapping</h4>
+<div class="flex flex-wrap gap-4">
+<div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-outline-variant/20 shadow-sm">
+<span class="text-[10px] font-bold text-on-surface">結論 CVR</span>
+<span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+<span class="text-[10px] font-bold text-primary">[E-01] Verified</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-outline-variant/20 shadow-sm">
+<span class="text-[10px] font-bold text-on-surface">潜在流入機会</span>
+<span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+<span class="text-[10px] font-bold text-secondary">[E-02] Derived</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-outline-variant/20 shadow-sm">
+<span class="text-[10px] font-bold text-on-surface">離脱率</span>
+<span class="material-symbols-outlined text-xs text-outline">arrow_forward</span>
+<span class="text-[10px] font-bold text-tertiary">[E-03] Verified (Low Sample)</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- E-01 Detail -->
+<div class="space-y-4 p-5 border border-outline-variant/15 rounded-xl bg-primary/[0.02]" id="E-01-detail">
+<div class="flex items-center justify-between border-b border-outline-variant/10 pb-2">
+<h4 class="text-[11px] font-extrabold text-on-surface">E-01: CVR 実測データ</h4>
+<span class="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">実測 (VERIFIED)</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Source</span><span class="font-bold">Google Analytics 4</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Raw Value</span><span class="font-bold text-primary">1.84% (CV: 184 / UU: 10,000)</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Baseline</span><span class="font-bold">1.63% (Mar 21-31)</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Window</span><span class="font-bold text-on-surface-variant">2026-04-01 ~ 04-10</span></div>
+<div class="mt-2 pt-2 border-t border-outline-variant/5">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase block mb-1">分析上の意義:</span>
+<p class="text-[10px] leading-relaxed text-on-surface">統計的有意差 (p &lt; 0.05) を維持しており、現在の施策が確実にCVR向上に寄与していることを示しています。</p>
+</div>
+</div>
+</div>
+<!-- E-02 Detail -->
+<div class="space-y-4 p-5 border border-outline-variant/15 rounded-xl bg-secondary/[0.02]" id="E-02-detail">
+<div class="flex items-center justify-between border-b border-outline-variant/10 pb-2">
+<h4 class="text-[11px] font-extrabold text-on-surface">E-02: 検索需要分析</h4>
+<span class="text-[9px] font-bold bg-secondary/10 text-secondary px-1.5 py-0.5 rounded">導出 (DERIVED)</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Source</span><span class="font-bold">Search Console / Planner</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Raw Value</span><span class="font-bold text-secondary">320,400 sessions / Month</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Logic</span><span class="font-bold italic">Sum(Vol) * Est.CTR @ Top3</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Window</span><span class="font-bold text-on-surface-variant">Last 30 Days Average</span></div>
+<div class="mt-2 pt-2 border-t border-outline-variant/5">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase block mb-1">分析上の意義:</span>
+<p class="text-[10px] leading-relaxed text-on-surface">特定時間帯（夜間）における検索ボリュームの増加に対し、自社サイトの表示回数が追いついていない潜在層を可視化しています。</p>
+</div>
+</div>
+</div>
+<!-- E-03 Detail -->
+<div class="space-y-4 p-5 border border-outline-variant/15 rounded-xl bg-tertiary/[0.02]" id="E-03-detail">
+<div class="flex items-center justify-between border-b border-outline-variant/10 pb-2">
+<h4 class="text-[11px] font-extrabold text-on-surface">E-03: 離脱率リスク分析</h4>
+<span class="text-[9px] font-bold bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded">実測 (VERIFIED)</span>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Source</span><span class="font-bold">Microsoft Clarity (Heatmap)</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Raw Value</span><span class="font-bold text-tertiary">48.5% (+8.2pts vs Avg)</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Sample Size</span><span class="font-bold text-error">2,400 Sessions (Low)</span></div>
+<div class="flex justify-between text-[10px]"><span class="text-on-surface-variant">Window</span><span class="font-bold text-on-surface-variant">2026-04-01 ~ 04-10</span></div>
+<div class="mt-2 pt-2 border-t border-outline-variant/5">
+<span class="text-[9px] font-bold text-on-surface-variant uppercase block mb-1">分析上の意義:</span>
+<p class="text-[10px] leading-relaxed text-on-surface">「お客様の声」エリアでの離脱は信頼性低下を示唆。ただしサンプル数が少ないため、継続的な監視が必要です。</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</details>
+</div>
+</body></html>

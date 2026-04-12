@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio - Project Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#95d4b3",
+                    "tertiary-fixed": "#ffdad9",
+                    "on-secondary-fixed-variant": "#2d4d3c",
+                    "secondary-container": "#c4e8d1",
+                    "primary": "#0f5238",
+                    "tertiary-container": "#8d4d4e",
+                    "on-primary": "#ffffff",
+                    "outline-variant": "#bfc9c1",
+                    "on-error": "#ffffff",
+                    "surface-container-high": "#e8e8e3",
+                    "primary-fixed": "#b1f0ce",
+                    "outline": "#707973",
+                    "on-secondary": "#ffffff",
+                    "background": "#fafaf5",
+                    "surface": "#fafaf5",
+                    "on-background": "#1a1c19",
+                    "surface-container": "#eeeee9",
+                    "secondary-fixed-dim": "#abcfb8",
+                    "secondary": "#456553",
+                    "on-surface-variant": "#404943",
+                    "inverse-on-surface": "#f1f1ec",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#002113",
+                    "on-secondary-container": "#496a57",
+                    "tertiary-fixed-dim": "#ffb3b3",
+                    "surface-variant": "#e3e3de",
+                    "surface-dim": "#dadad5",
+                    "surface-bright": "#fafaf5",
+                    "on-tertiary-fixed-variant": "#6f3537",
+                    "primary-container": "#2d6a4f",
+                    "inverse-surface": "#2f312e",
+                    "on-primary-fixed": "#002114",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#0e5138",
+                    "on-tertiary-fixed": "#390b0e",
+                    "secondary-fixed": "#c7ebd4",
+                    "on-primary-container": "#a8e7c5",
+                    "on-surface": "#1a1c19",
+                    "on-tertiary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "surface-container-low": "#f4f4ef",
+                    "inverse-primary": "#95d4b3",
+                    "surface-container-highest": "#e3e3de",
+                    "tertiary": "#713638",
+                    "surface-tint": "#2c694e",
+                    "on-tertiary-container": "#ffcfce",
+                    "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.75rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .ghost-border {
+        outline: 1px solid rgba(191, 201, 193, 0.15);
+      }
+      .tonal-transition {
+        transition: background-color 0.3s ease;
+      }
+    </style>
+</head>
+<body class="bg-background font-body text-on-surface antialiased flex h-screen overflow-hidden">
+<!-- SideNavBar (The Anchor) -->
+<aside class="hidden md:flex flex-col h-screen w-64 bg-[#0f5238] dark:bg-stone-950 text-[#fafaf5] shadow-xl py-6 shrink-0 z-20">
+<div class="px-6 mb-10">
+<h1 class="text-lg font-black text-[#fafaf5] font-headline uppercase tracking-widest">Insight Studio</h1>
+</div>
+<div class="px-4 mb-8">
+<div class="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">account_tree</span>
+</div>
+<div class="overflow-hidden">
+<p class="text-xs font-bold truncate">Project Alpha</p>
+<p class="text-[10px] text-white/60 truncate uppercase tracking-tighter">Insight Studio</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Active Navigation: Projects (Mapped from requirements) -->
+<a class="flex items-center gap-4 bg-[#2d6a4f] text-[#fafaf5] rounded-lg mx-2 px-4 py-3 transition-transform translate-x-1 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_tree</span>
+<span>Projects</span>
+</a>
+<a class="flex items-center gap-4 text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 mx-2 px-4 py-3 transition-all font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-4 text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 mx-2 px-4 py-3 transition-all font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">group</span>
+<span>Team</span>
+</a>
+<a class="flex items-center gap-4 text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 mx-2 px-4 py-3 transition-all font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-4 text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 mx-2 px-4 py-3 transition-all font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">description</span>
+<span>Documents</span>
+</a>
+</nav>
+<div class="mt-auto px-4 space-y-1">
+<button class="w-full mb-6 bg-primary-container hover:bg-opacity-90 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 label-md uppercase tracking-widest transition-colors">
+<span class="material-symbols-outlined">add</span>
+<span>New Project</span>
+</button>
+<a class="flex items-center gap-4 text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 mx-2 px-4 py-3 transition-all font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Help Center</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto bg-surface-container-low relative">
+<!-- TopAppBar (Execution from JSON) -->
+<header class="sticky top-0 z-10 flex justify-between items-center w-full px-8 py-4 bg-[#fafaf5] dark:bg-stone-950 font-manrope headline-sm tracking-tight border-b-0 tonal-transition">
+<div class="flex items-center gap-6">
+<div class="relative group">
+<button class="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-variant transition-colors text-primary text-sm font-bold">
+<span>Project Selection</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant/30 mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right">
+<p class="text-sm font-bold text-on-surface leading-none">田中 一郎</p>
+<p class="text-[10px] text-on-surface-variant tracking-wider">ADMINISTRATOR</p>
+</div>
+<img alt="User profile" class="w-10 h-10 rounded-full object-cover ghost-border" data-alt="Close-up portrait of a professional man in a clean white shirt with soft studio lighting and neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDypJp4pnmpIexZWfhXFzaFNJrwAeELAaUN0wA-MnG9oxSOFEvaUhDQJFBB1NGM5FLUCzKuEKttbgwG7Dik7H10ivMBnKhWPi2eKiZhzbXPmTylfQkAMo5_mWV-UySBDtkZrboJL4TquMTYSuEWLK2y7XpeAG8Owbiu7Dt9pCqEDYfFs-q2Yt-7VmyGc4bkknwUJMUUqecx7Si_JnUob45mgUFysKDXHIEW8jVZlNNTUSFraddiyvjjfGiRndOCaQlLp-BK9dMv3fcw"/>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-8 max-w-7xl mx-auto w-full space-y-8">
+<!-- Editorial Heading Section -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="space-y-2">
+<p class="text-primary font-bold label-md tracking-[0.2em] uppercase">Project Overview</p>
+<h2 class="text-5xl font-extrabold font-headline text-on-surface tracking-tighter">クライアント<br/>プロジェクト一覧</h2>
+</div>
+<div class="flex gap-3">
+<button class="px-6 py-3 bg-surface-container-lowest ghost-border text-on-surface-variant font-bold rounded-lg label-md uppercase tracking-wider flex items-center gap-2 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+<span>フィルター</span>
+</button>
+<button class="px-6 py-3 bg-primary text-on-primary font-bold rounded-lg label-md uppercase tracking-wider flex items-center gap-2 hover:bg-primary-container transition-colors shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">add</span>
+<span>新規追加</span>
+</button>
+</div>
+</section>
+<!-- Stats Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest p-6 rounded-xl ghost-border space-y-4">
+<div class="flex justify-between items-start">
+<div class="p-2 rounded-lg bg-surface-container-high text-primary">
+<span class="material-symbols-outlined">inventory_2</span>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant px-2 py-1 bg-surface-container-high rounded-full uppercase tracking-tighter">Total</span>
+</div>
+<div>
+<p class="text-4xl font-extrabold font-headline tracking-tighter">124</p>
+<p class="text-xs text-on-surface-variant">全プロジェクト数</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl ghost-border space-y-4">
+<div class="flex justify-between items-start">
+<div class="p-2 rounded-lg bg-secondary-container text-secondary">
+<span class="material-symbols-outlined">bolt</span>
+</div>
+<span class="text-[10px] font-bold text-secondary px-2 py-1 bg-secondary-container rounded-full uppercase tracking-tighter">Growth</span>
+</div>
+<div>
+<p class="text-4xl font-extrabold font-headline tracking-tighter">86</p>
+<p class="text-xs text-on-surface-variant">アクティブなプロジェクト</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl ghost-border space-y-4">
+<div class="flex justify-between items-start">
+<div class="p-2 rounded-lg bg-on-primary-container text-primary-container">
+<span class="material-symbols-outlined">database</span>
+</div>
+<span class="text-[10px] font-bold text-primary-container px-2 py-1 bg-on-primary-container rounded-full uppercase tracking-tighter">Stable</span>
+</div>
+<div>
+<p class="text-4xl font-extrabold font-headline tracking-tighter">92%</p>
+<p class="text-xs text-on-surface-variant">BQ接続済みの割合</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl ghost-border space-y-4">
+<div class="flex justify-between items-start">
+<div class="p-2 rounded-lg bg-tertiary-fixed text-tertiary">
+<span class="material-symbols-outlined">corporate_fare</span>
+</div>
+<span class="text-[10px] font-bold text-tertiary px-2 py-1 bg-tertiary-fixed rounded-full uppercase tracking-tighter">Clients</span>
+</div>
+<div>
+<p class="text-4xl font-extrabold font-headline tracking-tighter">48</p>
+<p class="text-xs text-on-surface-variant">登録クライアント数</p>
+</div>
+</div>
+</section>
+<!-- Table Section (Main Container) -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden ghost-border">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant border-b border-outline-variant/10">
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider">プロジェクト名 &amp; ID</th>
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider">クライアント</th>
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider text-center">BQ 接続</th>
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider">データ量</th>
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider">ステータス</th>
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider">最終更新</th>
+<th class="px-6 py-4 font-bold label-md uppercase tracking-wider text-right">アクション</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-6 py-5">
+<p class="font-bold text-on-surface">サントリーホールディングス - 基盤構築</p>
+<p class="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: PJ-2024-001</p>
+</td>
+<td class="px-6 py-5">
+<span class="text-sm font-medium">サントリーホールディングス</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary-container/30">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-[10px] font-bold text-secondary uppercase">Connected</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm font-medium">12.4 TB</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-primary-container text-on-primary-container uppercase tracking-wider">アクティブ</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">2024/05/20</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">share</span></button>
+<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-6 py-5">
+<p class="font-bold text-on-surface">楽天グループ - 流通分析ダッシュボード</p>
+<p class="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: PJ-2024-042</p>
+</td>
+<td class="px-6 py-5">
+<span class="text-sm font-medium">楽天グループ</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-error-container/30">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<span class="text-[10px] font-bold text-error uppercase">Disconnected</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm font-medium">4.1 TB</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-primary-container text-on-primary-container uppercase tracking-wider">アクティブ</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">2024/05/18</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">share</span></button>
+<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-6 py-5">
+<p class="font-bold text-on-surface">トヨタ自動車 - 需要予測AI</p>
+<p class="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: PJ-2023-118</p>
+</td>
+<td class="px-6 py-5">
+<span class="text-sm font-medium">トヨタ自動車</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary-container/30">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-[10px] font-bold text-secondary uppercase">Connected</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm font-medium">85.9 TB</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-surface-variant text-on-surface-variant uppercase tracking-wider">停止中</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">2024/05/12</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">share</span></button>
+<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-6 py-5">
+<p class="font-bold text-on-surface">任天堂 - ユーザー行動分析</p>
+<p class="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: PJ-2024-088</p>
+</td>
+<td class="px-6 py-5">
+<span class="text-sm font-medium">任天堂</span>
+</td>
+<td class="px-6 py-5">
+<div class="flex justify-center">
+<div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary-container/30">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-[10px] font-bold text-secondary uppercase">Connected</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-sm font-medium">21.2 TB</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-primary-container text-on-primary-container uppercase tracking-wider">アクティブ</span>
+</td>
+<td class="px-6 py-5 text-sm text-on-surface-variant">2024/05/15</td>
+<td class="px-6 py-5 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">share</span></button>
+<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-6 py-5 border-b-0">
+<p class="font-bold text-on-surface">資生堂 - ブランドパフォーマンス追跡</p>
+<p class="text-[10px] text-on-surface-variant font-mono uppercase tracking-tighter">ID: PJ-2024-015</p>
+</td>
+<td class="px-6 py-5 border-b-0">
+<span class="text-sm font-medium">資生堂</span>
+</td>
+<td class="px-6 py-5 border-b-0">
+<div class="flex justify-center">
+<div class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-secondary-container/30">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-[10px] font-bold text-secondary uppercase">Connected</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 border-b-0 text-sm font-medium">5.7 TB</td>
+<td class="px-6 py-5 border-b-0">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-primary-container text-on-primary-container uppercase tracking-wider">アクティブ</span>
+</td>
+<td class="px-6 py-5 border-b-0 text-sm text-on-surface-variant">2024/05/21</td>
+<td class="px-6 py-5 border-b-0 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">visibility</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">edit</span></button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-lg">share</span></button>
+<button class="p-2 text-on-surface-variant hover:text-error transition-colors"><span class="material-symbols-outlined text-lg">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 bg-surface-container border-t border-outline-variant/10 flex items-center justify-between">
+<p class="text-xs text-on-surface-variant font-medium">全 124 プロジェクト中 1-5件を表示</p>
+<div class="flex gap-2">
+<button class="px-3 py-1 bg-surface-container-lowest ghost-border rounded-lg text-xs font-bold hover:bg-surface-variant transition-colors disabled:opacity-50" disabled="">Previous</button>
+<button class="px-3 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold hover:bg-primary-container transition-colors">Next</button>
+</div>
+</div>
+</section>
+</div>
+<!-- Floating Decorative Graphic (Editorial Feel) -->
+<div class="absolute bottom-0 right-0 w-96 h-96 pointer-events-none overflow-hidden -z-10 opacity-20">
+<div class="absolute -bottom-20 -right-20 w-[400px] h-[400px] rounded-full bg-primary-fixed blur-[100px]"></div>
+</div>
+</main>
+<!-- Mobile Bottom Navigation Shell -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#fafaf5] border-t-0 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] flex justify-around items-center px-4 py-3 z-30">
+<a class="flex flex-col items-center gap-1 text-[#2d6a4f]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_tree</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter">Projects</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant opacity-50" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter">Dash</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant opacity-50" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter">Team</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-on-surface-variant opacity-50" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="text-[10px] font-bold uppercase tracking-tighter">Data</span>
+</a>
+</nav>
+</body></html>

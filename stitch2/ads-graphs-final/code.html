@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#b1f0ce",
+                        "surface-variant": "#e3e3de",
+                        "on-secondary-fixed-variant": "#2d4d3c",
+                        "on-tertiary-fixed-variant": "#6f3537",
+                        "on-tertiary-fixed": "#390b0e",
+                        "on-tertiary-container": "#ffcfce",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-surface": "#2f312e",
+                        "surface": "#fafaf5",
+                        "secondary-container": "#c4e8d1",
+                        "outline-variant": "#bfc9c1",
+                        "surface-container-highest": "#e3e3de",
+                        "tertiary-container": "#8d4d4e",
+                        "outline": "#707973",
+                        "on-surface": "#1a1c19",
+                        "tertiary-fixed-dim": "#ffb3b3",
+                        "tertiary": "#713638",
+                        "inverse-primary": "#95d4b3",
+                        "primary-container": "#2d6a4f",
+                        "on-secondary-container": "#496a57",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed-dim": "#abcfb8",
+                        "background": "#fafaf5",
+                        "surface-dim": "#dadad5",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#95d4b3",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#a8e7c5",
+                        "surface-bright": "#fafaf5",
+                        "tertiary-fixed": "#ffdad9",
+                        "surface-container-high": "#e8e8e3",
+                        "secondary-fixed": "#c7ebd4",
+                        "secondary": "#456553",
+                        "on-primary-fixed-variant": "#0e5138",
+                        "surface-container-low": "#f4f4ef",
+                        "surface-container": "#eeeee9",
+                        "on-surface-variant": "#404943",
+                        "on-primary-fixed": "#002114",
+                        "surface-tint": "#2c694e",
+                        "primary": "#0f5238",
+                        "inverse-on-surface": "#f1f1ec",
+                        "on-secondary-fixed": "#002113",
+                        "on-background": "#1a1c19",
+                        "accent-gold": "#D4A843"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.75rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fafaf5; scroll-behavior: smooth; }
+        .sidebar { background-color: #0f5238; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-header { backdrop-filter: blur(20px); background: rgba(250, 250, 245, 0.8); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .chart-axis-label { font-size: 11px; font-weight: 700; color: #404943; }
+        .card-equal-height { display: flex; flex-direction: column; height: 100%; }
+    </style>
+</head>
+<body class="text-on-surface">
+<div class="flex min-h-screen">
+<!-- Shared Sidebar -->
+<aside class="w-72 sidebar text-white flex flex-col fixed inset-y-0 left-0 z-50">
+<div class="flex flex-col h-full p-4">
+<div class="flex items-center gap-3 mb-8">
+<div class="bg-primary-container rounded-full size-10 flex items-center justify-center text-primary-fixed">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-base font-bold leading-none font-headline">Insight Studio</h1>
+<p class="text-primary-fixed text-xs opacity-80">Analyst Workspace</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="material-symbols-outlined opacity-70">mobile_layout</span>
+<p class="text-sm font-medium">ダッシュボード</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/20 transition-colors cursor-pointer">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">bar_chart</span>
+<p class="text-sm font-medium">広告考察：グラフ</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="material-symbols-outlined opacity-70">work</span>
+<p class="text-sm font-medium">プロジェクト管理</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="material-symbols-outlined opacity-70">database</span>
+<p class="text-sm font-medium">データ設定</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="material-symbols-outlined opacity-70">history</span>
+<p class="text-sm font-medium">ログ一覧</p>
+</div>
+</nav>
+<div class="pt-4 border-t border-white/10 flex flex-col gap-1">
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="material-symbols-outlined opacity-70">settings</span>
+<p class="text-sm font-medium">設定</p>
+</div>
+<div class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-error-container">
+<span class="material-symbols-outlined">logout</span>
+<p class="text-sm font-medium">ログアウト</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-72">
+<!-- 1. Header Section -->
+<header class="glass-header sticky top-0 z-40 px-8 py-6 flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div class="flex flex-col gap-1">
+<h2 class="text-3xl font-extrabold font-headline tracking-tight text-primary">広告考察：グラフ</h2>
+<div class="flex items-center gap-4 text-on-surface-variant text-sm font-medium whitespace-nowrap">
+<span>サントリーホールディングス - 基盤構築</span>
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="font-bold text-on-surface">2026-04-01 〜 2026-04-10</span>
+<div class="flex items-center gap-1.5 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                            データ品質: 良好
+                        </div>
+</div>
+</div>
+<div class="flex bg-surface-container-high p-1 rounded-xl">
+<button class="px-5 py-2 text-sm font-bold rounded-lg text-on-surface-variant hover:text-on-surface transition-all whitespace-nowrap">Exec View</button>
+<button class="px-5 py-2 text-sm font-bold rounded-lg bg-surface-container-lowest shadow-sm text-primary transition-all whitespace-nowrap">Analyst View</button>
+</div>
+</div>
+</header>
+<div class="px-8 pb-12 flex flex-col gap-8">
+<!-- 2. Top Insight Row -->
+<section class="grid grid-cols-3 gap-6 items-stretch">
+<!-- Card 1 -->
+<a class="bg-surface-container-lowest p-6 rounded-xl border-l-4 border-primary-container shadow-sm card-equal-height gap-4 hover:shadow-md transition-shadow cursor-pointer" href="#cv-analysis-section">
+<div class="flex justify-between items-start">
+<span class="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded uppercase tracking-wider">[Observed] [E-04]</span>
+<span class="text-primary font-bold text-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                            +12%
+                        </span>
+</div>
+<div>
+<p class="text-3xl font-black font-headline text-on-surface">CVR 4.2%</p>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">主要デバイスでCVRが大幅に改善。特に休日のスマホ経由が高い。</p>
+</div>
+</a>
+<!-- Card 2 -->
+<a class="bg-surface-container-lowest p-6 rounded-xl border-l-4 border-accent-gold shadow-sm card-equal-height gap-4 hover:shadow-md transition-shadow cursor-pointer" href="#traffic-analysis-section">
+<div class="flex justify-between items-start">
+<span class="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded uppercase tracking-wider">[Proxy] [E-05]</span>
+<span class="text-accent-gold font-bold text-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-sm">show_chart</span>
+                            +8.4%
+                        </span>
+</div>
+<div>
+<p class="text-2xl font-black font-headline text-on-surface">推定オークション圧</p>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">入札競争が週末にかけて上昇傾向。CPCの先行指標として監視。</p>
+<div class="mt-3 pt-3 border-t border-outline-variant/20">
+<p class="text-[10px] text-on-surface-variant/80 italic">算出根拠: CPC変動と競合密度シグナルから推定</p>
+</div>
+</div>
+</a>
+<!-- Card 3 -->
+<a class="bg-surface-container-lowest p-6 rounded-xl border-l-4 border-tertiary-container shadow-sm card-equal-height gap-4 hover:shadow-md transition-shadow cursor-pointer" href="#anomaly-detection-section">
+<div class="flex justify-between items-start">
+<span class="text-xs font-bold text-on-surface-variant bg-surface-container-low px-2 py-1 rounded uppercase tracking-wider">[Observed] [E-02]</span>
+<span class="text-error font-bold text-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-sm">warning</span>
+                            High Alert
+                        </span>
+</div>
+<div>
+<p class="text-2xl font-black font-headline text-on-surface text-tertiary">異常検知 / モバイル</p>
+<p class="text-on-surface-variant text-sm mt-2 leading-relaxed">4/8に統計的に有意な下方乖離を検出。ネットワーク環境を要確認。</p>
+</div>
+</a>
+</section>
+<!-- 3. Themes & Summary -->
+<section class="flex flex-col gap-4">
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 border-b border-outline-variant/20">
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-primary text-white text-sm font-bold shadow-sm">全件</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high text-sm font-bold transition-colors">CV分析</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high text-sm font-bold transition-colors">流入分析</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high text-sm font-bold transition-colors">LP分析</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high text-sm font-bold transition-colors">デバイス分析</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high text-sm font-bold transition-colors">時間帯分析</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high text-sm font-bold transition-colors">異常検知</button>
+</div>
+<div class="flex items-center gap-2 bg-primary-fixed/30 p-3 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary text-xl">info</span>
+<p class="text-sm font-semibold text-on-primary-fixed-variant">現在、CVR改善とモバイル流入の異常検知が主要な検証論点です。</p>
+</div>
+</section>
+<!-- 4. Chart Section -->
+<section class="flex flex-col gap-6">
+<!-- Section 1: CV Analysis -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20" id="cv-analysis-section">
+<div class="p-5 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors border-b border-outline-variant/10">
+<div class="flex items-center gap-6">
+<span class="material-symbols-outlined text-primary">expand_more</span>
+<div class="flex items-center gap-3">
+<h3 class="font-bold text-lg font-headline">CV分析</h3>
+<div class="flex gap-2">
+<span class="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase">4 charts</span>
+<span class="text-[10px] font-bold bg-primary-container text-white px-2 py-0.5 rounded uppercase">1 critical shift</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-8 text-sm font-medium text-on-surface-variant">
+<div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span>品質: 良好</div>
+<div class="flex items-center gap-1.5">主要KPI: <span class="text-on-surface font-bold text-base">4.2% CVR</span></div>
+</div>
+</div>
+<div class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Graph 1 -->
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<h4 class="font-bold text-sm text-on-surface flex items-center gap-2">
+                                    日別CVR推移 (単位: %)
+                                    <span class="text-[10px] bg-outline-variant/20 px-1.5 py-0.5 rounded text-on-surface-variant font-bold">[Observed] [E-04]</span>
+</h4>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant">
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span>実績</span>
+<span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-primary/20"></span>過去平均</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-lg cursor-pointer">more_vert</span>
+</div>
+</div>
+<div class="h-64 bg-surface-container-low rounded-lg relative overflow-hidden group border border-outline-variant/10">
+<div class="absolute inset-0 p-6 flex flex-col justify-end">
+<div class="absolute left-2 top-0 bottom-12 flex flex-col justify-between chart-axis-label py-1">
+<span>5.0%</span><span>2.5%</span><span>0%</span>
+</div>
+<div class="flex items-end gap-1.5 h-full w-full pl-8">
+<div class="flex-1 bg-primary/20 h-[40%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">2.0%</div></div>
+<div class="flex-1 bg-primary/20 h-[45%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">2.2%</div></div>
+<div class="flex-1 bg-primary/20 h-[42%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">2.1%</div></div>
+<div class="flex-1 bg-primary/20 h-[38%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">1.9%</div></div>
+<div class="flex-1 bg-primary/20 h-[55%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">2.7%</div></div>
+<div class="flex-1 bg-primary/20 h-[60%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">3.0%</div></div>
+<div class="flex-1 bg-primary h-[85%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">4.2%</div></div>
+<div class="flex-1 bg-primary h-[82%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">4.1%</div></div>
+<div class="flex-1 bg-primary h-[88%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">4.4%</div></div>
+<div class="flex-1 bg-primary h-[92%] rounded-t-sm relative group/bar"><div class="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold opacity-0 group-hover/bar:opacity-100 bg-on-surface text-white px-1 rounded transition-opacity">4.5%</div></div>
+</div>
+<div class="mt-4 pt-4 border-t border-outline-variant/30 flex justify-between chart-axis-label pl-8">
+<span>04-01</span><span>04-05</span><span>04-10 (日付)</span>
+</div>
+</div>
+</div>
+<div class="bg-primary/5 p-4 rounded-lg border-l-4 border-primary shadow-sm">
+<p class="text-xs font-bold text-primary mb-1 flex items-center gap-1"><span class="material-symbols-outlined text-sm">lightbulb</span>Takeaway:</p>
+<p class="text-sm text-on-surface leading-snug font-medium">4/8以降、全デバイスでCVRが安定して向上。クリエイティブBの配信拡大と高い相関性が認められます。</p>
+</div>
+</div>
+<!-- Graph 2 -->
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<h4 class="font-bold text-sm text-on-surface flex items-center gap-2">
+                                    新規/再訪構成 (CV流入ユーザー構成)
+                                    <span class="text-[10px] bg-outline-variant/20 px-1.5 py-0.5 rounded text-on-surface-variant font-bold">[Observed]</span>
+</h4>
+<span class="material-symbols-outlined text-on-surface-variant text-lg cursor-pointer">more_vert</span>
+</div>
+<div class="h-64 bg-surface-container-low rounded-lg relative overflow-hidden flex flex-col justify-center items-center border border-outline-variant/10">
+<div class="w-40 h-40 rounded-full border-[14px] border-primary/20 flex items-center justify-center relative">
+<div class="absolute inset-0 border-[14px] border-primary rounded-full" style="clip-path: inset(0 42% 0 0)"></div>
+<div class="text-center">
+<p class="text-3xl font-black font-headline text-on-surface">58%</p>
+<p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">New Users</p>
+</div>
+</div>
+<div class="mt-6 flex gap-8">
+<div class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded-sm bg-primary shadow-sm"></span><span class="text-xs font-bold text-on-surface">新規: 58%</span></div>
+<div class="flex items-center gap-2"><span class="w-3.5 h-3.5 rounded-sm bg-primary/20 shadow-sm"></span><span class="text-xs font-bold text-on-surface">再訪: 42%</span></div>
+</div>
+</div>
+<div class="bg-primary/5 p-4 rounded-lg border-l-4 border-primary shadow-sm">
+<p class="text-xs font-bold text-primary mb-1 flex items-center gap-1"><span class="material-symbols-outlined text-sm">lightbulb</span>Takeaway:</p>
+<p class="text-sm text-on-surface leading-snug font-medium">新規ユーザーのCV貢献度が前週比で+15%増加。春季キャンペーンのリーチが良好な結果を示しています。</p>
+</div>
+</div>
+<!-- Detailed Table Area (Analyst View) -->
+<div class="lg:col-span-2 mt-4">
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-bold text-xs text-on-surface-variant uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">table_chart</span> 詳細データ分析テーブル (ANALYST VIEW)
+                                </h4>
+<button class="text-xs text-primary font-bold flex items-center gap-1 hover:underline bg-primary/5 px-2 py-1 rounded">
+<span class="material-symbols-outlined text-sm">download</span> CSV書き出し
+                                </button>
+</div>
+<div class="overflow-x-auto rounded-lg border border-outline-variant/30 shadow-sm">
+<table class="w-full text-left text-sm border-collapse">
+<thead class="bg-surface-container-high text-on-surface-variant font-bold text-xs">
+<tr>
+<th class="px-6 py-4">日付</th>
+<th class="px-6 py-4 text-right">セッション (件)</th>
+<th class="px-6 py-4 text-right">CV数 (件)</th>
+<th class="px-6 py-4 text-right">CVR (%)</th>
+<th class="px-6 py-4 text-right">CPA (円)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10 text-on-surface bg-white">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-semibold">2026-04-10</td>
+<td class="px-6 py-4 text-right font-medium">12,450</td>
+<td class="px-6 py-4 text-right font-medium">560</td>
+<td class="px-6 py-4 text-right font-bold text-primary">4.50%</td>
+<td class="px-6 py-4 text-right font-medium">2,100</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-6 py-4 font-semibold">2026-04-09</td>
+<td class="px-6 py-4 text-right font-medium">11,200</td>
+<td class="px-6 py-4 text-right font-medium">480</td>
+<td class="px-6 py-4 text-right font-bold text-primary">4.28%</td>
+<td class="px-6 py-4 text-right font-medium">2,250</td>
+</tr>
+<tr class="hover:bg-surface-container-low bg-primary/5 transition-colors">
+<td class="px-6 py-4 font-semibold">2026-04-08</td>
+<td class="px-6 py-4 text-right font-medium">10,800</td>
+<td class="px-6 py-4 text-right font-medium">453</td>
+<td class="px-6 py-4 text-right font-bold text-primary">4.20%</td>
+<td class="px-6 py-4 text-right font-medium">2,300</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 2: Anomaly Detection -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20" id="anomaly-detection-section">
+<div class="p-5 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors border-b border-outline-variant/10">
+<div class="flex items-center gap-6">
+<span class="material-symbols-outlined text-tertiary">expand_more</span>
+<div class="flex items-center gap-3">
+<h3 class="font-bold text-lg font-headline">異常検知</h3>
+<div class="flex gap-2">
+<span class="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase">1 chart</span>
+<span class="text-[10px] font-bold bg-tertiary-container text-white px-2 py-0.5 rounded uppercase">1 critical shift</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-8 text-sm font-medium text-on-surface-variant">
+<div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-accent-gold"></span>品質: 注意</div>
+<div class="flex items-center gap-1.5">異常度: <span class="text-error font-bold text-base">高</span></div>
+</div>
+</div>
+<div class="p-8">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<h4 class="font-bold text-sm text-on-surface">実測 vs 期待帯域 (Actual vs Expected Band)</h4>
+<div class="flex items-center gap-4 text-[10px] font-bold text-on-surface-variant">
+<div class="flex items-center gap-1.5"><span class="w-3 h-0.5 bg-tertiary/40 border-t border-dashed"></span>期待値</div>
+<div class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 bg-tertiary/10 border border-tertiary/20"></span>期待帯域</div>
+<div class="flex items-center gap-1.5"><span class="w-3.5 h-0.5 bg-error"></span>実測</div>
+</div>
+</div>
+<div class="h-80 bg-surface-container-low rounded-lg relative overflow-hidden border border-outline-variant/10">
+<div class="absolute left-2 top-0 bottom-10 flex flex-col justify-between chart-axis-label py-2">
+<span>2,000</span><span>1,000</span><span>0</span>
+</div>
+<svg class="absolute inset-0 w-full h-full pl-10" preserveaspectratio="none" viewbox="0 0 400 200">
+<path d="M0,80 L50,75 L100,85 L150,70 L200,75 L250,80 L300,75 L350,85 L400,70 L400,100 L350,115 L300,105 L250,110 L200,105 L150,100 L100,115 L50,105 L0,110 Z" fill="rgba(113, 54, 56, 0.12)"></path>
+<polyline fill="none" points="0,95 50,90 100,100 150,85 200,90 250,95 300,90 350,100 400,85" stroke="rgba(113, 54, 56, 0.4)" stroke-dasharray="4" stroke-width="1.5"></polyline>
+<!-- Anomaly Drop -->
+<polyline fill="none" points="280,90 300,165 320,100" stroke="#ba1a1a" stroke-width="3"></polyline>
+<circle cx="300" cy="165" fill="#ba1a1a" r="5"></circle>
+</svg>
+<div class="absolute top-[165px] left-[75%] -translate-x-1/2 -translate-y-full bg-error text-white text-[10px] font-bold px-2 py-1.5 rounded shadow-lg flex items-center gap-1 mb-2">
+<span class="material-symbols-outlined text-xs">warning</span> 有意な下方乖離を検出
+                                    </div>
+<div class="absolute bottom-2 left-10 right-4 flex justify-between chart-axis-label px-2">
+<span>04-01</span><span>04-05</span><span>04-10</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col gap-6 border border-outline-variant/20 shadow-inner">
+<div>
+<h4 class="font-bold text-xs text-on-surface-variant uppercase tracking-wider mb-5 flex items-center gap-1.5"><span class="material-symbols-outlined text-sm">assignment</span> 異常詳細スコア</h4>
+<div class="flex flex-col gap-4">
+<div class="flex justify-between border-b border-outline-variant/30 pb-2">
+<span class="text-xs text-on-surface-variant font-medium">検出日</span>
+<span class="text-xs text-on-surface font-bold">2026-04-08</span>
+</div>
+<div class="flex justify-between border-b border-outline-variant/30 pb-2">
+<span class="text-xs text-on-surface-variant font-medium">実測値</span>
+<span class="text-xs text-error font-bold">925</span>
+</div>
+<div class="flex justify-between border-b border-outline-variant/30 pb-2">
+<span class="text-xs text-on-surface-variant font-medium">期待帯域</span>
+<span class="text-xs text-on-surface font-bold">1,200 - 1,400</span>
+</div>
+<div class="flex justify-between border-b border-outline-variant/30 pb-2">
+<span class="text-xs text-on-surface-variant font-medium">判定根拠</span>
+<span class="text-xs text-error font-bold">3σ 逸脱</span>
+</div>
+<div class="flex justify-between items-center pt-2">
+<span class="text-xs text-on-surface-variant font-medium">監視優先度</span>
+<span class="bg-tertiary-container text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">High Priority</span>
+</div>
+</div>
+</div>
+<div class="mt-auto bg-surface-container-lowest p-4 rounded-lg border-l-4 border-error/40 shadow-sm">
+<p class="text-[10px] font-bold text-tertiary uppercase mb-2 flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">verified</span> 確認事項
+                                    </p>
+<p class="text-xs text-on-surface leading-normal font-medium">
+                                        モバイル向けLPの読み込み速度低下が疑われます。サーバーログの並列確認および、4/8前後に実施されたタグ・リビジョン変更の有無を至急確認してください。
+                                    </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer / Next Updates -->
+<div class="py-12 border-t border-outline-variant/20">
+<div class="flex flex-col items-center gap-3 text-on-surface-variant opacity-40">
+<span class="material-symbols-outlined text-3xl">insights</span>
+<p class="text-sm font-bold tracking-widest uppercase">近日追加予定：流入分析・オークション圧 詳細モジュール</p>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+</body></html>

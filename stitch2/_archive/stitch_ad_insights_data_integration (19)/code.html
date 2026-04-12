@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "primary-fixed-dim": "#95d4b3",
+                "tertiary-fixed": "#ffdad9",
+                "on-secondary-fixed-variant": "#2d4d3c",
+                "secondary-container": "#c4e8d1",
+                "primary": "#0f5238",
+                "tertiary-container": "#8d4d4e",
+                "on-primary": "#ffffff",
+                "outline-variant": "#bfc9c1",
+                "on-error": "#ffffff",
+                "surface-container-high": "#e8e8e3",
+                "primary-fixed": "#b1f0ce",
+                "outline": "#707973",
+                "on-secondary": "#ffffff",
+                "background": "#fafaf5",
+                "surface": "#fafaf5",
+                "on-background": "#1a1c19",
+                "surface-container": "#eeeee9",
+                "secondary-fixed-dim": "#abcfb8",
+                "secondary": "#456553",
+                "on-surface-variant": "#404943",
+                "inverse-on-surface": "#f1f1ec",
+                "error": "#ba1a1a",
+                "on-secondary-fixed": "#002113",
+                "on-secondary-container": "#496a57",
+                "tertiary-fixed-dim": "#ffb3b3",
+                "surface-variant": "#e3e3de",
+                "surface-dim": "#dadad5",
+                "surface-bright": "#fafaf5",
+                "on-tertiary-fixed-variant": "#6f3537",
+                "primary-container": "#2d6a4f",
+                "inverse-surface": "#2f312e",
+                "on-primary-fixed": "#002114",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed-variant": "#0e5138",
+                "on-tertiary-fixed": "#390b0e",
+                "secondary-fixed": "#c7ebd4",
+                "on-primary-container": "#a8e7c5",
+                "on-surface": "#1a1c19",
+                "on-tertiary": "#ffffff",
+                "error-container": "#ffdad6",
+                "surface-container-low": "#f4f4ef",
+                "inverse-primary": "#95d4b3",
+                "surface-container-highest": "#e3e3de",
+                "tertiary": "#713638",
+                "surface-tint": "#2c694e",
+                "on-tertiary-container": "#ffcfce",
+                "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.75rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "fontFamily": {
+                "headline": ["Manrope"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .modal-overlay {
+            backdrop-filter: blur(8px);
+            background-color: rgba(26, 28, 25, 0.4);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-surface antialiased">
+<!-- Background Project Dashboard (Simulated) -->
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-full py-6 bg-[#0f5238] dark:bg-stone-950 text-[#fafaf5] docked h-screen left-0 w-64 shadow-xl z-0">
+<div class="px-6 mb-8">
+<div class="text-lg font-black text-[#fafaf5] font-headline">Insight Studio</div>
+<div class="flex items-center mt-6 p-3 bg-[#2d6a4f] rounded-lg">
+<div class="w-8 h-8 rounded bg-white/20 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-sm">account_tree</span>
+</div>
+<div>
+<div class="text-xs font-bold uppercase tracking-wider opacity-60">Project Alpha</div>
+<div class="text-[10px] opacity-40">Insight Studio</div>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="bg-[#2d6a4f] text-[#fafaf5] rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-3 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+                </a>
+<a class="text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 transition-all mx-2 my-1 px-4 py-3 flex items-center gap-3 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">account_tree</span> Projects
+                </a>
+<a class="text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 transition-all mx-2 my-1 px-4 py-3 flex items-center gap-3 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">group</span> Team
+                </a>
+<a class="text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 transition-all mx-2 my-1 px-4 py-3 flex items-center gap-3 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">monitoring</span> Analytics
+                </a>
+<a class="text-[#bfc9c1] hover:text-[#fafaf5] hover:bg-[#2d6a4f]/50 transition-all mx-2 my-1 px-4 py-3 flex items-center gap-3 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">description</span> Documents
+                </a>
+</nav>
+<div class="px-2 mt-auto">
+<button class="w-full py-3 bg-[#2d6a4f] text-[#fafaf5] rounded-lg font-bold mb-4">New Project</button>
+<a class="text-[#bfc9c1] hover:text-[#fafaf5] mx-2 my-1 px-4 py-3 flex items-center gap-3 font-manrope label-md uppercase tracking-wider" href="#">
+<span class="material-symbols-outlined">help</span> Help Center
+                </a>
+</div>
+</aside>
+<!-- Main Content (Behind Modal) -->
+<main class="flex-1 overflow-y-auto">
+<header class="flex justify-between items-center w-full px-8 py-4 bg-[#fafaf5] dark:bg-stone-950 font-manrope headline-sm tracking-tight border-b-0 sticky top-0 z-10">
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low rounded-full border-none text-sm w-64" placeholder="Search projects..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary cursor-pointer">notifications</span>
+<span class="material-symbols-outlined text-primary cursor-pointer">settings</span>
+<img alt="User profile" class="w-8 h-8 rounded-full border-2 border-primary-container" data-alt="professional headshot of a creative director in a minimalist studio setting with soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJCLKYSAspZFbJcYUo9H8f5wMhwRtrd-u6ugIhskJrYwp4M7EpbcBmzQcOWxg4rtS90lnclr-VthH96h34MAaR0Mb5bh4iFNmcjFP-g6eIG4nbBMmO1Wqjn1hQwvsjo39_UtJfsKAB_926dJH6QKS7ThCgS7lH3shnO6Gfpaq86zkn-JICQyhRIL88GozGjd9XDE3uSSOWwhHZ80edZu2RzG7qMrdU6XNxSztl1nu0HqkNjE6In3ZHG7nQbRowBbVt3SgqK_UFphae"/>
+</div>
+</header>
+<div class="p-8">
+<h1 class="text-4xl font-headline font-extrabold text-primary mb-8">Projects</h1>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<div class="h-32 bg-surface-container-low rounded-lg mb-4 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-outline-variant">image</span>
+</div>
+<div class="h-4 w-3/4 bg-surface-container-high rounded mb-2"></div>
+<div class="h-3 w-1/2 bg-surface-container-high rounded"></div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<div class="h-32 bg-surface-container-low rounded-lg mb-4 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-outline-variant">image</span>
+</div>
+<div class="h-4 w-3/4 bg-surface-container-high rounded mb-2"></div>
+<div class="h-3 w-1/2 bg-surface-container-high rounded"></div>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<div class="h-32 bg-surface-container-low rounded-lg mb-4 flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-outline-variant">image</span>
+</div>
+<div class="h-4 w-3/4 bg-surface-container-high rounded mb-2"></div>
+<div class="h-3 w-1/2 bg-surface-container-high rounded"></div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+<!-- Modal Container -->
+<div class="glass-card w-full max-w-[560px] rounded-[12px] shadow-2xl overflow-hidden flex flex-col border border-white/20">
+<!-- Modal Header -->
+<div class="px-8 pt-8 pb-4">
+<h2 class="text-2xl font-headline font-bold text-primary leading-tight">新規プロジェクト作成</h2>
+<p class="text-on-surface-variant text-sm mt-1">分析を開始するための基本情報を入力してください。</p>
+</div>
+<!-- Modal Content (Form) -->
+<div class="px-8 py-4 space-y-6 overflow-y-auto max-h-[716px]">
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1.5">
+<label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">プロジェクトID</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary transition-all text-sm placeholder:text-outline" placeholder="PRJ-2024-001" type="text"/>
+</div>
+<div class="space-y-1.5">
+<label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">クライアント名</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary transition-all text-sm placeholder:text-outline" placeholder="株式会社インサイト" type="text"/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">プロジェクト名</label>
+<input class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary transition-all text-sm placeholder:text-outline" placeholder="Q3 マーケット分析レポート" type="text"/>
+</div>
+<div class="space-y-1.5">
+<label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">BQ Dataset ID</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary-container text-lg">database</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-primary transition-all text-sm placeholder:text-outline font-mono" placeholder="project_analytics_dataset_v1" type="text"/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">招待メール</label>
+<div class="flex flex-wrap gap-2 p-2 bg-surface-container-low rounded-lg min-h-[46px] border-none">
+<span class="inline-flex items-center gap-1 bg-primary-container text-on-primary px-3 py-1 rounded-full text-xs">
+                            admin@insight.com <span class="material-symbols-outlined text-[14px] cursor-pointer">close</span>
+</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm flex-1 min-w-[120px]" placeholder="メールアドレスを入力..." type="text"/>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="block text-xs font-bold text-on-surface-variant uppercase tracking-wider">説明</label>
+<textarea class="w-full bg-surface-container-low border-none rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary transition-all text-sm placeholder:text-outline resize-none" placeholder="プロジェクトの目的や概要を記入してください..." rows="3"></textarea>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="px-8 py-6 bg-surface-container-low flex justify-end gap-3">
+<button class="px-6 py-2.5 text-on-surface-variant font-bold text-xs uppercase tracking-widest hover:bg-surface-container-high rounded-lg transition-colors">
+                    キャンセル
+                </button>
+<button class="px-8 py-2.5 bg-primary-container text-on-primary font-bold text-xs uppercase tracking-widest rounded-lg shadow-lg shadow-primary-container/20 hover:bg-primary transition-all hover:scale-105 active:scale-95">
+                    プロジェクトを作成
+                </button>
+</div>
+</div>
+</div>
+</body></html>

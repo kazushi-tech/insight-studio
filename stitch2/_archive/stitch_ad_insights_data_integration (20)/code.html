@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio - アクセス共有</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#95d4b3",
+                    "tertiary-fixed": "#ffdad9",
+                    "on-secondary-fixed-variant": "#2d4d3c",
+                    "secondary-container": "#c4e8d1",
+                    "primary": "#0f5238",
+                    "tertiary-container": "#8d4d4e",
+                    "on-primary": "#ffffff",
+                    "outline-variant": "#bfc9c1",
+                    "on-error": "#ffffff",
+                    "surface-container-high": "#e8e8e3",
+                    "primary-fixed": "#b1f0ce",
+                    "outline": "#707973",
+                    "on-secondary": "#ffffff",
+                    "background": "#fafaf5",
+                    "surface": "#fafaf5",
+                    "on-background": "#1a1c19",
+                    "surface-container": "#eeeee9",
+                    "secondary-fixed-dim": "#abcfb8",
+                    "secondary": "#456553",
+                    "on-surface-variant": "#404943",
+                    "inverse-on-surface": "#f1f1ec",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#002113",
+                    "on-secondary-container": "#496a57",
+                    "tertiary-fixed-dim": "#ffb3b3",
+                    "surface-variant": "#e3e3de",
+                    "surface-dim": "#dadad5",
+                    "surface-bright": "#fafaf5",
+                    "on-tertiary-fixed-variant": "#6f3537",
+                    "primary-container": "#2d6a4f",
+                    "inverse-surface": "#2f312e",
+                    "on-primary-fixed": "#002114",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#0e5138",
+                    "on-tertiary-fixed": "#390b0e",
+                    "secondary-fixed": "#c7ebd4",
+                    "on-primary-container": "#a8e7c5",
+                    "on-surface": "#1a1c19",
+                    "on-tertiary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "surface-container-low": "#f4f4ef",
+                    "inverse-primary": "#95d4b3",
+                    "surface-container-highest": "#e3e3de",
+                    "tertiary": "#713638",
+                    "surface-tint": "#2c694e",
+                    "on-tertiary-container": "#ffcfce",
+                    "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.5rem",
+                    "lg": "0.75rem",
+                    "xl": "1rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-effect {
+            background: rgba(250, 250, 245, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-surface overflow-hidden">
+<!-- Background Project Content (Blurred) -->
+<div class="fixed inset-0 flex">
+<!-- SideNavBar Shared Component -->
+<aside class="hidden md:flex flex-col h-screen left-0 w-64 bg-[#0f5238] py-6 shadow-xl opacity-50">
+<div class="px-6 mb-8">
+<div class="text-lg font-black text-[#fafaf5] font-headline">Insight Studio</div>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="bg-[#2d6a4f] text-[#fafaf5] rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-manrope label-md uppercase tracking-wider text-xs">Dashboard</span>
+</div>
+<div class="text-[#bfc9c1] hover:text-[#fafaf5] mx-2 my-1 px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-manrope label-md uppercase tracking-wider text-xs">Projects</span>
+</div>
+<div class="text-[#bfc9c1] hover:text-[#fafaf5] mx-2 my-1 px-4 py-3 flex items-center gap-3">
+<span class="material-symbols-outlined">group</span>
+<span class="font-manrope label-md uppercase tracking-wider text-xs">Team</span>
+</div>
+</nav>
+</aside>
+<!-- Main Content (Blurred Underlay) -->
+<main class="flex-1 p-8 filter blur-sm">
+<header class="mb-12">
+<h1 class="text-4xl font-headline font-extrabold tracking-tight text-primary mb-2">Project Alpha</h1>
+<p class="text-on-surface-variant">Project details and team members overview.</p>
+</header>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div class="col-span-2 aspect-video bg-surface-container-low rounded-xl"></div>
+<div class="aspect-square bg-surface-container-low rounded-xl"></div>
+</div>
+</main>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 bg-on-background/40 flex items-center justify-center p-4 z-50">
+<div class="bg-surface-container-lowest w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border border-outline-variant/15">
+<!-- Modal Header -->
+<div class="px-8 pt-8 pb-4 flex justify-between items-start">
+<div>
+<h2 class="text-2xl font-headline font-bold text-primary tracking-tight">アクセス共有</h2>
+<p class="text-on-surface-variant text-sm mt-1">プロジェクト「Project Alpha」へのアクセス権限を管理します。</p>
+</div>
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">close</span>
+</button>
+</div>
+<!-- Invitation Form -->
+<div class="px-8 py-6 bg-surface-container-low/50">
+<label class="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-3">新規メンバーを招待</label>
+<div class="flex flex-col sm:flex-row gap-3">
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm transition-all" placeholder="メールアドレスを入力" type="email"/>
+</div>
+<div class="w-full sm:w-32 relative">
+<select class="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-lg px-3 py-2.5 pr-8 focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm appearance-none cursor-pointer">
+<option>閲覧のみ</option>
+<option>編集可</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 pointer-events-none text-on-surface-variant text-lg">expand_more</span>
+</div>
+<button class="bg-primary-container text-white px-6 py-2.5 rounded-lg text-sm font-bold uppercase tracking-wider hover:brightness-110 active:scale-95 transition-all whitespace-nowrap">
+                        招待
+                    </button>
+</div>
+</div>
+<!-- Current Members List -->
+<div class="px-8 py-6">
+<h3 class="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-4">現在のメンバー (3)</h3>
+<div class="space-y-4 max-h-72 overflow-y-auto pr-2 custom-scrollbar">
+<!-- Member 1 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high ring-2 ring-primary/5">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="professional headshot of a middle-aged creative director with soft studio lighting and a neutral grey background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqeWptEXPc_a52Oyi-EcdJfA2-iISMtStsA8sXx5UWSqA1neKS_aFuHYhzd1xFfeij6kjzIj6r6HvTAmZgSw-z-lJgcAYmOmO28xILudNMFa6Dd5ljCvVm9Mxvc39bP8VgfRUHq7HshIZFljzTp2tKVctxnokQtpyhJ9U1W-Vle9zIv6-qaiefMcKx8eABkq5tRV6Qb35ZLBMQZ9AwkEKrnqKZ62L81mSyhMBhI71WJKpKXfVEYCYxLM2Jb9KYadJoD32EYfmiIhao"/>
+</div>
+<div>
+<div class="text-sm font-semibold text-on-surface">佐藤 健一</div>
+<div class="text-xs text-on-surface-variant">sato.k@insight-studio.jp</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold uppercase tracking-tight">所有者</span>
+<div class="w-8"></div> <!-- Spacer for delete icon alignment -->
+</div>
+</div>
+<!-- Member 2 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high ring-2 ring-primary/5">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="portrait of a young female designer with a friendly smile, natural lighting, and a soft blurred botanical background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbHwlRDHeO_fa9ahknNrfE2MGSKbTey_-G_oUCw6YyNYPoXiLMKgpGaTKb9GinFcD6nU2fatxmPC0APTkAOldRripel8fmDZGlX4Ka3xb6Ma6GefB8F2jseI6V_TJgKw8MLSgqwhmqm7H_WqjxHMoXYaoCytnyhO1lkiJVdNl7I0-hKZHslSHcVqPiUrJ7GM-y-XfCU1UcbIpOj0FrGBjs2dm59Zq60S1Nfa1SKObunPt27LqM7fG0QoaCpEcFfGJQF0KIIYYexEmX"/>
+</div>
+<div>
+<div class="text-sm font-semibold text-on-surface">田中 瑞希</div>
+<div class="text-xs text-on-surface-variant">m.tanaka@design.com</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-bold uppercase tracking-tight">編集可</span>
+<button class="p-1.5 text-outline opacity-0 group-hover:opacity-100 hover:text-error hover:bg-error-container/20 rounded-full transition-all">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+<!-- Member 3 -->
+<div class="flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-high ring-2 ring-primary/5">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="minimalist close-up of a creative professional in a clean office setting with architectural shadows and warm tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkFBxEaiVyLe0uEK3aEv10kx90ieJpsBGPcfOArxFPhRjrcL23MeTI4saVkXlwouiRM1HXZ-jyI_Qolk_QeGXMA2qp7YsJlA4zpMrctz-usHCVa49IOE5omVcnzGM6MKwxKQrc14z-I7N-gfzkjoNWigT7LVA2s2lB98iPrxan5nLd8l-3aQnhi-ePD0ynhFrr62McwWNnZ5yA7IE5LMn-qBHRiwmlHA4od5c2sx2HwzxVXzjWqz1UFNqQackhLlNo0RaeozslbaDn"/>
+</div>
+<div>
+<div class="text-sm font-semibold text-on-surface">Alex Rivers</div>
+<div class="text-xs text-on-surface-variant">alex.r@studio.net</div>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="px-3 py-1 rounded-full bg-surface-variant text-on-surface-variant text-[10px] font-bold uppercase tracking-tight">閲覧のみ</span>
+<button class="p-1.5 text-outline opacity-0 group-hover:opacity-100 hover:text-error hover:bg-error-container/20 rounded-full transition-all">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="px-8 py-6 bg-surface-container flex justify-end gap-3">
+<button class="px-6 py-2 rounded-lg text-sm font-semibold text-on-surface-variant hover:bg-surface-variant transition-colors">
+                    キャンセル
+                </button>
+<button class="bg-primary text-white px-8 py-2 rounded-lg text-sm font-bold uppercase tracking-wider shadow-lg hover:shadow-primary/20 transition-all">
+                    完了
+                </button>
+</div>
+</div>
+</div>
+</body></html>

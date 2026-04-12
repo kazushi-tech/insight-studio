@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio - ダッシュボード</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface": "#191c1d",
+              "outline": "#807664",
+              "primary": "#795900",
+              "surface-container-highest": "#e1e3e4",
+              "on-tertiary-fixed-variant": "#36485b",
+              "on-secondary": "#ffffff",
+              "secondary-container": "#e2e0fc",
+              "primary-container": "#d4a843",
+              "inverse-on-surface": "#f0f1f2",
+              "surface-container-lowest": "#ffffff",
+              "secondary": "#5d5c74",
+              "on-tertiary-fixed": "#091d2e",
+              "tertiary-fixed-dim": "#b5c8df",
+              "surface-dim": "#d9dadb",
+              "surface-tint": "#795900",
+              "on-secondary-fixed-variant": "#45455b",
+              "on-error-container": "#93000a",
+              "on-background": "#191c1d",
+              "on-tertiary": "#ffffff",
+              "surface-container-low": "#f3f4f5",
+              "on-secondary-fixed": "#1a1a2e",
+              "tertiary-fixed": "#d1e4fb",
+              "on-error": "#ffffff",
+              "surface-variant": "#e1e3e4",
+              "tertiary": "#4e6073",
+              "background": "#f8f9fa",
+              "surface": "#f8f9fa",
+              "tertiary-container": "#9db0c6",
+              "on-primary-fixed": "#261a00",
+              "on-primary-fixed-variant": "#5b4300",
+              "surface-container": "#edeeef",
+              "on-surface-variant": "#4e4636",
+              "surface-container-high": "#e7e8e9",
+              "surface-bright": "#f8f9fa",
+              "error": "#ba1a1a",
+              "inverse-surface": "#2e3132",
+              "primary-fixed": "#ffdf9f",
+              "on-primary-container": "#553e00",
+              "on-primary": "#ffffff",
+              "inverse-primary": "#eec058",
+              "error-container": "#ffdad6",
+              "on-tertiary-container": "#314355",
+              "on-secondary-container": "#63627a",
+              "secondary-fixed-dim": "#c6c4df",
+              "secondary-fixed": "#e2e0fc",
+              "outline-variant": "#d2c5b1",
+              "primary-fixed-dim": "#eec058"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8f9fa;
+        color: #191c1d;
+      }
+      .japanese-leading {
+        line-height: 1.8;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased overflow-hidden">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full flex flex-col pt-4 z-40 bg-[#1A1A2E] w-[240px] font-['Manrope'] text-sm tracking-wide leading-relaxed">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary-container rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container text-xl" style="font-variation-settings: 'FILL' 1;">insights</span>
+</div>
+<span class="text-lg font-black tracking-tighter text-white">Insight Studio</span>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Active: ダッシュボード -->
+<a class="flex items-center gap-3 px-5 py-2 text-white font-bold border-l-2 border-[#D4A843] bg-white/5 min-h-[44px] w-full transition-all duration-200" href="#">
+<span class="material-symbols-outlined text-[#D4A843]">dashboard</span>
+<span>ダッシュボード</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-2 text-slate-400 font-medium hover:bg-white/10 hover:text-white transition-all duration-200 min-h-[44px] w-full" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>競合LP分析</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-2 text-slate-400 font-medium hover:bg-white/10 hover:text-white transition-all duration-200 min-h-[44px] w-full" href="#">
+<span class="material-symbols-outlined">ads_click</span>
+<span>広告考察</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-2 text-slate-400 font-medium hover:bg-white/10 hover:text-white transition-all duration-200 min-h-[44px] w-full" href="#">
+<span class="material-symbols-outlined">assessment</span>
+<span>レポート</span>
+</a>
+<a class="flex items-center gap-3 px-5 py-2 text-slate-400 font-medium hover:bg-white/10 hover:text-white transition-all duration-200 min-h-[44px] w-full" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>設定</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<div class="ml-[240px] flex flex-col min-h-screen">
+<!-- TopAppBar Shell -->
+<header class="flex justify-between items-center w-full px-8 h-16 fixed top-0 left-[240px] right-0 z-50 bg-[#f8f9fa] dark:bg-[#191c1d] border-b border-outline-variant/10">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-secondary text-sm">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 focus:ring-1 focus:ring-primary-container text-sm transition-all" placeholder="検索..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-secondary">contrast</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors relative">
+<span class="material-symbols-outlined text-secondary">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant/20"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<span class="text-sm font-medium text-on-surface">田中 一郎</span>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-surface-container-highest">
+<img alt="User avatar for 田中 一郎" class="w-full h-full object-cover" data-alt="close-up portrait of a professional businessman in a grey suit against a neutral studio background, soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvQsW7I0-_L1b-LMouZvILL84jvbtrPKVpwX_oZKX7bBv6mxLrDa3fYNvHhAsTXHPbuA3t8_p4DsdJr-_B3KBqHgA2FVyPPXz5pDBnsX_2nlYGI8r7Bond7dNaAhmGqTOSs1mUCvhL56TryIjyIOM36NfuJBfdMZQ8hYyts11txCb7earVhbPhed1qRpLjONW41Oc0mErJy5ONPQFoJU8aN_FK4_HZKY8WCxLAsVwA5kuZWFUElpg-U5HHPYiofr9IV_19ze1hItrR"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Scrollable Area -->
+<main class="mt-16 p-8 flex gap-8 overflow-y-auto h-[calc(100vh-64px)]">
+<!-- Left Column: Data Canvas -->
+<div class="flex-1 flex flex-col gap-8">
+<!-- Top: StatCards -->
+<section class="grid grid-cols-3 gap-6">
+<!-- Stat Card 1 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 bg-secondary-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<span class="text-[12px] font-semibold text-primary px-2 py-0.5 bg-primary-container/20 rounded-full">+12%</span>
+</div>
+<p class="text-secondary text-sm font-medium mb-1">分析済みLP数</p>
+<h2 class="text-[30px] font-bold tracking-tight text-on-surface">1,284</h2>
+<div class="mt-4 h-12 w-full flex items-end gap-1">
+<div class="bg-primary-container/30 h-1/2 w-full rounded-t-sm"></div>
+<div class="bg-primary-container/30 h-2/3 w-full rounded-t-sm"></div>
+<div class="bg-primary-container/30 h-1/2 w-full rounded-t-sm"></div>
+<div class="bg-primary-container/30 h-3/4 w-full rounded-t-sm"></div>
+<div class="bg-primary-container/30 h-4/5 w-full rounded-t-sm"></div>
+<div class="bg-primary-container h-full w-full rounded-t-sm"></div>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 bg-tertiary-container/20 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+</div>
+<span class="text-[12px] font-semibold text-secondary px-2 py-0.5 bg-secondary-container rounded-full">今月</span>
+</div>
+<p class="text-secondary text-sm font-medium mb-1">今月の考察数</p>
+<h2 class="text-[30px] font-bold tracking-tight text-on-surface">42</h2>
+<div class="mt-4 h-12 w-full flex items-end gap-1">
+<div class="bg-secondary-container/50 h-1/3 w-full rounded-t-sm"></div>
+<div class="bg-secondary-container/50 h-2/3 w-full rounded-t-sm"></div>
+<div class="bg-secondary-container/50 h-1/2 w-full rounded-t-sm"></div>
+<div class="bg-secondary-container/50 h-3/5 w-full rounded-t-sm"></div>
+<div class="bg-secondary-container h-full w-full rounded-t-sm"></div>
+<div class="bg-secondary-container/80 h-4/5 w-full rounded-t-sm"></div>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 bg-error-container/30 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">trending_down</span>
+</div>
+<span class="text-[12px] font-semibold text-error px-2 py-0.5 bg-error-container/50 rounded-full">-5.2%</span>
+</div>
+<p class="text-secondary text-sm font-medium mb-1">最新CPA平均</p>
+<h2 class="text-[30px] font-bold tracking-tight text-on-surface">¥2,480</h2>
+<div class="mt-4 h-12 w-full flex items-end gap-1">
+<div class="bg-error/20 h-4/5 w-full rounded-t-sm"></div>
+<div class="bg-error/20 h-3/4 w-full rounded-t-sm"></div>
+<div class="bg-error/20 h-2/3 w-full rounded-t-sm"></div>
+<div class="bg-error/20 h-1/2 w-full rounded-t-sm"></div>
+<div class="bg-error h-1/3 w-full rounded-t-sm"></div>
+<div class="bg-error/50 h-2/5 w-full rounded-t-sm"></div>
+</div>
+</div>
+</section>
+<!-- Center: Recent Analysis Table -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant/10 overflow-hidden">
+<div class="px-6 py-5 flex justify-between items-center bg-white">
+<h3 class="font-headline text-lg font-bold text-[#191c1d]">最近の分析履歴</h3>
+<button class="text-primary text-sm font-semibold flex items-center gap-1 hover:underline">
+                            すべて見る
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="w-full overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-[#636169] text-[12px] uppercase tracking-wider">
+<th class="px-6 py-4 font-semibold">分析ターゲット LP</th>
+<th class="px-6 py-4 font-semibold">分析日</th>
+<th class="px-6 py-4 font-semibold">スコア</th>
+<th class="px-6 py-4 font-semibold">ステータス</th>
+<th class="px-6 py-4 font-semibold text-right">操作</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="group hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-12 rounded bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
+<img alt="LP Preview" class="w-full h-full object-cover" data-alt="minimalist studio photography of a luxury watch with leather strap on a textured surface, elegant lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZudFRZnoAVJnAopshc5wySN-vnhrZMRAlYVEyUYK9-gatVLKXUtMkiaq68Vr0zIezCI0Q6c5oyyu_hr6CB_BP1UoYZaGEwLxHy3ur7F4Vdlj74FNRy_NmDPgV91iSb6fwuqEwBM_P3XNK4JpjOStI6IvazVL6XtdyiyoH9GyEDZAjVxf1IZ6TizRlrZWkDFYfyzQGmNgg_dXI5aj_QW-CpbN-MJ8l4RFglg6AknZOAoDEQb843I5Jnir25JP8y4eOqPFo6_J9mHzx"/>
+</div>
+<div>
+<div class="text-[15px] font-semibold text-[#191c1d]">高級時計 ブランドLP</div>
+<div class="text-[13px] text-[#47464c]">ラグジュアリー / メンズ</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-[15px] text-[#47464c]">2023/11/24</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="text-[15px] font-bold text-[#191c1d]">88</span>
+<div class="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[88%]"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[12px] font-medium bg-secondary-container text-on-secondary-container">分析完了</span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="material-symbols-outlined text-secondary hover:text-primary transition-colors">more_vert</button>
+</td>
+</tr>
+<tr class="group hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-12 rounded bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
+<img alt="LP Preview" class="w-full h-full object-cover" data-alt="modern eco-friendly house interior with large glass windows showing sunlit garden, clean architectural photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5XR5p5qy54fLY8lMF3IWY0XPLz3Mx8OCz4u42lQIAKpfD0IshlS3jpz4OCgIHt9UgRZtJi8C-UCOwEffCZ8ByLYc1uf5CRCTlQXZn-AEC3fkiYd0V8ad9w4EuhIZMQ5LNHwwFIRmF1HyHWJOys8yJ6Iw84qmutO4vcJ9GPGNq3Eart_JpMJy59eWvIwTjbRyKSy2fXLsOldDIDLSDko5yjEcxKOep_kPvQSs3zW_aSly4wy3ExCJ67_NaYt63739gssJcDcddgtth"/>
+</div>
+<div>
+<div class="text-[15px] font-semibold text-[#191c1d]">エコ住宅 ソーラーパネルLP</div>
+<div class="text-[13px] text-[#47464c]">不動産 / 住宅設備</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-[15px] text-[#47464c]">2023/11/22</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="text-[15px] font-bold text-[#191c1d]">74</span>
+<div class="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[74%]"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[12px] font-medium bg-surface-container-highest text-on-surface-variant">保留中</span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="material-symbols-outlined text-secondary hover:text-primary transition-colors">more_vert</button>
+</td>
+</tr>
+<tr class="group hover:bg-surface-container-low/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-10 h-12 rounded bg-surface-container flex-shrink-0 flex items-center justify-center overflow-hidden">
+<img alt="LP Preview" class="w-full h-full object-cover" data-alt="premium natural skincare products arranged on clean white background with soft shadows, minimal aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIYd1tba350UVhPNf0olJwettMHrF-4xPdxhlpVNWbMEb_562YejP2A_2EpRQ5nzmT1usdNV-ZDLEWHRbBhz6pVNGvlfF1X-BVOhhKz7ciAFUwvYnHfx2SgPLtRa570B5rvSH2iQihS6tCKgmiTLxoof01eWe0Tyu5hUntCiIW1EMLIzFEzxyp9wa1KRkXf1djqgaUgiI48hksye_el3ofeXBz-EQy3epv9kjmchRiSJ7ehAou4DWUVHxbwo-bwRB9YxfXcUPX5ius"/>
+</div>
+<div>
+<div class="text-[15px] font-semibold text-[#191c1d]">天然由来オーガニックコスメLP</div>
+<div class="text-[13px] text-[#47464c]">美容 / スキンケア</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 text-[15px] text-[#47464c]">2023/11/20</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-2">
+<span class="text-[15px] font-bold text-[#191c1d]">92</span>
+<div class="w-16 h-1.5 bg-surface-container rounded-full overflow-hidden">
+<div class="bg-primary-container h-full w-[92%]"></div>
+</div>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 rounded-full text-[12px] font-medium bg-secondary-container text-on-secondary-container">分析完了</span>
+</td>
+<td class="px-6 py-5 text-right">
+<button class="material-symbols-outlined text-secondary hover:text-primary transition-colors">more_vert</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Bottom: Trend Keywords -->
+<section class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<h3 class="font-headline text-lg font-bold text-[#191c1d] mb-6">今週のトレンドキーワード</h3>
+<div class="flex flex-wrap gap-3">
+<span class="px-4 py-2 bg-secondary-container text-on-secondary-container rounded-full text-[14px] font-medium flex items-center gap-2">
+                            # タイムセール
+                            <span class="text-[11px] opacity-70">1.2k</span>
+</span>
+<span class="px-4 py-2 bg-secondary-container text-on-secondary-container rounded-full text-[14px] font-medium flex items-center gap-2">
+                            # パーソナライズ診断
+                            <span class="text-[11px] opacity-70">890</span>
+</span>
+<span class="px-4 py-2 bg-secondary-container text-on-secondary-container rounded-full text-[14px] font-medium flex items-center gap-2">
+                            # 持続可能性
+                            <span class="text-[11px] opacity-70">760</span>
+</span>
+<span class="px-4 py-2 bg-secondary-container text-on-secondary-container rounded-full text-[14px] font-medium flex items-center gap-2">
+                            # 即時体験
+                            <span class="text-[11px] opacity-70">540</span>
+</span>
+<span class="px-4 py-2 bg-secondary-container text-on-secondary-container rounded-full text-[14px] font-medium flex items-center gap-2">
+                            # 3Dプレビュー
+                            <span class="text-[11px] opacity-70">420</span>
+</span>
+<span class="px-4 py-2 bg-secondary-container text-on-secondary-container rounded-full text-[14px] font-medium flex items-center gap-2">
+                            # ユーザーレビュー
+                            <span class="text-[11px] opacity-70">310</span>
+</span>
+</div>
+</section>
+</div>
+<!-- Right Column: Sidebar Actions -->
+<div class="w-[280px] flex flex-col gap-6">
+<!-- Quick Actions Card -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<h4 class="text-[15px] font-bold text-[#191c1d] mb-6">クイックアクション</h4>
+<div class="flex flex-col gap-4">
+<button class="w-full bg-[#D4A843] text-[#3d2e00] font-bold py-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all shadow-sm">
+<span class="material-symbols-outlined">add_circle</span>
+                            新規分析
+                        </button>
+<button class="w-full bg-white border border-outline-variant text-secondary font-semibold py-4 rounded-lg flex items-center justify-center gap-2 hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined">file_download</span>
+                            レポート出力
+                        </button>
+</div>
+</div>
+<!-- Insight of the Day -->
+<div class="bg-primary-container/10 p-6 rounded-xl border border-primary-container/20">
+<div class="flex items-center gap-2 text-primary font-bold mb-3">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+<span class="text-sm">本日のインサイト</span>
+</div>
+<p class="text-[14px] leading-relaxed text-[#47464c] japanese-leading">
+                        競合他社の最新LPでは、「パーソナライズ診断」を取り入れた構成がCVRを平均15%向上させています。
+                    </p>
+<a class="inline-block mt-4 text-[13px] font-bold text-primary hover:underline" href="#">詳しく見る →</a>
+</div>
+<!-- Recent Activity Feed -->
+<div class="flex flex-col gap-4">
+<h4 class="text-[15px] font-bold text-[#191c1d] px-2">最近のアクティビティ</h4>
+<div class="flex flex-col gap-6 pl-4 border-l-2 border-outline-variant/10">
+<div class="relative">
+<div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-primary-container border-4 border-white"></div>
+<div class="text-[13px] font-bold text-[#191c1d]">分析が完了しました</div>
+<div class="text-[12px] text-[#636169] mt-0.5 japanese-leading">「高級時計 ブランドLP」の分析結果が生成されました。</div>
+<div class="text-[11px] text-[#a0a0a0] mt-1">15分前</div>
+</div>
+<div class="relative">
+<div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-outline-variant border-4 border-white"></div>
+<div class="text-[13px] font-bold text-[#191c1d]">レポートを共有しました</div>
+<div class="text-[12px] text-[#636169] mt-0.5 japanese-leading">プロジェクトAの最新レポートをマーケティングチームに共有。</div>
+<div class="text-[11px] text-[#a0a0a0] mt-1">2時間前</div>
+</div>
+<div class="relative">
+<div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-outline-variant border-4 border-white"></div>
+<div class="text-[13px] font-bold text-[#191c1d]">新規LPを追加</div>
+<div class="text-[12px] text-[#636169] mt-0.5 japanese-leading">「エコ住宅」LPのURLが監視リストに追加されました。</div>
+<div class="text-[11px] text-[#a0a0a0] mt-1">昨日</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary": "#002e6a",
+                      "on-error-container": "#ffdad6",
+                      "tertiary-fixed": "#d8e2ff",
+                      "secondary-fixed-dim": "#ddc393",
+                      "surface-container-high": "#28283d",
+                      "primary": "#f2c35b",
+                      "secondary": "#ddc393",
+                      "error": "#ffb4ab",
+                      "on-secondary-container": "#ceb586",
+                      "tertiary-container": "#8eaef4",
+                      "on-error": "#690005",
+                      "on-tertiary-fixed": "#001a42",
+                      "inverse-primary": "#795900",
+                      "on-primary-container": "#553e00",
+                      "background": "#111125",
+                      "tertiary-fixed-dim": "#aec6ff",
+                      "outline": "#9a8f7d",
+                      "surface-container-highest": "#333348",
+                      "surface-container": "#1e1e32",
+                      "secondary-fixed": "#fadfad",
+                      "on-primary": "#402d00",
+                      "inverse-on-surface": "#2f2e43",
+                      "surface-bright": "#37374d",
+                      "primary-fixed-dim": "#eec058",
+                      "surface-container-low": "#1a1a2e",
+                      "on-surface": "#e2e0fc",
+                      "outline-variant": "#4e4636",
+                      "secondary-container": "#584721",
+                      "on-primary-fixed": "#261a00",
+                      "on-background": "#e2e0fc",
+                      "surface-variant": "#333348",
+                      "primary-fixed": "#ffdf9f",
+                      "on-secondary-fixed": "#261a00",
+                      "primary-container": "#d4a843",
+                      "surface": "#111125",
+                      "error-container": "#93000a",
+                      "on-secondary": "#3d2e0a",
+                      "tertiary": "#b3caff",
+                      "on-tertiary-container": "#1b407f",
+                      "surface-dim": "#111125",
+                      "on-surface-variant": "#d2c5b1",
+                      "inverse-surface": "#e2e0fc",
+                      "on-primary-fixed-variant": "#5b4300",
+                      "on-tertiary-fixed-variant": "#214584",
+                      "surface-tint": "#eec058",
+                      "surface-container-lowest": "#0c0c1f",
+                      "on-secondary-fixed-variant": "#56441f"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "2xl": "1rem",
+                      "full": "9999px"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Manrope"],
+                      "label": ["Manrope"]
+              }
+            },
+          }
+        }
+      </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; }
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+      </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface min-h-screen flex flex-col overflow-x-hidden">
+<!-- Decorative Blur Gradients -->
+<div class="fixed top-0 -left-[10%] w-[40%] h-full bg-surface-container-low opacity-40 blur-[120px] pointer-events-none"></div>
+<div class="fixed top-0 -right-[10%] w-[40%] h-full bg-surface-container-low opacity-40 blur-[120px] pointer-events-none"></div>
+<!-- Top Navigation (Restricted Shell as per JSON mapping) -->
+<header class="flex justify-center items-center py-8 w-full top-0 z-50">
+<div class="text-2xl font-bold tracking-tighter text-[#f2c35b]">
+            Insight Studio
+        </div>
+</header>
+<main class="flex-grow flex items-center justify-center px-6 relative z-10">
+<!-- Central Login Card -->
+<div class="w-full max-w-[420px] bg-surface-container-low rounded-2xl p-10 flex flex-col items-center">
+<div class="mb-10 text-center">
+<h1 class="text-3xl font-extrabold tracking-tight text-primary mb-2">
+                    Insight Studio
+                </h1>
+<p class="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant font-medium">
+                    AD OPS &amp; ANALYSIS
+                </p>
+</div>
+<form class="w-full space-y-6">
+<!-- Email Field -->
+<div class="space-y-2">
+<label class="block font-label text-xs font-semibold text-on-surface-variant ml-1">メールアドレス</label>
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-on-surface-variant group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">mail</span>
+</div>
+<input class="w-full h-12 pl-12 pr-4 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-1 focus:ring-primary focus:bg-surface-bright transition-all duration-200" placeholder="example@insight.studio" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-2">
+<div class="flex justify-between items-center px-1">
+<label class="block font-label text-xs font-semibold text-on-surface-variant">パスワード</label>
+<a class="text-[10px] text-primary hover:underline transition-all" href="#">パスワードを忘れた場合</a>
+</div>
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none text-on-surface-variant group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</div>
+<input class="w-full h-12 pl-12 pr-12 bg-surface-container-highest border-none rounded-xl text-on-surface placeholder:text-outline focus:ring-1 focus:ring-primary focus:bg-surface-bright transition-all duration-200" placeholder="••••••••" type="password"/>
+<button class="absolute inset-y-0 right-4 flex items-center text-on-surface-variant hover:text-primary" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Login Button -->
+<div class="pt-4">
+<button class="w-full h-12 bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-surface-container-lowest/50" type="submit">
+                        ログイン
+                        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+<div class="text-center pt-4">
+<p class="text-xs text-on-surface-variant">
+                        アカウントをお持ちでないですか？ 
+                        <a class="text-primary font-bold ml-1 hover:underline" href="#">新規登録</a>
+</p>
+</div>
+</form>
+</div>
+</main>
+<!-- Footer Shell -->
+<footer class="fixed bottom-0 w-full flex justify-between px-12 py-6 z-50">
+<div class="font-manrope text-xs uppercase tracking-widest text-slate-500">
+            © 2024 Insight Studio. All rights reserved.
+        </div>
+<div class="flex gap-8">
+<a class="font-manrope text-xs uppercase tracking-widest text-slate-500 hover:text-white transition-opacity opacity-80 hover:opacity-100" href="#">Privacy Policy</a>
+<a class="font-manrope text-xs uppercase tracking-widest text-slate-500 hover:text-white transition-opacity opacity-80 hover:opacity-100" href="#">Terms of Service</a>
+<a class="font-manrope text-xs uppercase tracking-widest text-slate-500 hover:text-white transition-opacity opacity-80 hover:opacity-100" href="#">Support</a>
+</div>
+</footer>
+<!-- Visual Enhancements: Background Texture -->
+<div class="fixed inset-0 pointer-events-none z-0 opacity-[0.03]" data-alt="subtle micro-texture overlay for carbon fiber feel over deep navy background" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCdNCrVL-JiVgSX-PG8nc6R7YnnwFh6qEnbFSyFQcucpgMPLw_0J4fubs4vMxeiAEUbh_Y1y5bGBwIWJjGAPq9t4Yhl-Fw-J6kYoVAfZcRiW7fh0MaAxM1c_QAAqMdFzBDZ1N6FZDP0SXoKqR26qAqbfm83ndLG5no-Nir3jvMgHC8ElANT4v1wW7GLtI8Wkp5A50VwVO8nh3bDsiKW8fwkL2qz0QGEloPgkMWPujZS3TcW9hBXeU6w44azWkL2C4swLzyF9ULKUhSc');">
+</div>
+</body></html>
