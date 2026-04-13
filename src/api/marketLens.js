@@ -59,9 +59,15 @@ function _pingHealth() {
       if (res.ok) {
         _directBackendReady = true
         _lastPingAt = Date.now()
+      } else {
+        console.warn('[MarketLens] Health ping non-OK:', res.status)
+        _directBackendReady = false
       }
     })
-    .catch(() => { /* swallow */ })
+    .catch((err) => {
+      console.warn('[MarketLens] Health ping failed:', err?.message || err)
+      _directBackendReady = false
+    })
     .finally(() => {
       _warmingUp = false
       _notifyReadiness()

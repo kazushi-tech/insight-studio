@@ -95,8 +95,9 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 150_000 // backend target is <= 120s; allow one extra poll window
-const POLL_STALE_TIMEOUT_MS = 45_000 // backend heartbeat is 10s; allow longer competitor fetch/analyze windows
+const POLL_SOFT_WARNING_MS = 150_000   // ソフト警告のみ — キルしない
+const POLL_HARD_CEILING_MS = 300_000   // 安全弁 — stale 検知の二重保険
+const POLL_STALE_TIMEOUT_MS = 45_000   // ← PRIMARY キル判定（heartbeat 45秒無応答）
 const DISCOVERY_AUTO_RESUBMIT_MAX = 2
 
 const STAGE_LABELS = {
@@ -167,7 +168,7 @@ function estimateRemaining(currentStage, elapsedMs) {
   const currentTypical = STAGE_TYPICAL_SEC[currentStage] || 10
   const totalTypical = STAGE_ORDER.reduce((sum, s) => sum + (STAGE_TYPICAL_SEC[s] || 10), 0)
   if (elapsedSec > totalTypical * 1.5) {
-    return '予想以上に時間がかかっています'
+    return '通常より時間がかかっていますが処理中です'
   }
   const currentRemaining = Math.max(0, currentTypical - elapsedSec * 0.3)
   let total = currentRemaining
@@ -335,6 +336,24 @@ function DomainPlaceholder({ domain }) {
   )
 }
 
+const DISCOVERY_ACTIVE_JOB_KEY = 'is-discovery-active-job'
+
+function persistActiveJob(jobId, pollUrl, url) {
+  try { sessionStorage.setItem(DISCOVERY_ACTIVE_JOB_KEY, JSON.stringify({ jobId, pollUrl, url, startedAt: Date.now() })) } catch {}
+}
+function clearActiveJob() {
+  try { sessionStorage.removeItem(DISCOVERY_ACTIVE_JOB_KEY) } catch {}
+}
+function getActiveJob() {
+  try {
+    const raw = sessionStorage.getItem(DISCOVERY_ACTIVE_JOB_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Date.now() - parsed.startedAt > 300_000) { clearActiveJob(); return null }
+    return parsed
+  } catch { return null }
+}
+
 export default function Discovery() {
   const {
     analysisKey,
@@ -357,6 +376,7 @@ export default function Discovery() {
   const staleStartRef = useRef(null)
   const resubmitCountRef = useRef(0)
   const submitOptionsRef = useRef(null)
+  const softWarningShownRef = useRef(false)
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -389,6 +409,7 @@ export default function Discovery() {
     lastUpdatedAtRef.current = null
     staleStartRef.current = null
     stageTrackRef.current = null
+    softWarningShownRef.current = false
     if (resetStartTime || !pollStartTimeRef.current) {
       pollStartTimeRef.current = Date.now()
     }
@@ -419,16 +440,30 @@ export default function Discovery() {
       // Guard: bail if polling was stopped (e.g. unmount, user cancel, new run)
       if (pollStoppedRef.current) return
 
-      // Guard: absolute timeout
-      if (Date.now() - pollStartTimeRef.current > POLL_MAX_DURATION_MS) {
+      const tickElapsed = Date.now() - pollStartTimeRef.current
+      const tickStage = stageTrackRef.current?.stage
+      const tickStaleDuration = staleStartRef.current ? Date.now() - staleStartRef.current : 0
+      console.info('[Discovery] tick', { elapsed: tickElapsed, stage: tickStage, staleDuration: tickStaleDuration })
+
+      // Guard: hard ceiling — stale 検知も効かなかった場合の最終安全弁
+      if (Date.now() - pollStartTimeRef.current > POLL_HARD_CEILING_MS) {
         stopPolling()
-        const lastStage = stageTrackRef.current?.stage
-        const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
-        failRun('discovery', `分析がタイムアウトしました${stageHint}。再試行してください。`, {
+        clearActiveJob()
+        console.warn('[Discovery] Hard ceiling reached', { elapsed: POLL_HARD_CEILING_MS })
+        failRun('discovery', '分析がタイムアウトしました。再試行してください。', {
           category: 'timeout', label: 'タイムアウト',
-          guidance: `分析に時間がかかりすぎています${stageHint}。再試行してください。`, retryable: true,
+          guidance: '分析に時間がかかりすぎています。再試行してください。', retryable: true,
         })
         return
+      }
+
+      // Soft warning — バックエンドは生きているが時間がかかっている
+      if (Date.now() - pollStartTimeRef.current > POLL_SOFT_WARNING_MS && !softWarningShownRef.current) {
+        softWarningShownRef.current = true
+        console.warn('[Discovery] Soft warning — backend still responding')
+        updateRunMeta('discovery', {
+          statusLabel: '通常より時間がかかっていますが、サーバーは応答中です…',
+        })
       }
 
       try {
@@ -441,8 +476,10 @@ export default function Discovery() {
           if (updatedAtStr === lastUpdatedAtRef.current) {
             if (!staleStartRef.current) {
               staleStartRef.current = Date.now()
+              console.info('[Discovery] Stale detection started', { updatedAt: updatedAtStr })
             } else if (Date.now() - staleStartRef.current > POLL_STALE_TIMEOUT_MS) {
               stopPolling()
+              clearActiveJob()
               const lastStage = stageTrackRef.current?.stage
               const stageHint = lastStage ? `（ステージ: ${STAGE_LABELS[lastStage] || lastStage}）` : ''
               failRun('discovery', `サーバーが応答しなくなりました${stageHint}。再試行してください。`, {
@@ -478,12 +515,26 @@ export default function Discovery() {
         // Track current stage for user-facing context. Backend owns stage-stall detection.
         if (data.stage && (data.status === 'running' || data.status === 'queued')) {
           if (!stageTrackRef.current || data.stage !== stageTrackRef.current.stage) {
+            const prevStage = stageTrackRef.current?.stage
+            console.info('[Discovery] Stage transition', { from: prevStage || '(none)', to: data.stage, elapsed: tickElapsed })
             stageTrackRef.current = { stage: data.stage, startTime: Date.now() }
           }
         }
 
         if (data.status === 'completed' && data.result) {
           stopPolling()
+          clearActiveJob()
+          console.info('[Discovery] Job completed', { jobId, elapsed: tickElapsed, hasReport: !!data.result.report_md })
+
+          // report_md 存在チェック
+          if (!data.result.report_md) {
+            console.warn('[Discovery] Completed but report_md missing', { jobId, keys: Object.keys(data.result) })
+            failRun('discovery', 'レポート生成は完了しましたが、本文が空でした。再試行してください。', {
+              category: 'upstream', label: 'レポート空', guidance: '再試行すると解決する場合があります。', retryable: true,
+            })
+            return
+          }
+
           completeRun('discovery', data.result, {
             search_id: data.result.search_id,
             providerLabel,
@@ -500,7 +551,19 @@ export default function Discovery() {
           return
         }
 
+        // completed + result null
+        if (data.status === 'completed' && !data.result) {
+          stopPolling()
+          clearActiveJob()
+          console.warn('[Discovery] Completed but result is null', { jobId })
+          failRun('discovery', 'ジョブは完了しましたが、結果データがありません。再試行してください。', {
+            category: 'upstream', label: '結果なし', retryable: true,
+          })
+          return
+        }
+
         if (data.status === 'failed') {
+          console.warn('[Discovery] Job failed', { jobId, elapsed: tickElapsed, error: data.error })
           const detail = data.error?.detail || data.message || 'ジョブが失敗しました'
           const retryable = data.error?.retryable ?? true
           const failedStage = data.error?.stage || data.stage
@@ -510,6 +573,7 @@ export default function Discovery() {
             submitOptionsRef.current?.url
           ) {
             try {
+              console.info('[Discovery] Auto-resubmit attempt', { count: resubmitCountRef.current + 1, detail })
               // Warm backend before resubmit to avoid immediate cold-start failure
               await Promise.race([
                 warmMarketLensBackend().catch(() => null),
@@ -541,6 +605,8 @@ export default function Discovery() {
                 statusLabel: '自動再試行中…',
               })
 
+              persistActiveJob(nextData.job_id, nextData.poll_url, submitOptionsRef.current.url)
+
               pollJobCallback(nextData.job_id, {
                 pollPath: nextData.poll_url,
                 pollIntervalMs: nextData.retry_after_sec,
@@ -549,6 +615,7 @@ export default function Discovery() {
               return
             } catch (resubmitError) {
               stopPolling()
+              clearActiveJob()
               const info = classifyError(resubmitError)
               failRun('discovery', resubmitError.message || detail, info)
               return
@@ -556,6 +623,7 @@ export default function Discovery() {
           }
 
           stopPolling()
+          clearActiveJob()
           const info = {
             category: 'upstream',
             label: 'ジョブエラー',
@@ -579,6 +647,7 @@ export default function Discovery() {
         pollErrorCountRef.current += 1
         if (pollErrorCountRef.current >= POLL_MAX_NETWORK_ERRORS) {
           stopPolling()
+          clearActiveJob()
           const info = classifyError(e)
           failRun('discovery', e.message || 'ポーリング中にエラーが発生しました', info)
           return
@@ -595,8 +664,29 @@ export default function Discovery() {
     pollTimerRef.current = setTimeout(tick, initialPollIntervalMs)
   }, [updateRunMeta, completeRun, failRun, stopPolling, providerLabel, resetPollingTracking])
 
+  // Resume active job on mount (page reload / navigation)
+  useEffect(() => {
+    if (loading) return
+    const activeJob = getActiveJob()
+    if (!activeJob) return
+    console.info('[Discovery] Resuming poll for active job', activeJob.jobId)
+    if (activeJob.url && !url) setUrl(activeJob.url)
+    startRun('discovery', { url: activeJob.url })
+    updateRunMeta('discovery', { stage: 'analyze', statusLabel: '前回のジョブを再開中…', jobId: activeJob.jobId })
+    pollJob(activeJob.jobId, { pollPath: activeJob.pollUrl, resetStartTime: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount only
+
   const handleDiscover = useCallback(async () => {
-    if (!analysisKey || !analysisProvider) return
+    console.info('[Discovery] handleDiscover start', { url, provider: analysisProvider })
+    if (!analysisKey || !analysisProvider) {
+      console.warn('[Discovery] Missing auth', { hasKey: !!analysisKey, hasProvider: !!analysisProvider })
+      startRun('discovery', { url })
+      failRun('discovery', 'APIキーまたはプロバイダーが設定されていません。設定画面を確認してください。', {
+        category: 'auth_error', label: '設定不足',
+        guidance: '設定 → AI設定 から Claude API キーを入力してください。', retryable: false,
+      })
+      return
+    }
 
     stopPolling()
     startRun('discovery', { url })
@@ -634,6 +724,8 @@ export default function Discovery() {
         pollIntervalMs: getPollIntervalMs(data.retry_after_sec),
         statusLabel: null,
       })
+
+      persistActiveJob(data.job_id, data.poll_url, url)
 
       pollJob(data.job_id, {
         pollPath: data.poll_url,
