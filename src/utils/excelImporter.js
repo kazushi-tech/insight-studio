@@ -5,6 +5,7 @@
  * over raw export tabs so charts and KPIs stay aligned with the report layout.
  */
 import * as XLSX from 'xlsx'
+import { buildExcelSummary } from './excelSummary'
 
 const KPI_ALIASES = {
   cost: ['費用', 'コスト', 'cost', '広告費', '広告費用', '利用金額', '利用額', 'ご利用額'],
@@ -724,16 +725,19 @@ export function extractFromWorkbook(workbook, fileName) {
     warnings.push('このレポートには画像バナーが含まれていないため、クリエイティブ欄には広告文を表示しています')
   }
 
-  return {
+  const kpis = buildKpisFromSections(sections)
+  const result = {
     fileName,
     importedAt: new Date().toISOString(),
-    kpis: buildKpisFromSections(sections),
+    kpis,
     sections,
     creativeRefs,
     chartGroups: buildChartGroupsFromExcel(sections),
     warnings,
     status: Object.values(sections).some((section) => section.status === 'extracted') ? 'partial' : 'empty',
   }
+  result.summary = buildExcelSummary({ kpis, sections, creativeRefs, warnings })
+  return result
 }
 
 export function getExtractionSummary(result) {

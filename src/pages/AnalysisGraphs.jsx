@@ -7,6 +7,7 @@ import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
 import ImportedAdDetails from '../components/ads/ImportedAdDetails'
 import CreativeReference from '../components/ads/CreativeReference'
+import ExcelSummaryCard from '../components/ads/ExcelSummaryCard'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -372,6 +373,7 @@ export default function AnalysisGraphs() {
   const [excelPreview, setExcelPreview] = useState(null)
   const [excelImport, setExcelImport] = useState(null)
   const [excelError, setExcelError] = useState(null)
+  const [excelDetailOpen, setExcelDetailOpen] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -648,14 +650,42 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {/* ─── Excel-sourced: 広告詳細 ─── */}
-        {excelState === 'applied' && excelImport && (
-          <ImportedAdDetails excelImport={excelImport} />
+        {/* ─── Excel要約 ─── */}
+        {excelState === 'applied' && excelImport?.summary && (
+          <ExcelSummaryCard summary={excelImport.summary} />
         )}
 
-        {/* ─── Excel-sourced: クリエイティブリファレンス ─── */}
-        {excelState === 'applied' && excelImport?.creativeRefs?.length > 0 && (
-          <CreativeReference creativeRefs={excelImport.creativeRefs} />
+        {/* ─── Excel詳細グラフ（折りたたみ） ─── */}
+        {excelState === 'applied' && excelImport && (excelImport.chartGroups?.length > 0 || excelImport.creativeRefs?.length > 0) && (
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden">
+            <button
+              onClick={() => setExcelDetailOpen((prev) => !prev)}
+              className="w-full px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <span className={`material-symbols-outlined ${excelDetailOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
+                  {excelDetailOpen ? 'expand_more' : 'chevron_right'}
+                </span>
+                <h3 className="font-bold text-base text-on-surface japanese-text">詳細グラフを開く</h3>
+                <span className="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase text-on-surface-variant">
+                  {excelImport.chartGroups?.length ?? 0} charts
+                  {excelImport.creativeRefs?.length > 0 && ` + ${excelImport.creativeRefs.length} creatives`}
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant text-sm">
+                {excelDetailOpen ? 'unfold_less' : 'unfold_more'}
+              </span>
+            </button>
+
+            {excelDetailOpen && (
+              <div className="px-6 pb-6 space-y-6">
+                <ImportedAdDetails excelImport={excelImport} />
+                {excelImport.creativeRefs?.length > 0 && (
+                  <CreativeReference creativeRefs={excelImport.creativeRefs} />
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ─── GA4/BQ Section Header ─── */}
