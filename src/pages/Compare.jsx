@@ -318,7 +318,16 @@ export default function Compare() {
   const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
 
   const handleScan = useCallback(async () => {
-    if (!analysisKey || !analysisProvider) return
+    console.info('[Compare] handleScan called', { target: urls.target, compA: urls.compA, compB: urls.compB })
+    if (!analysisKey || !analysisProvider) {
+      console.warn('[Compare] Missing auth', { hasKey: !!analysisKey, hasProvider: !!analysisProvider })
+      startRun('compare', { urls })
+      failRun('compare', 'APIキーまたはプロバイダーが設定されていません。設定画面を確認してください。', {
+        category: 'auth_error', label: '設定不足',
+        guidance: '設定 → AI設定 から Claude API キーを入力してください。', retryable: false,
+      })
+      return
+    }
 
     const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
     const startedRun = startRun('compare', { urls })
@@ -338,11 +347,17 @@ export default function Compare() {
     }
 
     try {
-      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
-      await Promise.race([
-        warmMarketLensBackend(),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ])
+      // Warm up backend — wait for full completion (no timeout race)
+      updateRunMeta('compare', { statusLabel: 'サーバー起動待ち…' })
+      const warmResult = await warmMarketLensBackend()
+      if (!warmResult) {
+        failRun('compare', 'サーバー起動に失敗しました。しばらく待って再試行してください。', {
+          category: 'cold_start', label: 'サーバー起動失敗',
+          guidance: 'バックエンドが起動できませんでした。ネットワーク接続を確認してください。', retryable: true,
+        })
+        return
+      }
+      console.info('[Compare] Backend warm, submitting scan')
 
       const data = await scan(urlList, {
         apiKey: analysisKey,
@@ -357,10 +372,12 @@ export default function Compare() {
         return
       }
 
+      console.info('[Compare] Scan completed', { hasReport: !!data.report_md, hasScore: data.overall_score != null })
       finalizeRun(data)
     } catch (e) {
       const info = classifyError(e)
       if (info.category === 'timeout' || e?.isTimeout || e?.name === 'AbortError') {
+        console.warn('[Compare] Scan timed out, entering recovery mode')
         updateRunMeta('compare', {
           recoveryMode: true,
           recoveryMessage: 'タイムアウト後の完了結果を確認しています…',
@@ -377,6 +394,7 @@ export default function Compare() {
         })
 
         if (recovered) {
+          console.info('[Compare] Recovery succeeded', { runId: recovered.run_id })
           finalizeRun(recovered, {
             recoveredFromHistory: true,
             recoveryMode: false,
@@ -384,6 +402,7 @@ export default function Compare() {
           })
           return
         }
+        console.warn('[Compare] Recovery failed — no matching completed scan found')
       }
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。', info)
     }

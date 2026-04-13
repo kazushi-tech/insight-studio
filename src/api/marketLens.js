@@ -433,7 +433,14 @@ async function requestScanWithRetry(payload, options) {
     } catch (error) {
       lastError = error
       const isTimeout = error?.isTimeout || error?.name === 'AbortError'
-      if (isTimeout && attempt >= 1) break
+      if (isTimeout) {
+        if (attempt === 0) {
+          console.warn('[Compare] scan timeout on attempt 0, re-verifying backend')
+          _directBackendReady = false
+        } else {
+          break
+        }
+      }
       const status = error.status || error.statusCode
       const retryable = isTimeout
         || [502, 503].includes(status)
