@@ -17,7 +17,7 @@ import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 
-const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
+const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'dashboard', label: 'ダッシュボード' },
@@ -31,13 +31,12 @@ const NAV_ITEMS = [
     ],
   },
   {
-    label: '広告考察',
+    label: '広告分析',
     icon: 'insights',
     children: [
       { to: '/ads/wizard', label: 'セットアップ' },
-      { to: '/ads/pack', label: '要点パック', requiresSetup: true },
-      { to: '/ads/graphs', label: 'グラフ', requiresSetup: true },
-      { to: '/ads/ai', label: 'AI考察', requiresSetup: true },
+      { to: '/ads/graphs', label: '分析', requiresSetup: true },
+      { to: '/ads/ai', label: 'AIエクスプローラー', requiresSetup: true },
     ],
   },
   { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理', adminOnly: true },
@@ -231,7 +230,7 @@ function KeySettingsModal({ onClose }) {
         {/* Claude Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（分析用）</label>
-          <p className="text-xs text-on-surface-variant">AI考察・LP比較・競合発見・クリエイティブレビューに使用します</p>
+          <p className="text-xs text-on-surface-variant">AIエクスプローラー・LP比較・競合発見・クリエイティブレビューに使用します</p>
           <a
             href="https://console.anthropic.com/settings/keys"
             target="_blank"

@@ -223,7 +223,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 flex items-center justify-center text-amber-600">
             <span className="material-symbols-outlined">lock</span>
           </div>
-          <h4 className="text-lg font-bold japanese-text">広告考察</h4>
+          <h4 className="text-lg font-bold japanese-text">広告分析</h4>
         </div>
         <p className="text-sm text-on-surface-variant">考察スタジオへの認証が必要です。サイドバーの API キー設定からログインしてください。</p>
       </div>
@@ -237,9 +237,9 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 flex items-center justify-center text-amber-600">
             <span className="material-symbols-outlined">settings_suggest</span>
           </div>
-          <h4 className="text-lg font-bold japanese-text">広告考察セットアップ</h4>
+          <h4 className="text-lg font-bold japanese-text">広告分析セットアップ</h4>
         </div>
-        <p className="text-sm text-on-surface-variant mb-3">セットアップを完了すると、要点パック・グラフ・AI考察が利用できます。</p>
+        <p className="text-sm text-on-surface-variant mb-3">セットアップを完了すると、分析・AIエクスプローラーが利用できます。</p>
         <button
           onClick={() => onNavigate('/ads/wizard')}
           className="text-sm font-bold text-secondary hover:underline flex items-center gap-1"
@@ -262,7 +262,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
         <div className="w-10 h-10 rounded-[0.75rem] bg-emerald-50 flex items-center justify-center text-emerald-600">
           <span className="material-symbols-outlined">check_circle</span>
         </div>
-        <h4 className="text-lg font-bold japanese-text">広告考察セットアップ</h4>
+        <h4 className="text-lg font-bold japanese-text">広告分析セットアップ</h4>
       </div>
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
@@ -292,22 +292,16 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
       </div>
       <div className="flex gap-2 mt-4">
         <button
-          onClick={() => onNavigate('/ads/pack')}
-          className="flex-1 py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
-        >
-          要点パック
-        </button>
-        <button
           onClick={() => onNavigate('/ads/graphs')}
           className="flex-1 py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
-          グラフ
+          分析
         </button>
         <button
           onClick={() => onNavigate('/ads/ai')}
           className="flex-1 py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
-          AI考察
+          AIエクスプローラー
         </button>
       </div>
     </div>

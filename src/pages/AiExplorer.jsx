@@ -354,12 +354,12 @@ export default function AiExplorer() {
 
     setReportLoading(true)
     setReportError(null)
-    setStatus('要点パックとグラフを再取得中...')
+    setStatus('分析データを再取得中...')
 
     try {
       const nextBundle = await regenerateAdsReportBundle(setupState)
       setReportBundle(nextBundle)
-      setStatus('✓ 要点パックとグラフを更新しました')
+      setStatus('✓ 分析データを更新しました')
     } catch (e) {
       const errorMsg = e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message
       setReportError(errorMsg)
@@ -451,13 +451,13 @@ export default function AiExplorer() {
         )}
         {reportLoading && !reportBundle?.reportMd && (
           <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant mb-4">
-            <LoadingSpinner size="sm" label="要点パックとグラフコンテキストを再構築しています…" />
+            <LoadingSpinner size="sm" label="分析データコンテキストを再構築しています…" />
           </div>
         )}
         {!reportBundle?.reportMd && (
           <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant mb-4">
             <span className="material-symbols-outlined text-lg">info</span>
-            <span className="japanese-text">`ads-insights` repo 準拠では、要点パック生成後にその `point_pack_md` を使って考察を生成します。先にセットアップを完了してください。</span>
+            <span className="japanese-text">`ads-insights` repo 準拠では、分析データ生成後にそのコンテキストを使って考察を生成します。先にセットアップを完了してください。</span>
           </div>
         )}
 
@@ -585,8 +585,8 @@ export default function AiExplorer() {
             <div className="w-16 h-16 bg-primary-container/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-4xl text-primary-container">auto_awesome</span>
             </div>
-            <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI 考察エンジン</p>
-            <p className="text-sm mt-2">要点パックとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
+            <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI エクスプローラー</p>
+            <p className="text-sm mt-2">分析データとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
           </div>
         )}
 

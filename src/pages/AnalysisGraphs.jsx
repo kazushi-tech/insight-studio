@@ -6,7 +6,6 @@ import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
 import ImportedAdDetails from '../components/ads/ImportedAdDetails'
-import CreativeReference from '../components/ads/CreativeReference'
 import ExcelSummaryCard from '../components/ads/ExcelSummaryCard'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
@@ -23,6 +22,21 @@ import {
   THEME_DEFINITIONS,
 } from '../utils/chartThemeClassifier'
 import { parseExcelFile } from '../utils/excelImporter'
+import {
+  extractExecutiveCards,
+  computeCoverageSummary,
+  extractRefinedInsights,
+  extractRecommendedAction,
+  extractDataQualityAlerts,
+} from '../utils/executiveSummaryExtractor'
+
+/* ── Section IDs for local nav ── */
+const SECTIONS = [
+  { id: 'summary', label: 'サマリー', icon: 'stars' },
+  { id: 'graphs', label: 'グラフ分析', icon: 'bar_chart' },
+  { id: 'creative', label: 'クリエイティブ', icon: 'palette' },
+  { id: 'detail-report', label: '詳細レポート', icon: 'description' },
+]
 
 /* ── Evidence Type styles ── */
 const EVIDENCE_STYLES = {
@@ -32,62 +46,197 @@ const EVIDENCE_STYLES = {
   inferred: { text: 'text-tertiary', bg: 'bg-tertiary/5', border: 'border-tertiary/20', label: 'Inferred' },
 }
 
-/* ── Top Insight Card ── */
-function TopInsightCard({ insight }) {
-  const style = EVIDENCE_STYLES[insight.evidenceType] || EVIDENCE_STYLES.observed
-  const borderColor = insight.isAnomaly
-    ? 'border-l-tertiary-container'
-    : insight.evidenceType === 'proxy'
-    ? 'border-l-accent-gold'
-    : 'border-l-primary-container'
+/* ── Summary Card (結論 / 最大機会 / 最大リスク) ── */
+function SummaryCard({ card }) {
+  if (!card) return null
+  const style = EVIDENCE_STYLES[card.evidenceType] || EVIDENCE_STYLES.observed
+
+  const isRisk = card.cardType === 'risk'
+  const borderColor = isRisk ? 'border-l-error' : 'border-l-primary'
 
   return (
-    <a
-      href={`#theme-section-${insight.themeId ?? 'other'}`}
-      className={`bg-surface-container-lowest p-5 rounded-xl border-l-4 ${borderColor} shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow cursor-pointer`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className={`evidence-tag ${style.bg} ${style.text} border ${style.border} shrink-0`}>
-          {style.label}
+    <div className={`bg-surface-container-lowest p-6 rounded-xl ghost-border border-l-4 ${borderColor} hover:shadow-lg transition-shadow flex flex-col gap-3`}>
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${isRisk ? 'bg-error/5 text-error' : 'bg-primary/5 text-primary'}`}>
+          {card.cardType === 'cvr' ? 'Conclusion' : card.cardType === 'opportunity' ? 'Max Opportunity' : 'Max Risk'}
         </span>
-        <span className="text-[9px] font-bold text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded">
-          {insight.evidenceId}
+        <span className={`material-symbols-outlined ${isRisk ? 'text-error' : 'text-primary'}`}>
+          {card.cardType === 'cvr' ? 'stars' : card.cardType === 'opportunity' ? 'trending_up' : 'warning'}
         </span>
       </div>
-
-      <div className="flex items-baseline gap-2">
-        <span className="text-3xl font-black text-on-surface tabular-nums">{insight.value}</span>
+      <div>
+        <h3 className="text-sm text-on-surface-variant">
+          {card.cardType === 'cvr' ? '結論' : card.cardType === 'opportunity' ? '最大機会' : '最大リスク'}
+        </h3>
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl font-bold">{card.value}</span>
+        </div>
       </div>
-
-      <h3 className="text-sm font-bold text-on-surface japanese-text line-clamp-1">{insight.title}</h3>
-
-      {insight.takeaway && (
-        <p className="text-xs text-on-surface-variant truncate">{insight.takeaway}</p>
-      )}
-
-      {insight.delta && (
+      <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-2">{card.label}</p>
+      {card.trend && (
         <div className="flex items-center gap-2 pt-2 border-t border-outline-variant/10">
-          <span className={`material-symbols-outlined text-sm ${insight.isAnomaly ? 'text-error' : insight.deltaPositive ? 'text-success' : 'text-error'}`}>
-            {insight.isAnomaly ? 'warning' : insight.deltaPositive ? 'trending_up' : 'trending_down'}
+          <span className={`material-symbols-outlined text-sm ${card.tone === 'positive' ? 'text-emerald-600' : card.tone === 'negative' ? 'text-error' : 'text-on-surface-variant'}`}>
+            {card.tone === 'positive' ? 'trending_up' : card.tone === 'negative' ? 'trending_down' : 'trending_flat'}
           </span>
-          <span className={`text-sm font-bold tabular-nums ${insight.isAnomaly ? 'text-error' : insight.deltaPositive ? 'text-success' : 'text-error'}`}>
-            {insight.delta}
+          <span className={`text-sm font-bold tabular-nums ${card.tone === 'positive' ? 'text-emerald-600' : card.tone === 'negative' ? 'text-error' : 'text-on-surface-variant'}`}>
+            {card.trend}
           </span>
           <span className="text-[10px] text-on-surface-variant font-bold uppercase">前期間比</span>
-          {insight.isAnomaly && (
-            <span className="text-[10px] font-bold text-error bg-error/10 px-1.5 py-0.5 rounded">ALERT</span>
-          )}
         </div>
       )}
-
-      {insight.evidenceType === 'proxy' && (
-        <p className="text-[10px] text-on-surface-variant/80 italic">算出根拠: 推定値 (Proxy)</p>
-      )}
-    </a>
+    </div>
   )
 }
 
-/* ── Theme Tabs ── */
+/* ── Priority Action Card ── */
+function PriorityActionCard({ action }) {
+  if (!action) return null
+  return (
+    <div className="bg-primary p-6 rounded-xl shadow-lg flex flex-col justify-between relative overflow-hidden">
+      <div className="absolute top-0 right-0 p-4 opacity-10">
+        <span className="material-symbols-outlined text-6xl">rocket_launch</span>
+      </div>
+      <div className="relative z-10 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-white/90 bg-white/10 px-2 py-1 rounded border border-white/20 uppercase tracking-widest">
+            Priority Action
+          </span>
+          <span className="material-symbols-outlined text-white/80">rocket_launch</span>
+        </div>
+        <h3 className="text-sm text-white/80">最優先アクション</h3>
+        <div className="text-xl font-bold text-white leading-tight line-clamp-2">{action.title}</div>
+        {action.details?.impact && (
+          <p className="text-[11px] text-white/80 leading-relaxed">{action.details.impact}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ── Creative Filter Tabs ── */
+const CREATIVE_FILTERS = [
+  { id: 'all', label: 'すべて' },
+  { id: 'banner', label: 'バナー' },
+  { id: 'text', label: 'テキスト' },
+]
+
+/* ── Text Ad Card ── */
+function TextAdCard({ ref: adRef, index }) {
+  return (
+    <div className="bg-surface-container-lowest rounded-xl ghost-border overflow-hidden flex flex-col">
+      <div className="p-4 bg-primary/5 border-b border-outline-variant/10">
+        <span className="text-[10px] font-bold text-primary tracking-widest">TEXT AD #{String(index + 1).padStart(2, '0')}</span>
+      </div>
+      <div className="p-6 flex-1 space-y-4">
+        <div className="p-3 bg-surface rounded border border-outline-variant/20">
+          <p className="text-sm font-bold text-primary mb-1 underline japanese-text line-clamp-1">
+            {adRef.name ?? `テキスト広告 ${index + 1}`}
+          </p>
+          {adRef.description && (
+            <p className="text-xs text-on-surface-variant line-clamp-3 japanese-text">{adRef.description}</p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {adRef.kpis?.click != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">Clicks</div>
+              <div className="text-sm font-bold">{adRef.kpis.click.toLocaleString('ja-JP')}</div>
+            </div>
+          )}
+          {adRef.kpis?.cv != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">CV</div>
+              <div className="text-sm font-bold">{adRef.kpis.cv.toLocaleString('ja-JP')}</div>
+            </div>
+          )}
+          {adRef.kpis?.cvr != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">CVR</div>
+              <div className="text-sm font-bold text-primary">{adRef.kpis.cvr.toFixed(2)}%</div>
+            </div>
+          )}
+          {adRef.kpis?.ctr != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">CTR</div>
+              <div className="text-sm font-bold">{adRef.kpis.ctr.toFixed(2)}%</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Banner Ad Card ── */
+function BannerAdCard({ ref: adRef, index }) {
+  return (
+    <div className="bg-surface-container-lowest rounded-xl ghost-border overflow-hidden flex flex-col border border-primary/20">
+      <div className="relative h-40">
+        {adRef.imageUrl ? (
+          <img
+            src={adRef.imageUrl}
+            alt={adRef.name ?? `バナー広告 ${index + 1}`}
+            className="w-full h-full object-cover"
+            onError={(e) => { e.target.style.display = 'none' }}
+          />
+        ) : (
+          <div className="w-full h-full bg-surface-container-low flex items-center justify-center">
+            <span className="material-symbols-outlined text-4xl text-outline-variant">image</span>
+          </div>
+        )}
+        <div className="absolute top-3 left-3 px-2 py-1 bg-primary text-on-primary text-[10px] font-bold rounded">
+          BANNER AD #{String(index + 1).padStart(2, '0')}
+        </div>
+      </div>
+      <div className="p-6 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          {adRef.kpis?.click != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">Clicks</div>
+              <div className="text-sm font-bold">{adRef.kpis.click.toLocaleString('ja-JP')}</div>
+            </div>
+          )}
+          {adRef.kpis?.cv != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">CV</div>
+              <div className="text-sm font-bold">{adRef.kpis.cv.toLocaleString('ja-JP')}</div>
+            </div>
+          )}
+          {adRef.kpis?.cvr != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">CVR</div>
+              <div className="text-sm font-bold text-primary">{adRef.kpis.cvr.toFixed(2)}%</div>
+            </div>
+          )}
+          {adRef.kpis?.ctr != null && (
+            <div className="text-center py-2 bg-surface-container-low rounded">
+              <div className="text-[9px] uppercase font-bold text-on-surface-variant/60">CTR</div>
+              <div className="text-sm font-bold">{adRef.kpis.ctr.toFixed(2)}%</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Key Chart Picker (pick 2 most insightful) ── */
+function pickKeyCharts(chartGroups) {
+  if (!chartGroups || chartGroups.length === 0) return []
+  const scored = chartGroups.map((g) => {
+    const title = (g.title ?? '').toLowerCase()
+    let score = 0
+    if (/click|cvr|cv数|cpa|ctr|コンバージョン|推移|trend/i.test(title)) score += 3
+    if (/比較|ranking|campaign|キャンペーン|広告グループ/i.test(title)) score += 2
+    if (Array.isArray(g.datasets) && g.datasets.length > 0) score += 1
+    if (Array.isArray(g.labels) && g.labels.length >= 3) score += 1
+    return { group: g, score }
+  })
+  scored.sort((a, b) => b.score - a.score)
+  return scored.slice(0, 2).map((s) => s.group)
+}
+
+/* ── Theme Tabs (analyst supplement) ── */
 function ThemeTabs({ activeTheme, onThemeChange, themes }) {
   const allTabs = [{ id: 'all', label: '全件', icon: 'select_all' }, ...THEME_DEFINITIONS]
 
@@ -116,7 +265,7 @@ function ThemeTabs({ activeTheme, onThemeChange, themes }) {
   )
 }
 
-/* ── Graph Section (Accordion) ── */
+/* ── Graph Section (Accordion for analyst) ── */
 function GraphSection({ theme, isOpen, onToggle, viewMode }) {
   const summary = useMemo(() => computeThemeSummary(theme.groups), [theme.groups])
 
@@ -279,85 +428,34 @@ function AnomalySection({ chartGroups, viewMode }) {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 text-sm font-medium text-on-surface-variant">
-          <span className="w-2.5 h-2.5 rounded-full bg-accent-gold" />
-          品質: 注意
-        </div>
       </div>
-
-      <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
-          {anomalies.map((anomaly, idx) => (
-            <div key={idx} className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10 flex items-start gap-4">
-              <span className={`material-symbols-outlined text-lg ${anomaly.direction === 'down' ? 'text-error' : 'text-accent-gold'}`}>
-                {anomaly.direction === 'down' ? 'trending_down' : 'trending_up'}
-              </span>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-on-surface japanese-text">{anomaly.chartTitle}</p>
-                  <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{anomaly.date}</span>
-                </div>
-                <p className="text-xs text-on-surface-variant mt-1">
-                  実測: <span className="font-bold text-error">{anomaly.actual.toLocaleString('ja-JP')}</span>
-                  {' / '}期待帯域: <span className="font-bold">{anomaly.expectedRange[0].toFixed(0).toLocaleString('ja-JP')} - {anomaly.expectedRange[1].toFixed(0).toLocaleString('ja-JP')}</span>
-                </p>
+      <div className="p-8 space-y-4">
+        {anomalies.map((anomaly, idx) => (
+          <div key={idx} className="bg-surface-container-low p-4 rounded-xl border border-outline-variant/10 flex items-start gap-4">
+            <span className={`material-symbols-outlined text-lg ${anomaly.direction === 'down' ? 'text-error' : 'text-accent-gold'}`}>
+              {anomaly.direction === 'down' ? 'trending_down' : 'trending_up'}
+            </span>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-on-surface japanese-text">{anomaly.chartTitle}</p>
+                <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{anomaly.date}</span>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {anomalies[0] && (
-          <div className="bg-surface-container-low p-6 rounded-xl flex flex-col gap-6 border border-outline-variant/20">
-            <h4 className="font-bold text-xs text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-sm">assignment</span>
-              異常詳細スコア
-            </h4>
-            <div className="flex flex-col gap-4">
-              <div className="flex justify-between border-b border-outline-variant/30 pb-2">
-                <span className="text-xs text-on-surface-variant font-medium">検出日</span>
-                <span className="text-xs text-on-surface font-bold">{anomalies[0].date}</span>
-              </div>
-              <div className="flex justify-between border-b border-outline-variant/30 pb-2">
-                <span className="text-xs text-on-surface-variant font-medium">実測値</span>
-                <span className="text-xs text-error font-bold">{anomalies[0].actual.toLocaleString('ja-JP')}</span>
-              </div>
-              <div className="flex justify-between border-b border-outline-variant/30 pb-2">
-                <span className="text-xs text-on-surface-variant font-medium">期待帯域</span>
-                <span className="text-xs text-on-surface font-bold">
-                  {anomalies[0].expectedRange[0].toFixed(0)} - {anomalies[0].expectedRange[1].toFixed(0)}
-                </span>
-              </div>
-              <div className="flex justify-between border-b border-outline-variant/30 pb-2">
-                <span className="text-xs text-on-surface-variant font-medium">判定根拠</span>
-                <span className="text-xs text-error font-bold">{anomalies[0].zScore}σ 逸脱</span>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-xs text-on-surface-variant font-medium">監視優先度</span>
-                <span className="bg-tertiary-container text-on-tertiary px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm">
-                  {Number(anomalies[0].zScore) >= 3 ? 'High Priority' : 'Medium Priority'}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-auto bg-surface-container-lowest p-4 rounded-lg border-l-4 border-error/40 shadow-sm">
-              <p className="text-[10px] font-bold text-tertiary uppercase mb-2 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm">verified</span>
-                確認事項
-              </p>
-              <p className="text-xs text-on-surface leading-normal font-medium japanese-text">
-                {anomalies[0].direction === 'down'
-                  ? '有意な下方乖離を検出しました。データソースの異常やシステム変更の有無を確認してください。'
-                  : '有意な上方乖離を検出しました。外部要因やキャンペーン施策の影響を確認してください。'}
+              <p className="text-xs text-on-surface-variant mt-1">
+                実測: <span className="font-bold text-error">{anomaly.actual.toLocaleString('ja-JP')}</span>
+                {' / '}期待帯域: <span className="font-bold">{anomaly.expectedRange[0].toFixed(0)} - {anomaly.expectedRange[1].toFixed(0)}</span>
+                {' / '}<span className="font-bold text-error">{anomaly.zScore}σ 逸脱</span>
               </p>
             </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   )
 }
 
-/* ── Main Component ── */
+/* ════════════════════════════════════════════════════════
+   Main Component: 広告分析 (Unified Analysis Surface)
+   ════════════════════════════════════════════════════════ */
 export default function AnalysisGraphs() {
   const { isAdsAuthenticated } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
@@ -365,17 +463,20 @@ export default function AnalysisGraphs() {
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
   const [activeTheme, setActiveTheme] = useState('all')
-  const [viewMode, setViewMode] = useState('analyst')
+  const [viewMode, setViewMode] = useState('exec')
   const [openSections, setOpenSections] = useState({})
+  const [activeSection, setActiveSection] = useState('summary')
+  const [creativeFilter, setCreativeFilter] = useState('all')
 
   /* ── Excel import state ── */
-  const [excelState, setExcelState] = useState('none') // none | uploading | preview | applied
+  const [excelState, setExcelState] = useState('none')
   const [excelPreview, setExcelPreview] = useState(null)
   const [excelImport, setExcelImport] = useState(null)
   const [excelError, setExcelError] = useState(null)
   const [excelDetailOpen, setExcelDetailOpen] = useState(false)
-  const fileInputRef = useRef(null)
+  const [analystSupplementOpen, setAnalystSupplementOpen] = useState(false)
 
+  /* ── Data fetch ── */
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
     if (reportBundle?.source === 'bq_generate_batch') return
@@ -398,6 +499,7 @@ export default function AnalysisGraphs() {
     return () => { cancelled = true }
   }, [isAdsAuthenticated, reportBundle?.source, setReportBundle, setupState])
 
+  /* ── Chart data ── */
   const chartGroups = useMemo(() => reportBundle?.chartGroups ?? [], [reportBundle?.chartGroups])
   const periodTags = useMemo(() => getChartPeriodTags(chartGroups), [chartGroups])
 
@@ -419,7 +521,42 @@ export default function AnalysisGraphs() {
   }, [themes, activeTheme])
 
   const topInsights = useMemo(() => extractTopInsights(filteredGroups), [filteredGroups])
+  const keyCharts = useMemo(() => pickKeyCharts(filteredGroups), [filteredGroups])
 
+  /* ── Summary data (from EssentialPack extractors) ── */
+  const currentReport = useMemo(() => reportBundle?.reportMd ?? '', [reportBundle?.reportMd])
+  const executiveCards = useMemo(
+    () => extractExecutiveCards(currentReport, chartGroups),
+    [currentReport, chartGroups],
+  )
+  const refinedInsights = useMemo(() => extractRefinedInsights(currentReport), [currentReport])
+  const recommendedAction = useMemo(() => extractRecommendedAction(currentReport), [currentReport])
+  const qualityAlerts = useMemo(
+    () => extractDataQualityAlerts(currentReport, chartGroups),
+    [currentReport, chartGroups],
+  )
+
+  /* ── Classify cards for 4-column summary ── */
+  const conclusionCard = executiveCards.find((c) => c.cardType === 'cvr') ?? executiveCards[0] ?? null
+  const opportunityCard = executiveCards.find((c) => c.cardType === 'opportunity') ?? executiveCards[1] ?? null
+  const riskCard = executiveCards.find((c) => c.cardType === 'risk') ?? executiveCards[2] ?? null
+
+  /* ── Creative refs ── */
+  const creativeRefs = useMemo(() => excelImport?.creativeRefs ?? [], [excelImport?.creativeRefs])
+  const textAds = useMemo(() => creativeRefs.filter((r) => !r.imageUrl), [creativeRefs])
+  const bannerAds = useMemo(() => creativeRefs.filter((r) => r.imageUrl), [creativeRefs])
+  const filteredCreatives = useMemo(() => {
+    if (creativeFilter === 'text') return textAds
+    if (creativeFilter === 'banner') return bannerAds
+    return creativeRefs
+  }, [creativeFilter, creativeRefs, textAds, bannerAds])
+
+  /* ── Refined insights for detail report ── */
+  const observations = useMemo(() => refinedInsights.filter((b) => b.type === 'observation'), [refinedInsights])
+  const hypotheses = useMemo(() => refinedInsights.filter((b) => b.type === 'hypothesis'), [refinedInsights])
+  const actions = useMemo(() => refinedInsights.filter((b) => b.type === 'action'), [refinedInsights])
+
+  /* ── Accordion state for analyst themes ── */
   useEffect(() => {
     const init = {}
     for (const theme of themes) init[theme.id] = true
@@ -430,11 +567,23 @@ export default function AnalysisGraphs() {
     setOpenSections((prev) => ({ ...prev, [themeId]: !prev[themeId] }))
   }, [])
 
+  /* ── Header data ── */
+  const periods = setupState?.periods ?? []
+  const dateRange = periods.length > 0
+    ? periods.length === 1 ? periods[0] : `${periods[0]} 〜 ${periods[periods.length - 1]}`
+    : null
+
   const activeScopeLabel =
     periodFilter === 'all' ? '全期間まとめ'
     : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
     : `対象期間: ${periodFilter}`
 
+  const hasSummaryData = executiveCards.length > 0 || recommendedAction
+  const hasGraphData = filteredGroups.length > 0
+  const hasCreativeData = creativeRefs.length > 0
+  const hasDetailReport = refinedInsights.length > 0
+
+  /* ── Handlers ── */
   async function handleRefresh() {
     if (!setupState || !isAdsAuthenticated || loading) return
     setLoading(true)
@@ -449,7 +598,6 @@ export default function AnalysisGraphs() {
     }
   }
 
-  /* ── Excel handlers ── */
   async function handleExcelFile(file) {
     if (!file || !file.name.endsWith('.xlsx')) {
       setExcelError('対応形式は .xlsx のみです')
@@ -494,22 +642,83 @@ export default function AnalysisGraphs() {
     setExcelError(null)
   }
 
+  function scrollToSection(sectionId) {
+    setActiveSection(sectionId)
+    document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   return (
     <div className="flex-1 min-w-0 overflow-y-auto">
-      {/* Header */}
-      <header className="sticky top-0 z-40 px-8 py-6 flex flex-col gap-4 bg-background/80 backdrop-blur-md border-b border-outline-variant/15">
-        <div className="flex justify-between items-start">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-3xl font-extrabold tracking-tight text-primary japanese-text">広告考察：グラフ</h2>
-            <div className="flex items-center gap-4 text-on-surface-variant text-sm font-medium whitespace-nowrap flex-wrap">
-              {setupState?.datasetId && <span>{setupState.datasetId}</span>}
-              <span className="w-1.5 h-1.5 rounded-full bg-outline-variant" />
-              <span className="font-bold text-on-surface">{activeScopeLabel}</span>
+      <div className="px-8 py-8 max-w-[1680px] space-y-10">
 
+        {/* ═══ 1. PAGE HEADER ═══ */}
+        <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              {reportBundle?.source && (
+                <span className="px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-bold rounded uppercase tracking-wider">
+                  {reportBundle.source === 'bq_generate_batch' ? 'Campaign Active' : 'Live'}
+                </span>
+              )}
+              <h1 className="text-3xl font-extrabold tracking-tight text-primary japanese-text">広告分析</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-on-surface-variant text-sm">
+              {setupState?.datasetId && (
+                <span className="font-medium flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">corporate_fare</span>
+                  {setupState.datasetId}
+                </span>
+              )}
+              {dateRange && (
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base">calendar_month</span>
+                  {dateRange}
+                </span>
+              )}
+              {reportBundle?.generatedAt && (
+                <span className="flex items-center gap-1 text-[11px] opacity-60">
+                  最終更新: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}
+                </span>
+              )}
+            </div>
+            {/* Source chips */}
+            <div className="flex gap-2 pt-1">
+              <SourceBadge source="ga4" />
+              {excelState === 'applied' && <SourceBadge source="excel" />}
+            </div>
+          </div>
+
+          {/* Exec / Analyst toggle + refresh */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center p-1 bg-surface-container rounded-full ghost-border">
+              <button
+                onClick={() => setViewMode('exec')}
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
+                  viewMode === 'exec'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm'
+                    : 'text-on-surface-variant hover:text-primary'
+                }`}
+              >
+                Exec View
+              </button>
+              <button
+                onClick={() => setViewMode('analyst')}
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
+                  viewMode === 'analyst'
+                    ? 'bg-surface-container-lowest text-primary shadow-sm'
+                    : 'text-on-surface-variant hover:text-primary'
+                }`}
+              >
+                Analyst View
+              </button>
+            </div>
+
+            {/* Period selector */}
+            {periodTags.length > 0 && (
               <select
                 value={periodFilter}
                 onChange={(e) => setPeriodFilter(e.target.value)}
-                className="text-sm text-on-surface-variant bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-1 cursor-pointer"
+                className="text-sm text-on-surface-variant bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 cursor-pointer"
               >
                 <option value="latest">最新期間</option>
                 <option value="all">全期間まとめ</option>
@@ -517,55 +726,23 @@ export default function AnalysisGraphs() {
                   <option key={period} value={period}>{period}</option>
                 ))}
               </select>
-
-              <div className="flex items-center gap-1.5 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-xs font-bold">
-                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                データ品質: {filteredGroups.length > 0 ? '良好' : '確認中'}
-              </div>
-            </div>
-
-            {excelState === 'applied' && (
-              <p className="text-xs text-on-surface-variant mt-1">
-                月次Excel + リアルタイム計測の統合分析
-              </p>
             )}
-          </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex bg-surface-container-high p-1 rounded-xl">
-              <button
-                onClick={() => setViewMode('exec')}
-                className={`px-5 py-2 text-sm font-bold rounded-lg whitespace-nowrap transition-all ${
-                  viewMode === 'exec' ? 'bg-surface-container-lowest shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Exec View
-              </button>
-              <button
-                onClick={() => setViewMode('analyst')}
-                className={`px-5 py-2 text-sm font-bold rounded-lg whitespace-nowrap transition-all ${
-                  viewMode === 'analyst' ? 'bg-surface-container-lowest shadow-sm text-primary' : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                Analyst View
-              </button>
-            </div>
             <button
               onClick={handleRefresh}
               disabled={loading || !isAdsAuthenticated || !setupState}
-              className="px-5 py-2 bg-primary text-on-primary rounded-xl font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+              className="px-5 py-2 bg-primary text-on-primary rounded-full font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
             >
               {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">refresh</span>}
               再取得
             </button>
           </div>
-        </div>
-      </header>
+        </section>
 
-      <div className="px-8 pb-12 flex flex-col gap-8">
+        {/* ═══ 2. SOURCE / WARNING STRIP ═══ */}
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
         {excelError && (
-          <div className="bg-error/5 border border-error/20 rounded-xl px-4 py-3 flex items-center gap-3 mt-4">
+          <div className="bg-error/5 border border-error/20 rounded-xl px-4 py-3 flex items-center gap-3">
             <span className="material-symbols-outlined text-error text-lg">error</span>
             <p className="text-sm text-on-surface">{excelError}</p>
             <button onClick={() => setExcelError(null)} className="ml-auto text-on-surface-variant hover:text-on-surface">
@@ -574,170 +751,323 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {/* Excel Status Strip (applied) */}
+        {qualityAlerts.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200/50 text-on-surface rounded-xl">
+            <span className="material-symbols-outlined text-xl text-amber-600">info</span>
+            <p className="text-sm font-medium japanese-text">{qualityAlerts[0].message}</p>
+          </div>
+        )}
+
+        {excelState === 'applied' && excelImport?.warnings?.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-primary-container/5 border border-primary-container/10 rounded-xl">
+            <span className="material-symbols-outlined text-primary text-lg">lightbulb</span>
+            <div className="text-sm text-on-surface japanese-text">
+              {excelImport.warnings.map((w, i) => <p key={i}>{w}</p>)}
+            </div>
+          </div>
+        )}
+
+        {/* Excel import states */}
         {excelState === 'applied' && (
-          <div className="mt-4">
-            <ExcelImportStatusStrip
-              excelImport={excelImport}
-              onReupload={handleExcelReupload}
-              onRemove={handleExcelRemove}
-            />
-          </div>
+          <ExcelImportStatusStrip excelImport={excelImport} onReupload={handleExcelReupload} onRemove={handleExcelRemove} />
         )}
-
-        {/* Excel Import Banner (none) */}
         {excelState === 'none' && (
-          <div className="mt-4">
-            <ExcelImportBanner onFileSelected={handleExcelFile} disabled={loading} />
-          </div>
+          <ExcelImportBanner onFileSelected={handleExcelFile} disabled={loading} />
         )}
-
-        {/* Excel Uploading */}
         {excelState === 'uploading' && (
-          <div className="bg-surface-container-lowest rounded-xl p-8 flex items-center gap-4 mt-4">
+          <div className="bg-surface-container-lowest rounded-xl p-8 flex items-center gap-4">
             <LoadingSpinner size="md" label="Excelファイルを解析中…" />
           </div>
         )}
-
-        {/* Excel Preview */}
         {excelState === 'preview' && (
-          <div className="mt-4">
-            <ExcelImportPreview
-              result={excelPreview}
-              onApply={handleExcelApply}
-              onCancel={handleExcelCancel}
-            />
+          <ExcelImportPreview result={excelPreview} onApply={handleExcelApply} onCancel={handleExcelCancel} />
+        )}
+
+        {/* ═══ 3. LOCAL SECTION NAV ═══ */}
+        <nav className="flex gap-8 border-b border-outline-variant/15 pb-2">
+          {SECTIONS.map((sec) => (
+            <button
+              key={sec.id}
+              onClick={() => scrollToSection(sec.id)}
+              className={`relative py-2 text-sm font-medium transition-all ${
+                activeSection === sec.id
+                  ? 'text-primary font-semibold border-b-2 border-primary'
+                  : 'text-on-surface-variant hover:text-primary'
+              }`}
+            >
+              {sec.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Loading state */}
+        {loading && !currentReport && chartGroups.length === 0 && (
+          <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
+            <LoadingSpinner size="md" label="分析データを取得中…" />
+            <SkeletonBlock variant="text" lines={8} />
           </div>
         )}
 
-        {/* Warning banner when applied with partial data */}
-        {excelState === 'applied' && excelImport?.warnings?.length > 0 && (
-          <div className="space-y-2">
-            <div className="bg-primary-container/5 border border-primary-container/10 rounded-lg p-3 flex items-start gap-2">
-              <span className="material-symbols-outlined text-primary text-lg shrink-0 mt-0.5">lightbulb</span>
-              <div className="text-sm text-on-surface japanese-text space-y-1">
-                {excelImport.warnings.map((w, i) => (
-                  <p key={i}>{w}</p>
+        {/* ═══ 4. SUMMARY SECTION ═══ */}
+        <section id="section-summary" className="scroll-mt-24 space-y-6">
+          {hasSummaryData ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <SummaryCard card={conclusionCard ? { ...conclusionCard, cardType: 'cvr' } : null} />
+              <SummaryCard card={opportunityCard ? { ...opportunityCard, cardType: 'opportunity' } : null} />
+              <SummaryCard card={riskCard ? { ...riskCard, cardType: 'risk' } : null} />
+              <PriorityActionCard action={recommendedAction} />
+            </div>
+          ) : excelState === 'applied' && excelImport?.summary ? (
+            <ExcelSummaryCard summary={excelImport.summary} />
+          ) : !loading && (
+            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-5xl text-outline-variant">summarize</span>
+              <h3 className="text-xl font-bold japanese-text">サマリーデータがまだありません</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                レポート生成後にサマリーが表示されます。上の「再取得」ボタンを押してください。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ 5. GRAPH SECTION ═══ */}
+        <section id="section-graphs" className="scroll-mt-24 space-y-6">
+          {hasGraphData ? (
+            <>
+              {/* Key Charts (2-column, exec-level) */}
+              {keyCharts.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {keyCharts.map((group, idx) => (
+                    <ChartGroupCard key={`key-${group.title ?? idx}`} group={group} />
+                  ))}
+                </div>
+              )}
+
+              {/* Inline insight for key charts */}
+              {topInsights.length > 0 && topInsights[0].takeaway && (
+                <div className="p-3 bg-surface rounded-lg border-l-4 border-primary">
+                  <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
+                </div>
+              )}
+            </>
+          ) : !loading && (
+            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
+              <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                セットアップ完了後にグラフが表示されます。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ 6. CREATIVE SECTION ═══ */}
+        <section id="section-creative" className="scroll-mt-24 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-extrabold text-primary japanese-text">クリエイティブ分析</h2>
+            {hasCreativeData && (
+              <div className="flex gap-2">
+                {CREATIVE_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setCreativeFilter(f.id)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                      creativeFilter === f.id
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high border border-outline-variant/20'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
                 ))}
               </div>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-on-surface-variant">
-              <span className="material-symbols-outlined text-sm">info</span>
-              一部項目は未検出ですが、他の抽出データで反映を継続しています。
-            </div>
+            )}
           </div>
+
+          {hasCreativeData ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredCreatives.slice(0, 9).map((ref, idx) =>
+                ref.imageUrl
+                  ? <BannerAdCard key={`banner-${idx}`} ref={ref} index={idx} />
+                  : <TextAdCard key={`text-${idx}`} ref={ref} index={idx} />
+              )}
+            </div>
+          ) : (
+            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-5xl text-outline-variant">palette</span>
+              <h3 className="text-lg font-bold japanese-text">クリエイティブデータなし</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                月次Excelを取り込むとテキスト広告・バナー広告のパフォーマンスが表示されます。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ 7. DETAILED REPORT SECTION ═══ */}
+        <section id="section-detail-report" className="scroll-mt-24 space-y-6">
+          {hasDetailReport ? (
+            <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border space-y-8">
+              <div className="flex items-center gap-4">
+                <span className="material-symbols-outlined text-primary text-3xl">description</span>
+                <h2 className="text-xl font-extrabold text-primary japanese-text">詳細分析レポート</h2>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                {/* Fact */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">01</span>
+                    <h3 className="text-base font-bold japanese-text">観測事実 (Fact)</h3>
+                  </div>
+                  <ul className="space-y-4">
+                    {observations.length > 0 ? observations.map((obs, idx) => (
+                      <li key={idx} className="flex gap-3">
+                        <span className="text-primary font-mono text-[10px] mt-1 shrink-0">{obs.evidenceId ?? `E-${String(idx + 1).padStart(2, '0')}`}</span>
+                        <p className="text-sm leading-relaxed text-on-surface-variant japanese-text">{obs.summary}</p>
+                      </li>
+                    )) : (
+                      <li className="text-xs text-on-surface-variant/50 italic">観測データなし</li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Inference */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-bold text-xs">02</span>
+                    <h3 className="text-base font-bold japanese-text">要因仮説 (Inference)</h3>
+                  </div>
+                  <ul className="space-y-4">
+                    {hypotheses.length > 0 ? hypotheses.map((hyp, idx) => (
+                      <li key={idx} className="space-y-1">
+                        <p className="text-sm leading-relaxed text-on-surface-variant japanese-text">{hyp.summary}</p>
+                        {hyp.source && (
+                          <span className="px-2 py-0.5 bg-surface-container rounded text-[9px] text-on-surface-variant">Source: {hyp.source}</span>
+                        )}
+                      </li>
+                    )) : (
+                      <li className="text-xs text-on-surface-variant/50 italic">仮説未生成</li>
+                    )}
+                  </ul>
+                </div>
+
+                {/* Action */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-bold text-xs">03</span>
+                    <h3 className="text-base font-bold japanese-text">推奨施策 (Action)</h3>
+                  </div>
+                  {actions.length > 0 ? (
+                    <div className="p-4 bg-primary text-on-primary rounded-xl space-y-3 shadow-md">
+                      {actions.map((act, idx) => (
+                        <div key={idx} className={idx > 0 ? 'pt-3 border-t border-on-primary/10' : ''}>
+                          <p className="text-sm font-semibold japanese-text">{act.summary}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-on-surface-variant/50 italic">アクション未提案</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : !loading && (
+            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-5xl text-outline-variant">description</span>
+              <h3 className="text-lg font-bold japanese-text">詳細レポートがまだありません</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                レポート生成後に観測事実・要因仮説・推奨施策が表示されます。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ 8. ANALYST-ONLY SUPPLEMENTS ═══ */}
+        {viewMode === 'analyst' && (hasGraphData || (excelState === 'applied' && excelImport)) && (
+          <section className="space-y-6">
+            <button
+              onClick={() => setAnalystSupplementOpen((prev) => !prev)}
+              className="w-full flex items-center justify-between p-5 bg-surface-container-lowest rounded-xl ghost-border hover:bg-surface-container-low transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className={`material-symbols-outlined ${analystSupplementOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
+                  {analystSupplementOpen ? 'expand_more' : 'chevron_right'}
+                </span>
+                <h2 className="font-bold text-lg japanese-text">Analyst Supplements</h2>
+                <span className="text-[10px] font-bold bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded uppercase">
+                  {filteredGroups.length} charts
+                  {excelImport?.chartGroups?.length > 0 ? ` + ${excelImport.chartGroups.length} excel` : ''}
+                </span>
+              </div>
+              <span className="material-symbols-outlined text-on-surface-variant text-sm">
+                {analystSupplementOpen ? 'unfold_less' : 'unfold_more'}
+              </span>
+            </button>
+
+            {analystSupplementOpen && (
+              <div className="space-y-8">
+                {/* Excel detail (charts + creatives from import) */}
+                {excelState === 'applied' && excelImport?.summary && (
+                  <ExcelSummaryCard summary={excelImport.summary} />
+                )}
+
+                {excelState === 'applied' && excelImport && (excelImport.chartGroups?.length > 0 || excelImport.creativeRefs?.length > 0) && (
+                  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden">
+                    <button
+                      onClick={() => setExcelDetailOpen((prev) => !prev)}
+                      className="w-full px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`material-symbols-outlined ${excelDetailOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
+                          {excelDetailOpen ? 'expand_more' : 'chevron_right'}
+                        </span>
+                        <h3 className="font-bold text-base text-on-surface japanese-text">Excel詳細グラフ</h3>
+                        <span className="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase text-on-surface-variant">
+                          {excelImport.chartGroups?.length ?? 0} charts
+                        </span>
+                      </div>
+                    </button>
+
+                    {excelDetailOpen && (
+                      <div className="px-6 pb-6 space-y-6">
+                        <ImportedAdDetails excelImport={excelImport} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Theme tabs + full chart grid */}
+                {hasGraphData && (
+                  <>
+                    <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
+
+                    {displayThemes.map((theme) => (
+                      <GraphSection
+                        key={theme.id}
+                        theme={theme}
+                        isOpen={openSections[theme.id] ?? true}
+                        onToggle={() => toggleSection(theme.id)}
+                        viewMode={viewMode}
+                      />
+                    ))}
+
+                    <AnomalySection chartGroups={filteredGroups} viewMode={viewMode} />
+                  </>
+                )}
+              </div>
+            )}
+          </section>
         )}
 
-        {/* Loading */}
-        {loading && chartGroups.length === 0 && (
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 space-y-6 mt-4">
-            <LoadingSpinner size="md" label="BQ グラフデータを再取得中…" />
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-10">
-              <SkeletonBlock variant="card" />
-              <SkeletonBlock variant="card" />
-            </div>
-          </div>
-        )}
-
-        {/* Empty */}
-        {!loading && !error && filteredGroups.length === 0 && excelState !== 'applied' && (
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 text-center space-y-3 mt-4">
-            <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
-            <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
+        {/* Empty state when no data at all */}
+        {!loading && !error && !hasSummaryData && !hasGraphData && excelState !== 'applied' && (
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 text-center space-y-3">
+            <span className="material-symbols-outlined text-5xl text-outline-variant">analytics</span>
+            <h3 className="text-xl font-bold japanese-text">分析データがまだありません</h3>
             <p className="text-sm text-on-surface-variant japanese-text">
               セットアップウィザードを完了するか、上の「再取得」ボタンを押してデータを読み込んでください。
             </p>
           </div>
-        )}
-
-        {/* ─── Excel要約 ─── */}
-        {excelState === 'applied' && excelImport?.summary && (
-          <ExcelSummaryCard summary={excelImport.summary} />
-        )}
-
-        {/* ─── Excel詳細グラフ（折りたたみ） ─── */}
-        {excelState === 'applied' && excelImport && (excelImport.chartGroups?.length > 0 || excelImport.creativeRefs?.length > 0) && (
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden">
-            <button
-              onClick={() => setExcelDetailOpen((prev) => !prev)}
-              className="w-full px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <span className={`material-symbols-outlined ${excelDetailOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
-                  {excelDetailOpen ? 'expand_more' : 'chevron_right'}
-                </span>
-                <h3 className="font-bold text-base text-on-surface japanese-text">詳細グラフを開く</h3>
-                <span className="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase text-on-surface-variant">
-                  {excelImport.chartGroups?.length ?? 0} charts
-                  {excelImport.creativeRefs?.length > 0 && ` + ${excelImport.creativeRefs.length} creatives`}
-                </span>
-              </div>
-              <span className="material-symbols-outlined text-on-surface-variant text-sm">
-                {excelDetailOpen ? 'unfold_less' : 'unfold_more'}
-              </span>
-            </button>
-
-            {excelDetailOpen && (
-              <div className="px-6 pb-6 space-y-6">
-                <ImportedAdDetails excelImport={excelImport} />
-                {excelImport.creativeRefs?.length > 0 && (
-                  <CreativeReference creativeRefs={excelImport.creativeRefs} />
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── GA4/BQ Section Header ─── */}
-        {excelState === 'applied' && filteredGroups.length > 0 && (
-          <div className="flex items-center gap-3">
-            <h3 className="text-lg font-extrabold text-on-surface japanese-text">サイト回遊・流入分析</h3>
-            <SourceBadge source="ga4" />
-          </div>
-        )}
-
-        {filteredGroups.length > 0 && (
-          <>
-            {/* Top Insight Cards */}
-            {topInsights.length > 0 && (
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-                {topInsights.map((insight) => (
-                  <TopInsightCard key={insight.evidenceId} insight={insight} />
-                ))}
-              </section>
-            )}
-
-            {/* Theme Tabs */}
-            <section className="flex flex-col gap-4">
-              <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
-              <div className="flex items-center gap-2 bg-primary-fixed/30 p-3 rounded-lg border border-primary/10">
-                <span className="material-symbols-outlined text-primary text-xl">info</span>
-                <p className="text-sm font-semibold text-on-surface japanese-text">
-                  {activeTheme === 'all'
-                    ? `${themes.length}テーマ、合計${filteredGroups.length}グラフを表示中`
-                    : `${displayThemes[0]?.label ?? ''}: ${displayThemes[0]?.groups.length ?? 0}グラフ`
-                  }
-                </p>
-              </div>
-            </section>
-
-            {/* Chart Sections */}
-            <section className="flex flex-col gap-6">
-              {displayThemes.map((theme) => (
-                <GraphSection
-                  key={theme.id}
-                  theme={theme}
-                  isOpen={openSections[theme.id] ?? true}
-                  onToggle={() => toggleSection(theme.id)}
-                  viewMode={viewMode}
-                />
-              ))}
-
-              {(activeTheme === 'all' || activeTheme === 'anomaly') && (
-                <AnomalySection chartGroups={filteredGroups} viewMode={viewMode} />
-              )}
-            </section>
-          </>
         )}
       </div>
     </div>

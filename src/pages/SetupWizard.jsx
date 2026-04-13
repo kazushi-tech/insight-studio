@@ -215,7 +215,7 @@ export default function SetupWizard() {
       return
     }
 
-    navigate('/ads/pack')
+    navigate('/ads/graphs')
   }
 
   function handleBack() {
@@ -440,7 +440,7 @@ export default function SetupWizard() {
           <span className="material-symbols-outlined text-6xl text-secondary mb-4 block">check_circle</span>
           <h3 className="text-2xl font-bold text-on-surface japanese-text">データ読み込み完了</h3>
           <p className="text-on-surface-variant mt-2 japanese-text">
-            {selectedPeriods.size}期間 × {selected.size}クエリタイプのレポートを生成しました。「次へ」を押して要点パックに進みましょう。
+            {selectedPeriods.size}期間 × {selected.size}クエリタイプのレポートを生成しました。「次へ」を押して分析画面に進みましょう。
           </p>
           {loadResult?.summary && (
             <p className="text-sm text-on-surface-variant mt-4 japanese-text">{loadResult.summary}</p>
@@ -468,7 +468,7 @@ export default function SetupWizard() {
             </>
           ) : (
             <>
-              {step === 2 ? '要点パックへ' : '次へ'}
+              {step === 2 ? '分析へ' : '次へ'}
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </>
           )}

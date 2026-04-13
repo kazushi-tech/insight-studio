@@ -237,7 +237,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定"
-        description="AI考察・LP比較・競合発見・クリエイティブレビューに使う Claude API キーです。core flow はこの設定だけで開始できます。"
+        description="AIエクスプローラー・LP比較・競合発見・クリエイティブレビューに使う Claude API キーです。core flow はこの設定だけで開始できます。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
@@ -379,7 +379,7 @@ export default function Settings() {
           <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
             <span className="material-symbols-outlined text-5xl text-outline-variant mb-3">description</span>
             <p className="text-sm font-bold japanese-text">レポート履歴はまだありません</p>
-            <p className="text-xs mt-1 japanese-text">AI考察エンジンでレポートを生成すると、ここに履歴が表示されます。</p>
+            <p className="text-xs mt-1 japanese-text">AIエクスプローラーでレポートを生成すると、ここに履歴が表示されます。</p>
           </div>
         </section>
       </div>
