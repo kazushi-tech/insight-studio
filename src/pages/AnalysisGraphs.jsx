@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
 import SourceBadge from '../components/ads/SourceBadge'
 import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
-import ImportedAdDetails from '../components/ads/ImportedAdDetails'
 import ExcelSummaryCard from '../components/ads/ExcelSummaryCard'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
@@ -24,7 +23,6 @@ import {
 import { parseExcelFile } from '../utils/excelImporter'
 import {
   extractExecutiveCards,
-  computeCoverageSummary,
   extractRefinedInsights,
   extractRecommendedAction,
   extractDataQualityAlerts,
@@ -32,8 +30,8 @@ import {
 
 /* ── Section IDs for local nav ── */
 const SECTIONS = [
-  { id: 'summary', label: 'サマリー', icon: 'stars' },
   { id: 'graphs', label: 'グラフ分析', icon: 'bar_chart' },
+  { id: 'summary', label: 'サマリー', icon: 'stars' },
   { id: 'creative', label: 'クリエイティブ', icon: 'palette' },
   { id: 'detail-report', label: '詳細レポート', icon: 'description' },
 ]
@@ -49,7 +47,6 @@ const EVIDENCE_STYLES = {
 /* ── Summary Card (結論 / 最大機会 / 最大リスク) ── */
 function SummaryCard({ card }) {
   if (!card) return null
-  const style = EVIDENCE_STYLES[card.evidenceType] || EVIDENCE_STYLES.observed
 
   const isRisk = card.cardType === 'risk'
   const borderColor = isRisk ? 'border-l-error' : 'border-l-primary'
@@ -121,7 +118,7 @@ const CREATIVE_FILTERS = [
 ]
 
 /* ── Text Ad Card ── */
-function TextAdCard({ ref: adRef, index }) {
+function TextAdCard({ adRef, index }) {
   return (
     <div className="bg-surface-container-lowest rounded-xl ghost-border overflow-hidden flex flex-col">
       <div className="p-4 bg-primary/5 border-b border-outline-variant/10">
@@ -168,7 +165,7 @@ function TextAdCard({ ref: adRef, index }) {
 }
 
 /* ── Banner Ad Card ── */
-function BannerAdCard({ ref: adRef, index }) {
+function BannerAdCard({ adRef, index }) {
   return (
     <div className="bg-surface-container-lowest rounded-xl ghost-border overflow-hidden flex flex-col border border-primary/20">
       <div className="relative h-40">
@@ -367,7 +364,7 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
 }
 
 /* ── Anomaly Detection Section ── */
-function AnomalySection({ chartGroups, viewMode }) {
+function AnomalySection({ chartGroups }) {
   const anomalies = useMemo(() => {
     const detected = []
     for (const group of chartGroups) {
@@ -463,9 +460,9 @@ export default function AnalysisGraphs() {
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
   const [activeTheme, setActiveTheme] = useState('all')
-  const [viewMode, setViewMode] = useState('exec')
+  const [viewMode, setViewMode] = useState('analyst')
   const [openSections, setOpenSections] = useState({})
-  const [activeSection, setActiveSection] = useState('summary')
+  const [activeSection, setActiveSection] = useState('graphs')
   const [creativeFilter, setCreativeFilter] = useState('all')
 
   /* ── Excel import state ── */
@@ -473,8 +470,6 @@ export default function AnalysisGraphs() {
   const [excelPreview, setExcelPreview] = useState(null)
   const [excelImport, setExcelImport] = useState(null)
   const [excelError, setExcelError] = useState(null)
-  const [excelDetailOpen, setExcelDetailOpen] = useState(false)
-  const [analystSupplementOpen, setAnalystSupplementOpen] = useState(false)
 
   /* ── Data fetch ── */
   useEffect(() => {
@@ -808,7 +803,83 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {/* ═══ 4. SUMMARY SECTION ═══ */}
+        {/* ═══ 4. GRAPH SECTION ═══ */}
+        <section id="section-graphs" className="scroll-mt-24 space-y-6">
+          {hasGraphData ? (
+            <>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h2 className="text-xl font-extrabold text-primary japanese-text">グラフ分析</h2>
+                  <p className="text-sm text-on-surface-variant japanese-text">
+                    {viewMode === 'analyst'
+                      ? `Analyst View: ${filteredGroups.length}件のグラフと生データテーブルを表示中`
+                      : `Exec View: ${filteredGroups.length}件のグラフから主要変化を抽出`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-bold">
+                    {filteredGroups.length} charts
+                  </span>
+                  <span className="px-2.5 py-1 rounded-full bg-primary/5 text-primary font-bold">
+                    {activeScopeLabel}
+                  </span>
+                </div>
+              </div>
+
+              {keyCharts.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {keyCharts.map((group, idx) => (
+                    <ChartGroupCard key={`key-${group.title ?? idx}`} group={group} />
+                  ))}
+                </div>
+              )}
+
+              {/* Inline insight for key charts */}
+              {topInsights.length > 0 && topInsights[0].takeaway && (
+                <div className="p-3 bg-surface rounded-lg border-l-4 border-primary">
+                  <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
+                </div>
+              )}
+
+              <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
+
+              <div className="flex items-center gap-2 bg-primary-fixed/30 p-3 rounded-lg border border-primary/10">
+                <span className="material-symbols-outlined text-primary text-xl">info</span>
+                <p className="text-sm font-semibold text-on-surface japanese-text">
+                  {activeTheme === 'all'
+                    ? `${themes.length}テーマ、合計${filteredGroups.length}グラフを表示中`
+                    : `${displayThemes[0]?.label ?? ''}: ${displayThemes[0]?.groups.length ?? 0}グラフ`}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                {displayThemes.map((theme) => (
+                  <GraphSection
+                    key={theme.id}
+                    theme={theme}
+                    isOpen={openSections[theme.id] ?? true}
+                    onToggle={() => toggleSection(theme.id)}
+                    viewMode={viewMode}
+                  />
+                ))}
+
+                {(activeTheme === 'all' || activeTheme === 'anomaly') && (
+                  <AnomalySection chartGroups={filteredGroups} />
+                )}
+              </div>
+            </>
+          ) : !loading && (
+            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
+              <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                セットアップ完了後にグラフが表示されます。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ 5. SUMMARY SECTION ═══ */}
         <section id="section-summary" className="scroll-mt-24 space-y-6">
           {hasSummaryData ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -825,37 +896,6 @@ export default function AnalysisGraphs() {
               <h3 className="text-xl font-bold japanese-text">サマリーデータがまだありません</h3>
               <p className="text-sm text-on-surface-variant japanese-text">
                 レポート生成後にサマリーが表示されます。上の「再取得」ボタンを押してください。
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* ═══ 5. GRAPH SECTION ═══ */}
-        <section id="section-graphs" className="scroll-mt-24 space-y-6">
-          {hasGraphData ? (
-            <>
-              {/* Key Charts (2-column, exec-level) */}
-              {keyCharts.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {keyCharts.map((group, idx) => (
-                    <ChartGroupCard key={`key-${group.title ?? idx}`} group={group} />
-                  ))}
-                </div>
-              )}
-
-              {/* Inline insight for key charts */}
-              {topInsights.length > 0 && topInsights[0].takeaway && (
-                <div className="p-3 bg-surface rounded-lg border-l-4 border-primary">
-                  <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
-                </div>
-              )}
-            </>
-          ) : !loading && (
-            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
-              <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
-              <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
-              <p className="text-sm text-on-surface-variant japanese-text">
-                セットアップ完了後にグラフが表示されます。
               </p>
             </div>
           )}
@@ -888,8 +928,8 @@ export default function AnalysisGraphs() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredCreatives.slice(0, 9).map((ref, idx) =>
                 ref.imageUrl
-                  ? <BannerAdCard key={`banner-${idx}`} ref={ref} index={idx} />
-                  : <TextAdCard key={`text-${idx}`} ref={ref} index={idx} />
+                  ? <BannerAdCard key={`banner-${idx}`} adRef={ref} index={idx} />
+                  : <TextAdCard key={`text-${idx}`} adRef={ref} index={idx} />
               )}
             </div>
           ) : (
@@ -981,83 +1021,6 @@ export default function AnalysisGraphs() {
             </div>
           )}
         </section>
-
-        {/* ═══ 8. ANALYST-ONLY SUPPLEMENTS ═══ */}
-        {viewMode === 'analyst' && (hasGraphData || (excelState === 'applied' && excelImport)) && (
-          <section className="space-y-6">
-            <button
-              onClick={() => setAnalystSupplementOpen((prev) => !prev)}
-              className="w-full flex items-center justify-between p-5 bg-surface-container-lowest rounded-xl ghost-border hover:bg-surface-container-low transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <span className={`material-symbols-outlined ${analystSupplementOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
-                  {analystSupplementOpen ? 'expand_more' : 'chevron_right'}
-                </span>
-                <h2 className="font-bold text-lg japanese-text">Analyst Supplements</h2>
-                <span className="text-[10px] font-bold bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded uppercase">
-                  {filteredGroups.length} charts
-                  {excelImport?.chartGroups?.length > 0 ? ` + ${excelImport.chartGroups.length} excel` : ''}
-                </span>
-              </div>
-              <span className="material-symbols-outlined text-on-surface-variant text-sm">
-                {analystSupplementOpen ? 'unfold_less' : 'unfold_more'}
-              </span>
-            </button>
-
-            {analystSupplementOpen && (
-              <div className="space-y-8">
-                {/* Excel detail (charts + creatives from import) */}
-                {excelState === 'applied' && excelImport?.summary && (
-                  <ExcelSummaryCard summary={excelImport.summary} />
-                )}
-
-                {excelState === 'applied' && excelImport && (excelImport.chartGroups?.length > 0 || excelImport.creativeRefs?.length > 0) && (
-                  <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm overflow-hidden">
-                    <button
-                      onClick={() => setExcelDetailOpen((prev) => !prev)}
-                      className="w-full px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`material-symbols-outlined ${excelDetailOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
-                          {excelDetailOpen ? 'expand_more' : 'chevron_right'}
-                        </span>
-                        <h3 className="font-bold text-base text-on-surface japanese-text">Excel詳細グラフ</h3>
-                        <span className="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase text-on-surface-variant">
-                          {excelImport.chartGroups?.length ?? 0} charts
-                        </span>
-                      </div>
-                    </button>
-
-                    {excelDetailOpen && (
-                      <div className="px-6 pb-6 space-y-6">
-                        <ImportedAdDetails excelImport={excelImport} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Theme tabs + full chart grid */}
-                {hasGraphData && (
-                  <>
-                    <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
-
-                    {displayThemes.map((theme) => (
-                      <GraphSection
-                        key={theme.id}
-                        theme={theme}
-                        isOpen={openSections[theme.id] ?? true}
-                        onToggle={() => toggleSection(theme.id)}
-                        viewMode={viewMode}
-                      />
-                    ))}
-
-                    <AnomalySection chartGroups={filteredGroups} viewMode={viewMode} />
-                  </>
-                )}
-              </div>
-            )}
-          </section>
-        )}
 
         {/* Empty state when no data at all */}
         {!loading && !error && !hasSummaryData && !hasGraphData && excelState !== 'applied' && (

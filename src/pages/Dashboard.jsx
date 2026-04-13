@@ -290,16 +290,22 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           </div>
         )}
       </div>
-      <div className="flex gap-2 mt-4">
+      <div className="grid grid-cols-3 gap-2 mt-4">
+        <button
+          onClick={() => onNavigate('/ads/pack')}
+          className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
+        >
+          要点パック
+        </button>
         <button
           onClick={() => onNavigate('/ads/graphs')}
-          className="flex-1 py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
+          className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
-          分析
+          グラフ
         </button>
         <button
           onClick={() => onNavigate('/ads/ai')}
-          className="flex-1 py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
+          className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
           AIエクスプローラー
         </button>

@@ -17,7 +17,7 @@ import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 
-const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
+const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'dashboard', label: 'ダッシュボード' },
@@ -35,7 +35,8 @@ const NAV_ITEMS = [
     icon: 'insights',
     children: [
       { to: '/ads/wizard', label: 'セットアップ' },
-      { to: '/ads/graphs', label: '分析', requiresSetup: true },
+      { to: '/ads/pack', label: '要点パック', requiresSetup: true },
+      { to: '/ads/graphs', label: 'グラフ', requiresSetup: true },
       { to: '/ads/ai', label: 'AIエクスプローラー', requiresSetup: true },
     ],
   },
