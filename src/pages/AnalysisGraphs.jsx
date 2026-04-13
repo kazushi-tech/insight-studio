@@ -5,7 +5,6 @@ import SourceBadge from '../components/ads/SourceBadge'
 import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
-import ExcelSummaryCard from '../components/ads/ExcelSummaryCard'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -24,13 +23,11 @@ import { parseExcelFile } from '../utils/excelImporter'
 import {
   extractExecutiveCards,
   extractRefinedInsights,
-  extractRecommendedAction,
   extractDataQualityAlerts,
 } from '../utils/executiveSummaryExtractor'
 
 /* ── Section IDs for local nav ── */
 const SECTIONS = [
-  { id: 'summary', label: 'サマリー', icon: 'stars' },
   { id: 'graphs', label: 'グラフ分析', icon: 'bar_chart' },
   { id: 'creative', label: 'クリエイティブ', icon: 'palette' },
   { id: 'detail-report', label: '詳細レポート', icon: 'description' },
@@ -112,71 +109,6 @@ function EvidenceDrawer({ cards, reportBundle }) {
   )
 }
 
-/* ── Summary Card (結論 / 最大機会 / 最大リスク) ── */
-function SummaryCard({ card }) {
-  if (!card) return null
-
-  const isRisk = card.cardType === 'risk'
-  const borderColor = isRisk ? 'border-l-error' : 'border-l-primary'
-
-  return (
-    <div className={`bg-surface-container-lowest p-8 rounded-xl ghost-border hover:shadow-xl transition-shadow duration-300 flex flex-col gap-3`}>
-      <div className="flex items-center justify-between">
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${isRisk ? 'bg-error/5 text-error' : 'bg-primary/5 text-primary'}`}>
-          {card.cardType === 'cvr' ? 'Conclusion' : card.cardType === 'opportunity' ? 'Max Opportunity' : 'Max Risk'}
-        </span>
-        <span className={`material-symbols-outlined ${isRisk ? 'text-error' : 'text-primary'}`}>
-          {card.cardType === 'cvr' ? 'stars' : card.cardType === 'opportunity' ? 'trending_up' : 'warning'}
-        </span>
-      </div>
-      <div>
-        <h3 className="text-sm text-on-surface-variant">
-          {card.cardType === 'cvr' ? '結論' : card.cardType === 'opportunity' ? '最大機会' : '最大リスク'}
-        </h3>
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold">{card.value}</span>
-        </div>
-      </div>
-      <p className="text-[11px] text-on-surface-variant leading-relaxed line-clamp-2">{card.label}</p>
-      {card.trend && (
-        <div className="flex items-center gap-2 pt-2 border-t border-outline-variant/10">
-          <span className={`material-symbols-outlined text-sm ${card.tone === 'positive' ? 'text-emerald-600' : card.tone === 'negative' ? 'text-error' : 'text-on-surface-variant'}`}>
-            {card.tone === 'positive' ? 'trending_up' : card.tone === 'negative' ? 'trending_down' : 'trending_flat'}
-          </span>
-          <span className={`text-sm font-bold tabular-nums ${card.tone === 'positive' ? 'text-emerald-600' : card.tone === 'negative' ? 'text-error' : 'text-on-surface-variant'}`}>
-            {card.trend}
-          </span>
-          <span className="text-[10px] text-on-surface-variant font-bold uppercase">前期間比</span>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Priority Action Card ── */
-function PriorityActionCard({ action }) {
-  if (!action) return null
-  return (
-    <div className="bg-primary p-6 rounded-xl shadow-lg flex flex-col justify-between relative overflow-hidden">
-      <div className="absolute top-0 right-0 p-4 opacity-10">
-        <span className="material-symbols-outlined text-6xl">rocket_launch</span>
-      </div>
-      <div className="relative z-10 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-white/90 bg-white/10 px-2 py-1 rounded border border-white/20 uppercase tracking-widest">
-            Priority Action
-          </span>
-          <span className="material-symbols-outlined text-white/80">rocket_launch</span>
-        </div>
-        <h3 className="text-sm text-white/80">最優先アクション</h3>
-        <div className="text-xl font-bold text-white leading-tight line-clamp-2">{action.title}</div>
-        {action.details?.impact && (
-          <p className="text-[11px] text-white/80 leading-relaxed">{action.details.impact}</p>
-        )}
-      </div>
-    </div>
-  )
-}
 
 /* ── Creative Filter Tabs ── */
 const CREATIVE_FILTERS = [
@@ -530,7 +462,7 @@ export default function AnalysisGraphs() {
   const [activeTheme, setActiveTheme] = useState('all')
   const [viewMode, setViewMode] = useState('analyst')
   const [openSections, setOpenSections] = useState({})
-  const [activeSection, setActiveSection] = useState('summary')
+  const [activeSection, setActiveSection] = useState('graphs')
   const [creativeFilter, setCreativeFilter] = useState('all')
 
   /* ── Excel import state ── */
@@ -593,16 +525,10 @@ export default function AnalysisGraphs() {
     [currentReport, chartGroups],
   )
   const refinedInsights = useMemo(() => extractRefinedInsights(currentReport), [currentReport])
-  const recommendedAction = useMemo(() => extractRecommendedAction(currentReport), [currentReport])
   const qualityAlerts = useMemo(
     () => extractDataQualityAlerts(currentReport, chartGroups),
     [currentReport, chartGroups],
   )
-
-  /* ── Classify cards for 4-column summary ── */
-  const conclusionCard = executiveCards.find((c) => c.cardType === 'cvr') ?? executiveCards[0] ?? null
-  const opportunityCard = executiveCards.find((c) => c.cardType === 'opportunity') ?? executiveCards[1] ?? null
-  const riskCard = executiveCards.find((c) => c.cardType === 'risk') ?? executiveCards[2] ?? null
 
   /* ── Creative refs ── */
   const creativeRefs = useMemo(() => excelImport?.creativeRefs ?? [], [excelImport?.creativeRefs])
@@ -641,7 +567,6 @@ export default function AnalysisGraphs() {
     : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
     : `対象期間: ${periodFilter}`
 
-  const hasSummaryData = executiveCards.length > 0 || recommendedAction
   const hasGraphData = filteredGroups.length > 0
   const hasCreativeData = creativeRefs.length > 0
   const hasDetailReport = refinedInsights.length > 0
@@ -872,29 +797,7 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {/* ═══ 4. SUMMARY SECTION ═══ */}
-        <section id="section-summary" className="scroll-mt-24 mt-16 space-y-6">
-          {hasSummaryData ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <SummaryCard card={conclusionCard ? { ...conclusionCard, cardType: 'cvr' } : null} />
-              <SummaryCard card={opportunityCard ? { ...opportunityCard, cardType: 'opportunity' } : null} />
-              <SummaryCard card={riskCard ? { ...riskCard, cardType: 'risk' } : null} />
-              <PriorityActionCard action={recommendedAction} />
-            </div>
-          ) : excelState === 'applied' && excelImport?.summary ? (
-            <ExcelSummaryCard summary={excelImport.summary} />
-          ) : !loading && (
-            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
-              <span className="material-symbols-outlined text-5xl text-outline-variant">summarize</span>
-              <h3 className="text-xl font-bold japanese-text">サマリーデータがまだありません</h3>
-              <p className="text-sm text-on-surface-variant japanese-text">
-                レポート生成後にサマリーが表示されます。上の「再取得」ボタンを押してください。
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* ═══ 5. GRAPH SECTION ═══ */}
+        {/* ═══ 4. GRAPH SECTION ═══ */}
         <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
           {hasGraphData ? (
             <>
@@ -1092,7 +995,7 @@ export default function AnalysisGraphs() {
         </section>
 
         {/* Empty state when no data at all */}
-        {!loading && !error && !hasSummaryData && !hasGraphData && excelState !== 'applied' && (
+        {!loading && !error && !hasGraphData && excelState !== 'applied' && (
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 text-center space-y-3">
             <span className="material-symbols-outlined text-5xl text-outline-variant">analytics</span>
             <h3 className="text-xl font-bold japanese-text">分析データがまだありません</h3>
