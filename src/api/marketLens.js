@@ -24,6 +24,80 @@ const DISCOVERY_AUTO_RETRY_COUNT = 2
 const DISCOVERY_AUTO_RETRY_DELAYS_MS = [1500, 4000]
 let _directBackendReady = false
 let _directBackendWarmPromise = null
+let _warmingUp = false
+let _lastPingAt = null
+const _readinessListeners = new Set()
+
+let _readinessSnapshot = { ready: false, warming: false }
+
+function _notifyReadiness() {
+  _readinessSnapshot = { ready: _directBackendReady, warming: _warmingUp }
+  for (const cb of _readinessListeners) {
+    try { cb() } catch { /* swallow */ }
+  }
+}
+
+export function getBackendReadinessSnapshot() {
+  return _readinessSnapshot
+}
+
+export function subscribeBackendReadiness(callback) {
+  _readinessListeners.add(callback)
+  return () => _readinessListeners.delete(callback)
+}
+
+// ─── Keep-Alive Ping System ────────────────────────────────
+const KEEP_ALIVE_INTERVAL_MS = 10 * 60 * 1000 // 10 min
+let _keepAliveTimer = null
+let _visibilityHandler = null
+
+function _pingHealth() {
+  _warmingUp = true
+  _notifyReadiness()
+  fetch(`${DIRECT_BACKEND_BASE}/health`, { method: 'GET', signal: AbortSignal.timeout(30000) })
+    .then((res) => {
+      if (res.ok) {
+        _directBackendReady = true
+        _lastPingAt = Date.now()
+      }
+    })
+    .catch(() => { /* swallow */ })
+    .finally(() => {
+      _warmingUp = false
+      _notifyReadiness()
+    })
+}
+
+export function startBackendKeepAlive() {
+  if (SHOULD_FORCE_PROXY) return
+  // Initial ping
+  _pingHealth()
+  _keepAliveTimer = setInterval(_pingHealth, KEEP_ALIVE_INTERVAL_MS)
+
+  _visibilityHandler = () => {
+    if (document.hidden) {
+      // Tab hidden — stop interval
+      if (_keepAliveTimer) { clearInterval(_keepAliveTimer); _keepAliveTimer = null }
+    } else {
+      // Tab visible — ping if stale, restart interval
+      if (!_lastPingAt || Date.now() - _lastPingAt > KEEP_ALIVE_INTERVAL_MS) {
+        _pingHealth()
+      }
+      if (!_keepAliveTimer) {
+        _keepAliveTimer = setInterval(_pingHealth, KEEP_ALIVE_INTERVAL_MS)
+      }
+    }
+  }
+  document.addEventListener('visibilitychange', _visibilityHandler)
+}
+
+export function stopBackendKeepAlive() {
+  if (_keepAliveTimer) { clearInterval(_keepAliveTimer); _keepAliveTimer = null }
+  if (_visibilityHandler) {
+    document.removeEventListener('visibilitychange', _visibilityHandler)
+    _visibilityHandler = null
+  }
+}
 const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
 const STORAGE_KEY_MARKET_LENS_PROFILE_ID = 'insight-studio-market-lens-profile-id'
@@ -484,6 +558,9 @@ async function ensureDirectBackend() {
   if (_directBackendReady) return true
   if (_directBackendWarmPromise) return _directBackendWarmPromise
 
+  _warmingUp = true
+  _notifyReadiness()
+
   _directBackendWarmPromise = (async () => {
     const RETRY_DELAYS = [0, 5000, 10000]
     for (let i = 0; i < RETRY_DELAYS.length; i++) {
@@ -497,12 +574,18 @@ async function ensureDirectBackend() {
         })
         if (res.ok) {
           _directBackendReady = true
+          _lastPingAt = Date.now()
+          _warmingUp = false
+          _notifyReadiness()
           return true
         }
       } catch {
         // CORS failure or network error — retry
       }
     }
+    _warmingUp = false
+    _directBackendReady = false
+    _notifyReadiness()
     return false
   })()
 

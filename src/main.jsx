@@ -6,6 +6,7 @@ import { RbacProvider } from './contexts/RbacContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AdsSetupProvider } from './contexts/AdsSetupContext'
 import { AnalysisRunsProvider } from './contexts/AnalysisRunsContext'
+import { BackendReadinessProvider } from './contexts/BackendReadinessContext'
 import { UserProfileProvider } from './contexts/UserProfileContext'
 import './index.css'
 import App from './App.jsx'
@@ -28,9 +29,11 @@ createRoot(document.getElementById('root')).render(
           <RbacProvider>
             <UserProfileProvider>
               <AdsSetupProvider>
-                <AnalysisRunsProvider>
-                  <App />
-                </AnalysisRunsProvider>
+                <BackendReadinessProvider>
+                  <AnalysisRunsProvider>
+                    <App />
+                  </AnalysisRunsProvider>
+                </BackendReadinessProvider>
               </AdsSetupProvider>
             </UserProfileProvider>
           </RbacProvider>

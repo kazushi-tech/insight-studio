@@ -4,6 +4,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
+import { useBackendReadiness } from '../contexts/BackendReadinessContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
 import { recordScore } from '../utils/scoreHistory'
@@ -94,11 +95,12 @@ const POLL_INTERVAL_INITIAL_MS = 2000
 const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_MAX_DURATION_MS = 420_000 // 7min absolute timeout
+const POLL_MAX_DURATION_MS = 150_000 // backend target is <= 120s; allow one extra poll window
 const POLL_STALE_TIMEOUT_MS = 45_000 // backend heartbeat is 10s; allow longer competitor fetch/analyze windows
 const DISCOVERY_AUTO_RESUBMIT_MAX = 2
 
 const STAGE_LABELS = {
+  warming: 'サーバー起動待ち…',
   queued: 'ジョブ準備中…',
   brand_fetch: 'ブランドURL取得中…',
   classify_industry: '業種分類中…',
@@ -110,12 +112,12 @@ const STAGE_LABELS = {
 
 // Typical duration per stage (seconds) — used for estimated remaining time
 const STAGE_TYPICAL_SEC = {
-  queued: 5,
-  brand_fetch: 20,
-  classify_industry: 8,
-  search: 60,
-  fetch_competitors: 80,
-  analyze: 140,
+  queued: 3,
+  brand_fetch: 10,
+  classify_industry: 6,
+  search: 30,
+  fetch_competitors: 20,
+  analyze: 35,
 }
 const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
 
@@ -158,6 +160,7 @@ function isAutoResubmitEligible(detail, retryable, stage, errorInfo) {
 }
 
 function estimateRemaining(currentStage, elapsedMs) {
+  if (currentStage === 'warming') return null
   const idx = STAGE_ORDER.indexOf(currentStage)
   if (idx < 0) return null
   const elapsedSec = (elapsedMs || 0) / 1000
@@ -187,6 +190,7 @@ function formatElapsed(ms) {
 function MetaBand({ run, now }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
+  const warmEndedAt = run.meta?.warmEndedAt
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
   const runningElapsed = run.startedAt && run.status === 'running'
     ? Math.max(0, now - run.startedAt)
@@ -195,10 +199,21 @@ function MetaBand({ run, now }) {
     ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
     : 0
   const stage = run.meta?.stage
+  const isWarming = stage === 'warming'
   const progressPct = run.meta?.progress_pct
   const stageLabel = stage ? STAGE_LABELS[stage] || stage : null
   const statusLabel = run.meta?.statusLabel
   const remaining = run.status === 'running' && stage ? estimateRemaining(stage, runningElapsed) : null
+
+  // Split elapsed display: warm-up vs analysis
+  let elapsedDisplay = elapsed ? formatElapsed(elapsed) : null
+  if (elapsed && warmEndedAt && run.startedAt) {
+    const warmMs = warmEndedAt - run.startedAt
+    const analysisMs = elapsed - warmMs
+    if (warmMs > 1000) {
+      elapsedDisplay = `起動: ${formatElapsed(warmMs)} + 分析: ${formatElapsed(analysisMs)}`
+    }
+  }
 
   return (
     <div className="space-y-2">
@@ -212,6 +227,9 @@ function MetaBand({ run, now }) {
           }`} />
           {run.status === 'running' ? (statusLabel || stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
         </span>
+        {isWarming && (
+          <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-700 font-bold">サーバー起動中…</span>
+        )}
         {remaining && (
           <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-bold">{remaining}</span>
         )}
@@ -225,10 +243,15 @@ function MetaBand({ run, now }) {
           <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{run.meta.providerLabel}</span>
         )}
         {fallbackCount > 0 && <span>{fallbackCount} 件補完</span>}
-        {elapsed && <span>{formatElapsed(elapsed)}</span>}
+        {elapsedDisplay && <span>{elapsedDisplay}</span>}
       </div>
-      {/* Progress bar */}
-      {run.status === 'running' && progressPct != null && (
+      {/* Progress bar — indeterminate pulse for warming, determinate for analysis */}
+      {run.status === 'running' && isWarming && (
+        <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+          <div className="h-full bg-orange-400 rounded-full animate-pulse" style={{ width: '100%' }} />
+        </div>
+      )}
+      {run.status === 'running' && !isWarming && progressPct != null && (
         <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
           <div
             className="h-full bg-secondary rounded-full transition-all duration-700 ease-out"
@@ -319,6 +342,7 @@ export default function Discovery() {
     hasAnalysisKey,
   } = useAuth()
   const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
+  const backendStatus = useBackendReadiness()
 
   const run = getRun('discovery')
   const [url, setUrl] = useState(() => getDraft('discovery')?.url || run?.input?.url || '')
@@ -585,11 +609,19 @@ export default function Discovery() {
     submitOptionsRef.current = { url, requestOptions }
 
     try {
-      // Warm up backend before submitting — wait up to 3s (no-op if already warm)
-      await Promise.race([
-        warmMarketLensBackend().catch(() => null),
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ])
+      // Phase 1: Warm-up — show warming stage, wait for full completion (no timeout race)
+      updateRunMeta('discovery', { stage: 'warming' })
+      const warmResult = await warmMarketLensBackend()
+      if (!warmResult) {
+        failRun('discovery', 'サーバー起動に失敗しました。しばらく待って再試行してください。', {
+          category: 'cold_start', label: 'サーバー起動失敗',
+          guidance: 'バックエンドが起動できませんでした。ネットワーク接続を確認してください。', retryable: true,
+        })
+        return
+      }
+
+      // Phase 2: Submit job — warm-up time excluded from poll timeout
+      updateRunMeta('discovery', { stage: 'queued', warmEndedAt: Date.now() })
 
       const data = await startDiscoveryJob(url, requestOptions)
 
@@ -674,7 +706,18 @@ export default function Discovery() {
             )}
           </button>
         </div>
-        <p className="text-xs text-on-surface-variant japanese-text mt-4">競合探索と比較分析は通常60〜240秒です。サーバー側で進行監視しているため、重いサイトでは数分かかる場合があります。</p>
+        <div className="flex items-center gap-2 mt-4">
+          <span className={`w-2 h-2 rounded-full ${
+            backendStatus.ready ? 'bg-emerald-500' :
+            backendStatus.warming ? 'bg-orange-400 animate-pulse' :
+            'bg-gray-400'
+          }`} />
+          <span className="text-xs text-on-surface-variant japanese-text">
+            {backendStatus.ready ? 'サーバー準備完了' :
+             backendStatus.warming ? 'サーバー起動中…' :
+             'サーバー状態確認中'}
+          </span>
+        </div>
       </div>
 
       {/* Meta Band */}
