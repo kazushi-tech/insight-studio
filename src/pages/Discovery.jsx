@@ -96,7 +96,7 @@ const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_SOFT_WARNING_MS = 150_000   // ソフト警告のみ — キルしない
-const POLL_HARD_CEILING_MS = 420_000   // 安全弁 — バックエンド overall_job_timeout(360s) + 60s マージン
+const POLL_HARD_CEILING_MS = 300_000   // 安全弁 — stale 検知の二重保険
 const POLL_STALE_TIMEOUT_MS = 45_000   // ← PRIMARY キル判定（heartbeat 45秒無応答）
 const DISCOVERY_AUTO_RESUBMIT_MAX = 2
 
