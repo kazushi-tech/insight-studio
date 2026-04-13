@@ -107,7 +107,7 @@ export default function App() {
           <Route path="discovery" element={<Discovery />} />
           <Route path="creative-review" element={<CreativeReview />} />
           <Route path="ads/wizard" element={<SetupWizard />} />
-          <Route path="ads/pack" element={<SetupGuard><EssentialPack /></SetupGuard>} />
+          <Route path="ads/pack" element={<Navigate to="/ads/graphs" replace />} />
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
           <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
           <Route path="cases" element={<Navigate to="/projects" replace />} />

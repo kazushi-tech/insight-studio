@@ -290,18 +290,12 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           </div>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-2 mt-4">
-        <button
-          onClick={() => onNavigate('/ads/pack')}
-          className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
-        >
-          要点パック
-        </button>
+      <div className="grid grid-cols-2 gap-2 mt-4">
         <button
           onClick={() => onNavigate('/ads/graphs')}
           className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
-          グラフ
+          分析
         </button>
         <button
           onClick={() => onNavigate('/ads/ai')}

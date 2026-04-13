@@ -215,7 +215,7 @@ export default function SetupWizard() {
       return
     }
 
-    navigate('/ads/pack')
+    navigate('/ads/graphs')
   }
 
   function handleBack() {

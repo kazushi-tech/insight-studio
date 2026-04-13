@@ -17,7 +17,7 @@ import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 
-const SETUP_GATED_PATHS = ['/ads/pack', '/ads/graphs', '/ads/ai']
+const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'dashboard', label: 'ダッシュボード' },
@@ -35,8 +35,7 @@ const NAV_ITEMS = [
     icon: 'insights',
     children: [
       { to: '/ads/wizard', label: 'セットアップ' },
-      { to: '/ads/pack', label: '要点パック', requiresSetup: true },
-      { to: '/ads/graphs', label: 'グラフ', requiresSetup: true },
+      { to: '/ads/graphs', label: '分析', requiresSetup: true },
       { to: '/ads/ai', label: 'AIエクスプローラー', requiresSetup: true },
     ],
   },
@@ -448,7 +447,7 @@ export default function Layout() {
         メインコンテンツへスキップ
       </a>
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth, backgroundColor: '#14291e' }}>
+      <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth, background: 'linear-gradient(135deg, #0f5238 0%, #002114 100%)' }}>
         {/* Logo */}
         <div className="px-6 mb-8 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(45,106,79,0.3)', color: '#a8e7c5' }}>
@@ -536,10 +535,10 @@ export default function Layout() {
               resetSetup()
               navigate('/ads/wizard', { state: { resetAt: Date.now() } })
             }}
-            className="w-full py-2.5 text-white/50 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-white/5 hover:text-white/70 transition-colors text-xs focus-ring"
+            className="w-full py-2.5 bg-white/10 text-white rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/20 transition-colors text-xs focus-ring"
           >
-            <span className="material-symbols-outlined text-base">replay</span>
-            <span>新しいセットアップ</span>
+            <span className="material-symbols-outlined text-base">add</span>
+            <span>新規レポート</span>
           </button>
         </div>
         <div

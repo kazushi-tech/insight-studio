@@ -30,8 +30,8 @@ import {
 
 /* ── Section IDs for local nav ── */
 const SECTIONS = [
-  { id: 'graphs', label: 'グラフ分析', icon: 'bar_chart' },
   { id: 'summary', label: 'サマリー', icon: 'stars' },
+  { id: 'graphs', label: 'グラフ分析', icon: 'bar_chart' },
   { id: 'creative', label: 'クリエイティブ', icon: 'palette' },
   { id: 'detail-report', label: '詳細レポート', icon: 'description' },
 ]
@@ -44,6 +44,74 @@ const EVIDENCE_STYLES = {
   inferred: { text: 'text-tertiary', bg: 'bg-tertiary/5', border: 'border-tertiary/20', label: 'Inferred' },
 }
 
+/* ── Evidence Type colour map (for EvidenceDrawer) ── */
+const TYPE_STYLES = {
+  observed: { bg: 'bg-primary/5', border: 'border-primary/10', text: 'text-primary', badgeBg: 'bg-primary/10', label: '実測 (Observed)', borderL: 'border-l-primary' },
+  derived:  { bg: 'bg-secondary/5', border: 'border-secondary/10', text: 'text-secondary', badgeBg: 'bg-secondary/10', label: '導出 (Derived)', borderL: 'border-l-secondary' },
+  proxy:    { bg: 'bg-outline-variant/5', border: 'border-outline-variant/20', text: 'text-on-surface-variant', badgeBg: 'bg-outline-variant/10', label: '代替 (Proxy)', borderL: 'border-l-outline-variant' },
+  inferred: { bg: 'bg-tertiary/5', border: 'border-tertiary/10', text: 'text-tertiary', badgeBg: 'bg-tertiary/10', label: '推論 (Inferred)', borderL: 'border-l-tertiary' },
+}
+
+/* ── Evidence Drawer ── */
+function EvidenceDrawer({ cards, reportBundle }) {
+  if (!cards || cards.length === 0) return null
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-30">
+      <details className="group bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
+        <summary className="flex items-center justify-between px-8 py-3 cursor-pointer list-none hover:bg-surface-container-low transition-colors select-none">
+          <div className="flex items-center gap-4">
+            <span className="material-symbols-outlined text-on-surface-variant transition-transform group-open:rotate-180">keyboard_arrow_up</span>
+            <span className="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest">根拠データ (Raw Evidence Drawer)</span>
+          </div>
+          <div className="flex gap-4 items-center">
+            {reportBundle?.generatedAt && (
+              <span className="text-[10px] text-primary font-bold flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-primary rounded-full" />
+                最終同期: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}
+              </span>
+            )}
+          </div>
+        </summary>
+        <div className="px-8 pb-10 pt-6 bg-surface-container-lowest max-h-[500px] overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {cards.map((card) => {
+              const style = TYPE_STYLES[card.evidenceType] || TYPE_STYLES.observed
+              return (
+                <div key={card.evidenceId} id={`${card.evidenceId}-detail`} className={`p-5 border border-outline-variant/15 rounded-xl ${style.bg}`}>
+                  <div className="flex items-center gap-2 mb-3 border-b border-outline-variant/10 pb-2">
+                    <span className={`evidence-tag ${style.badgeBg} ${style.text} border ${style.border}`}>
+                      {style.label}
+                    </span>
+                    <span className="text-[9px] font-bold text-on-surface-variant bg-surface-container-high px-1.5 py-0.5 rounded">{card.evidenceId}</span>
+                  </div>
+                  <p className="text-xs font-bold text-on-surface mb-2">{card.label}</p>
+                  <div className="space-y-1.5 text-[11px] text-on-surface-variant">
+                    <div className="flex justify-between">
+                      <span className="font-medium">ソース</span>
+                      <span className="font-bold text-on-surface">{card.source ?? 'BQ / GA4'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Raw Value</span>
+                      <span className="font-bold text-on-surface tabular-nums">{card.value}</span>
+                    </div>
+                    {card.trend && (
+                      <div className="flex justify-between">
+                        <span className="font-medium">変化</span>
+                        <span className={`font-bold tabular-nums ${card.tone === 'positive' ? 'text-success' : card.tone === 'negative' ? 'text-error' : 'text-on-surface'}`}>{card.trend}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </details>
+    </div>
+  )
+}
+
 /* ── Summary Card (結論 / 最大機会 / 最大リスク) ── */
 function SummaryCard({ card }) {
   if (!card) return null
@@ -52,7 +120,7 @@ function SummaryCard({ card }) {
   const borderColor = isRisk ? 'border-l-error' : 'border-l-primary'
 
   return (
-    <div className={`bg-surface-container-lowest p-6 rounded-xl ghost-border border-l-4 ${borderColor} hover:shadow-lg transition-shadow flex flex-col gap-3`}>
+    <div className={`bg-surface-container-lowest p-8 rounded-xl ghost-border hover:shadow-xl transition-shadow duration-300 flex flex-col gap-3`}>
       <div className="flex items-center justify-between">
         <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${isRisk ? 'bg-error/5 text-error' : 'bg-primary/5 text-primary'}`}>
           {card.cardType === 'cvr' ? 'Conclusion' : card.cardType === 'opportunity' ? 'Max Opportunity' : 'Max Risk'}
@@ -462,7 +530,7 @@ export default function AnalysisGraphs() {
   const [activeTheme, setActiveTheme] = useState('all')
   const [viewMode, setViewMode] = useState('analyst')
   const [openSections, setOpenSections] = useState({})
-  const [activeSection, setActiveSection] = useState('graphs')
+  const [activeSection, setActiveSection] = useState('summary')
   const [creativeFilter, setCreativeFilter] = useState('all')
 
   /* ── Excel import state ── */
@@ -644,7 +712,7 @@ export default function AnalysisGraphs() {
 
   return (
     <div className="flex-1 min-w-0 overflow-y-auto">
-      <div className="px-8 py-8 max-w-[1680px] space-y-10">
+      <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-10">
 
         {/* ═══ 1. PAGE HEADER ═══ */}
         <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -746,13 +814,6 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {qualityAlerts.length > 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200/50 text-on-surface rounded-xl">
-            <span className="material-symbols-outlined text-xl text-amber-600">info</span>
-            <p className="text-sm font-medium japanese-text">{qualityAlerts[0].message}</p>
-          </div>
-        )}
-
         {excelState === 'applied' && excelImport?.warnings?.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-3 bg-primary-container/5 border border-primary-container/10 rounded-xl">
             <span className="material-symbols-outlined text-primary text-lg">lightbulb</span>
@@ -795,6 +856,14 @@ export default function AnalysisGraphs() {
           ))}
         </nav>
 
+        {/* Data Quality Alert */}
+        {qualityAlerts.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200/50 text-on-surface rounded-xl">
+            <span className="material-symbols-outlined text-xl text-amber-600">info</span>
+            <p className="text-sm font-medium japanese-text">{qualityAlerts[0].message}</p>
+          </div>
+        )}
+
         {/* Loading state */}
         {loading && !currentReport && chartGroups.length === 0 && (
           <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
@@ -803,8 +872,30 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {/* ═══ 4. GRAPH SECTION ═══ */}
-        <section id="section-graphs" className="scroll-mt-24 space-y-6">
+        {/* ═══ 4. SUMMARY SECTION ═══ */}
+        <section id="section-summary" className="scroll-mt-24 mt-16 space-y-6">
+          {hasSummaryData ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <SummaryCard card={conclusionCard ? { ...conclusionCard, cardType: 'cvr' } : null} />
+              <SummaryCard card={opportunityCard ? { ...opportunityCard, cardType: 'opportunity' } : null} />
+              <SummaryCard card={riskCard ? { ...riskCard, cardType: 'risk' } : null} />
+              <PriorityActionCard action={recommendedAction} />
+            </div>
+          ) : excelState === 'applied' && excelImport?.summary ? (
+            <ExcelSummaryCard summary={excelImport.summary} />
+          ) : !loading && (
+            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+              <span className="material-symbols-outlined text-5xl text-outline-variant">summarize</span>
+              <h3 className="text-xl font-bold japanese-text">サマリーデータがまだありません</h3>
+              <p className="text-sm text-on-surface-variant japanese-text">
+                レポート生成後にサマリーが表示されます。上の「再取得」ボタンを押してください。
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ═══ 5. GRAPH SECTION ═══ */}
+        <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
           {hasGraphData ? (
             <>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -836,7 +927,7 @@ export default function AnalysisGraphs() {
 
               {/* Inline insight for key charts */}
               {topInsights.length > 0 && topInsights[0].takeaway && (
-                <div className="p-3 bg-surface rounded-lg border-l-4 border-primary">
+                <div className="p-4 bg-primary/[0.04] rounded-xl">
                   <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
                 </div>
               )}
@@ -879,30 +970,8 @@ export default function AnalysisGraphs() {
           )}
         </section>
 
-        {/* ═══ 5. SUMMARY SECTION ═══ */}
-        <section id="section-summary" className="scroll-mt-24 space-y-6">
-          {hasSummaryData ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <SummaryCard card={conclusionCard ? { ...conclusionCard, cardType: 'cvr' } : null} />
-              <SummaryCard card={opportunityCard ? { ...opportunityCard, cardType: 'opportunity' } : null} />
-              <SummaryCard card={riskCard ? { ...riskCard, cardType: 'risk' } : null} />
-              <PriorityActionCard action={recommendedAction} />
-            </div>
-          ) : excelState === 'applied' && excelImport?.summary ? (
-            <ExcelSummaryCard summary={excelImport.summary} />
-          ) : !loading && (
-            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
-              <span className="material-symbols-outlined text-5xl text-outline-variant">summarize</span>
-              <h3 className="text-xl font-bold japanese-text">サマリーデータがまだありません</h3>
-              <p className="text-sm text-on-surface-variant japanese-text">
-                レポート生成後にサマリーが表示されます。上の「再取得」ボタンを押してください。
-              </p>
-            </div>
-          )}
-        </section>
-
         {/* ═══ 6. CREATIVE SECTION ═══ */}
-        <section id="section-creative" className="scroll-mt-24 space-y-6">
+        <section id="section-creative" className="scroll-mt-24 mt-16 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-extrabold text-primary japanese-text">クリエイティブ分析</h2>
             {hasCreativeData && (
@@ -944,7 +1013,7 @@ export default function AnalysisGraphs() {
         </section>
 
         {/* ═══ 7. DETAILED REPORT SECTION ═══ */}
-        <section id="section-detail-report" className="scroll-mt-24 space-y-6">
+        <section id="section-detail-report" className="scroll-mt-24 mt-16 space-y-6">
           {hasDetailReport ? (
             <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border space-y-8">
               <div className="flex items-center gap-4">
@@ -1033,6 +1102,11 @@ export default function AnalysisGraphs() {
           </div>
         )}
       </div>
+
+      {/* ═══ EVIDENCE DRAWER ═══ */}
+      {currentReport && executiveCards.length > 0 && (
+        <EvidenceDrawer cards={executiveCards} reportBundle={reportBundle} />
+      )}
     </div>
   )
 }

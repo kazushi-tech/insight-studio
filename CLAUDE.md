@@ -44,7 +44,7 @@ npm run build        # プロダクションビルド
 
 ## デザインシステム
 
-- **配色:** Deep Navy (#1A1A2E) + Muted Gold (#D4A843) アクセント、白背景ベース
+- **配色:** Botanical Green (#003925) + 植物系グリーンパレット、warm off-white (#fafaf5) 背景ベース
 - **フォント:** Manrope（日英対応）
 - **カード:** border-radius 16px、ボーダーなし、トーナルレイヤリング
 - **ボタン:** border-radius 12px、ゴールドアクセント
