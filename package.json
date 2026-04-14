@@ -8,10 +8,15 @@
     "build": "vite build",
     "lint": "eslint src eslint.config.js vite.config.js",
     "preview": "vite preview",
+    "prepare": "husky",
+    "smoke": "node scripts/smoke-test.mjs",
     "smoke:discovery:rollout:health": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=0",
     "smoke:discovery:rollout:render-probe": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=1 --pause-ms=0 --min-success-count=1",
     "smoke:discovery:rollout:render-5": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=5 --pause-ms=15000 --min-success-count=3",
     "smoke:discovery:rollout:proxy-5": "node scripts/discovery-render-rollout-check.mjs --mode=proxy --attempts=5 --pause-ms=15000 --min-success-count=3"
+  },
+  "lint-staged": {
+    "*.{js,jsx}": "eslint --max-warnings 0"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",
@@ -33,6 +38,8 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "vite": "^8.0.1",
     "ws": "^8.20.0"
   }
