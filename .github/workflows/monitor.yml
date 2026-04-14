@@ -1,0 +1,49 @@
+name: Health Monitor
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check ML backend health
+        run: |
+          response=$(curl -sf --max-time 45 \
+            https://market-lens-ai.onrender.com/api/health || echo '{"ok":false}')
+          echo "$response" | jq .
+
+          ok=$(echo "$response" | jq -r '.ok // false')
+          warnings=$(echo "$response" | jq -r '.discovery_pipeline.recent_budget_warnings // 0')
+
+          if [ "$ok" != "true" ]; then
+            echo "::error::ML backend is DOWN (ok=$ok)"
+            exit 1
+          fi
+          echo "ML backend OK"
+
+          if [ "$warnings" -gt 0 ] 2>/dev/null; then
+            echo "::warning::Budget pressure detected: $warnings warning(s) in last hour"
+          fi
+
+      - name: Check Ads backend health
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 \
+            https://ads-insights-9q5s.onrender.com/api/health)
+          if [ "$status" != "200" ]; then
+            echo "::error::Ads backend returned HTTP $status"
+            exit 1
+          fi
+          echo "Ads backend OK ($status)"
+
+      - name: Check frontend availability
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+            https://insight-studio-chi.vercel.app/)
+          if [ "$status" != "200" ]; then
+            echo "::error::Frontend returned HTTP $status"
+            exit 1
+          fi
+          echo "Frontend OK ($status)"

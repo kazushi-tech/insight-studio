@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  post-deploy-health:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel deploy
+        run: sleep 90
+
+      - name: Check frontend
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' https://insight-studio-chi.vercel.app/)
+          if [ "$status" != "200" ]; then
+            echo "::error::Frontend returned HTTP $status"
+            exit 1
+          fi
+          echo "Frontend OK ($status)"
+
+      - name: Check ML API via Vercel proxy
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 \
+            https://insight-studio-chi.vercel.app/api/ml/health)
+          if [ "$status" != "200" ]; then
+            echo "::error::ML API proxy returned HTTP $status"
+            exit 1
+          fi
+          echo "ML API proxy OK ($status)"
+
+      - name: Check Ads API via Vercel proxy
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 \
+            https://insight-studio-chi.vercel.app/api/ads/health)
+          if [ "$status" != "200" ]; then
+            echo "::error::Ads API proxy returned HTTP $status"
+            exit 1
+          fi
+          echo "Ads API proxy OK ($status)"
