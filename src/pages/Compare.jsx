@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { scan, getScan, getScans, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import DataCoverageCard from '../components/DataCoverageCard'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -9,6 +11,7 @@ import { getScoreLabel } from '../utils/scoreThresholds'
 import { copyReportToClipboard, buildCompareReportText } from '../utils/reportExport'
 import { recordScore, getPreviousScore, formatScoreDelta } from '../utils/scoreHistory'
 import { checkReportQuality, splitReportSections, stripModelDates } from '../utils/reportQuality'
+import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 
 
 function formatElapsed(ms) {
@@ -311,6 +314,8 @@ export default function Compare() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
+  const discoveryRun = getRun('discovery')
+  const discoveryResult = discoveryRun?.status === 'completed' ? discoveryRun.result : null
   const recoveryMode = loading && Boolean(run?.meta?.recoveryMode)
   const recoveryMessage = run?.meta?.recoveryMessage || 'タイムアウト後の完了結果を確認しています…'
   const recoveredFromHistory = run?.status === 'completed' && Boolean(run?.meta?.recoveredFromHistory)
@@ -685,6 +690,53 @@ export default function Compare() {
                   </div>
                 )}
                 <MarkdownRenderer content={report} variant="discovery" />
+                {extracted && <DataCoverageCard extracted={extracted} className="mt-8" />}
+                {/* KPI Tracking Card */}
+                {(() => {
+                  const kpis = extractKpis(report)
+                  if (kpis.length === 0) return null
+                  return (
+                    <div className="mt-6 bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="material-symbols-outlined text-secondary text-lg">tracking</span>
+                        <span className="text-sm font-bold text-on-surface">KPI目標値</span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {kpis.map((kpi, i) => (
+                          <div key={i} className="rounded-xl px-4 py-3 bg-surface-container">
+                            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{kpi.label}</p>
+                            <p className="text-sm font-mono font-bold text-on-surface">{kpi.value}{kpi.tone === 'positive' ? ' ↑' : kpi.tone === 'negative' ? ' ↓' : ''}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+                {/* Cross-link to Discovery report */}
+                {discoveryResult?.report_md && (() => {
+                  const compBrands = extractCompetitiveSet(rawReport)
+                  const discBrands = extractCompetitiveSet(discoveryResult.report_md)
+                  const overlap = compBrands.filter((b) => discBrands.includes(b))
+                  if (overlap.length === 0) return null
+                  return (
+                    <div className="mt-6 bg-primary/5 rounded-2xl p-6 border border-primary/10">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="material-symbols-outlined text-primary text-lg">travel_explore</span>
+                        <span className="text-sm font-bold text-primary">関連レポート</span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant mb-3">
+                        以下のブランドがDiscoveryレポートでも分析されています: {overlap.join('、')}
+                      </p>
+                      <Link
+                        to="/discovery"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-sm">open_in_new</span>
+                        Discoveryレポートを表示
+                      </Link>
+                    </div>
+                  )
+                })()}
                 {reportAppendix && (
                   <details className="mt-8">
                     <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-2">
