@@ -143,3 +143,21 @@ export function extractKpis(sectionMd) {
 
   return extractByRegex(sectionMd)
 }
+
+/**
+ * Extract competitive set (brand names) from report.
+ * @param {string} reportMd - Raw markdown report
+ * @returns {string[]} Array of brand names found
+ */
+export function extractCompetitiveSet(reportMd) {
+  if (!reportMd) return []
+  const brands = new Set()
+
+  const bracketMatches = reportMd.matchAll(/【([^】]+)】/g)
+  for (const m of bracketMatches) {
+    const name = m[1].trim()
+    if (name.length > 0 && name.length < 30) brands.add(name)
+  }
+
+  return [...brands]
+}

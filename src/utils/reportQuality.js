@@ -1,10 +1,92 @@
 /**
  * Report quality validation and content splitting utilities.
  * Tasks A, C: Hard-fail quality gate + body/appendix separation.
+ * Phase 1-3: Quantitative claim validation, market source check,
+ *            evaluation-deferred density check, competitive set overlap check.
  */
 
 function uniqueIssues(items) {
   return [...new Set((items || []).filter(Boolean))]
+}
+
+/**
+ * Check 1: Quantitative claim validation.
+ * If ¥ amounts appear in action/plan sections but pricing is marked as unavailable, warn.
+ */
+function checkQuantitativeClaimsWithoutPricing(reportMd, issues) {
+  const hasPriceAmount = /(?:施策|実行プラン|5-1|5-2|5-3)[^\n]*¥[\d,]+/.test(reportMd)
+  if (!hasPriceAmount) return
+
+  const pricingUnavailable = /(?:Pricing|価格|pricing_snippet)[^\n]*取得不可/.test(reportMd)
+  if (pricingUnavailable) {
+    issues.push('定量クレーム警告: 価格未取得ブランドに¥金額を含む施策が記載されています')
+  }
+}
+
+/**
+ * Check 2: Market growth rate source check.
+ * If 「年率X%」 appears without 【市場推定】 tag, warn.
+ */
+function checkMarketGrowthSource(reportMd, issues) {
+  const growthPatterns = reportMd.match(/年率\s*[\d.]+\s*[%％]/g) || []
+  for (const gp of growthPatterns) {
+    const idx = reportMd.indexOf(gp)
+    const ctxStart = Math.max(0, idx - 80)
+    const ctxEnd = Math.min(reportMd.length, idx + gp.length + 80)
+    const ctx = reportMd.slice(ctxStart, ctxEnd)
+    if (!/【市場推定】|AI推定|参考値/.test(ctx)) {
+      issues.push('市場規模ソース警告: 「年率X%」が【市場推定】ラベルなしで登場しています')
+      return // one warning is enough
+    }
+  }
+}
+
+/**
+ * Check 3: Evaluation-deferred density check.
+ * If >40% of evaluation axes have 「評価保留」, warn about reliability limitation.
+ */
+function checkDeferredDensity(reportMd, issues) {
+  // Find evaluation table rows
+  const tableRows = reportMd.match(/^\|.*\|.*\|.*$/gm) || []
+  const evalRows = tableRows.filter((r) => r.includes('評価保留'))
+  const totalRows = tableRows.filter((r) => {
+    const cells = r.split('|').map((c) => c.trim()).filter(Boolean)
+    return cells.length >= 3 && !/^[#-]+$/.test(cells[0])
+  })
+
+  if (totalRows.length === 0) return
+  const deferredRatio = evalRows.length / totalRows.length
+  if (deferredRatio > 0.4) {
+    issues.push(`評価保留密度警告: 評価軸の${Math.round(deferredRatio * 100)}%が「評価保留」 — データ不足により結論の信頼性が制限されています`)
+  }
+}
+
+/**
+ * Check 4: Competitive set overlap check.
+ * If the same brand appears with contradictory evaluations, warn.
+ */
+function checkCompetitiveSetOverlap(reportMd, issues) {
+  // Extract brand names from 【BrandName】 brackets
+  const brandMatches = reportMd.matchAll(/【([^】]+)】/g)
+  const brandPositions = new Map()
+  for (const m of brandMatches) {
+    const name = m[1].trim()
+    if (!brandPositions.has(name)) brandPositions.set(name, [])
+    brandPositions.get(name).push(m.index)
+  }
+
+  // Check for contradictory ranking (same brand as both 1位 and 3位 in different contexts)
+  for (const [name, positions] of brandPositions) {
+    const ranks = new Set()
+    for (const pos of positions) {
+      const ctx = reportMd.slice(Math.max(0, pos - 20), Math.min(reportMd.length, pos + name.length + 20))
+      const rankMatch = ctx.match(/([123])位/)
+      if (rankMatch) ranks.add(rankMatch[1])
+    }
+    if (ranks.size > 1) {
+      issues.push(`競合セット矛盾: 【${name}】の順位評価が複数箇所で矛盾しています (${[...ranks].map((r) => `${r}位`).join(' vs ')})`)
+    }
+  }
 }
 
 function extractAppendixQualityIssues(reportMd) {
@@ -111,6 +193,12 @@ export function checkReportQuality(reportMd, backendQuality = null) {
       issues.push('予算配分警告: 固定比率が条件なしで記載されています（phase設計推奨）')
     }
   }
+
+  // Phase 1-3 checks
+  checkQuantitativeClaimsWithoutPricing(reportMd, issues)
+  checkMarketGrowthSource(reportMd, issues)
+  checkDeferredDensity(reportMd, issues)
+  checkCompetitiveSetOverlap(reportMd, issues)
 
   return {
     isQualityFailure: issues.length > 0,

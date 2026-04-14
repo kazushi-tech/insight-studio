@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { startDiscoveryJob, getDiscoveryJob, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import DataCoverageCard from '../components/DataCoverageCard'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
@@ -9,6 +11,7 @@ import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisPro
 import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
 import { recordScore } from '../utils/scoreHistory'
 import { checkReportQuality, splitReportSections, stripModelDates } from '../utils/reportQuality'
+import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
@@ -382,6 +385,8 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
+  const compareRun = getRun('compare')
+  const compareResult = compareRun?.status === 'completed' ? compareRun.result : null
   const allDiscoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
   const discoveries = allDiscoveries.filter((item) => {
     const isFailed = item.analysis_source === 'failed' || (item.error && item.analysis_source !== 'search_result_fallback')
@@ -879,6 +884,53 @@ export default function Discovery() {
               </div>
             )}
             <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
+            {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}
+            {/* KPI Tracking Card */}
+            {(() => {
+              const kpis = extractKpis(cleanBody)
+              if (kpis.length === 0) return null
+              return (
+                <div className="mt-6 bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="material-symbols-outlined text-secondary text-lg">tracking</span>
+                    <span className="text-sm font-bold text-on-surface">KPI目標値</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {kpis.map((kpi, i) => (
+                      <div key={i} className="rounded-xl px-4 py-3 bg-surface-container">
+                        <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{kpi.label}</p>
+                        <p className="text-sm font-mono font-bold text-on-surface">{kpi.value}{kpi.tone === 'positive' ? ' ↑' : kpi.tone === 'negative' ? ' ↓' : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+            {/* Cross-link to Compare report */}
+            {compareResult?.report_md && (() => {
+              const discBrands = extractCompetitiveSet(result.report_md)
+              const compBrands = extractCompetitiveSet(compareResult.report_md)
+              const overlap = discBrands.filter((b) => compBrands.includes(b))
+              if (overlap.length === 0) return null
+              return (
+                <div className="mt-6 bg-primary/5 rounded-2xl p-6 border border-primary/10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="material-symbols-outlined text-primary text-lg">compare_arrows</span>
+                    <span className="text-sm font-bold text-primary">関連レポート</span>
+                  </div>
+                  <p className="text-xs text-on-surface-variant mb-3">
+                    以下のブランドがLP比較レポートでも分析されています: {overlap.join('、')}
+                  </p>
+                  <Link
+                    to="/compare"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    LP比較レポートを表示
+                  </Link>
+                </div>
+              )
+            })()}
             {discAppendix && (
               <details className="mt-8">
                 <summary className="cursor-pointer text-xs font-bold text-on-surface-variant uppercase tracking-widest hover:text-on-surface transition-colors flex items-center gap-2">
