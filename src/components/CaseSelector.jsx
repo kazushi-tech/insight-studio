@@ -17,7 +17,7 @@ export default function CaseSelector({ onCaseSelect }) {
 
   useEffect(() => {
     if (isOpen && cases.length === 0) {
-      setLoading(true)
+      setLoading(true) // eslint-disable-line react-hooks/set-state-in-effect -- data-fetching init
       setError(null)
       getCases()
         .then((data) => {

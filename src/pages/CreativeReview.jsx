@@ -366,7 +366,6 @@ function RubricCategoryHeatmap({ review }) {
         {Object.entries(axisGroups).map(([key, group]) => {
           const scores = group.ids.map((id) => scoreMap[id]).filter((v) => v != null)
           const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null
-          const pct = avg != null ? (avg / 5) * 100 : 0
           const heatColor = avg == null ? 'bg-surface-container/40' : avg >= 4 ? 'bg-emerald-100' : avg >= 3 ? 'bg-amber-50' : 'bg-rose-50'
           const textColor = avg == null ? 'text-on-surface-variant/50' : avg >= 4 ? 'text-emerald-700' : avg >= 3 ? 'text-amber-700' : 'text-rose-700'
           return (
@@ -664,7 +663,7 @@ export default function CreativeReview() {
       setErrorMessage(`レビュー失敗: ${err.message}`)
       setErrorInfo(info)
     }
-  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, reviewModel, startRun, completeRun, failRun, clearRun])
+  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, reviewModel, startRun, completeRun, failRun])
 
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed'].includes(phase)

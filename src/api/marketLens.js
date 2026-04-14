@@ -75,7 +75,11 @@ function _pingHealth() {
 }
 
 export function startBackendKeepAlive() {
-  if (SHOULD_FORCE_PROXY) return
+  if (SHOULD_FORCE_PROXY) {
+    _directBackendReady = true
+    _notifyReadiness()
+    return
+  }
   // Initial ping
   _pingHealth()
   _keepAliveTimer = setInterval(_pingHealth, KEEP_ALIVE_INTERVAL_MS)
@@ -610,7 +614,7 @@ async function ensureDirectBackend() {
 }
 
 export function warmMarketLensBackend() {
-  if (SHOULD_FORCE_PROXY) return Promise.resolve(false)
+  if (SHOULD_FORCE_PROXY) return Promise.resolve(true) // proxy IS the warm path
   return ensureDirectBackend()
 }
 

@@ -65,9 +65,7 @@ export default function Settings() {
     setClaudeKey,
     hasClaudeKey,
     isAdsAuthenticated,
-    loginAds,
     logoutAds,
-    loading,
   } = useAuth()
   const { isDark, toggleTheme } = useTheme()
 
@@ -81,7 +79,6 @@ export default function Settings() {
   const [claudeError, setClaudeError] = useState(null)
   const [claudeValidating, setClaudeValidating] = useState(false)
 
-  const [adsPassword, setAdsPassword] = useState('')
   const [authError, setAuthError] = useState(null)
   const [authNotice, setAuthNotice] = useState('')
 
@@ -171,19 +168,6 @@ export default function Settings() {
     setEditingClaude(true)
     setClaudeError(null)
     setClaudeSaved(false)
-  }
-
-  async function handleAdsLogin() {
-    setAuthError(null)
-    setAuthNotice('')
-
-    try {
-      await loginAds(adsPassword)
-      setAdsPassword('')
-      setAuthNotice('考察スタジオに接続しました。')
-    } catch (e) {
-      setAuthError(e.message)
-    }
   }
 
   function handleAdsLogout() {

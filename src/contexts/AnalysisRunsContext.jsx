@@ -33,7 +33,7 @@ function createRunStore() {
   }
 
   function clearDraft(kind) {
-    try { sessionStorage.removeItem(DRAFT_PREFIX + kind) } catch {}
+    try { sessionStorage.removeItem(DRAFT_PREFIX + kind) } catch { /* intentionally empty */ }
     notify()
   }
 

@@ -62,7 +62,7 @@ function classifyKpiForCard(kpi, index) {
 /**
  * Markdown + chartGroups から Executive Summary 用のカードデータを生成
  */
-export function extractExecutiveCards(reportMd, chartGroups = []) {
+export function extractExecutiveCards(reportMd) {
   const kpis = extractKpis(reportMd ?? '')
   if (kpis.length === 0) return []
 

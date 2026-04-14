@@ -339,10 +339,10 @@ function DomainPlaceholder({ domain }) {
 const DISCOVERY_ACTIVE_JOB_KEY = 'is-discovery-active-job'
 
 function persistActiveJob(jobId, pollUrl, url) {
-  try { sessionStorage.setItem(DISCOVERY_ACTIVE_JOB_KEY, JSON.stringify({ jobId, pollUrl, url, startedAt: Date.now() })) } catch {}
+  try { sessionStorage.setItem(DISCOVERY_ACTIVE_JOB_KEY, JSON.stringify({ jobId, pollUrl, url, startedAt: Date.now() })) } catch { /* intentionally empty */ }
 }
 function clearActiveJob() {
-  try { sessionStorage.removeItem(DISCOVERY_ACTIVE_JOB_KEY) } catch {}
+  try { sessionStorage.removeItem(DISCOVERY_ACTIVE_JOB_KEY) } catch { /* intentionally empty */ }
 }
 function getActiveJob() {
   try {

@@ -137,7 +137,7 @@ export function AdsSetupProvider({ children }) {
         name: user.display_name || user.case_id,
         dataset_id: user.dataset_id,
       }
-      setCurrentCase(caseInfo)
+      setCurrentCase(caseInfo) // eslint-disable-line react-hooks/set-state-in-effect -- sync user role
       setIsCaseAuthenticated(true)
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
       localStorage.setItem(CASE_AUTH_KEY, 'true')
@@ -150,7 +150,7 @@ export function AdsSetupProvider({ children }) {
     // If no case is set and not a case_user, auto-select petabit
     if (!currentCase && user?.role !== 'case_user') {
       const petabitCase = { case_id: 'petabit', name: 'ペタビット', dataset_id: 'analytics_311324674' }
-      setCurrentCase(petabitCase)
+      setCurrentCase(petabitCase) // eslint-disable-line react-hooks/set-state-in-effect -- mount init
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -161,7 +161,7 @@ export function AdsSetupProvider({ children }) {
   // Re-load setup state when case changes
   useEffect(() => {
     const state = loadState(currentCase?.case_id)
-    setSetupState(state)
+    setSetupState(state) // eslint-disable-line react-hooks/set-state-in-effect -- sync on case change
     setReportBundle(null)
   }, [currentCase?.case_id])
 

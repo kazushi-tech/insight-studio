@@ -277,7 +277,7 @@ export default function AiExplorer() {
       const MAX_RETRIES = 2
       const RETRY_DELAYS = [1500, 4000]
       let data = null
-      let lastError = null
+      let _lastError = null
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         if (controller.signal.aborted) return
@@ -296,7 +296,7 @@ export default function AiExplorer() {
           break
         } catch (err) {
           if (err.name === 'AbortError') return
-          lastError = err
+          _lastError = err
           const retryable =
             err.message?.includes('timeout') ||
             err.message?.includes('タイムアウト') ||

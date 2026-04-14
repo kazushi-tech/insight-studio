@@ -42,7 +42,7 @@ function share(part, total) {
 export function buildExcelSummary(data) {
   if (!data) return null
 
-  const { kpis = {}, sections = {}, creativeRefs = [], warnings = [] } = data
+  const { sections = {}, creativeRefs = [] } = data
 
   const monthly  = sections.monthly?.status === 'extracted' ? sections.monthly : null
   const campaign = sections.campaign?.status === 'extracted' ? sections.campaign : null
@@ -244,7 +244,7 @@ function buildWinningCreativeHighlight(creativeRefs) {
 
 // ── recommended action ──
 
-function deriveRecommendedAction(h1, h2, h3, monthly) {
+function deriveRecommendedAction(h1, h2, h3) {
   const delta = h1?._monthlyDelta ?? {}
   const concentration = h2?._concentration
 

@@ -6,6 +6,7 @@ import { SCORE_THRESHOLD_EXCELLENT, SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_FAIR }
  * SVG 実装で低スコア時でも形状と軸差分が読み取りやすいようにする
  */
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const AXIS_GROUPS_BY_TYPE = {
   banner_review: {
     composition: { label: '構成', ids: ['visual_flow', 'information_balance', 'information_density', 'first_view_clarity'] },
