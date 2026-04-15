@@ -213,8 +213,8 @@ describe('Discovery — polling core logic', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   }, 30000)
 
-  // ── 4. Hard Ceiling（300秒 → 強制タイムアウト）───────────────
-  it('triggers hard ceiling timeout after 300s', async () => {
+  // ── 4. Hard Ceiling（180秒 → 強制タイムアウト）───────────────
+  it('triggers hard ceiling timeout after 180s', async () => {
     getDiscoveryJob.mockImplementation(() => {
       return Promise.resolve({
         status: 'running',
@@ -227,9 +227,9 @@ describe('Discovery — polling core logic', () => {
 
     renderAndSubmit()
 
-    // Advance past 300s hard ceiling
+    // Advance past 180s hard ceiling
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(305000)
+      await vi.advanceTimersByTimeAsync(185000)
     })
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
@@ -436,8 +436,8 @@ describe('Discovery — polling core logic', () => {
     expect(getDiscoveryJob).toHaveBeenCalledWith('/discovery/jobs/job-recovered-1')
   }, 15000)
 
-  // ── 10. 期限切れセッションは無視（300秒超過）─────────────────
-  it('ignores expired sessions (older than 300s)', async () => {
+  // ── 10. 期限切れセッションは無視（180秒超過）─────────────────
+  it('ignores expired sessions (older than 180s)', async () => {
     getDiscoveryJob.mockResolvedValue({
       status: 'completed',
       stage: 'complete',
@@ -449,14 +449,14 @@ describe('Discovery — polling core logic', () => {
       },
     })
 
-    // Set expired active job (startedAt more than 300s ago)
+    // Set expired active job (startedAt more than 180s ago)
     sessionStorage.setItem(
       'is-discovery-active-job',
       JSON.stringify({
         jobId: 'job-expired-1',
         pollUrl: '/discovery/jobs/job-expired-1',
         url: 'https://example.com',
-        startedAt: Date.now() - 301_000,
+        startedAt: Date.now() - 181_000,
       }),
     )
 
@@ -500,6 +500,54 @@ describe('Discovery — polling core logic', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(61000)
     })
+
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getAllByText(/タイムアウト/).length).toBeGreaterThan(0)
+  }, 15000)
+
+  // ── 13. ナビゲーション復帰レジューム（主バグのテスト）────────
+  it('resumes polling when navigating back while loading', async () => {
+    // 1. sessionStorage にアクティブジョブを設定
+    sessionStorage.setItem('is-discovery-active-job', JSON.stringify({
+      jobId: 'job-nav-1',
+      pollUrl: '/discovery/jobs/job-nav-1',
+      url: 'https://example.com',
+      startedAt: Date.now(),
+    }))
+
+    // getDiscoveryJob は running を返す
+    getDiscoveryJob.mockResolvedValue({
+      status: 'running',
+      stage: 'search',
+      progress_pct: 50,
+      updated_at: new Date().toISOString(),
+    })
+
+    // 2. 初回マウント — loading状態でもレジュームされる
+    render(<Discovery />, { wrapper: TestProviders })
+
+    // 3. ポーリングが開始されることを確認
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+    expect(getDiscoveryJob).toHaveBeenCalledWith('/discovery/jobs/job-nav-1')
+  }, 15000)
+
+  // ── 14. ステージ別タイムアウト検知 ────────────────────────────
+  it('detects stage-level timeout when a stage exceeds its limit', async () => {
+    // brand_fetch ステージで65s停止（limit=60s）
+    // mockImplementation で毎回新しい updated_at を返して stale 検知を回避
+    getDiscoveryJob.mockImplementation(() => {
+      return Promise.resolve({
+        status: 'running',
+        stage: 'brand_fetch',
+        progress_pct: 20,
+        updated_at: new Date(Date.now()).toISOString(),
+      })
+    })
+
+    renderAndSubmit()
+
+    // brand_fetch タイムアウト (60s) を超過 — stage starts at T+2s, next tick at T+67s
+    await act(async () => { await vi.advanceTimersByTimeAsync(70000) })
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getAllByText(/タイムアウト/).length).toBeGreaterThan(0)
