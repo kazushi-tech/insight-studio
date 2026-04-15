@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "lint": "eslint src eslint.config.js vite.config.js",
+    "lint": "eslint src eslint.config.js vite.config.js vitest.config.js",
     "preview": "vite preview",
     "prepare": "husky",
     "smoke": "node scripts/smoke-test.mjs",
     "smoke:discovery:rollout:health": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=0",
     "smoke:discovery:rollout:render-probe": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=1 --pause-ms=0 --min-success-count=1",
     "smoke:discovery:rollout:render-5": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=5 --pause-ms=15000 --min-success-count=3",
-    "smoke:discovery:rollout:proxy-5": "node scripts/discovery-render-rollout-check.mjs --mode=proxy --attempts=5 --pause-ms=15000 --min-success-count=3"
+    "smoke:discovery:rollout:proxy-5": "node scripts/discovery-render-rollout-check.mjs --mode=proxy --attempts=5 --pause-ms=15000 --min-success-count=3",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "lint-staged": {
     "*.{js,jsx}": "eslint --max-warnings 0"
@@ -31,6 +34,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -39,8 +45,11 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "husky": "^9.1.7",
+    "jsdom": "^29.0.2",
     "lint-staged": "^16.4.0",
+    "msw": "^2.13.3",
     "vite": "^8.0.1",
+    "vitest": "^4.1.4",
     "ws": "^8.20.0"
   }
 }

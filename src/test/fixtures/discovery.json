@@ -1,0 +1,45 @@
+{
+  "status": "completed",
+  "stage": "complete",
+  "progress_pct": 100,
+  "updated_at": "2026-04-15T00:00:00Z",
+  "result": {
+    "report_md": "# 競合LP発見レポート\n\n## 分析対象\nhttps://example.com\n\n## 業種\nSaaS / マーケティングツール\n\n## 競合サイト一覧\n| サイト | スコア |\n|--------|--------|\n| https://competitor-a.com | 85 |\n| https://competitor-b.com | 72 |\n| https://competitor-c.com | 68 |\n\n## 総合分析\n対象サイトは競合と比較して中程度のスコアです。",
+    "search_id": "search-test-001",
+    "industry": "SaaS",
+    "candidate_count": 10,
+    "analyzed_count": 3,
+    "fetched_sites": [
+      {
+        "url": "https://competitor-a.com",
+        "domain": "competitor-a.com",
+        "title": "Competitor A - Marketing Platform",
+        "description": "Leading marketing automation platform",
+        "score": 85,
+        "og_image_url": null,
+        "analysis_source": "direct"
+      },
+      {
+        "url": "https://competitor-b.com",
+        "domain": "competitor-b.com",
+        "title": "Competitor B - Analytics Tool",
+        "description": "Advanced analytics for marketers",
+        "score": 72,
+        "og_image_url": null,
+        "analysis_source": "direct"
+      },
+      {
+        "url": "https://competitor-c.com",
+        "domain": "competitor-c.com",
+        "title": "Competitor C - Ad Platform",
+        "description": "Programmatic advertising platform",
+        "score": 68,
+        "og_image_url": null,
+        "analysis_source": "direct"
+      }
+    ],
+    "quality_status": "ok",
+    "quality_issues": [],
+    "quality_is_critical": false
+  }
+}
