@@ -471,4 +471,37 @@ describe('Discovery — polling core logic', () => {
     expect(getDiscoveryJob).not.toHaveBeenCalled()
     expect(screen.queryByText(/Should not appear/)).not.toBeInTheDocument()
   }, 15000)
+
+  // ── 11. ウォームアップがタイムアウトした場合のエラー表示 ────────
+  it('shows timeout error when warmup hangs beyond 60s', async () => {
+    // warmMarketLensBackend を永続的に pending な Promise に設定
+    warmMarketLensBackend.mockReturnValue(new Promise(() => {}))
+
+    renderAndSubmit()
+
+    // 60秒進行 → PRE_POLL_TIMEOUT_MS 発動
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61000)
+    })
+
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getAllByText(/タイムアウト/).length).toBeGreaterThan(0)
+  }, 15000)
+
+  // ── 12. ジョブ作成がタイムアウトした場合のエラー表示 ────────────
+  it('shows timeout error when job creation hangs beyond 60s', async () => {
+    // warmup は成功するが、startDiscoveryJob が永続的に pending
+    warmMarketLensBackend.mockResolvedValue(true)
+    startDiscoveryJob.mockReturnValue(new Promise(() => {}))
+
+    renderAndSubmit()
+
+    // 60秒進行 → PRE_POLL_TIMEOUT_MS 発動
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61000)
+    })
+
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getAllByText(/タイムアウト/).length).toBeGreaterThan(0)
+  }, 15000)
 })
