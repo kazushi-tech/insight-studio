@@ -1,0 +1,49 @@
+{
+  "run_id": "scan-test-001",
+  "status": "completed",
+  "overall_score": 78,
+  "scores": {
+    "ux": 82,
+    "conversion": 75,
+    "brand": 80,
+    "trust": 72,
+    "seo": 81
+  },
+  "report_md": "# LP比較レポート\n\n## 総合スコア: 78/100\n\n### UX (82/100)\n操作性が高く、ナビゲーションが明瞭。\n\n### コンバージョン (75/100)\nCTAボタンの配置は適切だが改善の余地あり。\n\n### ブランド (80/100)\nブランドの一貫性が保たれている。\n\n### 信頼性 (72/100)\n顧客の声やレビューの掲載を推奨。\n\n### SEO (81/100)\nメタ情報が適切に設定されている。",
+  "summary": "全体的に良好なスコア。コンバージョンと信頼性の改善を推奨。",
+  "extracted": [
+    {
+      "url": "https://example.com",
+      "title": "Example - Marketing Tool",
+      "meta_description": "Best marketing tool for teams",
+      "og_type": "website",
+      "h1": "Grow Your Business",
+      "hero_copy": "The all-in-one marketing platform",
+      "main_cta": "Start Free Trial",
+      "secondary_ctas": ["Learn More", "Watch Demo"],
+      "pricing_snippet": "From $29/month",
+      "feature_bullets": ["Analytics", "Automation", "Reporting"],
+      "faq_items": [],
+      "testimonials": ["Great tool! - User A"],
+      "body_text_snippet": "Our platform helps teams grow..."
+    },
+    {
+      "url": "https://competitor.com",
+      "title": "Competitor - Ad Platform",
+      "meta_description": "Leading ad platform",
+      "og_type": "website",
+      "h1": "Scale Your Ads",
+      "hero_copy": "Programmatic advertising made easy",
+      "main_cta": "Get Started",
+      "secondary_ctas": ["Pricing"],
+      "pricing_snippet": "Custom pricing",
+      "feature_bullets": ["Targeting", "Optimization"],
+      "faq_items": ["How does it work?"],
+      "testimonials": [],
+      "body_text_snippet": "Scale your advertising..."
+    }
+  ],
+  "quality_status": "ok",
+  "quality_issues": [],
+  "quality_is_critical": false
+}
