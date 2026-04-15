@@ -99,8 +99,17 @@ const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_SOFT_WARNING_MS = 150_000   // ソフト警告のみ — キルしない
-const POLL_HARD_CEILING_MS = 300_000   // 安全弁 — stale 検知の二重保険
+const POLL_HARD_CEILING_MS = 180_000   // 安全弁 — stale 検知の二重保険
 const POLL_STALE_TIMEOUT_MS = 45_000   // ← PRIMARY キル判定（heartbeat 45秒無応答）
+const STAGE_TIMEOUT_MS = {
+  queued: 30_000,            // 30s — キュー停滞は異常
+  brand_fetch: 60_000,       // 60s — ブランド取得は高速であるべき
+  classify_industry: 30_000, // 30s — 分類は軽量
+  search: 90_000,            // 90s — 検索（並列化可能）
+  fetch_competitors: 60_000, // 60s — データ収集
+  analyze: 120_000,          // 120s — hard ceiling(180s)より60s余裕
+  warming: 60_000,           // 60s — warmupは既に別途60s timeoutあり
+}
 const DISCOVERY_AUTO_RESUBMIT_MAX = 2
 
 const STAGE_LABELS = {
@@ -352,7 +361,7 @@ function getActiveJob() {
     const raw = sessionStorage.getItem(DISCOVERY_ACTIVE_JOB_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (Date.now() - parsed.startedAt > 300_000) { clearActiveJob(); return null }
+    if (Date.now() - parsed.startedAt > 180_000) { clearActiveJob(); return null }
     return parsed
   } catch { return null }
 }
@@ -526,6 +535,24 @@ export default function Discovery() {
           }
         }
 
+        // Stage-level timeout detection
+        if (stageTrackRef.current) {
+          const { stage, startTime } = stageTrackRef.current
+          const stageLimit = STAGE_TIMEOUT_MS[stage]
+          if (stageLimit && Date.now() - startTime > stageLimit) {
+            stopPolling()
+            clearActiveJob()
+            const stageLabel = STAGE_LABELS[stage] || stage
+            console.warn('[Discovery] Stage timeout', { stage, elapsed: Date.now() - startTime })
+            failRun('discovery', `${stageLabel}がタイムアウトしました。再試行してください。`, {
+              category: 'timeout', label: `${stageLabel}タイムアウト`,
+              guidance: 'バックエンドの処理が停止した可能性があります。再試行してください。',
+              retryable: true,
+            })
+            return
+          }
+        }
+
         if (data.status === 'completed' && data.result) {
           stopPolling()
           clearActiveJob()
@@ -671,14 +698,27 @@ export default function Discovery() {
 
   // Resume active job on mount (page reload / navigation)
   useEffect(() => {
-    if (loading) return
     const activeJob = getActiveJob()
     if (!activeJob) return
-    console.info('[Discovery] Resuming poll for active job', activeJob.jobId)
-    if (activeJob.url && !url) setUrl(activeJob.url)
-    startRun('discovery', { url: activeJob.url })
-    updateRunMeta('discovery', { stage: 'analyze', statusLabel: '前回のジョブを再開中…', jobId: activeJob.jobId })
-    pollJob(activeJob.jobId, { pollPath: activeJob.pollUrl, resetStartTime: true })
+
+    // loading=true（ナビゲーション復帰）でもポーリングを再開
+    if (!loading) {
+      if (activeJob.url && !url) setUrl(activeJob.url)
+      startRun('discovery', { url: activeJob.url })
+    }
+
+    // ハードコード 'analyze' ではなく最後のステージを継承
+    const currentStage = run?.meta?.stage || 'analyze'
+    updateRunMeta('discovery', {
+      stage: currentStage,
+      statusLabel: '前回のジョブを再開中…',
+      jobId: activeJob.jobId,
+    })
+
+    pollJob(activeJob.jobId, {
+      pollPath: activeJob.pollUrl,
+      resetStartTime: true,
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount only
 
   const handleDiscover = useCallback(async () => {
