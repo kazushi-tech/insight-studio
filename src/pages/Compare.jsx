@@ -352,13 +352,40 @@ export default function Compare() {
     }
 
     try {
-      // Warm up backend — wait for full completion (no timeout race)
       updateRunMeta('compare', { statusLabel: 'サーバー起動待ち…' })
-      const warmResult = await warmMarketLensBackend()
+
+      // ── warmup を 45秒でタイムアウト ──
+      let warmResult
+      try {
+        warmResult = await Promise.race([
+          warmMarketLensBackend(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(Object.assign(
+              new Error('サーバーへの接続がタイムアウトしました。再試行してください。'),
+              { isWarmupTimeout: true }
+            )), 45_000)
+          ),
+        ])
+      } catch (warmErr) {
+        if (warmErr.isWarmupTimeout) {
+          failRun('compare', warmErr.message, {
+            category: 'timeout', label: '接続タイムアウト',
+            guidance: 'サーバーへの接続に時間がかかりすぎました。再試行してください。',
+            retryable: true,
+          })
+        } else {
+          failRun('compare', warmErr.message || 'サーバー起動に失敗しました。', {
+            category: 'cold_start', label: 'サーバー起動失敗',
+            guidance: 'バックエンドが起動できませんでした。', retryable: true,
+          })
+        }
+        return
+      }
       if (!warmResult) {
         failRun('compare', 'サーバー起動に失敗しました。しばらく待って再試行してください。', {
           category: 'cold_start', label: 'サーバー起動失敗',
-          guidance: 'バックエンドが起動できませんでした。ネットワーク接続を確認してください。', retryable: true,
+          guidance: 'バックエンドが起動できませんでした。ネットワーク接続を確認してください。',
+          retryable: true,
         })
         return
       }
