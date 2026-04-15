@@ -703,22 +703,37 @@ export default function Discovery() {
     }
     submitOptionsRef.current = { url, requestOptions }
 
+    const PRE_POLL_TIMEOUT_MS = 60_000 // ウォームアップ + ジョブ作成の合計上限
+
     try {
-      // Phase 1: Warm-up — show warming stage, wait for full completion (no timeout race)
       updateRunMeta('discovery', { stage: 'warming' })
-      const warmResult = await warmMarketLensBackend()
-      if (!warmResult) {
-        failRun('discovery', 'サーバー起動に失敗しました。しばらく待って再試行してください。', {
-          category: 'cold_start', label: 'サーバー起動失敗',
-          guidance: 'バックエンドが起動できませんでした。ネットワーク接続を確認してください。', retryable: true,
-        })
-        return
-      }
 
-      // Phase 2: Submit job — warm-up time excluded from poll timeout
-      updateRunMeta('discovery', { stage: 'queued', warmEndedAt: Date.now() })
+      // ── ウォームアップ + ジョブ作成を 60秒でタイムアウト ──
+      console.info('[Discovery] warmup starting...')
+      const data = await Promise.race([
+        (async () => {
+          const warmResult = await warmMarketLensBackend()
+          console.info('[Discovery] warmup result:', warmResult)
+          if (!warmResult) {
+            throw Object.assign(new Error('サーバー起動に失敗しました'), {
+              isPrePollTimeout: false,
+              category: 'cold_start',
+            })
+          }
+          updateRunMeta('discovery', { stage: 'queued', warmEndedAt: Date.now() })
 
-      const data = await startDiscoveryJob(url, requestOptions)
+          console.info('[Discovery] submitting job...')
+          const jobData = await startDiscoveryJob(url, requestOptions)
+          console.info('[Discovery] job started:', jobData.job_id)
+          return jobData
+        })(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(Object.assign(
+            new Error('サーバーへの接続がタイムアウトしました。再試行してください。'),
+            { isPrePollTimeout: true }
+          )), PRE_POLL_TIMEOUT_MS)
+        ),
+      ])
 
       updateRunMeta('discovery', {
         jobId: data.job_id,
@@ -737,11 +752,24 @@ export default function Discovery() {
         pollIntervalMs: data.retry_after_sec,
       })
     } catch (e) {
-      const info = classifyError(e)
-      if (e.stage) {
-        info.label = `${info.label}（${e.stage}）`
+      if (e.isPrePollTimeout) {
+        failRun('discovery', e.message, {
+          category: 'timeout', label: '接続タイムアウト',
+          guidance: 'サーバーへの接続に60秒以上かかりました。再試行してください。',
+          retryable: true,
+        })
+      } else if (e.category === 'cold_start') {
+        failRun('discovery', e.message, {
+          category: 'cold_start', label: 'サーバー起動失敗',
+          guidance: 'バックエンドが起動できませんでした。', retryable: true,
+        })
+      } else {
+        const info = classifyError(e)
+        if (e.stage) {
+          info.label = `${info.label}（${e.stage}）`
+        }
+        failRun('discovery', e.message, info)
       }
-      failRun('discovery', e.message, info)
     }
   }, [url, analysisKey, analysisProvider, providerLabel, startRun, updateRunMeta, failRun, stopPolling, pollJob])
 
