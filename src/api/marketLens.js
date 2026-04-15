@@ -395,7 +395,7 @@ async function requestDiscoveryJobWithRetry(payload) {
         timeout: 30000,
         direct: true,
         directStrategy: attempt === 0 ? 'optimistic' : 'verified',
-        allowProxyFallback: true,
+        allowProxyFallback: false,
       })
     } catch (error) {
       lastError = error
@@ -587,7 +587,7 @@ async function ensureDirectBackend() {
       try {
         const res = await fetch(`${DIRECT_BACKEND_BASE}/health`, {
           method: 'GET',
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(10000),
         })
         if (res.ok) {
           _directBackendReady = true
