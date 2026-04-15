@@ -68,7 +68,7 @@ describe('Compare — timeout triggers error / recovery flow', () => {
       () => {
         expect(screen.getByRole('alert')).toBeInTheDocument()
       },
-      { timeout: 30000 },
+      { timeout: 10000 },
     )
 
     // The error banner should contain a retry button

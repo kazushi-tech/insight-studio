@@ -130,7 +130,7 @@ describe('Compare — happy path scan', () => {
         const matches = screen.getAllByText('78')
         expect(matches.length).toBeGreaterThanOrEqual(1)
       },
-      { timeout: 12000 },
+      { timeout: 10000 },
     )
 
     // Markdown report is rendered
