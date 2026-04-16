@@ -8,6 +8,7 @@ Python keeps module objects alive as long as something holds a reference.
 """
 
 import asyncio
+import json as _json
 import sys
 from pathlib import Path
 
@@ -47,6 +48,49 @@ async def _run_handlers(handlers):
             await result
 
 
+# ── Temporary BQ debug endpoint (remove after fix) ──
+async def _bq_debug_response(scope, receive, send):
+    """Test BQ imports in the SAME context as ads_app route handlers."""
+    import traceback
+    results = {}
+
+    # Test 1: Direct import (same as dispatcher diagnostic)
+    try:
+        from bq.client import run_query, PROJECT_ID
+        results["direct_bq_import"] = f"OK (PROJECT_ID={PROJECT_ID})"
+    except ImportError as e:
+        results["direct_bq_import"] = f"FAIL: {e}"
+        results["direct_traceback"] = traceback.format_exc()
+
+    # Test 2: Import via the _ads aliased module path
+    mod = sys.modules.get("_ads.web.app.backend_api")
+    if mod:
+        results["backend_api_module"] = f"Found at {mod.__file__}"
+    else:
+        results["backend_api_module"] = "NOT IN sys.modules"
+
+    # Test 3: Check if bq is reachable from current sys.path
+    results["sys_path_ads_entries"] = [p for p in sys.path if "ads" in p.lower()]
+
+    # Test 4: Check bq in sys.modules
+    results["bq_modules"] = [k for k in sys.modules if k.startswith("bq")]
+
+    # Test 5: bq.queries (used by query_types endpoint)
+    try:
+        from bq.queries import list_query_types
+        types = list_query_types()
+        results["bq_queries"] = f"OK ({len(types)} types)"
+    except ImportError as e:
+        results["bq_queries"] = f"FAIL: {e}"
+        results["bq_queries_traceback"] = traceback.format_exc()
+
+    body = _json.dumps(results, indent=2).encode()
+    await send({"type": "http.response.start", "status": 200,
+                "headers": [[b"content-type", b"application/json"],
+                            [b"content-length", str(len(body)).encode()]]})
+    await send({"type": "http.response.body", "body": body})
+
+
 class PrefixDispatcher:
     """
     /api/ml/*  -> ml_app  (strip "/ml", keep "/api")
@@ -58,6 +102,13 @@ class PrefixDispatcher:
         if scope["type"] == "lifespan":
             await self._handle_lifespan(scope, receive, send)
             return
+
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            # ── Temporary debug (remove after BQ fix) ──
+            if path == "/api/ads/debug/bq":
+                await _bq_debug_response(scope, receive, send)
+                return
 
         if scope["type"] in ("http", "websocket"):
             path = scope.get("path", "")
