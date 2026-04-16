@@ -96,4 +96,63 @@ class PrefixDispatcher:
                 return
 
 
+# ── Diagnostic endpoint (temporary — remove after BQ issue is resolved) ──
+from fastapi import APIRouter
+
+_diag = APIRouter()
+
+@_diag.get("/api/bq/debug/bq-import")
+async def debug_bq_import():
+    import sys
+    results = {}
+
+    # sys.path チェック
+    results["sys_path_ads"] = [p for p in sys.path if "ads" in p.lower()]
+    results["sys_path_full"] = list(sys.path)
+
+    # __file__ チェック for backend_api
+    try:
+        from _ads.web.app.backend_api import BASE_DIR
+        results["backend_api_base_dir"] = str(BASE_DIR)
+    except Exception as e:
+        results["backend_api_base_dir"] = f"FAIL: {e}"
+
+    # pandas インポート
+    try:
+        import pandas
+        results["pandas"] = f"OK ({pandas.__version__})"
+    except ImportError as e:
+        results["pandas"] = f"FAIL: {e}"
+
+    # google.cloud.bigquery インポート
+    try:
+        from google.cloud import bigquery
+        results["bigquery"] = f"OK ({bigquery.__version__})"
+    except ImportError as e:
+        results["bigquery"] = f"FAIL: {e}"
+
+    # bq.auth チェック
+    try:
+        from bq.auth import is_bq_available
+        results["bq_auth_available"] = is_bq_available()
+    except Exception as e:
+        results["bq_auth_available"] = f"FAIL: {e}"
+
+    # bq.client インポート (full traceback)
+    try:
+        from bq.client import run_query
+        results["bq_client"] = "OK"
+    except ImportError as e:
+        import traceback
+        results["bq_client"] = f"FAIL: {e}"
+        results["bq_client_traceback"] = traceback.format_exc()
+
+    # bq module in sys.modules
+    results["bq_in_sys_modules"] = [k for k in sys.modules if k.startswith("bq")]
+
+    return results
+
+ads_app.include_router(_diag)
+
+
 app = PrefixDispatcher()
