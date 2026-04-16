@@ -100,7 +100,7 @@ const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_SOFT_WARNING_MS = 150_000   // ソフト警告のみ — キルしない
 const POLL_HARD_CEILING_MS = 180_000   // 安全弁 — stale 検知の二重保険
-const POLL_STALE_TIMEOUT_MS = 45_000   // ← PRIMARY キル判定（heartbeat 45秒無応答）
+const POLL_STALE_TIMEOUT_MS = 90_000   // ← PRIMARY キル判定（heartbeat 90秒無応答 — バックエンド10s間隔に対して余裕あり）
 const STAGE_TIMEOUT_MS = {
   queued: 30_000,            // 30s — キュー停滞は異常
   brand_fetch: 60_000,       // 60s — ブランド取得は高速であるべき
