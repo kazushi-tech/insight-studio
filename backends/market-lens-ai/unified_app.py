@@ -59,18 +59,6 @@ class PrefixDispatcher:
             await self._handle_lifespan(scope, receive, send)
             return
 
-        if scope["type"] == "http":
-            path = scope.get("path", "")
-            # ── Temporary diagnostic (remove after BQ fix) ──
-            if path == "/api/ads/debug/bq-import":
-                import json as _json
-                body = _json.dumps(_debug_bq_import()).encode()
-                await send({"type": "http.response.start", "status": 200,
-                            "headers": [[b"content-type", b"application/json"],
-                                        [b"content-length", str(len(body)).encode()]]})
-                await send({"type": "http.response.body", "body": body})
-                return
-
         if scope["type"] in ("http", "websocket"):
             path = scope.get("path", "")
             if path.startswith("/api/ml/") or path == "/api/ml":
@@ -106,49 +94,6 @@ class PrefixDispatcher:
                 await _run_handlers(ads_app.router.on_shutdown)
                 await send({"type": "lifespan.shutdown.complete"})
                 return
-
-
-def _debug_bq_import():
-    """Temporary diagnostic — returns JSON dict about BQ import state."""
-    import traceback
-    results = {}
-    results["sys_path_ads"] = [p for p in sys.path if "ads" in p.lower()]
-
-    try:
-        from _ads.web.app.backend_api import BASE_DIR
-        results["backend_api_base_dir"] = str(BASE_DIR)
-    except Exception as e:
-        results["backend_api_base_dir"] = f"FAIL: {e}"
-
-    try:
-        import pandas
-        results["pandas"] = f"OK ({pandas.__version__})"
-    except ImportError as e:
-        results["pandas"] = f"FAIL: {e}"
-
-    try:
-        from google.cloud import bigquery
-        results["bigquery"] = f"OK ({bigquery.__version__})"
-    except ImportError as e:
-        results["bigquery"] = f"FAIL: {e}"
-        results["bigquery_traceback"] = traceback.format_exc()
-
-    try:
-        from bq.auth import is_bq_available
-        results["bq_auth_available"] = is_bq_available()
-    except Exception as e:
-        results["bq_auth_available"] = f"FAIL: {e}"
-
-    try:
-        from bq.client import run_query
-        results["bq_client"] = "OK"
-    except ImportError as e:
-        results["bq_client"] = f"FAIL: {e}"
-        results["bq_client_traceback"] = traceback.format_exc()
-
-    results["bq_in_sys_modules"] = [k for k in sys.modules if k.startswith("bq")]
-    results["google_in_sys_modules"] = [k for k in sys.modules if k.startswith("google")]
-    return results
 
 
 app = PrefixDispatcher()
