@@ -2568,12 +2568,14 @@ async def api_cases_login(request: Request):
 
     try:
         if bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8")):
+            token = _generate_auth_token()
             return _json({
                 "ok": True,
                 "case_id": case["case_id"],
                 "name": case.get("name", case["case_id"]),
                 "dataset_id": case.get("dataset_id", ""),
-                "description": case.get("description", "")
+                "description": case.get("description", ""),
+                "token": token
             })
         else:
             return _json({"ok": False, "error": "パスワードが正しくありません"}, status=401)
