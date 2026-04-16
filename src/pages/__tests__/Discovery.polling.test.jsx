@@ -132,8 +132,8 @@ describe('Discovery — polling core logic', () => {
     expect(getDiscoveryJob).toHaveBeenCalledTimes(3)
   }, 15000)
 
-  // ── 2. Stale 検知（45秒 heartbeat 無変更 → タイムアウト）────
-  it('detects stale job when updated_at does not change for 45s', async () => {
+  // ── 2. Stale 検知（90秒 heartbeat 無変更 → タイムアウト）────
+  it('detects stale job when updated_at does not change for 90s', async () => {
     const fixedTimestamp = '2026-01-01T00:00:00.000Z'
     getDiscoveryJob.mockResolvedValue({
       status: 'running',
@@ -144,10 +144,10 @@ describe('Discovery — polling core logic', () => {
 
     renderAndSubmit()
 
-    // Advance past stale timeout (45s) — staleStart is set at 2nd poll (~T+4s),
-    // so stale triggers when Date.now() - staleStart > 45s → ~T+50s
+    // Advance past stale timeout (90s) — staleStart is set at 2nd poll (~T+4s),
+    // so stale triggers when Date.now() - staleStart > 90s → ~T+95s
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(52000)
+      await vi.advanceTimersByTimeAsync(97000)
     })
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
