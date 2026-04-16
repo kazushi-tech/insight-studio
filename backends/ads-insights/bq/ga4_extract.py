@@ -6,16 +6,29 @@ ExtractResult / ExtractMeta 形式に変換する。
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# generate_reports.py を import するためにプロジェクトルートを追加
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_PROJECT_ROOT))
+from dataclasses import dataclass
+from typing import Dict, Optional
 
 import pandas as pd
 
-from generate_reports import ExtractResult, ExtractMeta
+
+@dataclass
+class ExtractMeta:
+    """抽出メタ情報"""
+    file: str
+    sheet: str
+    method: str  # "table" or "cells" or "bigquery"
+    refs: Dict[str, str]
+    rows: int
+    cols: int
+
+
+@dataclass
+class ExtractResult:
+    """KPI抽出結果"""
+    kpis: Dict[str, Optional[float]]
+    meta: ExtractMeta
+    key_totals: Dict[str, Optional[float]]
 
 
 def ga4_to_extract_result(
@@ -60,8 +73,6 @@ def ga4_to_extract_result(
         refs={},
         rows=len(df),
         cols=len(df.columns),
-        period=_detect_period(df),
-        section=None,
     )
 
     key_totals = {
