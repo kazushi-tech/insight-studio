@@ -6,12 +6,10 @@ const proxy = {
   '/api/ml': {
     target: 'http://localhost:8002',
     changeOrigin: true,
-    rewrite: (path) => path.replace(/^\/api\/ml/, '/api'),
   },
   '/api/ads': {
-    target: 'http://localhost:8001',
+    target: 'http://localhost:8002',
     changeOrigin: true,
-    rewrite: (path) => path.replace(/^\/api\/ads/, '/api'),
   },
 }
 

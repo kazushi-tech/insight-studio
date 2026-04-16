@@ -19,5 +19,5 @@ else
     echo "=== Stamped head successfully ==="
 fi
 
-echo "=== Starting uvicorn ==="
-exec uvicorn web.app.main:app --host 0.0.0.0 --port "$PORT"
+echo "=== Starting unified uvicorn ==="
+exec uvicorn unified_app:app --host 0.0.0.0 --port "$PORT"

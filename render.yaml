@@ -5,8 +5,9 @@ services:
     rootDir: backends/market-lens-ai
     buildCommand: pip install -r requirements.txt
     startCommand: bash start.sh
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ml/health
     envVars:
+      # --- market-lens-ai 設定 ---
       # Staging 用の設定変更
       - key: GEMINI_ANALYSIS_MODEL
         value: gemini-3-flash-preview
@@ -53,18 +54,7 @@ services:
         value: "4"
       - key: ANTHROPIC_DISCOVERY_FALLBACK_MODEL
         value: "claude-haiku-4-5-20251001"
-
-  - type: web
-    name: ads-insights
-    runtime: python
-    rootDir: backends/ads-insights
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn web.app.backend_api:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 300
-    healthCheckPath: /api/health
-    envVars:
-      # Render Dashboard で設定する項目 (sync: false)
-      - key: GEMINI_API_KEY
-        sync: false
+      # --- ads-insights 設定 (統合) ---
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
       - key: APP_PASSWORD
@@ -75,17 +65,12 @@ services:
         sync: false
       - key: IMAGE_API_KEY
         sync: false
-      # デフォルト値
       - key: DATA_PROVIDER
         value: ga4
       - key: ANALYSIS_MODEL
         value: gemini-flash
       - key: GEMINI_MODEL
         value: gemini-2.5-flash
-      - key: GEMINI_TEMPERATURE
-        value: "0.2"
-      - key: GEMINI_MAX_OUTPUT_TOKENS
-        value: "4096"
       - key: GCP_PROJECT_ID
         value: analyzedataplatform
       - key: RATE_LIMIT_MAX

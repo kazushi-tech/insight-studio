@@ -1,5 +1,5 @@
 const BASE = '/api/ads'
-const ADS_DIRECT_BASE = 'https://ads-insights-9q5s.onrender.com/api'
+const ADS_DIRECT_BASE = 'https://market-lens-ai.onrender.com/api/ads'
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 

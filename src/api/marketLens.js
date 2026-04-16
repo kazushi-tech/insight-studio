@@ -12,12 +12,12 @@ function isLocalBrowserOrigin() {
 const SHOULD_FORCE_PROXY = isLocalBrowserOrigin()
 const BASE = SHOULD_FORCE_PROXY || !DIRECT_MARKET_LENS_ORIGIN
   ? '/api/ml'
-  : `${DIRECT_MARKET_LENS_ORIGIN}/api`
+  : `${DIRECT_MARKET_LENS_ORIGIN}/api/ml`
 // Vercel rewrite proxy has a ~60s hard timeout. Long-running endpoints
 // (discovery/analyze, scan) must bypass the proxy and hit Render directly.
 const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
-  ? `${DIRECT_MARKET_LENS_ORIGIN}/api`
-  : 'https://market-lens-ai.onrender.com/api'
+  ? `${DIRECT_MARKET_LENS_ORIGIN}/api/ml`
+  : 'https://market-lens-ai.onrender.com/api/ml'
 const LONG_ANALYSIS_TIMEOUT = 240000
 const CREATIVE_UPLOAD_TIMEOUT = 90000
 const DISCOVERY_AUTO_RETRY_COUNT = 2
