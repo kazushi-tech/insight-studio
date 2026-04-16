@@ -4,7 +4,7 @@ services:
     runtime: python
     rootDir: backends/market-lens-ai
     buildCommand: pip install -r requirements.txt
-    startCommand: bash -c "alembic upgrade head && exec uvicorn web.app.main:app --host 0.0.0.0 --port $PORT"
+    startCommand: bash start.sh
     healthCheckPath: /api/health
     envVars:
       # Staging 用の設定変更
