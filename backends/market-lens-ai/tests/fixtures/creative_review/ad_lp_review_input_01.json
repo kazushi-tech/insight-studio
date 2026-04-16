@@ -1,0 +1,23 @@
+{
+  "fixture_id": "ad_lp_01",
+  "description": "EC セールバナー → セール LP。メッセージ一致パターン",
+  "review_type": "ad_lp_review",
+  "asset": {
+    "asset_id": "a1b2c3d4e5f6",
+    "file_name": "ec_sale_banner_300x250.png",
+    "mime_type": "image/png",
+    "width": 300,
+    "height": 250
+  },
+  "landing_page": {
+    "url": "https://example-shop.co.jp/summer-sale",
+    "title": "夏の大セール | MONOSTORE - 最大50%OFF",
+    "meta_description": "人気アイテムが最大50%OFF。期間限定の夏セール開催中",
+    "first_view_text": "夏の大セール 最大50%OFF 期間限定",
+    "cta_text": "セール会場へ",
+    "extracted_benefits": ["最大50%OFF", "送料無料", "期間限定"],
+    "trust_elements": ["会員数100万人突破", "レビュー評価4.5"]
+  },
+  "brand_info": "オンラインショップ「MONOSTORE」、ターゲット: 20-40代女性",
+  "operator_memo": "バナーとLPの訴求が一致しているか確認したい"
+}

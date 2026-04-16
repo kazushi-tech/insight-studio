@@ -1,0 +1,23 @@
+{
+  "fixture_id": "ad_lp_03",
+  "description": "転職バナー → 求人一覧 LP。ターゲット一致・CTA 不一致パターン",
+  "review_type": "ad_lp_review",
+  "asset": {
+    "asset_id": "d4e5f6a7b8c9",
+    "file_name": "job_recruiting_300x250.png",
+    "mime_type": "image/png",
+    "width": 300,
+    "height": 250
+  },
+  "landing_page": {
+    "url": "https://careernext.example.com/it-jobs",
+    "title": "IT エンジニア求人一覧 | CareerNEXT",
+    "meta_description": "年収800万円以上のITエンジニア求人を多数掲載。非公開求人あり",
+    "first_view_text": "IT エンジニア転職 年収800万円以上の厳選求人",
+    "cta_text": "求人を見る",
+    "extracted_benefits": ["年収800万円以上", "非公開求人", "専任コンサルタント"],
+    "trust_elements": ["転職成功率98%", "利用者満足度No.1"]
+  },
+  "brand_info": "転職エージェント「CareerNEXT」、ターゲット: 25-35歳 IT エンジニア",
+  "operator_memo": "バナーの CTA が「今すぐ相談」だが LP は求人一覧。導線の整合を見てほしい"
+}

@@ -1,0 +1,21 @@
+{
+  "_comment": "スキャン対象ドメインの allowlist。config/domain_allowlist.json にコピーして使用。",
+  "_fields": {
+    "domain": "対象ドメイン（サブドメインも自動マッチ）",
+    "label": "表示用ラベル",
+    "allowed": "true でスキャン許可",
+    "robots_checked": "robots.txt 確認済みフラグ",
+    "tos_checked": "利用規約確認済みフラグ",
+    "notes": "運用メモ"
+  },
+  "domains": [
+    {
+      "domain": "example.com",
+      "label": "Example",
+      "allowed": true,
+      "robots_checked": false,
+      "tos_checked": false,
+      "notes": "テンプレート用エントリ。実際のドメインに置き換えてください。"
+    }
+  ]
+}

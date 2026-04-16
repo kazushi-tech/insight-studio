@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_10",
+  "description": "BtoB 展示会の集客バナー。イベント情報、登録訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "d0e1f2a3b4c5",
+    "file_name": "btob_event_728x90.png",
+    "mime_type": "image/png",
+    "width": 728,
+    "height": 90
+  },
+  "brand_info": "IT 展示会「DX Summit 2026」、ターゲット: IT 部門責任者・CTO、ブランドカラー: 黒×シアン",
+  "operator_memo": "事前登録の促進。業界の著名スピーカーを訴求に使いたい"
+}

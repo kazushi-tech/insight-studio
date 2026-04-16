@@ -1,0 +1,166 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Expected Review Shape Validation",
+  "description": "review output の shape 検証用 fixture。テストはこの定義に対して jsonschema validate を実行する。",
+  "type": "object",
+  "required": [
+    "review_type",
+    "summary",
+    "good_points",
+    "improvements",
+    "evidence",
+    "target_hypothesis",
+    "message_angle",
+    "rubric_scores"
+  ],
+  "properties": {
+    "review_type": {
+      "type": "string",
+      "enum": ["banner_review", "ad_lp_review"]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "product_identification": {
+      "type": "string"
+    },
+    "good_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["point", "reason"],
+        "properties": {
+          "point": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "keep_as_is": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["point", "reason"],
+        "properties": {
+          "point": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["point", "reason", "action"],
+        "properties": {
+          "point": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "action": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "test_ideas": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["hypothesis", "variable", "expected_impact"],
+        "properties": {
+          "hypothesis": { "type": "string", "minLength": 1 },
+          "variable": { "type": "string", "minLength": 1 },
+          "expected_impact": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["evidence_type", "evidence_source", "evidence_text"],
+        "properties": {
+          "evidence_type": {
+            "type": "string",
+            "enum": [
+              "client_material",
+              "approved_proposal",
+              "winning_creative",
+              "competitor_public",
+              "platform_guideline"
+            ]
+          },
+          "evidence_source": { "type": "string", "minLength": 1 },
+          "evidence_text": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "target_hypothesis": {
+      "type": "string",
+      "minLength": 1
+    },
+    "message_angle": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rubric_scores": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["rubric_id", "score", "comment"],
+        "properties": {
+          "rubric_id": { "type": "string", "minLength": 1 },
+          "score": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "comment": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "_rubric_contract": {
+    "description": "Runtime source of truth: review_prompt_builder.py の BANNER_RUBRIC_IDS / LP_RUBRIC_IDS。review_output_validator.py が completeness + membership を検証。この fixture は shape 検証用であり、rubric ID enum / cardinality の enforcement は review-output.schema.json の if/then 分岐と runtime validator が担う。fixture 単体は strict enforcement layer ではない。",
+    "banner_review_rubric_ids": [
+      "visual_impact", "message_clarity", "cta_effectiveness",
+      "brand_consistency", "information_balance"
+    ],
+    "ad_lp_review_rubric_ids": [
+      "first_view_clarity", "ad_to_lp_message_match", "benefit_clarity", "trust_elements",
+      "cta_placement", "drop_off_risk", "input_friction", "story_consistency"
+    ]
+  },
+  "_examples": {
+    "valid_banner_review": {
+      "review_type": "banner_review",
+      "summary": "EC セールバナーとして基本的な訴求力を備えているが、視線誘導と CTA の改善余地がある",
+      "product_identification": "MONOSTORE ECセール — 50%OFFキャンペーンバナー",
+      "good_points": [
+        { "point": "50%OFF の数字訴求が目立つ", "reason": "赤背景に白文字で割引率が視認しやすい" }
+      ],
+      "keep_as_is": [],
+      "improvements": [
+        { "point": "CTA ボタンが小さい", "reason": "300x250 サイズに対して CTA が目立たない", "action": "CTA ボタンを 20% 拡大し、コントラストを上げる" }
+      ],
+      "test_ideas": [],
+      "evidence": [
+        { "evidence_type": "client_material", "evidence_source": "MONOSTORE ブランドガイドライン v2.1", "evidence_text": "メインカラーは赤 #E53E3E、サブカラーは白 #FFFFFF" }
+      ],
+      "target_hypothesis": "20-40代の女性で、セール情報に敏感なオンラインショッピング利用者",
+      "message_angle": "期間限定の大幅値引きによるお得感訴求",
+      "rubric_scores": [
+        { "rubric_id": "visual_impact", "score": 4, "comment": "50%OFF の数字が目を引く" },
+        { "rubric_id": "message_clarity", "score": 3, "comment": "女性向けは推測できるが明示されていない" },
+        { "rubric_id": "cta_effectiveness", "score": 2, "comment": "CTA ボタンが小さく見落としやすい" },
+        { "rubric_id": "brand_consistency", "score": 5, "comment": "赤×白のブランドカラーが統一されている" },
+        { "rubric_id": "information_balance", "score": 4, "comment": "300x250 に適切な情報量" }
+      ]
+    }
+  }
+}

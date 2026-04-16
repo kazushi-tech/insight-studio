@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_02",
+  "description": "SaaS プロダクトのリード獲得バナー。青基調、無料トライアル訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "b2c3d4e5f6a7",
+    "file_name": "saas_trial_banner_728x90.png",
+    "mime_type": "image/png",
+    "width": 728,
+    "height": 90
+  },
+  "brand_info": "クラウド会計ソフト「SmartBooks」、ターゲット: 中小企業経営者、ブランドカラー: 青×白",
+  "operator_memo": "新規リード獲得用。競合の freee と差別化したい"
+}

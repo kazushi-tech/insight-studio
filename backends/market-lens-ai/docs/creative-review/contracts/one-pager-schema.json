@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "one-pager-schema.json",
+  "title": "One-Pager Sections",
+  "description": "クライアント提出用 1 枚資料のセクション構造。review output の one_pager_sections フィールドに対応。",
+  "type": "object",
+  "required": [
+    "header",
+    "good_points",
+    "keep_as_is",
+    "improvements",
+    "test_ideas",
+    "evidence_sources"
+  ],
+  "properties": {
+    "header": {
+      "type": "object",
+      "required": ["title", "subtitle", "review_date"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "資料タイトル"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "サブタイトル（ブランド名やキャンペーン名）"
+        },
+        "review_date": {
+          "type": "string",
+          "format": "date",
+          "description": "レビュー実施日（YYYY-MM-DD）"
+        }
+      },
+      "additionalProperties": false
+    },
+    "good_points": {
+      "type": "object",
+      "required": ["heading", "items"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "default": "良い点"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "keep_as_is": {
+      "type": "object",
+      "required": ["heading", "items"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "default": "守るべき点"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "improvements": {
+      "type": "object",
+      "required": ["heading", "items"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "default": "改善提案"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["point", "action"],
+            "properties": {
+              "point": {
+                "type": "string",
+                "minLength": 1
+              },
+              "action": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "test_ideas": {
+      "type": "object",
+      "required": ["heading", "items"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "default": "次に試すテスト案"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["hypothesis", "variable"],
+            "properties": {
+              "hypothesis": {
+                "type": "string",
+                "minLength": 1
+              },
+              "variable": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence_sources": {
+      "type": "object",
+      "required": ["heading", "items"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "default": "根拠・出典"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["evidence_type", "evidence_source"],
+            "properties": {
+              "evidence_type": {
+                "type": "string",
+                "enum": [
+                  "client_material",
+                  "approved_proposal",
+                  "winning_creative",
+                  "competitor_public",
+                  "platform_guideline"
+                ]
+              },
+              "evidence_source": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

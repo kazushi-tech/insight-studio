@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_09",
+  "description": "スマホゲームのインストール促進バナー。キャラクター訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "c9d0e1f2a3b4",
+    "file_name": "game_install_320x480.png",
+    "mime_type": "image/png",
+    "width": 320,
+    "height": 480
+  },
+  "brand_info": "RPG ゲーム「勇者クロニクル」、ターゲット: 18-30代のゲーマー、ブランドカラー: 紫×金",
+  "operator_memo": "新イベント告知。インストール単価を下げたい"
+}

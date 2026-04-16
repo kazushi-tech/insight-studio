@@ -1,0 +1,17 @@
+{
+  "allowed_source_types": [
+    "official_site",
+    "ad_library",
+    "manual_import"
+  ],
+  "blocked_domains": [
+    "facebook.com",
+    "instagram.com",
+    "twitter.com",
+    "x.com",
+    "tiktok.com"
+  ],
+  "max_entries_per_watchlist": 50,
+  "min_check_interval_hours": 1,
+  "notes": "Only public sources and manual imports are allowed. Social media scraping is prohibited."
+}

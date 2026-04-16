@@ -1,0 +1,23 @@
+{
+  "fixture_id": "ad_lp_02",
+  "description": "SaaS 無料トライアルバナー → 機能紹介 LP。メッセージ不一致パターン",
+  "review_type": "ad_lp_review",
+  "asset": {
+    "asset_id": "b2c3d4e5f6a7",
+    "file_name": "saas_trial_banner_728x90.png",
+    "mime_type": "image/png",
+    "width": 728,
+    "height": 90
+  },
+  "landing_page": {
+    "url": "https://smartbooks.example.com/features",
+    "title": "SmartBooks の機能紹介 | クラウド会計ソフト",
+    "meta_description": "SmartBooks は中小企業向けクラウド会計ソフトです。豊富な機能をご紹介",
+    "first_view_text": "SmartBooks の主要機能 簿記知識がなくても使える",
+    "cta_text": "詳しく見る",
+    "extracted_benefits": ["自動仕訳", "銀行連携", "確定申告対応"],
+    "trust_elements": ["導入企業5万社", "サポート満足度95%"]
+  },
+  "brand_info": "クラウド会計ソフト「SmartBooks」、ターゲット: 中小企業経営者",
+  "operator_memo": "バナーは無料トライアル訴求だが LP が機能紹介ページに飛んでいる。ミスマッチの可能性"
+}

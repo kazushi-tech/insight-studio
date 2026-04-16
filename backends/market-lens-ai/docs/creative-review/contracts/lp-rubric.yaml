@@ -1,0 +1,87 @@
+# LP (Landing Page) Review Rubric
+# glossary.md の rubric_id / score / comment 定義に準拠
+# review-output.schema.json の rubric_scores で使用
+# ad_lp_review 時に使用。ad_to_lp_message_match を必ず含む
+
+rubric_type: ad_lp_review
+
+items:
+  - rubric_id: first_view_clarity
+    label: First View の Message Clarity
+    description: ファーストビューでメッセージが明確に伝わるか
+    scoring_guide:
+      1: 何のページかわからない
+      2: メッセージが曖昧で複数解釈が可能
+      3: メッセージは理解できるが訴求が弱い
+      4: メッセージが明確に伝わる
+      5: 一瞬で価値提案が伝わり、読み進めたくなる
+
+  - rubric_id: ad_to_lp_message_match
+    label: 広告と LP のメッセージ一致度
+    description: 広告（バナー/広告文）の promise と LP の内容が一致しているか
+    scoring_guide:
+      1: 広告と LP のメッセージが完全に不一致
+      2: 部分的に関連するが promise のズレが大きい
+      3: 概ね一致するが表現のトーンにズレがある
+      4: メッセージが一致し、期待通りの内容が展開される
+      5: 広告の promise が LP で完璧に展開・補強されている
+
+  - rubric_id: benefit_clarity
+    label: ベネフィットの明確さ
+    description: ユーザーが得られる具体的なベネフィットが伝わるか
+    scoring_guide:
+      1: ベネフィットが読み取れない
+      2: 機能説明のみでベネフィットが不明瞭
+      3: ベネフィットはあるが具体性に欠ける
+      4: 具体的なベネフィットが明確に伝わる
+      5: ベネフィットが数値やビフォーアフターで説得力高く提示される
+
+  - rubric_id: trust_elements
+    label: 信頼材料
+    description: 信頼を高める材料（実績、推薦、レビュー、認証等）が配置されているか
+    scoring_guide:
+      1: 信頼材料がない
+      2: 信頼材料が不十分
+      3: 基本的な信頼材料がある
+      4: 十分な信頼材料が適切に配置されている
+      5: 信頼材料が豊富で、第三者検証を含む
+
+  - rubric_id: cta_placement
+    label: CTA 配置
+    description: CTA の位置、頻度、デザインが適切か
+    scoring_guide:
+      1: CTA がない、または発見困難
+      2: CTA はあるが位置やデザインが不適切
+      3: CTA は機能するが最適化の余地あり
+      4: CTA が適切に配置され、自然に目に入る
+      5: ファーストビューと中間・末尾に最適配置、デザインも秀逸
+
+  - rubric_id: drop_off_risk
+    label: 離脱要因
+    description: ユーザーが離脱する要因（読み込み速度、情報過多、不安要素等）がないか
+    scoring_guide:
+      1: 複数の重大な離脱要因がある
+      2: 明確な離脱要因が 1-2 件ある
+      3: 軽微な離脱要因がある
+      4: 目立つ離脱要因がない
+      5: 離脱防止が徹底されている
+
+  - rubric_id: input_friction
+    label: 入力摩擦
+    description: フォーム入力や申込の摩擦が最小化されているか
+    scoring_guide:
+      1: フォームが長い・わかりにくい・エラー処理が悪い
+      2: 入力項目が多い、または UX に問題がある
+      3: 基本的な UX は確保されているが改善余地あり
+      4: 入力がスムーズで摩擦が少ない
+      5: 入力が最小限で、プログレス表示や自動補完が効いている
+
+  - rubric_id: story_consistency
+    label: 一貫したストーリー性
+    description: LP 全体を通して一貫したストーリーが展開されているか
+    scoring_guide:
+      1: セクション間の関連性がなくバラバラ
+      2: 部分的にストーリーはあるが全体の流れが弱い
+      3: 基本的なストーリーはあるが中盤で弱くなる
+      4: 一貫したストーリーで読者を導いている
+      5: 起承転結が明確で、最後まで引き込むストーリー

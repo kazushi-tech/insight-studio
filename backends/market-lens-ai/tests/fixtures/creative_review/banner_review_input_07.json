@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_07",
+  "description": "オンライン英会話のリターゲティングバナー。体験レッスン訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "a7b8c9d0e1f2",
+    "file_name": "english_retargeting_336x280.png",
+    "mime_type": "image/png",
+    "width": 336,
+    "height": 280
+  },
+  "brand_info": "オンライン英会話「TalkBridge」、ターゲット: 25-45歳ビジネスパーソン、ブランドカラー: 紺×白",
+  "operator_memo": "サイト訪問者へのリタゲ。CV 率が低いので訴求の見直しを検討"
+}

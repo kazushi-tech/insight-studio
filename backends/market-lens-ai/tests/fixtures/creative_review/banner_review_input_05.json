@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_05",
+  "description": "飲食チェーンの新商品バナー。食品写真、期間限定訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "e5f6a7b8c9d0",
+    "file_name": "food_newmenu_320x50.png",
+    "mime_type": "image/png",
+    "width": 320,
+    "height": 50
+  },
+  "brand_info": "ラーメンチェーン「麺道 ICHIBAN」、ターゲット: 20-40代男性、ブランドカラー: 黒×金",
+  "operator_memo": "期間限定の辛味噌ラーメン告知。モバイルバナーのため情報量に注意"
+}
