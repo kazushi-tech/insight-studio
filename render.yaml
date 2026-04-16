@@ -1,20 +1,102 @@
 services:
   - type: web
-    name: market-lens-staging
+    name: market-lens-ai
     runtime: python
     rootDir: backends/market-lens-ai
     buildCommand: pip install -r requirements.txt && alembic upgrade head
     startCommand: uvicorn web.app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
     envVars:
-      # セキュア値はRender Dashboard設定を引き継ぎ（sync: false）
+      # Staging 用の設定変更
+      - key: GEMINI_ANALYSIS_MODEL
+        value: gemini-3-flash-preview
+      - key: GEMINI_VISION_MODEL
+        value: gemini-3.1-flash-image-preview
+      - key: RATE_LIMIT_PER_MIN
+        value: "60"
+      - key: INTEGRATION_API_KEYS
+        value: test_key_123,prod_key_456
+      # Render Dashboard で設定する項目 (sync: false)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: ALLOWLIST_JSON
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      # 既存から維持
+      - key: DISCOVERY_DAILY_LIMIT
+        value: "100"
+      - key: REPOSITORY_BACKEND
+        value: db
+      - key: GEMINI_TEMPERATURE
+        value: "0.7"
+      - key: GEMINI_MAX_OUTPUT_TOKENS
+        value: "8192"
+      # Discovery Hub — タイムアウト設定
+      - key: DISCOVERY_BRAND_FETCH_TIMEOUT_SEC
+        value: "30"
+      - key: DISCOVERY_COMPETITOR_FETCH_TIMEOUT_SEC
+        value: "20"
+      - key: DISCOVERY_SEARCH_TIMEOUT_SEC
+        value: "90"
+      - key: DISCOVERY_ANALYZE_TIMEOUT_SEC
+        value: "210"
+      - key: DISCOVERY_OVERALL_JOB_TIMEOUT_SEC
+        value: "360"
+      - key: DISCOVERY_FETCH_COMPETITORS_STALL_TIMEOUT_SEC
+        value: "210"
+      - key: DISCOVERY_MAX_COMPETITORS
+        value: "4"
+      - key: DISCOVERY_ANALYZE_SITE_LIMIT
+        value: "4"
+      - key: ANTHROPIC_DISCOVERY_FALLBACK_MODEL
+        value: "claude-haiku-4-5-20251001"
 
   - type: web
-    name: ads-insights-staging
+    name: ads-insights
     runtime: python
     rootDir: backends/ads-insights
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn web.app.backend_api:app --host 0.0.0.0 --port $PORT --timeout-keep-alive 300
     healthCheckPath: /api/health
     envVars:
-      # セキュア値はRender Dashboard設定を引き継ぎ（sync: false）
+      # Render Dashboard で設定する項目 (sync: false)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: IMAGE_API_KEY
+        sync: false
+      # デフォルト値
+      - key: DATA_PROVIDER
+        value: ga4
+      - key: ANALYSIS_MODEL
+        value: gemini-flash
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_TEMPERATURE
+        value: "0.2"
+      - key: GEMINI_MAX_OUTPUT_TOKENS
+        value: "4096"
+      - key: GCP_PROJECT_ID
+        value: analyzedataplatform
+      - key: RATE_LIMIT_MAX
+        value: "30"
+      - key: RATE_LIMIT_WINDOW
+        value: "60"
+      - key: LOG_LEVEL
+        value: info
+      - key: SHOW_ALL_FOLDERS
+        value: "true"
+      - key: EXCLUDE_FOLDERS
+        value: DEMO_CLIENT
+      - key: WEEK_START_DAY
+        value: monday
