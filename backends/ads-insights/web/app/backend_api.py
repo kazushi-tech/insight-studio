@@ -1269,7 +1269,7 @@ def _validate_token(token: str) -> bool:
     return True
 
 # Public paths that don't require auth
-_AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health"}
+_AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health", "/api/cases", "/api/cases/login"}
 
 # ── ログイン専用 brute-force 対策 ─────────────────────────
 _LOGIN_MAX_FAILURES = 5       # 最大失敗回数

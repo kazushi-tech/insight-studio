@@ -65,4 +65,5 @@ backends/*/.env.local
 backends/ads-insights/bq_reports/
 backends/ads-insights/compare/
 backends/ads-insights/insights/
-backends/ads-insights/cases/
+backends/ads-insights/cases/*
+!backends/ads-insights/cases/cases.json
