@@ -1269,7 +1269,7 @@ def _validate_token(token: str) -> bool:
     return True
 
 # Public paths that don't require auth
-_AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health", "/api/cases", "/api/cases/login"}
+_AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health", "/api/cases", "/api/cases/login", "/api/bq/_health"}
 
 # ── ログイン専用 brute-force 対策 ─────────────────────────
 _LOGIN_MAX_FAILURES = 5       # 最大失敗回数
@@ -14183,6 +14183,33 @@ def _bq_cache_put(key: str, value: dict) -> None:
         del _bq_cache[oldest_key]
     _bq_cache[key] = (now, value)
 
+
+
+@app.get("/api/bq/_health")
+def api_bq_health():
+    """BQ import health check (public, no auth required)."""
+    import traceback
+    import sys
+    results = {}
+    try:
+        from bq.client import run_query, PROJECT_ID
+        results["bq_client"] = f"OK (PROJECT_ID={PROJECT_ID})"
+    except ImportError as e:
+        results["bq_client"] = f"FAIL: {e}"
+        results["bq_client_traceback"] = traceback.format_exc()
+    try:
+        from bq.queries import list_query_types, QUERIES
+        results["bq_queries"] = f"OK ({len(QUERIES)} types)"
+    except ImportError as e:
+        results["bq_queries"] = f"FAIL: {e}"
+        results["bq_queries_traceback"] = traceback.format_exc()
+    try:
+        from bq.auth import is_bq_available, setup_credentials
+        results["bq_auth_available"] = is_bq_available()
+    except ImportError as e:
+        results["bq_auth"] = f"FAIL: {e}"
+    results["bq_in_sys_modules"] = sorted(k for k in sys.modules if k == "bq" or k.startswith("bq."))
+    return _json(results)
 
 @app.get("/api/bq/datasets")
 def api_bq_datasets():

@@ -18,6 +18,18 @@ sys.path.insert(0, ADS_DIR)
 
 from web.app.backend_api import app as ads_app  # noqa: E402
 
+# ── 1b) Pre-import bq modules while ADS_DIR is at sys.path[0] ──
+# This ensures bq.* is in sys.modules before the path is rearranged,
+# so lazy imports inside route handlers always find cached modules.
+try:
+    import bq.client        # noqa: F401
+    import bq.auth          # noqa: F401
+    import bq.queries       # noqa: F401
+    import bq.reporter      # noqa: F401
+    print("[unified_app] BigQuery modules pre-loaded OK")
+except ImportError as exc:
+    print(f"[unified_app] BigQuery modules not available: {exc}")
+
 # ── 2) Snapshot ads web.* modules, then clear them for market-lens-ai ──
 _ads_web_modules = {
     k: sys.modules.pop(k)
