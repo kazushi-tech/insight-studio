@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_03",
+  "description": "不動産の物件案内バナー。写真メイン、価格と間取り表示",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "c3d4e5f6a7b8",
+    "file_name": "realestate_listing_160x600.png",
+    "mime_type": "image/png",
+    "width": 160,
+    "height": 600
+  },
+  "brand_info": "不動産ポータル「SUMAI NAVI」、ターゲット: 30代ファミリー、ブランドカラー: 緑×白",
+  "operator_memo": "新築マンションの広告。物件写真の差し替えを検討中"
+}

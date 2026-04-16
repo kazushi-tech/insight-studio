@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_11",
+  "description": "フィットネスジムの入会キャンペーンバナー。施設写真、入会金無料訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "e1f2a3b4c5d6",
+    "file_name": "fitness_campaign_300x600.png",
+    "mime_type": "image/png",
+    "width": 300,
+    "height": 600
+  },
+  "brand_info": "フィットネスジム「FIT CORE」、ターゲット: 20-40代の健康意識層、ブランドカラー: 黒×ライム",
+  "operator_memo": "春の入会キャンペーン。競合との差別化ポイントを明確にしたい"
+}

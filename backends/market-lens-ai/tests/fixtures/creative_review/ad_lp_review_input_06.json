@@ -1,0 +1,23 @@
+{
+  "fixture_id": "ad_lp_06",
+  "description": "BtoB 展示会バナー → イベント登録 LP。情報密度が高いパターン",
+  "review_type": "ad_lp_review",
+  "asset": {
+    "asset_id": "d0e1f2a3b4c5",
+    "file_name": "btob_event_728x90.png",
+    "mime_type": "image/png",
+    "width": 728,
+    "height": 90
+  },
+  "landing_page": {
+    "url": "https://dxsummit.example.com/register",
+    "title": "DX Summit 2026 事前登録 | 最新DXトレンドを体感",
+    "meta_description": "DX Summit 2026 への事前登録受付中。基調講演・展示・ネットワーキングの3日間",
+    "first_view_text": "DX Summit 2026 2026年6月15-17日 東京ビッグサイト 事前登録受付中",
+    "cta_text": "事前登録する（無料）",
+    "extracted_benefits": ["参加無料", "基調講演30セッション", "300社出展"],
+    "trust_elements": ["昨年来場者3万人", "経産省後援", "主要IT企業協賛"]
+  },
+  "brand_info": "IT 展示会「DX Summit 2026」、ターゲット: IT 部門責任者・CTO",
+  "operator_memo": "バナーの情報量が限られるため LP での補完が重要。登録フォームの摩擦も確認したい"
+}

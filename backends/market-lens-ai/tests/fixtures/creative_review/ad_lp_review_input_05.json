@@ -1,0 +1,23 @@
+{
+  "fixture_id": "ad_lp_05",
+  "description": "英会話リタゲバナー → 体験申込 LP。CV導線最適化パターン",
+  "review_type": "ad_lp_review",
+  "asset": {
+    "asset_id": "a7b8c9d0e1f2",
+    "file_name": "english_retargeting_336x280.png",
+    "mime_type": "image/png",
+    "width": 336,
+    "height": 280
+  },
+  "landing_page": {
+    "url": "https://talkbridge.example.com/trial",
+    "title": "無料体験レッスン | TalkBridge オンライン英会話",
+    "meta_description": "25分の無料体験レッスンで、TalkBridgeの品質をお試しください",
+    "first_view_text": "まずは無料体験 25分のレッスンを今すぐ予約",
+    "cta_text": "無料体験を予約する",
+    "extracted_benefits": ["25分無料体験", "24時間予約可能", "ネイティブ講師"],
+    "trust_elements": ["累計レッスン500万回", "講師満足度4.9", "法人導入1000社"]
+  },
+  "brand_info": "オンライン英会話「TalkBridge」、ターゲット: 25-45歳ビジネスパーソン",
+  "operator_memo": "リタゲユーザー向け。バナーの「もう一度始めませんか？」と LP の初回訴求のトーンが合っているか"
+}

@@ -41,3 +41,28 @@ smoke-manifest.json
 .claude/settings.local.json
 plans/CLAUDE.md
 src/pages/CLAUDE.md
+
+# === Python (backends) ===
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+backends/*/.venv/
+backends/*/venv/
+
+# === Backend runtime data ===
+backends/*/.pytest_cache/
+backends/*/tmp*/
+backends/*/data/
+
+# === Backend secrets ===
+backends/*/.env
+backends/*/.env.local
+*.key.json
+*-key.json
+
+# === Generated output ===
+backends/ads-insights/bq_reports/
+backends/ads-insights/compare/
+backends/ads-insights/insights/
+backends/ads-insights/cases/

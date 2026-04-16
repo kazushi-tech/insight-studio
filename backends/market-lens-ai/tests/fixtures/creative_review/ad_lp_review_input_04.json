@@ -1,0 +1,23 @@
+{
+  "fixture_id": "ad_lp_04",
+  "description": "美容クリニックバナー → 施術詳細 LP。信頼材料重視パターン",
+  "review_type": "ad_lp_review",
+  "asset": {
+    "asset_id": "f6a7b8c9d0e1",
+    "file_name": "beauty_clinic_300x250.png",
+    "mime_type": "image/png",
+    "width": 300,
+    "height": 250
+  },
+  "landing_page": {
+    "url": "https://glow-beauty.example.com/campaign",
+    "title": "初回限定キャンペーン | Glow Beauty",
+    "meta_description": "初回限定で人気施術が50%OFF。カウンセリング無料",
+    "first_view_text": "初回限定 50%OFF カウンセリング無料",
+    "cta_text": "無料カウンセリングを予約",
+    "extracted_benefits": ["初回50%OFF", "カウンセリング無料", "施術実績10万件"],
+    "trust_elements": ["医師監修", "施術実績10万件", "口コミ評価4.8"]
+  },
+  "brand_info": "美容クリニック「Glow Beauty」、ターゲット: 30-50代女性",
+  "operator_memo": "バナーのビフォーアフター訴求と LP のキャンペーン訴求の整合を確認"
+}

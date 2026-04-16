@@ -1,0 +1,86 @@
+# Banner Review Rubric
+# glossary.md の rubric_id / score / comment 定義に準拠
+# review-output.schema.json の rubric_scores で使用
+
+rubric_type: banner_review
+
+items:
+  - rubric_id: hook_strength
+    label: フックの強さ
+    description: ユーザーの注意を引く力。スクロール中に止まる要素があるか
+    scoring_guide:
+      1: フックが不明瞭、目に留まらない
+      2: フックはあるが弱い、競合に埋もれる
+      3: 一定のフック力があるが改善余地あり
+      4: 強いフックで注意を引ける
+      5: 非常に強力、思わず止まるレベル
+
+  - rubric_id: target_clarity
+    label: 誰向けかの明確さ
+    description: ターゲットユーザーが一目で自分向けと認識できるか
+    scoring_guide:
+      1: ターゲットが不明、誰に向けたバナーかわからない
+      2: ターゲットが曖昧、複数解釈が可能
+      3: ターゲットは推測できるが明示されていない
+      4: ターゲットが明確に伝わる
+      5: ターゲットが即座に自分事として認識できる
+
+  - rubric_id: offer_clarity
+    label: オファーの伝わりやすさ
+    description: 提供価値・オファーが短時間で理解できるか
+    scoring_guide:
+      1: オファーが読み取れない
+      2: オファーはあるが伝わりにくい
+      3: 注意して読めばオファーがわかる
+      4: オファーが明確に伝わる
+      5: 一瞬でオファーの魅力が伝わる
+
+  - rubric_id: visual_flow
+    label: 視線誘導
+    description: 視線が自然にフック→メッセージ→CTAへ流れるか
+    scoring_guide:
+      1: 視線が迷う、どこを見ればいいかわからない
+      2: 視線誘導が弱い、要素が散在
+      3: 基本的な流れはあるがスムーズではない
+      4: 自然な視線誘導ができている
+      5: 視線が理想的にフック→メッセージ→CTAへ流れる
+
+  - rubric_id: cta_clarity
+    label: CTA の明確さ
+    description: 次にとるべきアクションが明確に伝わるか
+    scoring_guide:
+      1: CTA がない、または見つからない
+      2: CTA はあるが目立たない
+      3: CTA は認識できるが行動喚起が弱い
+      4: CTA が明確で行動を促している
+      5: CTA が非常に効果的、即座にクリックしたくなる
+
+  - rubric_id: brand_consistency
+    label: ブランド一貫性
+    description: ブランドカラー、フォント、トーンが一貫しているか
+    scoring_guide:
+      1: ブランドガイドラインと乖離している
+      2: 一部の要素だけブランドに沿っている
+      3: 概ねブランドに沿うが不統一な箇所がある
+      4: ブランドガイドラインに沿っている
+      5: ブランドの世界観が完全に統一されている
+
+  - rubric_id: credibility
+    label: 信頼感
+    description: 信頼を高める要素（実績、認証、推薦等）があるか
+    scoring_guide:
+      1: 信頼要素がなく怪しさを感じる
+      2: 信頼要素が不足している
+      3: 最低限の信頼要素がある
+      4: 十分な信頼要素がある
+      5: 強い信頼感を与える要素が揃っている
+
+  - rubric_id: information_density
+    label: 情報量の適切さ
+    description: 情報が多すぎず少なすぎず、バナーサイズに適切か
+    scoring_guide:
+      1: 情報過多で読めない、または情報なさすぎ
+      2: やや過多または不足
+      3: 概ね適切だが調整余地あり
+      4: 情報量が適切
+      5: 完璧な情報量バランス

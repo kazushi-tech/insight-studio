@@ -1,0 +1,14 @@
+{
+  "fixture_id": "banner_06",
+  "description": "美容クリニックのキャンペーンバナー。ビフォーアフター訴求",
+  "review_type": "banner_review",
+  "asset": {
+    "asset_id": "f6a7b8c9d0e1",
+    "file_name": "beauty_clinic_300x250.png",
+    "mime_type": "image/png",
+    "width": 300,
+    "height": 250
+  },
+  "brand_info": "美容クリニック「Glow Beauty」、ターゲット: 30-50代女性、ブランドカラー: ピンク×白",
+  "operator_memo": "初回限定割引キャンペーン。薬機法に注意が必要"
+}

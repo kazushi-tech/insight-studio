@@ -4,12 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 
 const proxy = {
   '/api/ml': {
-    target: 'https://market-lens-ai.onrender.com',
+    target: 'http://localhost:8002',
     changeOrigin: true,
     rewrite: (path) => path.replace(/^\/api\/ml/, '/api'),
   },
   '/api/ads': {
-    target: 'https://ads-insights-9q5s.onrender.com',
+    target: 'http://localhost:8001',
     changeOrigin: true,
     rewrite: (path) => path.replace(/^\/api\/ads/, '/api'),
   },
