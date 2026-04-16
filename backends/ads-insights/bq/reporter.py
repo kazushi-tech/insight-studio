@@ -54,9 +54,37 @@ def _escape_df_for_markdown(df: pd.DataFrame) -> pd.DataFrame:
             out[col] = out[col].apply(_escape_markdown_cell)
     return out
 from bq.queries import get_query, list_query_types, QUERIES
-from bq.ga4_extract import ga4_to_extract_result
-from _shared.output_format import write_report
-from _shared.env_loader import load_env
+
+# _shared モジュールは旧リポジトリにのみ存在するため、フォールバック定義
+try:
+    from _shared.output_format import write_report
+except ImportError:
+    import datetime as _dt
+
+    def write_report(out_path, title, skill, model, body, extra_meta=None, encoding="utf-8"):
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        now = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        meta = [f'---\ntitle: "{title}"\nskill: {skill}\nmodel: {model}\ngenerated_at: "{now}"']
+        if extra_meta:
+            for k, v in extra_meta.items():
+                meta.append(f'{k}: "{v}"' if isinstance(v, str) else f"{k}: {v}")
+        meta.append("---\n")
+        content = "\n".join(meta) + body
+        out_path.write_text(content, encoding=encoding)
+        return out_path
+
+try:
+    from _shared.env_loader import load_env
+except ImportError:
+    def load_env():
+        try:
+            from dotenv import load_dotenv
+            from pathlib import Path as _P
+            for p in [_P.cwd() / ".env", _P.cwd() / ".env.local"]:
+                if p.exists():
+                    load_dotenv(p, override=False)
+        except ImportError:
+            pass
 
 
 def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
