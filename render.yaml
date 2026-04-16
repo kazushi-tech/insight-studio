@@ -3,8 +3,8 @@ services:
     name: market-lens-ai
     runtime: python
     rootDir: backends/market-lens-ai
-    buildCommand: pip install -r requirements.txt && alembic upgrade head
-    startCommand: uvicorn web.app.main:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash -c "alembic upgrade head && exec uvicorn web.app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /api/health
     envVars:
       # Staging 用の設定変更
