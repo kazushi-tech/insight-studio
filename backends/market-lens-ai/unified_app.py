@@ -108,7 +108,6 @@ class PrefixDispatcher:
                 return
 
 
-
 def _debug_bq_import():
     """Temporary diagnostic — returns JSON dict about BQ import state."""
     import traceback
