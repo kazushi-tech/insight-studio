@@ -191,6 +191,42 @@ def _quality_gate_check(analysis_md: str, result: ScanResult) -> tuple[list[str]
                 is_critical = True
                 break
 
+    # ── 4b. Heading number consistency (sub-section promotion detection) ──
+    # Detect when 3-1/3-2/3-3 sub-sections are incorrectly promoted to top-level headings
+    _SUBSECTION_PATTERNS = [
+        ("市場概況", "3-1"),
+        ("広告投資推定", "3-2"),
+        ("消費者インサイト", "3-3"),
+    ]
+    promoted_subs = []
+    for m in _HEADING_LINE.finditer(analysis_md):
+        heading_text = m.group(0).strip()
+        # Top-level = ## (not ### or deeper)
+        if heading_text.startswith("## ") and not heading_text.startswith("### "):
+            for keyword, expected_sub in _SUBSECTION_PATTERNS:
+                if keyword in heading_text:
+                    promoted_subs.append(f"{expected_sub} {keyword}")
+    if promoted_subs:
+        issues.append(f"構造エラー: サブセクションがトップレベルに昇格 — {', '.join(promoted_subs)}")
+        is_critical = True
+
+    # ── 4c. Section 4 brand truncation detection ──
+    # Check if brand evaluations are cut off mid-way (e.g. table separator without data)
+    section4_match = _re.search(
+        r'(?:##\s*(?:\d+[.．]\s*)?ブランド別評価)(.*?)(?=\n##\s+(?:\d+[.．]\s*)?実行プラン|\n##\s+(?:\d+[.．]\s*)?(?:5[.．])|\Z)',
+        analysis_md,
+        _re.DOTALL,
+    )
+    if section4_match:
+        s4_content = section4_match.group(1)
+        # Detect separator-only table rows at end (truncated mid-table)
+        s4_lines = [l for l in s4_content.rstrip().split('\n') if l.strip()]
+        if s4_lines:
+            last_s4 = s4_lines[-1].strip()
+            if _re.match(r'^\|[-\s|]+\|$', last_s4):
+                issues.append("Section 4 途中切断: ブランド別評価テーブルがセパレータ行で終了しています")
+                is_critical = True
+
     # ── 5. Action plan presence check (Task A) ──
     if not headings_present.get("実行プラン", False):
         # Check if there's any action-like section

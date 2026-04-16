@@ -313,6 +313,8 @@ def _is_retryable_quality_issue(issues: list[str]) -> bool:
         "セクション欠損",
         "テーブル",
         "構造エラー",
+        "Section 5",
+        "Section 4 途中切断",
     )
     return any(any(token in issue for token in retryable_tokens) for issue in issues)
 
@@ -703,16 +705,19 @@ async def run_discovery_pipeline(
         else:
             fail_count += 1
 
-    # Phase 2: backfill from remaining candidates
-    for cand in ranked[max_competitors:]:
-        if len(competitor_extracted) >= max_competitors:
-            break
-        site, data = await _fetch_one(cand)
-        if data is not None:
-            fetched_sites.append(site)
-            competitor_extracted.append(data)
-        else:
-            fail_count += 1
+    # Phase 2: backfill from remaining candidates (parallel batch)
+    needed = max_competitors - len(competitor_extracted)
+    backfill_candidates = ranked[max_competitors:max_competitors + needed + 2]
+    if needed > 0 and backfill_candidates:
+        backfill_results = await asyncio.gather(*[_fetch_one(c) for c in backfill_candidates])
+        for site, data in backfill_results:
+            if len(competitor_extracted) >= max_competitors:
+                break
+            if data is not None:
+                fetched_sites.append(site)
+                competitor_extracted.append(data)
+            else:
+                fail_count += 1
 
     fetch_elapsed = (time.monotonic() - t0) * 1000
     _log_stage(
