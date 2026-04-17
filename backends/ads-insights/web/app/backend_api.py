@@ -2541,6 +2541,30 @@ def api_cases(request: Request):
     return _json({"ok": True, "cases": cases})
 
 
+@app.get("/api/cases/{case_id}/bq-status")
+def api_case_bq_status(case_id: str):
+    """
+    Test BigQuery connectivity for a case's dataset.
+    Returns: {ok, connected, tables_found?, error?}
+    """
+    cases_master = _load_cases_master()
+    case = next((c for c in cases_master if c.get("case_id") == case_id), None)
+    if not case:
+        return _json({"ok": False, "connected": False, "error": "案件が見つかりません"}, status=404)
+
+    dataset_id = case.get("dataset_id", "")
+    if not dataset_id:
+        return _json({"ok": True, "connected": False, "error": "dataset_id 未設定"})
+
+    try:
+        from bq.client import get_client, PROJECT_ID
+        client = get_client(PROJECT_ID)
+        tables = list(client.list_tables(f"{PROJECT_ID}.{dataset_id}"))
+        return _json({"ok": True, "connected": True, "tables_found": len(tables)})
+    except Exception as e:
+        return _json({"ok": True, "connected": False, "error": str(e)})
+
+
 @app.post("/api/cases/login")
 async def api_cases_login(request: Request):
     """
