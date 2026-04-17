@@ -73,7 +73,6 @@ for _k, _mod in _ads_web_modules.items():
     _spec = getattr(_mod, "__spec__", None)
     if _spec is not None:
         _spec.name = _new_name
-        _spec.parent = _mod.__package__
 
 
 # ── Dispatcher ───────────────────────────────────────────────
