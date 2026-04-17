@@ -2525,6 +2525,7 @@ def api_cases(request: Request):
             "name": c.get("name", c["case_id"]),
             "description": c.get("description", ""),
             "is_internal": c.get("is_internal", False),
+            "status": "active" if c.get("is_active", True) else "inactive",
         }
         if is_authenticated:
             entry["dataset_id"] = c.get("dataset_id", "")
