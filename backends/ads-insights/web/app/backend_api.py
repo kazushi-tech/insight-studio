@@ -2504,27 +2504,57 @@ def _load_cases_master() -> list:
 
 
 @app.get("/api/cases")
-def api_cases():
+def api_cases(request: Request):
     """
     Return available cases (clients/projects).
     Returns cases from cases.json master file (is_active: true only).
-    Does NOT include dataset_id (requires authentication).
+    Includes dataset_id only for authenticated requests (Bearer token).
     """
     cases_master = _load_cases_master()
 
-    # Filter active cases and return only safe fields (no dataset_id, no password_hash)
-    cases = [
-        {
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
+    is_authenticated = bool(token) and _validate_token(token)
+
+    cases = []
+    for c in cases_master:
+        if not c.get("is_active", True):
+            continue
+        entry = {
             "case_id": c["case_id"],
             "name": c.get("name", c["case_id"]),
             "description": c.get("description", ""),
             "is_internal": c.get("is_internal", False),
         }
-        for c in cases_master
-        if c.get("is_active", True)
-    ]
+        if is_authenticated:
+            entry["dataset_id"] = c.get("dataset_id", "")
+        cases.append(entry)
 
     return _json({"ok": True, "cases": cases})
+
+
+@app.get("/api/cases/{case_id}/bq-status")
+def api_case_bq_status(case_id: str):
+    """
+    Test BigQuery connectivity for a case's dataset.
+    Returns: {ok, connected, tables_found?, error?}
+    """
+    cases_master = _load_cases_master()
+    case = next((c for c in cases_master if c.get("case_id") == case_id), None)
+    if not case:
+        return _json({"ok": False, "connected": False, "error": "案件が見つかりません"}, status=404)
+
+    dataset_id = case.get("dataset_id", "")
+    if not dataset_id:
+        return _json({"ok": True, "connected": False, "error": "dataset_id 未設定"})
+
+    try:
+        from bq.client import get_client, PROJECT_ID
+        client = get_client(PROJECT_ID)
+        tables = list(client.list_tables(f"{PROJECT_ID}.{dataset_id}"))
+        return _json({"ok": True, "connected": True, "tables_found": len(tables)})
+    except Exception as e:
+        return _json({"ok": True, "connected": False, "error": str(e)})
 
 
 @app.post("/api/cases/login")
