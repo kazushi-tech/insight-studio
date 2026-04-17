@@ -39,7 +39,13 @@ _ads_web_modules = {
 
 # Keep ADS_DIR at the *end* of sys.path so non-web imports (bq.auth etc.)
 # still resolve, but market-lens-ai's web/ package takes priority.
-sys.path.remove(ADS_DIR)
+# bq.reporter inserts ADS_DIR and ADS_DIR/.agent/skills at sys.path[0] when
+# imported, so strip every occurrence before re-appending once at the tail.
+_ads_skills_dir = str(Path(ADS_DIR) / ".agent" / "skills")
+while ADS_DIR in sys.path:
+    sys.path.remove(ADS_DIR)
+while _ads_skills_dir in sys.path:
+    sys.path.remove(_ads_skills_dir)
 sys.path.append(ADS_DIR)
 
 # ── 3) Import market-lens-ai (loads its own web.app.*) ──
