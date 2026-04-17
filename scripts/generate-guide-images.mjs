@@ -86,45 +86,38 @@ RIGHT CARD (pastel purple #F3E5F5):
 Title: "3. クリエイティブレビュー"
 • バナー・LPをAIが診断しスコア＆改善提案
 • 4軸分析: レイアウト/ビジュアル/テキスト/CTA
-• Gemini Nano Banana 2 で改善バナーを自動生成
-• Claude（分析）+ Gemini（画像生成）の2AI連携
+• レビュー結果からレーダーチャート＆優先度付き改善提案
+• Claude がテキスト分析を担当（画像生成は行いません）
 
 BOTTOM STRIP (white, full width, with arrow flow):
-"Settings でAPIキー設定 → 機能を選択 → AI自動分析 → レポート＆改善提案"
+"Settings でClaude APIキー設定 → 機能を選択 → AI自動分析 → レポート＆改善提案"
 
 ${COMMON_STYLE}`,
   },
   {
     filename: 'page2-api-setup.png',
-    prompt: `Create a Japanese infographic poster titled "APIキー設定ガイド" with subtitle "3つのキーで全機能をアンロック".
+    prompt: `Create a Japanese infographic poster titled "APIキー設定ガイド" with subtitle "2つの設定で全機能をアンロック".
 
-Layout: 3 equal column cards + bottom flow + small tip box.
+Layout: 2 equal column cards (centered) + bottom flow + small tip box.
 
 Card 1 (pastel yellow #FFF9C4):
 Title: "Claude API キー" (key icon)
 • 用途: AI分析・比較・チャット全般
 • 取得: Anthropic Console → API Keys → Create Key
-• 有効化: LP比較, Discovery, AI Explorer, 要点パック
+• 有効化: LP比較, Discovery, AI Explorer, 要点パック, クリエイティブレビュー
 • 料金目安: 1回の分析で約¥30-50
 
-Card 2 (pastel blue #E3F2FD):
-Title: "Gemini API キー" (image icon)
-• 用途: バナー画像の自動生成 (Nano Banana 2)
-• 取得: Google AI Studio → Get API Key
-• 有効化: クリエイティブレビューのバナー生成
-• 料金目安: 1回の生成で約¥5-10
-
-Card 3 (pastel green #E8F5E9):
+Card 2 (pastel green #E8F5E9):
 Title: "Ads Studio 認証" (lock icon)
 • 用途: 広告パフォーマンスデータへのアクセス
 • 取得: 社内管理者からパスワードを取得
 • 有効化: セットアップ, 要点パック, グラフ, AI Explorer
 
 BOTTOM FLOW (pastel orange strip):
-"① キー取得 → ② ヘッダー右の鍵アイコン → ③ 各キーを入力・保存 → ④ 全機能アンロック！"
+"① キー取得 → ② ヘッダー右の鍵アイコン → ③ 入力・保存 → ④ 全機能アンロック！"
 
 TIP (small box, bottom right):
-"Claude APIキーだけで主要機能の80%が使えます"
+"Claude API キーだけで Compare / Discovery / Creative Review / Ads AI の全主要機能が使えます"
 
 ${COMMON_STYLE}`,
   },
@@ -204,14 +197,14 @@ ${COMMON_STYLE}`,
   },
   {
     filename: 'page5-creative.png',
-    prompt: `Create a Japanese infographic poster titled "クリエイティブレビュー & バナー生成" with subtitle "AIによる診断と自動改善".
+    prompt: `Create a Japanese infographic poster titled "クリエイティブレビュー" with subtitle "AIによるバナー・LP診断".
 
-Layout: Left section + center section + right section + bottom strip.
+Layout: 2 equal columns + bottom strip.
 
 LEFT SECTION (pastel orange #FFF3E0):
 Title: "レビューフロー"
 ① 画像をアップロード（PNG, JPG, WebP対応）
-② AIが自動分析（20-40秒）
+② Claude が自動分析（20-40秒）
 ③ 診断結果: 総合スコア 86/100点
 
 4軸で分析:
@@ -220,22 +213,14 @@ Title: "レビューフロー"
 • テキスト戦略（見出し、訴求力）
 • CTA効果（配置、サイズ、テキスト）
 
-CENTER SECTION (pastel purple #F3E5F5):
-Title: "バナー自動生成"
-Flow: "レビュー結果 → Gemini Nano Banana 2 → 改善バナー"
-• 改善ポイントをプロンプトに変換して画像生成
-• 元のデザインテイストを維持しつつ改善
-• 生成時間: 約30-60秒
-
 RIGHT SECTION (pastel green #E8F5E9):
 Title: "出力形式"
 • レーダーチャート（4軸の視覚化）
 • 改善提案リスト（優先度: 高/中/低）
-• 生成バナー画像（ダウンロード可能）
+• ダウンロード可能な評価サマリー
 
-BOTTOM STRIP (2 boxes side by side):
-Blue box: "レビュー: Claude APIキー使用"
-Gold box: "画像生成: Gemini APIキー使用"
+BOTTOM STRIP (single box, full width):
+"クリエイティブレビュー: Claude APIキー使用"
 
 ${COMMON_STYLE}`,
   },
@@ -259,7 +244,7 @@ Title: "テーマ切替"
 
 Card 3 (pastel green #E8F5E9):
 Title: "接続ステータス"
-• サイドバー下部: Claude / Gemini / Ads の3つ
+• サイドバー下部: Claude / Ads の2つ
 • 緑 = 接続済み / 赤 = 未接続
 • クリックでSettings画面へジャンプ
 
@@ -270,7 +255,7 @@ Title: "ガイド & セキュリティ"
 • APIキーはlocalStorage保存（サーバー送信なし）
 
 BOTTOM FAQ (light gray strip, full width):
-Q: 料金は？ → API利用料のみ（分析¥30-50、画像生成¥5-10）
+Q: 料金は？ → Claude API 利用料のみ（1回の分析で約¥30-50）
 Q: スマホ対応？ → PC専用（1280px以上推奨）
 
 ${COMMON_STYLE}`,
