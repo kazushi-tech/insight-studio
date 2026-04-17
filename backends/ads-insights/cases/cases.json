@@ -5,6 +5,16 @@
     "description": "サウルスジャパン広告運用案件",
     "dataset_id": "analytics_311324674",
     "password_hash": "$2b$12$/LW06QHFKMV1OUYQhl5WK.iW91AXXLiE3ykmALNpHvuJI.Fsr//.2",
-    "is_active": true
+    "is_active": true,
+    "is_internal": false
+  },
+  {
+    "case_id": "petabit",
+    "name": "ペタサイト",
+    "description": "ペタビット自社サイト",
+    "dataset_id": "analytics_311324674",
+    "password_hash": "$2b$12$ZvFP1kqr8PH8.XerbFRaZeap7t7BzzycwfyLBoMuoqBbT9AUgWyQO",
+    "is_active": true,
+    "is_internal": true
   }
 ]

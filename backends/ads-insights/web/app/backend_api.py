@@ -2517,7 +2517,8 @@ def api_cases():
         {
             "case_id": c["case_id"],
             "name": c.get("name", c["case_id"]),
-            "description": c.get("description", "")
+            "description": c.get("description", ""),
+            "is_internal": c.get("is_internal", False),
         }
         for c in cases_master
         if c.get("is_active", True)
