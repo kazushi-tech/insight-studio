@@ -211,3 +211,44 @@ class TestDebugEndpointMatrix:
             token = await _get_token(c)
             resp = await c.get(path, headers=_auth_header(token))
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# B-4: /api/cases auth gating (plan: bigquery-bq-steady-pixel)
+# ---------------------------------------------------------------------------
+
+class TestApiCasesAuthGating:
+    """/api/cases は Authorization ヘッダの有無で挙動を切り分ける."""
+
+    @pytest.mark.anyio
+    async def test_api_cases_without_auth_returns_200_without_dataset_id(self):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            resp = await c.get("/api/cases")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        assert isinstance(body["cases"], list)
+        for case in body["cases"]:
+            assert "dataset_id" not in case
+
+    @pytest.mark.anyio
+    async def test_api_cases_with_invalid_token_returns_401(self):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            resp = await c.get("/api/cases", headers=_auth_header("invalid_xxx"))
+        assert resp.status_code == 401
+        body = resp.json()
+        assert body["ok"] is False
+        assert body["error"].lower() == "unauthorized"
+
+    @pytest.mark.anyio
+    async def test_api_cases_with_valid_token_returns_dataset_id(self):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            token = await _get_token(c)
+            resp = await c.get("/api/cases", headers=_auth_header(token))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        assert isinstance(body["cases"], list)
+        assert len(body["cases"]) > 0
+        for case in body["cases"]:
+            assert "dataset_id" in case
