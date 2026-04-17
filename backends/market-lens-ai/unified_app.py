@@ -51,9 +51,29 @@ sys.path.append(ADS_DIR)
 # ── 3) Import market-lens-ai (loads its own web.app.*) ──
 from web.app.main import app as ml_app  # noqa: E402
 
-# ── 4) Stash ads modules under aliased keys so GC doesn't collect them ──
+# ── 4) Stash ads modules under aliased keys AND rename them so that
+#      lazy relative imports inside ads handlers (e.g. `from .bq_chart_builder
+#      import X` in generate_batch) resolve to the `_ads.*` namespace instead
+#      of ML's `web.app`, which lacks those submodules.
+import types as _types  # noqa: E402
+
+if "_ads" not in sys.modules:
+    _ads_pkg = _types.ModuleType("_ads")
+    _ads_pkg.__path__ = []  # mark as package so submodule lookup works
+    sys.modules["_ads"] = _ads_pkg
+
 for _k, _mod in _ads_web_modules.items():
-    sys.modules[f"_ads.{_k}"] = _mod
+    _new_name = f"_ads.{_k}"
+    sys.modules[_new_name] = _mod
+    _mod.__name__ = _new_name
+    if getattr(_mod, "__path__", None) is not None:
+        _mod.__package__ = _new_name  # package: own name
+    else:
+        _mod.__package__ = _new_name.rsplit(".", 1)[0]  # module: parent name
+    _spec = getattr(_mod, "__spec__", None)
+    if _spec is not None:
+        _spec.name = _new_name
+        _spec.parent = _mod.__package__
 
 
 # ── Dispatcher ───────────────────────────────────────────────
