@@ -17,6 +17,18 @@ sys.path.insert(0, ADS_DIR)
 
 from web.app.backend_api import app as ads_app  # noqa: E402
 
+# ── 1b) Pre-import bq modules while ADS_DIR is at sys.path[0] ──
+# This ensures bq.* is in sys.modules before the path is rearranged,
+# so lazy imports inside route handlers always find cached modules.
+try:
+    import bq.client        # noqa: F401
+    import bq.auth          # noqa: F401
+    import bq.queries       # noqa: F401
+    import bq.reporter      # noqa: F401
+    print("[unified_app] BigQuery modules pre-loaded OK")
+except ImportError as exc:
+    print(f"[unified_app] BigQuery modules not available: {exc}")
+
 # ── 2) Snapshot ads web.* modules, then clear them for market-lens-ai ──
 _ads_web_modules = {
     k: sys.modules.pop(k)
@@ -26,15 +38,40 @@ _ads_web_modules = {
 
 # Keep ADS_DIR at the *end* of sys.path so non-web imports (bq.auth etc.)
 # still resolve, but market-lens-ai's web/ package takes priority.
-sys.path.remove(ADS_DIR)
+# bq.reporter inserts ADS_DIR and ADS_DIR/.agent/skills at sys.path[0] when
+# imported, so strip every occurrence before re-appending once at the tail.
+_ads_skills_dir = str(Path(ADS_DIR) / ".agent" / "skills")
+while ADS_DIR in sys.path:
+    sys.path.remove(ADS_DIR)
+while _ads_skills_dir in sys.path:
+    sys.path.remove(_ads_skills_dir)
 sys.path.append(ADS_DIR)
 
 # ── 3) Import market-lens-ai (loads its own web.app.*) ──
 from web.app.main import app as ml_app  # noqa: E402
 
-# ── 4) Stash ads modules under aliased keys so GC doesn't collect them ──
+# ── 4) Stash ads modules under aliased keys AND rename them so that
+#      lazy relative imports inside ads handlers (e.g. `from .bq_chart_builder
+#      import X` in generate_batch) resolve to the `_ads.*` namespace instead
+#      of ML's `web.app`, which lacks those submodules.
+import types as _types  # noqa: E402
+
+if "_ads" not in sys.modules:
+    _ads_pkg = _types.ModuleType("_ads")
+    _ads_pkg.__path__ = []  # mark as package so submodule lookup works
+    sys.modules["_ads"] = _ads_pkg
+
 for _k, _mod in _ads_web_modules.items():
-    sys.modules[f"_ads.{_k}"] = _mod
+    _new_name = f"_ads.{_k}"
+    sys.modules[_new_name] = _mod
+    _mod.__name__ = _new_name
+    if getattr(_mod, "__path__", None) is not None:
+        _mod.__package__ = _new_name  # package: own name
+    else:
+        _mod.__package__ = _new_name.rsplit(".", 1)[0]  # module: parent name
+    _spec = getattr(_mod, "__spec__", None)
+    if _spec is not None:
+        _spec.name = _new_name
 
 
 # ── Dispatcher ───────────────────────────────────────────────

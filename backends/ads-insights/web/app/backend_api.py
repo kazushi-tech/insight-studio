@@ -14184,6 +14184,7 @@ def _bq_cache_put(key: str, value: dict) -> None:
     _bq_cache[key] = (now, value)
 
 
+
 @app.get("/api/bq/datasets")
 def api_bq_datasets():
     """利用可能なBQデータセット一覧を返す（analytics_*のみ）。"""
@@ -14202,9 +14203,11 @@ def api_bq_datasets():
         response_data = {"ok": True, "datasets": datasets}
         _bq_cache_put(cache_key, response_data)
         return _json(response_data)
-    except ImportError:
+    except ImportError as _ie:
+        import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
-                       "message": "BigQueryモジュールが利用できません"}, 500)
+                       "message": "BigQueryモジュールが利用できません",
+                       "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
             return _json({"ok": False, "error": "credentials_missing",
@@ -14218,9 +14221,11 @@ def api_bq_query_types():
     try:
         from bq.queries import list_query_types
         return _json({"ok": True, "query_types": list_query_types()})
-    except ImportError:
+    except ImportError as _ie:
+        import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
-                       "message": "BigQueryモジュールが利用できません"}, 500)
+                       "message": "BigQueryモジュールが利用できません",
+                       "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         return _json({"ok": False, "error": "query_error", "message": str(e)}, 500)
 
@@ -14289,9 +14294,11 @@ def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "
         response_data = {"ok": True, "periods": periods, "granularity": granularity}
         _bq_cache_put(cache_key, response_data)
         return _json(response_data)
-    except ImportError:
+    except ImportError as _ie:
+        import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
-                       "message": "BigQueryモジュールが利用できません"}, 500)
+                       "message": "BigQueryモジュールが利用できません",
+                       "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
             return _json({"ok": False, "error": "credentials_missing",
@@ -14368,9 +14375,11 @@ async def api_bq_generate(request: Request):
         _bq_cache_put(cache_key, response_data)
         return _json(response_data)
 
-    except ImportError:
+    except ImportError as _ie:
+        import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
-                       "message": "BigQueryモジュールが利用できません"}, 500)
+                       "message": "BigQueryモジュールが利用できません",
+                       "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
             return _json({"ok": False, "error": "credentials_missing",
@@ -14513,9 +14522,11 @@ async def api_bq_generate_batch(request: Request):
             "query_count": len(all_results),
         })
 
-    except ImportError:
+    except ImportError as _ie:
+        import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
-                       "message": "BigQueryモジュールが利用できません"}, 500)
+                       "message": "BigQueryモジュールが利用できません",
+                       "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
             return _json({"ok": False, "error": "credentials_missing",
