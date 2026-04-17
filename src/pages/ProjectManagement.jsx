@@ -8,7 +8,7 @@ import InviteModal from '../components/InviteModal'
 
 export default function ProjectManagement() {
   const { canManageProjects } = useRbac()
-  const { isAdsAuthenticated } = useAuth()
+  const { isAdsAuthenticated, user } = useAuth()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
   const [sharingProject, setSharingProject] = useState(null)
@@ -23,10 +23,11 @@ export default function ProjectManagement() {
     try {
       const data = await getCases()
       const list = Array.isArray(data) ? data : data.cases || []
-      setProjects(list)
+      const visibleList = list.filter((c) => !c.is_internal || user?.role === 'admin')
+      setProjects(visibleList)
 
       // Auto-test BQ for cases with dataset_id
-      const withDataset = list.filter((c) => c.dataset_id)
+      const withDataset = visibleList.filter((c) => c.dataset_id)
       for (const c of withDataset) {
         setBqStatuses((prev) => ({ ...prev, [c.case_id]: { loading: true } }))
         getCaseBqStatus(c.case_id)
@@ -38,7 +39,7 @@ export default function ProjectManagement() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.role])
 
   useEffect(() => {
     if (isAdsAuthenticated) {
