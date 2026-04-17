@@ -309,7 +309,7 @@ export function keyStatus() {
 
 /** GET /api/cases — 案件一覧 */
 export function getCases() {
-  return request('/cases', { suppressAuthErrorHandler: true })
+  return request('/cases')
 }
 
 /** GET /api/cases — 案件一覧（認証なし・ログイン画面用） */
