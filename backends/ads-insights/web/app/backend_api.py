@@ -2507,14 +2507,21 @@ def _load_cases_master() -> list:
 def api_cases(request: Request):
     """
     Return available cases (clients/projects).
-    Returns cases from cases.json master file (is_active: true only).
-    Includes dataset_id only for authenticated requests (Bearer token).
+
+    - Authorization ヘッダ無し → 200 (ログイン画面向け公開挙動)
+    - Authorization ヘッダ有り & 無効トークン → 401 (セッション失効をフロントに通知)
+    - Authorization ヘッダ有り & 有効トークン → 200 + dataset_id 付き
     """
     cases_master = _load_cases_master()
 
     auth_header = request.headers.get("Authorization", "")
-    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    is_authenticated = bool(token) and _validate_token(token)
+    has_bearer = auth_header.startswith("Bearer ")
+    token = auth_header.replace("Bearer ", "") if has_bearer else ""
+
+    if has_bearer and not _validate_token(token):
+        return _json({"ok": False, "error": "Unauthorized"}, status=401)
+
+    is_authenticated = bool(token)
 
     cases = []
     for c in cases_master:
