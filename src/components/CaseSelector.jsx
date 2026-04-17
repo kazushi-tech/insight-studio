@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { getCases } from '../api/adsInsights'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useRbac } from '../contexts/RbacContext'
 
 export default function CaseSelector({ onCaseSelect }) {
   const { currentCase, isSetupComplete } = useAdsSetup()
   const { isClient, canAccessProject } = useRbac()
+  const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [cases, setCases] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
@@ -49,9 +51,9 @@ export default function CaseSelector({ onCaseSelect }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const accessibleCases = isClient
-    ? cases.filter((c) => canAccessProject(c.case_id || c.id))
-    : cases
+  const accessibleCases = cases
+    .filter((c) => !c.is_internal || user?.role === 'admin')
+    .filter((c) => (isClient ? canAccessProject(c.case_id || c.id) : true))
 
   const filteredCases = accessibleCases.filter((c) =>
     c.name?.toLowerCase().includes(searchQuery.toLowerCase())
