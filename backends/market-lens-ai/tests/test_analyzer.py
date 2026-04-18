@@ -258,7 +258,9 @@ class TestBuildDeepComparisonPrompt:
         data = [_sample_extracted(f"https://{c}.com") for c in ["a", "b", "c", "d"]]
         prompt = build_wide_comparison_prompt(data)
         assert "高シグナル優先" in prompt
-        assert "全体でおおむね2200字以内" in prompt
+        # Phase P1-A: target relaxed from 2200 → 3500〜3800 字 so Section 5
+        # subsections (最優先3施策 / 5-0 / 5-1 / 5-2) fit without truncation.
+        assert "3500" in prompt and "3800" in prompt
 
 
 # ---------- Agency-grade: 5-section fixed structure ----------
