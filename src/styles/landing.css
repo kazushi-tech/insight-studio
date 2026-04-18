@@ -6,24 +6,6 @@
 /* ── Google Fonts (Manrope) ── */
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap');
 
-/* ── Tokens that do NOT exist in index.css @theme ── */
-@theme {
-  --font-headline: "Manrope", sans-serif;
-  --font-body: "Manrope", sans-serif;
-  --font-label: "Manrope", sans-serif;
-
-  --color-on-tertiary-container: #4a3500;
-  --color-on-tertiary-fixed: #261a00;
-  --color-on-tertiary-fixed-variant: #5b4300;
-  --color-tertiary-fixed-dim: #eec058;
-  --color-on-secondary-fixed-variant: #3f465c;
-  --color-secondary-fixed-dim: #bec6e0;
-  --color-primary-fixed-dim: #4edea3;
-  --color-on-primary-fixed-variant: #005236;
-  --color-on-secondary-container: #5c647a;
-  --color-on-secondary-fixed: #131b2e;
-}
-
 /* ── Scoped Modern Dynamic overrides ── */
 .lp-page {
   --color-primary: #006c49;
