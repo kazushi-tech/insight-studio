@@ -315,6 +315,11 @@ def _is_retryable_quality_issue(issues: list[str]) -> bool:
         "構造エラー",
         "Section 5",
         "Section 4 途中切断",
+        # Phase P1-C: explicit subsection misses must also trigger a retry.
+        "最優先3施策",
+        "予算フレーム",
+        "LP改善施策",
+        "検索広告施策",
     )
     return any(any(token in issue for token in retryable_tokens) for issue in issues)
 
@@ -946,9 +951,13 @@ async def run_discovery_pipeline(
             retry_remaining = max(0.0, overall_job_timeout - (time.monotonic() - pipeline_start))
             if retryable_quality and retry_remaining > 60.0:
                 retry_timeout = min(90.0, max(30.0, retry_remaining - 15.0))
+                # Phase P1-C: first quality retry keeps the full token budget —
+                # compact mode reduces output tokens and can worsen truncation,
+                # so reserve it for subsequent (outer-loop) retries.
+                use_compact_retry = attempt_index >= 2
                 logger.warning(
-                    "discovery_quality_retry request_id=%s attempt=%d sites=%d issues=%s",
-                    request_id, attempt_index, len(all_extracted), quality_bundle.quality_issues,
+                    "discovery_quality_retry request_id=%s attempt=%d sites=%d compact=%s issues=%s",
+                    request_id, attempt_index, len(all_extracted), use_compact_retry, quality_bundle.quality_issues,
                 )
                 try:
                     compact_report_md, compact_token_usage = await asyncio.wait_for(
@@ -958,7 +967,7 @@ async def run_discovery_pipeline(
                             provider=analysis_provider,
                             api_key=analysis_api_key,
                             discovery_metadata=discovery_metadata,
-                            compact_output=True,
+                            compact_output=use_compact_retry,
                         ),
                         timeout=retry_timeout,
                     )
@@ -979,8 +988,8 @@ async def run_discovery_pipeline(
                         str(exc), req.api_key, analysis_api_key, search_api_key, os.getenv("ANTHROPIC_API_KEY", ""),
                     )
                     logger.warning(
-                        "Discovery compact quality retry failed: request_id=%s attempt=%d detail=%s",
-                        request_id, attempt_index, safe_msg,
+                        "Discovery quality retry failed: request_id=%s attempt=%d compact=%s detail=%s",
+                        request_id, attempt_index, use_compact_retry, safe_msg,
                     )
             elif retryable_quality:
                 logger.warning(

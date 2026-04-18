@@ -280,6 +280,21 @@ class TestScanSuccess:
 
 
 class TestScanQualityContract:
+    # Phase P1-C: Multi-URL scans now require Section 5 MUST subsections
+    # (最優先3施策 / 5-0 予算フレーム / 5-1 LP改善施策 / 5-2 検索広告施策).
+    _VALID_MULTI_URL_REPORT = (
+        "## エグゼクティブサマリー\n"
+        "## 分析対象と比較前提\n"
+        "## 競合比較サマリー\n"
+        "## ブランド別評価\n"
+        "## 実行プラン\n"
+        "### 最優先3施策\n- 施策A\n"
+        "### 5-0 予算フレーム\n"
+        "| 項目 | 初期 | 拡張 | 備考 |\n|---|---|---|---|\n| 月額予算帯 | 10万円 | 30万円 | 推定 |\n"
+        "### 5-1 LP改善施策\n| 項目 |\n|---|\n| FV改善 |\n"
+        "### 5-2 検索広告施策\n| 項目 |\n|---|\n| 指名防衛 |\n"
+    )
+
     @patch("web.app.services.scan_service.take_screenshot", new_callable=AsyncMock)
     @patch("web.app.services.scan_service.fetch_html", new_callable=AsyncMock)
     @patch("web.app.services.scan_service.analyze", new_callable=AsyncMock)
@@ -287,10 +302,7 @@ class TestScanQualityContract:
     def test_scan_response_contains_structured_quality_fields(self, mock_validate, mock_analyze, mock_fetch, mock_screenshot, client):
         mock_fetch.return_value = (_SAMPLE_HTML, None)
         mock_screenshot.return_value = None
-        mock_analyze.return_value = (
-            "## エグゼクティブサマリー\n## 分析対象と比較前提\n## 競合比較サマリー\n## ブランド別評価\n## 実行プラン",
-            _MOCK_USAGE,
-        )
+        mock_analyze.return_value = (self._VALID_MULTI_URL_REPORT, _MOCK_USAGE)
 
         res = client.post("/api/scan", json={"urls": ["https://example.com", "https://acme.com"]})
         assert res.status_code == 200
@@ -308,10 +320,7 @@ class TestScanQualityContract:
         mock_screenshot.return_value = None
         mock_analyze.side_effect = [
             ("## エグゼクティブサマリー\n| 壊れた行", _MOCK_USAGE),
-            (
-                "## エグゼクティブサマリー\n## 分析対象と比較前提\n## 競合比較サマリー\n## ブランド別評価\n## 実行プラン",
-                _MOCK_USAGE,
-            ),
+            (self._VALID_MULTI_URL_REPORT, _MOCK_USAGE),
         ]
 
         res = client.post("/api/scan", json={"urls": ["https://example.com", "https://acme.com"]})
