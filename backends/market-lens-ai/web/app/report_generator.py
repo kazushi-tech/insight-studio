@@ -3,14 +3,23 @@
 from __future__ import annotations
 
 import logging
+import os
 import re as _re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from .budget_frame_synthesizer import synthesize_budget_frame_block
 from .deterministic_evaluator import VERDICT_DEFER, evaluate_all
 from .models import ExtractedData, ScanResult
+from .priority_action_synthesizer import synthesize_priority_action_block
 
 logger = logging.getLogger(__name__)
+
+
+def _deterministic_stub_enabled() -> bool:
+    """Feature-flag: gate Phase P1-D stub injection via env var."""
+    value = os.getenv("DETERMINISTIC_STUB_ENABLED", "false").strip().lower()
+    return value in ("1", "true", "yes", "on")
 
 
 @dataclass(frozen=True)
@@ -54,7 +63,55 @@ _REQUIRED_HEADING_ORDER = [
 # Backward compat: also accept the legacy heading name
 _HEADING_ALIASES = {
     "広告運用アクションプラン": "実行プラン",
+    "アクションプラン": "実行プラン",
+    "改善提案": "実行プラン",
+    "最優先施策": "実行プラン",
 }
+
+# ── Section 5 subsection detection (Phase P1-C) ──
+# Each entry: (severity, label_for_issue, pattern)
+#   severity == "critical" → retryable + is_critical True
+#   severity == "info"     → soft notice, non-critical
+_SECTION5_SUBSECTION_SPECS: list[tuple[str, str, _re.Pattern[str]]] = [
+    (
+        "critical",
+        "最優先3施策",
+        _re.compile(r"最優先\s*3\s*施策|最優先三施策"),
+    ),
+    (
+        "critical",
+        "5-0 予算フレーム",
+        _re.compile(r"5\s*[-−‐–ー]\s*0[.．．]?\s*予算|予算フレーム|予算設計"),
+    ),
+    (
+        "critical",
+        "5-1 LP改善施策",
+        _re.compile(r"5\s*[-−‐–ー]\s*1[.．．]?\s*LP|LP改善施策"),
+    ),
+    (
+        "critical",
+        "5-2 検索広告施策",
+        _re.compile(r"5\s*[-−‐–ー]\s*2[.．．]?\s*検索広告|検索広告施策"),
+    ),
+    (
+        "info",
+        "5-3 Meta/ディスプレイ施策",
+        _re.compile(r"5\s*[-−‐–ー]\s*3[.．．]?\s*(?:Meta|メタ|ディスプレイ)"),
+    ),
+    (
+        "info",
+        "5-4 KPI測定計画",
+        _re.compile(r"5\s*[-−‐–ー]\s*4[.．．]?\s*KPI|KPI測定計画|KPIフレーム"),
+    ),
+]
+
+
+def _detect_section5_subsections(analysis_md: str) -> dict[str, bool]:
+    """Return presence flags for each Section 5 subsection."""
+    return {
+        label: bool(pattern.search(analysis_md))
+        for _, label, pattern in _SECTION5_SUBSECTION_SPECS
+    }
 
 # Critical issue types that should block delivery (Task A)
 _CRITICAL_PATTERNS = {
@@ -240,6 +297,25 @@ def _quality_gate_check(analysis_md: str, result: ScanResult) -> tuple[list[str]
             issues.append("セクション欠損: アクションプランが見つかりません")
             is_critical = True
 
+    # ── 5b. Section 5 subsection coverage (Phase P1-C) ──
+    # Only applies to multi-URL Discovery / Compare reports where the 6
+    # subsection contract is enforced. Single-URL LP prompts use a different
+    # structure and must not trigger this gate.
+    is_multi_url = len(result.urls) > 1
+    has_exec_plan = headings_present.get("実行プラン", False) or any(
+        "実行プラン" in h or "アクション" in h or "施策" in h for h in normalized_headings
+    )
+    if is_multi_url and has_exec_plan:
+        subsection_presence = _detect_section5_subsections(analysis_md)
+        for severity, label, _pattern in _SECTION5_SUBSECTION_SPECS:
+            if subsection_presence.get(label):
+                continue
+            if severity == "critical":
+                issues.append(f"セクション欠損: 「{label}」が見つかりません")
+                is_critical = True
+            else:
+                issues.append(f"サブセクション欠損(任意): 「{label}」")
+
     # ── 6. Section 5-2 completeness check (Task E) ──
     # For multi-URL reports, verify that 5-2 search ad section is complete
     if len(result.urls) > 1:
@@ -316,6 +392,28 @@ def _quality_gate_check(analysis_md: str, result: ScanResult) -> tuple[list[str]
     mismatch_issues = _check_label_mismatch(analysis_md, result)
     for m in mismatch_issues:
         issues.append(m)
+
+    # ── 11. Section audit log (Phase P1-A) ──
+    try:
+        top_section_flags = {
+            "ES": bool(headings_present.get("エグゼクティブサマリー")),
+            "AP": bool(headings_present.get("分析対象と比較前提")),
+            "CS": bool(headings_present.get("競合比較サマリー")),
+            "BE": bool(headings_present.get("ブランド別評価")),
+            "EP": bool(headings_present.get("実行プラン")),
+        }
+        sub_flags = _detect_section5_subsections(analysis_md)
+        logger.info(
+            "section_audit run_id=%s urls=%d top=%s subs=%s issues=%d critical=%s",
+            getattr(result, "run_id", "?"),
+            len(getattr(result, "urls", []) or []),
+            top_section_flags,
+            sub_flags,
+            len(issues),
+            is_critical,
+        )
+    except Exception:  # pragma: no cover - logging must never break report
+        logger.debug("section_audit log emit failed", exc_info=True)
 
     return issues, is_critical
 
@@ -404,6 +502,72 @@ def _check_label_mismatch(analysis_md: str, result: ScanResult) -> list[str]:
     return issues
 
 
+_EXEC_PLAN_HEADING_RE = _re.compile(
+    r"^(##\s+(?:\d+[.．]?\s*)?(?:実行プラン|広告運用アクションプラン|アクションプラン))$",
+    _re.MULTILINE,
+)
+
+
+def _inject_stub_block(analysis_md: str, stub_block: str) -> str:
+    """Insert a stub block immediately after the 実行プラン heading.
+
+    Falls back to appending a freshly-created ``## 実行プラン`` section when no
+    heading exists in the LLM output.
+    """
+    m = _EXEC_PLAN_HEADING_RE.search(analysis_md)
+    if m:
+        insert_pos = m.end()
+        return analysis_md[:insert_pos] + "\n\n" + stub_block.rstrip() + "\n" + analysis_md[insert_pos:]
+    # No exec plan heading — append a brand new section.
+    separator = "\n\n" if analysis_md and not analysis_md.endswith("\n") else "\n"
+    return analysis_md.rstrip() + separator + "## 実行プラン\n\n" + stub_block.rstrip() + "\n"
+
+
+def _apply_deterministic_stubs(
+    analysis_md: str,
+    result: ScanResult,
+    quality_issues: list[str],
+) -> tuple[str, list[str]]:
+    """Inject ``### 最優先3施策`` / ``### 5-0 予算フレーム`` fallback blocks.
+
+    Returns the possibly-modified markdown and a list of human-readable
+    descriptors for each block that was actually injected (used for
+    Appendix A monitoring).
+    """
+    injected: list[str] = []
+    if not _deterministic_stub_enabled():
+        return analysis_md, injected
+    if not result.extracted:
+        return analysis_md, injected
+
+    subsection_presence = _detect_section5_subsections(analysis_md)
+
+    # 最優先3施策
+    if not subsection_presence.get("最優先3施策", False):
+        try:
+            stub = synthesize_priority_action_block(result.extracted)
+        except Exception:
+            logger.warning("priority_action_synthesizer failed", exc_info=True)
+            stub = None
+        if stub:
+            analysis_md = _inject_stub_block(analysis_md, stub)
+            injected.append("最優先3施策")
+
+    # 5-0 予算フレーム
+    subsection_presence = _detect_section5_subsections(analysis_md)
+    if not subsection_presence.get("5-0 予算フレーム", False):
+        try:
+            stub = synthesize_budget_frame_block(result.extracted)
+        except Exception:
+            logger.warning("budget_frame_synthesizer failed", exc_info=True)
+            stub = None
+        if stub:
+            analysis_md = _inject_stub_block(analysis_md, stub)
+            injected.append("5-0 予算フレーム")
+
+    return analysis_md, injected
+
+
 def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle:
     lines: list[str] = []
 
@@ -413,6 +577,20 @@ def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle
 
     # ── Quality Gate (Tasks A, G) ──
     quality_issues, is_critical = _quality_gate_check(analysis_md, result)
+
+    # ── Phase P1-D: deterministic stub injection (feature-flagged) ──
+    injected_stubs: list[str] = []
+    if is_critical:
+        analysis_md, injected_stubs = _apply_deterministic_stubs(
+            analysis_md, result, quality_issues,
+        )
+        if injected_stubs:
+            # Re-run quality gate to reflect newly-injected sections.
+            quality_issues, is_critical = _quality_gate_check(analysis_md, result)
+            logger.info(
+                "deterministic_stub_injected run_id=%s injected=%s remaining_issues=%d critical=%s",
+                result.run_id, injected_stubs, len(quality_issues), is_critical,
+            )
 
     if quality_issues:
         logger.warning(
@@ -451,7 +629,7 @@ def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle
     lines.append("<!-- appendix-start -->")
 
     # Appendix A: Quality audit (moved from client body — Task A)
-    if quality_issues:
+    if quality_issues or injected_stubs:
         lines.append("## Appendix A. 品質監査")
         lines.append("")
         if is_critical:
@@ -461,6 +639,11 @@ def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle
         lines.append("")
         for issue in quality_issues:
             lines.append(f"- {issue}")
+        if injected_stubs:
+            lines.append("")
+            lines.append("### 自動生成ブロック一覧（Phase P1-D）")
+            for name in injected_stubs:
+                lines.append(f"- {name}（LLM本文欠損のためコード側で補完）")
         lines.append("")
 
     # Appendix B: Extraction details

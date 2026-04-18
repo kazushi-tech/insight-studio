@@ -68,7 +68,16 @@ def _valid_report() -> str:
         "## ブランド別評価\n"
         "評価\n\n"
         "## 実行プラン\n"
-        "施策"
+        "### 最優先3施策\n"
+        "- 施策A\n\n"
+        "### 5-0 予算フレーム\n"
+        "| 項目 | 初期 | 拡張 | 備考 |\n"
+        "|---|---|---|---|\n"
+        "| 月額予算帯 | 10万円 | 30万円 | 推定 |\n\n"
+        "### 5-1 LP改善施策\n"
+        "| 項目 |\n|---|\n| FV改善 |\n\n"
+        "### 5-2 検索広告施策\n"
+        "| 項目 |\n|---|\n| 指名防衛 |\n"
     )
 
 
@@ -99,7 +108,12 @@ async def test_discovery_pipeline_returns_structured_quality_fields():
 
     assert response.quality_status == "pass"
     assert response.quality_is_critical is False
-    assert response.quality_issues == []
+    # Phase P1-C: optional subsections (5-3 Meta / 5-4 KPI) may raise
+    # info-level notices, but no critical "セクション欠損:" entry should appear.
+    critical_entries = [
+        i for i in response.quality_issues if i.startswith("セクション欠損:")
+    ]
+    assert critical_entries == []
 
 
 @pytest.mark.asyncio
@@ -140,4 +154,6 @@ async def test_discovery_pipeline_retries_compact_output_after_quality_failure()
     first_kwargs = analyze_mock.await_args_list[0].kwargs
     second_kwargs = analyze_mock.await_args_list[1].kwargs
     assert first_kwargs.get("compact_output") is False
-    assert second_kwargs.get("compact_output") is True
+    # Phase P1-C: first quality retry keeps full token budget; compact mode is
+    # now reserved for attempt>=2 so the shrink never worsens truncation.
+    assert second_kwargs.get("compact_output") is False
