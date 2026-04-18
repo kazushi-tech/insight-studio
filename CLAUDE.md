@@ -82,6 +82,10 @@ uvicorn web.app.backend_api:app --host 127.0.0.1 --port 8001 --reload --timeout-
 
 # 全サービス一括起動 (PowerShell)
 ./dev.ps1
+
+# 動作確認（Playwright、初回のみ）
+pip install playwright
+python -m playwright install chromium
 ```
 
 ## テスト
@@ -96,6 +100,30 @@ cd backends/market-lens-ai && python -m pytest
 # Backend (ads-insights)
 cd backends/ads-insights && python -m pytest
 ```
+
+## 動作確認（Playwright）
+
+`src/` 配下（React フロント）を変更したら、`webapp-testing` skill を使って Claude 自身が画面を開き、変更の反映と関連画面のリグレッションを確認してから完了報告する。
+
+### 対象
+
+- **やる:** `src/` 配下のコード変更（components / pages / App.jsx / index.css など）
+- **対象外:** `backends/` のみの変更（pytest で足りる）、ドキュメント・設定のみの変更
+
+### 手順
+
+1. `npm run build` で型・ビルド確認
+2. `webapp-testing` skill の `scripts/with_server.py` で `npm run dev`（port 3002）を起動
+3. Playwright sync API で変更画面を開き、挙動を確認
+4. **隣接画面も1つ以上**開いて regression 確認（Layout や共通コンポーネントを共有する画面）
+5. `page.on('console', ...)` でコンソールエラー／ネットワークエラーを拾い、結果と合わせて報告
+
+### ルール
+
+- 追加の npm 依存（`@playwright/test` 等）は入れない。`webapp-testing` skill（Python + Playwright sync API）を使う
+- ユーザーの許可を求めず自律的に実行する（`feedback_no_confirmation` に準拠）
+- タイムアウトが出たら値を増やさず根本原因を探す（`feedback_never_increase_timeouts` に準拠）
+- 初回のみ `pip install playwright && python -m playwright install chromium` が必要
 
 ## デザインシステム
 
