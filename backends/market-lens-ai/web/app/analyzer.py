@@ -9,8 +9,34 @@ from pathlib import Path
 from .models import ExtractedData, TokenUsage
 from .llm_client import call_multimodal_model as _call_multimodal_model
 from .llm_client import call_text_model as _call_text_model
+from .deterministic_evaluator import evaluate_all, format_judgment_block
+from .market_estimator import estimate as _estimate_market, format_market_estimate_block
 
 logger = logging.getLogger(__name__)
+
+
+def _build_shared_eval_context(
+    extracted_list: list[ExtractedData],
+    discovery_metadata: dict | None,
+) -> str:
+    """Return the concatenated judgment + market estimate block."""
+    if not extracted_list:
+        return ""
+    try:
+        evaluations = evaluate_all(extracted_list)
+    except Exception as exc:
+        logger.warning("deterministic evaluator failed: %s", exc)
+        return ""
+    try:
+        industry_hint = (discovery_metadata or {}).get("industry") or ""
+        keywords = (discovery_metadata or {}).get("market_keywords") or []
+        market = _estimate_market(industry_hint, brands=extracted_list, keywords=keywords)
+    except Exception as exc:
+        logger.warning("market estimator failed: %s", exc)
+        return format_judgment_block(evaluations)
+    judgment = format_judgment_block(evaluations)
+    market_block = format_market_estimate_block(market)
+    return f"{judgment}\n{market_block}"
 
 _FEATURE_LIMIT = 5
 _BODY_SNIPPET_LIMIT = 800
@@ -653,52 +679,50 @@ _WATER_INDUSTRY_TEMPLATE_COMPACT = """
 _MARKET_CONTEXT_LAYER = """
 ## 市場概況レイヤー（必須・セクション1の直後）
 
-エグゼクティブサマリーの後に、以下の市場概況テーブルを必ず出力すること。
-全ての数値はAI推定であり、**必ず【市場推定】ラベルと信頼度を付記**すること。
+プロンプト冒頭の `## 市場推定データ（参照必須）` テーブルの値を**そのまま転記**すること。
+数値を独自に再生成してはならない。市場規模・年率成長・検索Vol・CPC・CVRは
+完全に一致させること。
 
 ### 出力フォーマット:
 ```markdown
 ### 市場概況（AI推定・参考値）
 | 項目 | 推定値 | 信頼度 | 根拠 |
 |------|--------|--------|------|
-| 日本市場規模 | ¥XXX億（推定） | 低〜中 | 業界動向からの類推 |
-| 成長率 | 年率X-Y%（推定） | 低〜中 | 公開データからの類推 |
-| 主要チャネル | オンラインXX% / 店舗XX%（推定） | 低 | カテゴリ一般論 |
+| 日本市場規模 | 【市場推定】で示したレンジをそのまま | （冒頭テーブルの信頼度） | 冒頭の出所メモを転記 |
+| 成長率 | 年率X-Y%（【市場推定】） | （冒頭テーブルの信頼度） | 冒頭の出所メモを転記 |
+| 検索ボリューム目安 | 月間X万〜Y万（【市場推定】） | （冒頭テーブルの信頼度） | 冒頭の出所メモを転記 |
 | 季節性 | ピーク: X月 / オフ: X月（推定） | 低 | カテゴリ一般論 |
-| 検索ボリューム目安 | 月間X万〜Y万（推定） | 低 | カテゴリ規模からの類推 |
 ```
 
 ### ルール:
-- **点推定禁止**: 全てレンジで記載（例: `年率3-6%`）
-- **根拠必須**: 各推定の根拠を1行で明記
-- **季節性**: 需要ピーク時期・推奨キャンペーン時期・競合の季節施策傾向を含める
-- ソースなしの数値は書かない。推定値の場合は必ず「推定」と明記
+- **絶対遵守**: 市場規模・成長率・検索Vol・CPC帯・CVR は冒頭 `## 市場推定データ` の値と
+  文字通り一致させること。これらを独自生成した場合、レポートは品質ゲートで失格となる。
+- **季節性のみ**: 冒頭テーブルに無い季節性は個別推定して良い（`推定` ラベル必須）
+- **点推定禁止**: レンジで記載
+- ソースなしの数値は書かない
 """
 
 _COMPETITIVE_INTELLIGENCE_LAYER = """
 ## 競合広告投資推定（セクション3に含める）
 
-競合比較サマリーテーブルの後に、以下の広告投資推定テーブルを必ず出力すること。
-全てAI推定であり、実際の広告費データではないことを明記。
+冒頭 `## 市場推定データ` に掲載した「推定月間広告費 (1ブランドあたり)」のレンジを
+**各ブランドの基準レンジ**として転記すること。ブランド別の強弱（サイト規模や
+訴求数）はレンジの上下範囲を調整する形で表現するが、基準レンジから**2倍を超えて
+逸脱しない**こと。
 
 ### 出力フォーマット:
 ```markdown
 ### 競合広告投資推定（AI推定・参考値）
 | ブランド | 推定月間広告費レンジ | 主戦場 | 推定手法 | 信頼度 |
 |----------|---------------------|--------|----------|--------|
-| XX | ¥XX万〜¥XX万（推定） | 検索広告中心 | 指名防衛+カテゴリ獲得 | 低 |
+| XX | 冒頭テーブルの `推定月間広告費` を基準に±を付けたレンジ（【市場推定】） | 検索広告中心 | 指名防衛+カテゴリ獲得 | 冒頭の信頼度 |
 ```
 
-### 推定の根拠として使用:
-- LPの複雑性・ページ数（本格的LP → 投資厚い可能性）
-- 可視マーケティング活動（キャンペーン・セール実施）
-- 業界水準との比較
-- 検索での露出度（ブランド認知度の代理指標）
-
 ### ルール:
-- **常にレンジ**: 点推定は禁止（例: ¥50万 → ¥30万〜¥80万）
-- **「AI推定」ラベル必須**
-- 信頼度は原則「低」（実データがないため）
+- **基準レンジ一致**: 全ブランドの合算が冒頭レンジの`N倍（ブランド数）`に概ね一致
+- **「【市場推定】」ラベル必須**（`AI推定` より優先）
+- 独自に別の市場規模・検索Volから再計算してはならない
+- 信頼度は冒頭テーブルの信頼度をそのまま
 """
 
 _EVIDENCE_RIGOR_RULES = """
@@ -1165,10 +1189,13 @@ def build_deep_comparison_prompt(
         )
         ref_note = f"\n### 参考観測枠（評価保留）サイト\n以下は品質スコアが低く評価保留。主比較テーブルには含めないこと。\n{ref_section}\n"
 
+    shared_eval_context = _build_shared_eval_context(extracted_list, discovery_metadata)
+
     return f"""あなたは広告代理店のシニアストラテジストです。
 以下のサイトを比較し、クライアントにそのまま提出できる代理店品質の競合分析レポートを作成してください。
 
 {discovery_context}
+{shared_eval_context}
 ## 分析対象サイト（主比較対象）
 {main_section}
 {ref_note}
@@ -1409,10 +1436,13 @@ def build_wide_comparison_prompt(
     if reference_sites:
         ref_note = f"\n### 参考観測枠（評価保留）サイト\n以下は品質スコアが低く評価保留。主比較テーブルには含めないこと。\n{ref_section}\n"
 
+    shared_eval_context = _build_shared_eval_context(extracted_list, discovery_metadata)
+
     return f"""あなたは広告代理店のシニアストラテジストです。
 4サイト以上の比較なので、出力は**高シグナル優先**で簡潔にまとめてください。
 
 {discovery_context}
+{shared_eval_context}
 ## 分析対象サイト（主比較対象）
 {main_section}
 {ref_note}

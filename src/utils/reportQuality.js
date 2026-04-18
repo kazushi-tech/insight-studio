@@ -256,3 +256,54 @@ export function stripModelDates(reportMd) {
     .replace(/(?:作成日|分析実施日|実施日|レポート作成日)\s*[:：].*\n?/g, '')
     .replace(/\n{3,}/g, '\n\n')
 }
+
+/**
+ * Detect and strip orphaned table fragments at the tail of the report body.
+ * Triggered by truncated LLM outputs that leave dangling headers like
+ * "| 評価軸 |" with no separator / no body rows.
+ *
+ * Detection rule: a trailing run of lines starting with `|` that does NOT
+ * contain a separator row (`| --- | --- |` style) AND has fewer than 3
+ * rows — treat as incomplete and remove.
+ *
+ * @param {string} reportMd
+ * @returns {string}
+ */
+export function stripTruncatedTables(reportMd) {
+  if (!reportMd || typeof reportMd !== 'string') return reportMd
+  const lines = reportMd.split('\n')
+
+  // Walk back from the end collecting the trailing contiguous pipe block
+  // (blank lines between pipes are allowed).
+  let end = lines.length
+  // Skip trailing blank lines
+  while (end > 0 && lines[end - 1].trim() === '') end--
+  const blockEnd = end
+
+  let blockStart = end
+  while (blockStart > 0) {
+    const line = lines[blockStart - 1]
+    const stripped = line.trim()
+    if (stripped === '' || stripped.startsWith('|')) {
+      blockStart--
+      continue
+    }
+    break
+  }
+
+  if (blockStart === blockEnd) return reportMd
+
+  const blockLines = lines.slice(blockStart, blockEnd).filter((l) => l.trim().startsWith('|'))
+  if (blockLines.length === 0) return reportMd
+
+  const hasSeparator = blockLines.some((l) => /^\|\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(l.trim()))
+  const rowCount = blockLines.length
+
+  // A well-formed table has header + separator + at least one data row = 3 lines.
+  // If we have no separator OR the total is < 3 lines, it's a truncated fragment.
+  if (hasSeparator && rowCount >= 3) return reportMd
+
+  // Also require the block not to be preceded by a heading within 2 lines
+  // (if it is, it's probably a legit intentional header awaiting data).
+  return lines.slice(0, blockStart).join('\n').replace(/\n+$/, '')
+}

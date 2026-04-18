@@ -1,0 +1,83 @@
+# Trust element taxonomy (L1-L5).
+#
+# Structured version of the _TRUST_ELEMENT_TAXONOMY prose in analyzer.py.
+# L1 is the highest-trust signal (independent third-party validation);
+# L5 is the lowest (self-authored claims).
+#
+# Used by deterministic_evaluator to assign a max trust tier per brand
+# from ExtractedData fields, then both Compare and Discovery flows reference
+# the same tier label in the ## 事前判定結果 prompt block.
+
+version: 1
+
+tiers:
+  - level: L1
+    label: 第三者独立評価
+    weight: 5
+    description: 外部機関・独立メディアによる実証・受賞・公的認定
+    signal_fields:
+      - review_signals
+      - trust_badges
+    example_markers:
+      - 第三者機関
+      - 公式認定
+      - グッドデザイン賞
+      - ISO認証
+      - 特許
+      - 受賞
+
+  - level: L2
+    label: 顧客実績・社会証明
+    weight: 4
+    description: 顧客数・導入数・レビュー件数などの定量的社会証明
+    signal_fields:
+      - testimonials
+      - review_signals
+    example_markers:
+      - 導入企業
+      - 利用者数
+      - 累計
+      - 導入実績
+      - レビュー
+      - 星評価
+      - 顧客満足度
+
+  - level: L3
+    label: 保証・返金ポリシー
+    weight: 3
+    description: リスクリバーサルとしての返金保証・品質保証
+    signal_fields:
+      - guarantees
+      - offer_terms
+    example_markers:
+      - 返金保証
+      - 全額返金
+      - 品質保証
+      - 安心保証
+
+  - level: L4
+    label: コーポレート透明性
+    weight: 2
+    description: 運営会社・所在地・代表者などコーポレート情報の開示
+    signal_fields:
+      - corporate_elements
+      - contact_paths
+    example_markers:
+      - 会社概要
+      - 運営会社
+      - 代表取締役
+      - 設立
+      - 所在地
+
+  - level: L5
+    label: 自社訴求・スローガン
+    weight: 1
+    description: 自社発信のブランド訴求・スローガン・バナーコピー
+    signal_fields:
+      - banner_texts
+      - promo_claims
+      - feature_bullets
+    example_markers:
+      - 選ばれる理由
+      - 当社の強み
+      - No.1

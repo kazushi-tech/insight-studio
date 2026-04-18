@@ -36,6 +36,7 @@ from ..schemas.discovery_job import (
     DiscoveryJobStartResponse,
     DiscoveryJobStatus,
 )
+from ..schemas.report_envelope import build_envelope_from_md, report_envelope_enabled
 from ..services.discovery.candidate_ranker import validate_candidates_with_llm
 from ..services.discovery.discovery_pipeline import PipelineError, run_discovery_pipeline
 from ..services.discovery.keyword_extractor import classify_industry
@@ -567,5 +568,44 @@ def create_discovery_router(
             result_summary=record.result_summary,
             retry_after_sec=STAGE_RETRY_AFTER.get(record.stage.value, 3),
         )
+
+    @router.get("/jobs/{job_id}/report.json")
+    async def get_discovery_envelope(
+        job_id: str,
+        request: Request,
+        _token: str = Depends(verify_byok_or_token),
+    ):
+        """Return a ReportEnvelope v0 for a completed discovery job.
+
+        Flag-gated by REPORT_ENVELOPE_V0. Owner scoping matches the parent
+        `/jobs/{job_id}` endpoint.
+        """
+        if not report_envelope_enabled():
+            raise HTTPException(status_code=404, detail="ReportEnvelope v0 is not enabled.")
+        if job_repo is None:
+            raise HTTPException(status_code=501, detail="Async job support is not configured.")
+
+        record = job_repo.load_job(job_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="Job not found.")
+
+        owner_id = request.headers.get("X-Insight-User", "")
+        if record.owner_id and owner_id != record.owner_id:
+            raise HTTPException(status_code=404, detail="Job not found.")
+
+        if record.status != DiscoveryJobStatus.completed:
+            raise HTTPException(status_code=409, detail="Discovery job is not completed yet.")
+
+        result = job_repo.load_result(job_id)
+        report_md = ""
+        if result is not None:
+            report_md = getattr(result, "report_md", "") or ""
+
+        envelope = build_envelope_from_md(
+            report_id=job_id,
+            kind="discovery",
+            report_md=report_md,
+        )
+        return envelope.model_dump()
 
     return router

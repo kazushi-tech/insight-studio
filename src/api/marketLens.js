@@ -884,6 +884,16 @@ export async function getScan(runId) {
   return data
 }
 
+/** GET /api/scans/{runId}/report.json — ReportEnvelope v0 (flag-gated) */
+export async function getScanReportEnvelope(runId) {
+  return requestJson(`/scans/${runId}/report.json`)
+}
+
+/** GET /api/discovery/jobs/{jobId}/report.json — ReportEnvelope v0 (flag-gated) */
+export async function getDiscoveryReportEnvelope(jobId) {
+  return requestJson(`/discovery/jobs/${jobId}/report.json`)
+}
+
 /** GET /api/health */
 export function health() {
   return requestJson('/health')

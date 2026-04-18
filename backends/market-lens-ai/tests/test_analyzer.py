@@ -248,7 +248,10 @@ class TestBuildDeepComparisonPrompt:
             for name in ("a", "b", "c")
         ]
         prompt = build_deep_comparison_prompt(data)
-        assert len(prompt) < 25000
+        # Upper bound includes the shared evaluation + market estimate blocks
+        # that are now always embedded (A-8 rollout). The cap still catches
+        # runaway growth while accommodating the deterministic anchor data.
+        assert len(prompt) < 26000
 
     def test_four_site_uses_wide_prompt_shape(self):
         """4サイト以上では高シグナル優先の軽量プロンプトを使う."""
