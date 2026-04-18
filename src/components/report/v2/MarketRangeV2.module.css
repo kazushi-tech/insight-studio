@@ -1,0 +1,98 @@
+.panel {
+  background: var(--md-sys-color-surface-container-lowest);
+  border-radius: var(--md-v2-radius-card);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-family: var(--md-v2-font-display);
+  font-size: var(--md-v2-label-size);
+  font-weight: var(--md-v2-label-weight);
+  letter-spacing: var(--md-v2-label-tracking);
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rowHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.8125rem;
+}
+
+.rowLabel {
+  font-family: var(--md-v2-font-display);
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+}
+
+.rowValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.rowNumber {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  font-family: var(--md-v2-font-body);
+  font-weight: 600;
+}
+
+.rowUnit {
+  font-size: 0.6875rem;
+  color: var(--md-sys-color-outline);
+}
+
+.track {
+  position: relative;
+  height: 10px;
+  border-radius: var(--md-v2-radius-pill);
+  background: var(--md-sys-color-surface-container);
+}
+
+.fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--md-v2-radius-pill);
+  background: linear-gradient(
+    90deg,
+    var(--md-sys-color-primary-fixed-dim) 0%,
+    var(--md-sys-color-primary) 100%
+  );
+}
+
+.tickMin,
+.tickMax {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--md-sys-color-primary);
+}

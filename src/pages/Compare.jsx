@@ -16,6 +16,9 @@ import PriorityActionHero from '../components/report/PriorityActionHero'
 import CompetitorMatrix from '../components/report/CompetitorMatrix'
 import MarketRangeBar from '../components/report/MarketRangeBar'
 import BrandRadarChart from '../components/report/BrandRadarChart'
+import ReportViewV2 from '../components/report/v2/ReportViewV2'
+import UiVersionToggle from '../components/report/v2/UiVersionToggle'
+import { useUiVersion } from '../hooks/useUiVersion'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
 
@@ -320,9 +323,11 @@ export default function Compare() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
-  // Prefetch ReportEnvelope v0 JSON side-channel for future visualization wiring.
-  // Silent 404 fallback when flag off; consumers will bind envelope.{priority_actions,market_estimate,brand_evaluations} in a follow-up.
-  useReportEnvelope(result?.run_id ? 'scan' : null, result?.run_id || null)
+  const { isV2: isUiV2 } = useUiVersion()
+  const { envelope: scanEnvelope } = useReportEnvelope(
+    result?.run_id ? 'scan' : null,
+    result?.run_id || null,
+  )
   const discoveryRun = getRun('discovery')
   const discoveryResult = discoveryRun?.status === 'completed' ? discoveryRun.result : null
   const recoveryMode = loading && Boolean(run?.meta?.recoveryMode)
@@ -707,6 +712,7 @@ export default function Compare() {
                     レポートをコピー
                   </button>
                   <PrintButton />
+                  <UiVersionToggle className="print:hidden" />
                 </div>
               )}
             </div>
@@ -715,14 +721,20 @@ export default function Compare() {
             )}
             {report ? (
               <>
-                <PriorityActionHero reportMd={report} />
-                <div className="mt-6 space-y-6">
-                  <MarketRangeBar reportMd={rawReport} />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <CompetitorMatrix reportMd={report} />
-                    <BrandRadarChart reportMd={report} />
-                  </div>
-                </div>
+                {isUiV2 ? (
+                  <ReportViewV2 envelope={scanEnvelope} reportMd={rawReport || report} />
+                ) : (
+                  <>
+                    <PriorityActionHero reportMd={report} />
+                    <div className="mt-6 space-y-6">
+                      <MarketRangeBar reportMd={rawReport} />
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <CompetitorMatrix reportMd={report} />
+                        <BrandRadarChart reportMd={report} />
+                      </div>
+                    </div>
+                  </>
+                )}
                 {isQualityFailure && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
                     <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>
