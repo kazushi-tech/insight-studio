@@ -16,6 +16,9 @@ import PriorityActionHero from '../components/report/PriorityActionHero'
 import CompetitorMatrix from '../components/report/CompetitorMatrix'
 import MarketRangeBar from '../components/report/MarketRangeBar'
 import BrandRadarChart from '../components/report/BrandRadarChart'
+import ReportViewV2 from '../components/report/v2/ReportViewV2'
+import UiVersionToggle from '../components/report/v2/UiVersionToggle'
+import { useUiVersion } from '../hooks/useUiVersion'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
@@ -400,8 +403,11 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
-  // Prefetch ReportEnvelope v0 JSON side-channel for future visualization wiring.
-  useReportEnvelope(run?.meta?.jobId ? 'discovery' : null, run?.meta?.jobId || null)
+  const { isV2: isUiV2 } = useUiVersion()
+  const { envelope: discoveryEnvelope } = useReportEnvelope(
+    run?.meta?.jobId ? 'discovery' : null,
+    run?.meta?.jobId || null,
+  )
   const compareRun = getRun('compare')
   const compareResult = compareRun?.status === 'completed' ? compareRun.result : null
   const allDiscoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
@@ -930,6 +936,7 @@ export default function Discovery() {
                 レポートをコピー
               </button>
               <PrintButton />
+              <UiVersionToggle className="print:hidden" />
               <div className="flex items-center gap-1 bg-surface-container rounded-full p-1 print:hidden">
                 <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
                 {FONT_SIZES.map(({ key, label }) => (
@@ -960,13 +967,19 @@ export default function Discovery() {
                 </div>
               </div>
             )}
-            <div className="mb-6 space-y-6">
-              <PriorityActionHero reportMd={cleanBody} />
-              <MarketRangeBar reportMd={result.report_md} />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CompetitorMatrix reportMd={cleanBody} />
-                <BrandRadarChart reportMd={cleanBody} />
-              </div>
+            <div className="mb-6">
+              {isUiV2 ? (
+                <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} />
+              ) : (
+                <div className="space-y-6">
+                  <PriorityActionHero reportMd={cleanBody} />
+                  <MarketRangeBar reportMd={result.report_md} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CompetitorMatrix reportMd={cleanBody} />
+                    <BrandRadarChart reportMd={cleanBody} />
+                  </div>
+                </div>
+              )}
             </div>
             <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
             {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}

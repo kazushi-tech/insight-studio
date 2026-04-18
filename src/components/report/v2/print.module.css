@@ -1,0 +1,30 @@
+/*
+ * Stitch 2.0 print rules — scoped via CSS Modules so they stay
+ * isolated from v1 `print:*` Tailwind utilities.
+ */
+
+@media print {
+  .printRoot {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 11pt;
+  }
+
+  .printRoot section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .hideInPrint {
+    display: none !important;
+  }
+
+  .printKeepWithNext {
+    break-after: avoid-page;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 16mm 14mm;
+}

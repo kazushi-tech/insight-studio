@@ -44,6 +44,13 @@ function cellTextColor(verdict) {
   return '#14532d'
 }
 
+const VERDICT_SYMBOL = {
+  強: '▲',
+  同等: '＝',
+  弱: '▼',
+  評価保留: '・',
+}
+
 export default function CompetitorMatrix({ reportMd }) {
   const rows = useMemo(() => parseMatrix(reportMd), [reportMd])
   const [active, setActive] = useState(null)
@@ -99,7 +106,14 @@ export default function CompetitorMatrix({ reportMd }) {
                         }}
                         aria-label={`${row.brand} の ${axis} は ${verdict ?? '-'}。詳細を開く`}
                       >
-                        {verdict ?? '-'}
+                        <span className="inline-flex items-center gap-1 justify-center">
+                          {verdict && (
+                            <span aria-hidden="true" className="text-[11px] leading-none font-bold">
+                              {VERDICT_SYMBOL[verdict] ?? ''}
+                            </span>
+                          )}
+                          <span>{verdict ?? '-'}</span>
+                        </span>
                       </button>
                       {isActive && cell && (
                         <div className="absolute z-20 left-1/2 -translate-x-1/2 top-full mt-1 w-56 bg-inverse-surface text-inverse-on-surface text-[11px] font-normal rounded-lg p-3 shadow-lg text-left whitespace-normal leading-relaxed pointer-events-none">
