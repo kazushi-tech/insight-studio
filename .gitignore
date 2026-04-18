@@ -38,6 +38,7 @@ tmp_market_lens_ai_repo/
 test-results/
 plans/.reviews/
 smoke-manifest.json
+verify_output/
 .claude/settings.local.json
 plans/CLAUDE.md
 src/pages/CLAUDE.md
