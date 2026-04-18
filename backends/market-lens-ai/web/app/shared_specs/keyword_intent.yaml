@@ -1,0 +1,77 @@
+# Keyword intent taxonomy (5 categories).
+#
+# Structured version of _KEYWORD_INTENT_TAXONOMY in analyzer.py.
+# Used to classify the primary search intent a landing page targets
+# so both Compare and Discovery agree on strategy labels.
+#
+# Classification uses substring matching against keyword inputs (case-insensitive).
+# A keyword may match multiple categories; primary category is the first match
+# in the order listed here (brand > category-brand > category > comparison > general).
+
+version: 1
+
+categories:
+  - key: brand_nav
+    label: 指名
+    description: 明示的なブランド名検索（高コンバージョン・低ボリューム）
+    expected_cvr_band: high
+    typical_funnel_stage: 購入直前
+    match_hints:
+      - brand_name_in_keyword
+      - product_model_number
+    examples:
+      - ブランド名単独
+      - 公式
+      - ブランド名 + 型番
+
+  - key: brand_offer
+    label: ブランド非指名
+    description: ブランド名+非指名語（比較的CVR高い）
+    expected_cvr_band: high_mid
+    typical_funnel_stage: 比較・検討
+    match_hints:
+      - brand_name + generic_modifier
+    examples:
+      - ブランド名 + 口コミ
+      - ブランド名 + キャンペーン
+      - ブランド名 + 価格
+
+  - key: category_intent
+    label: カテゴリ指名
+    description: カテゴリ+商品属性（購入意思あり、中CVR）
+    expected_cvr_band: mid
+    typical_funnel_stage: 商品選定
+    match_hints:
+      - category + spec_attribute
+      - category + use_case
+    examples:
+      - 一眼レフ おすすめ
+      - プロテイン 安い
+      - トイレ 交換 見積もり
+
+  - key: category_nonintent
+    label: カテゴリ非指名
+    description: カテゴリ一般（情報収集段階、低CVR・高ボリューム）
+    expected_cvr_band: low
+    typical_funnel_stage: 情報収集
+    match_hints:
+      - category_general
+      - how_to_query
+    examples:
+      - カメラ とは
+      - ダイエット 方法
+      - 水漏れ 原因
+
+  - key: comparison
+    label: 比較検討
+    description: 比較検討クエリ（中CVR・購買意欲強）
+    expected_cvr_band: mid_high
+    typical_funnel_stage: 購入直前
+    match_hints:
+      - vs_compare
+      - ranking
+      - review_compare
+    examples:
+      - A vs B
+      - おすすめ 比較
+      - ランキング

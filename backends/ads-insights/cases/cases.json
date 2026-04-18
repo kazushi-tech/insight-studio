@@ -16,5 +16,14 @@
     "password_hash": "$2b$12$ZvFP1kqr8PH8.XerbFRaZeap7t7BzzycwfyLBoMuoqBbT9AUgWyQO",
     "is_active": true,
     "is_internal": true
+  },
+  {
+    "case_id": "camera_ohbayashi",
+    "name": "カメラの大林",
+    "description": "カメラの大林 広告運用案件",
+    "dataset_id": "camera-no-ohbayashi.analytics_363548540",
+    "password_hash": "$2b$12$40./lsLtAkRAi4kFYczLcedQa9jA.0nw3pJ/c9yLl2WSZWDNn8IPa",
+    "is_active": true,
+    "is_internal": false
   }
 ]

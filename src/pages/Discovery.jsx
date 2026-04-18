@@ -10,8 +10,14 @@ import { useBackendReadiness } from '../contexts/BackendReadinessContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
 import { recordScore } from '../utils/scoreHistory'
-import { checkReportQuality, splitReportSections, stripModelDates } from '../utils/reportQuality'
+import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables } from '../utils/reportQuality'
+import PrintButton from '../components/report/PrintButton'
+import PriorityActionHero from '../components/report/PriorityActionHero'
+import CompetitorMatrix from '../components/report/CompetitorMatrix'
+import MarketRangeBar from '../components/report/MarketRangeBar'
+import BrandRadarChart from '../components/report/BrandRadarChart'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
+import { useReportEnvelope } from '../hooks/useReportEnvelope'
 import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
 
 Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
@@ -394,6 +400,8 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
+  // Prefetch ReportEnvelope v0 JSON side-channel for future visualization wiring.
+  useReportEnvelope(run?.meta?.jobId ? 'discovery' : null, run?.meta?.jobId || null)
   const compareRun = getRun('compare')
   const compareResult = compareRun?.status === 'completed' ? compareRun.result : null
   const allDiscoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
@@ -899,7 +907,7 @@ export default function Discovery() {
       {/* Report */}
       {result?.report_md && (() => {
         const { body: discBody, appendix: discAppendix } = splitReportSections(result.report_md)
-        const cleanBody = stripModelDates(discBody)
+        const cleanBody = stripTruncatedTables(stripModelDates(discBody))
         const discBackendQuality = {
           qualityStatus: result?.quality_status,
           qualityIssues: result?.quality_issues,
@@ -916,12 +924,13 @@ export default function Discovery() {
               </div>
               <button
                 onClick={() => copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors print:hidden"
               >
                 <span className="material-symbols-outlined text-sm">content_copy</span>
                 レポートをコピー
               </button>
-              <div className="flex items-center gap-1 bg-surface-container rounded-full p-1">
+              <PrintButton />
+              <div className="flex items-center gap-1 bg-surface-container rounded-full p-1 print:hidden">
                 <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
                 {FONT_SIZES.map(({ key, label }) => (
                   <button
@@ -951,6 +960,14 @@ export default function Discovery() {
                 </div>
               </div>
             )}
+            <div className="mb-6 space-y-6">
+              <PriorityActionHero reportMd={cleanBody} />
+              <MarketRangeBar reportMd={result.report_md} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <CompetitorMatrix reportMd={cleanBody} />
+                <BrandRadarChart reportMd={cleanBody} />
+              </div>
+            </div>
             <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
             {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}
             {/* KPI Tracking Card */}

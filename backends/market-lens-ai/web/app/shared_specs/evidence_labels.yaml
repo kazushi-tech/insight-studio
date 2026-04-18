@@ -1,0 +1,52 @@
+# Evidence label rules: 確認済み / 推定 / 評価保留.
+#
+# Defines when a claim about a brand can be labeled as each tier.
+# Used by deterministic_evaluator to pre-label verdicts and by
+# report_generator._quality_gate_check to detect label-mismatch
+# (e.g. "確認済み" claimed but the supporting source field is empty).
+
+version: 1
+
+labels:
+  - key: confirmed
+    display: 確認済み
+    description: HTML抽出で直接取得できた事実に基づく主張
+    requires_any_non_empty:
+      - hero_copy
+      - h1
+      - title
+      - main_cta
+      - pricing_snippet
+      - feature_bullets
+      - testimonials
+      - trust_badges
+      - guarantees
+      - offer_terms
+      - promo_claims
+      - review_signals
+      - corporate_elements
+      - contact_paths
+    forbidden_when:
+      # Confirmed label is forbidden when the category's primary field is empty.
+      category_sources:
+        trust: [testimonials, review_signals, trust_badges, guarantees]
+        price: [pricing_snippet, offer_terms, promo_claims]
+        cta: [main_cta]
+        fv: [hero_copy, h1]
+
+  - key: estimated
+    display: 推定
+    description: 公開情報と業界平均から合理的に推計した値
+    applies_to:
+      - market_size
+      - ad_spend_range
+      - monthly_search_volume
+      - annual_growth_rate
+    must_include_marker: "【市場推定】"
+
+  - key: deferred
+    display: 評価保留
+    description: 抽出不可または根拠が弱いため判断を保留した項目
+    triggers:
+      - all_primary_sources_empty
+      - axis_defer_when_condition_met

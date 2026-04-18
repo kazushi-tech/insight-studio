@@ -2559,7 +2559,8 @@ def api_case_bq_status(case_id: str):
     try:
         from bq.client import get_client, PROJECT_ID
         client = get_client(PROJECT_ID)
-        tables = list(client.list_tables(f"{PROJECT_ID}.{dataset_id}"))
+        dataset_ref = dataset_id if "." in dataset_id else f"{PROJECT_ID}.{dataset_id}"
+        tables = list(client.list_tables(dataset_ref))
         return _json({"ok": True, "connected": True, "tables_found": len(tables)})
     except Exception as e:
         return _json({"ok": True, "connected": False, "error": str(e)})
