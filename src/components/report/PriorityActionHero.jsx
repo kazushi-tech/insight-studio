@@ -3,9 +3,11 @@ import { useMemo } from 'react'
 /**
  * Hero strip that surfaces the top-3 priority actions.
  *
- * Parses markdown body to find the `## 最優先施策` / `## 実行プラン` / `## 推奨事項` section
- * and extracts the first 3 items (bullets or numbered). Renders as 3 gold-accent
- * KPI cards — 16px radius per Botanical design spec.
+ * Parses markdown body to find an action-oriented section heading and extracts
+ * the first 3 items (bullets or numbered). Renders as 3 gold-accent KPI cards —
+ * 16px radius per Botanical design spec. Heading keywords mirror the backend
+ * quality gate (`report_generator.py::_quality_gate_check`) so that "quality
+ * OK but hero missing" divergences cannot occur.
  *
  * Renders null when nothing extractable is found so the page layout is unchanged.
  */
@@ -13,11 +15,14 @@ import { useMemo } from 'react'
 function findPrioritySection(reportMd) {
   if (typeof reportMd !== 'string') return ''
   // Headings likely to contain priority actions, in priority order.
+  // Kept in sync with backend action-plan detection keywords.
   const headings = [
     /##\s*(?:\d+[.．]?\s*)?最優先施策[^\n]*/,
     /##\s*(?:\d+[.．]?\s*)?優先施策[^\n]*/,
     /##\s*(?:\d+[.．]?\s*)?実行プラン[^\n]*/,
     /##\s*(?:\d+[.．]?\s*)?推奨(?:事項|施策)[^\n]*/,
+    /##\s*(?:\d+[.．]?\s*)?(?:広告運用)?アクションプラン[^\n]*/,
+    /##\s*(?:\d+[.．]?\s*)?改善提案[^\n]*/,
   ]
   for (const hp of headings) {
     const match = reportMd.match(hp)
