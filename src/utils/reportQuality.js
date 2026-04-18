@@ -5,6 +5,53 @@
  *            evaluation-deferred density check, competitive set overlap check.
  */
 
+// Issue severity levels (Phase P1-C)
+export const ISSUE_SEVERITY = {
+  CRITICAL: 'critical',
+  WARNING: 'warning',
+  INFO: 'info',
+}
+
+// Keyword tokens for severity classification
+const _CRITICAL_TOKENS = [
+  'セクション欠損',
+  '見出し欠損',
+  '末尾欠け',
+  '未完',
+  '途切れ',
+  '途中切断',
+  '構造エラー',
+  '必須セクション',
+  '最優先3施策',
+  '予算フレーム',
+  'LP改善施策',
+  '検索広告施策',
+  'Section 5',
+]
+
+const _INFO_TOKENS = [
+  'サブセクション欠損(任意)',
+  '任意',
+  '5-3',
+  '5-4',
+]
+
+/**
+ * Classify an issue string into a severity level (Phase P1-C).
+ * @param {string} issue
+ * @returns {'critical'|'warning'|'info'}
+ */
+export function classifyIssueSeverity(issue) {
+  if (!issue || typeof issue !== 'string') return ISSUE_SEVERITY.WARNING
+  for (const token of _INFO_TOKENS) {
+    if (issue.includes(token)) return ISSUE_SEVERITY.INFO
+  }
+  for (const token of _CRITICAL_TOKENS) {
+    if (issue.includes(token)) return ISSUE_SEVERITY.CRITICAL
+  }
+  return ISSUE_SEVERITY.WARNING
+}
+
 function uniqueIssues(items) {
   return [...new Set((items || []).filter(Boolean))]
 }

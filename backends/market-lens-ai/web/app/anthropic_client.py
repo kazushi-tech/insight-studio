@@ -183,7 +183,19 @@ async def call_anthropic(
                     messages=[{"role": "user", "content": prompt}],
                 )
                 _elapsed = time.monotonic() - _t0
-                logger.info("call_anthropic SUCCESS model=%s elapsed=%.1fs tokens=%s", m, _elapsed, getattr(getattr(message, 'usage', None), 'output_tokens', '?'))
+                _stop_reason = getattr(message, "stop_reason", None)
+                _usage = getattr(message, "usage", None)
+                _in_tokens = getattr(_usage, "input_tokens", None)
+                _out_tokens = getattr(_usage, "output_tokens", None)
+                logger.info(
+                    "call_anthropic SUCCESS model=%s elapsed=%.1fs stop_reason=%s input_tokens=%s output_tokens=%s",
+                    m, _elapsed, _stop_reason, _in_tokens, _out_tokens,
+                )
+                if _stop_reason == "max_tokens":
+                    logger.warning(
+                        "llm_response truncation model=%s stop_reason=max_tokens input_tokens=%s output_tokens=%s",
+                        m, _in_tokens, _out_tokens,
+                    )
                 return _extract_text_from_message(message), _usage_from_message(message, m)
             except anthropic.NotFoundError as e:
                 logger.warning("Model %s not found (%.1fs), trying fallback: %s", m, time.monotonic() - _t0, e)
@@ -264,6 +276,19 @@ async def call_anthropic_multimodal(
                         ],
                     }],
                 )
+                _stop_reason = getattr(message, "stop_reason", None)
+                _usage = getattr(message, "usage", None)
+                _in_tokens = getattr(_usage, "input_tokens", None)
+                _out_tokens = getattr(_usage, "output_tokens", None)
+                logger.info(
+                    "call_anthropic_multimodal SUCCESS model=%s stop_reason=%s input_tokens=%s output_tokens=%s",
+                    m, _stop_reason, _in_tokens, _out_tokens,
+                )
+                if _stop_reason == "max_tokens":
+                    logger.warning(
+                        "llm_response truncation model=%s stop_reason=max_tokens input_tokens=%s output_tokens=%s kind=multimodal",
+                        m, _in_tokens, _out_tokens,
+                    )
                 return _extract_text_from_message(message), _usage_from_message(message, m)
             except anthropic.NotFoundError as e:
                 logger.warning("Multimodal model %s not found, trying fallback: %s", m, e)

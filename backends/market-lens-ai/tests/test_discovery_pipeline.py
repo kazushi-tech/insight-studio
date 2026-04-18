@@ -72,11 +72,31 @@ def _validate_url(url: str) -> str | None:
     return None
 
 
+def _valid_report_markdown() -> str:
+    """Report body that satisfies Phase P1-C Section 5 subsection contract."""
+    return (
+        "## エグゼクティブサマリー\n"
+        "要約\n\n"
+        "## 分析対象と比較前提\n"
+        "前提\n\n"
+        "## 競合比較サマリー\n"
+        "比較\n\n"
+        "## ブランド別評価\n"
+        "評価\n\n"
+        "## 実行プラン\n"
+        "### 最優先3施策\n- 施策A\n\n"
+        "### 5-0 予算フレーム\n"
+        "| 項目 | 初期 | 拡張 | 備考 |\n|---|---|---|---|\n| 月額予算 | 10万 | 30万 | 推定 |\n\n"
+        "### 5-1 LP改善施策\n| 項目 |\n|---|\n| FV改善 |\n\n"
+        "### 5-2 検索広告施策\n| 項目 |\n|---|\n| 指名防衛 |\n"
+    )
+
+
 @pytest.mark.asyncio
 async def test_pipeline_fetches_four_competitors_by_default():
     search_client = RecordingSearchClient(_search_results())
     analyze_mock = AsyncMock(return_value=(
-        "## 総合サマリー\n## 実行プラン\n## 補足施策",
+        _valid_report_markdown(),
         TokenUsage(prompt_tokens=100, completion_tokens=200, total_tokens=300, model="test"),
     ))
 
@@ -108,7 +128,7 @@ async def test_pipeline_fetches_four_competitors_by_default():
 @pytest.mark.asyncio
 async def test_pipeline_respects_env_override_for_competitor_count():
     search_client = RecordingSearchClient(_search_results())
-    analyze_mock = AsyncMock(return_value=("## 総合サマリー", TokenUsage()))
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
 
     with patch.dict("os.environ", {"DISCOVERY_MAX_COMPETITORS": "3"}):
         response = await run_discovery_pipeline(
@@ -135,7 +155,7 @@ async def test_pipeline_respects_env_override_for_competitor_count():
 @pytest.mark.asyncio
 async def test_pipeline_can_fetch_four_but_analyze_three_competitors():
     search_client = RecordingSearchClient(_search_results())
-    analyze_mock = AsyncMock(return_value=("## 総合サマリー", TokenUsage()))
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
 
     with patch.dict("os.environ", {"DISCOVERY_MAX_COMPETITORS": "4", "DISCOVERY_ANALYZE_SITE_LIMIT": "3"}):
         response = await run_discovery_pipeline(
@@ -271,7 +291,7 @@ async def test_pipeline_passes_discovery_metadata_to_analyze():
 async def test_pipeline_response_has_excluded_candidates():
     """Pipeline response should include excluded_candidates field."""
     search_client = RecordingSearchClient(_search_results())
-    analyze_mock = AsyncMock(return_value=("## 総合サマリー", TokenUsage()))
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
 
     response = await run_discovery_pipeline(
         DiscoveryAnalyzeRequest(
