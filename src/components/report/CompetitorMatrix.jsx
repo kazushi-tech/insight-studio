@@ -2,6 +2,11 @@ import { useMemo, useState } from 'react'
 import { HEATMAP_GRADIENT } from './reportTheme'
 import JudgmentBadge from './JudgmentBadge'
 import EvidenceDetail from './EvidenceDetail'
+import {
+  AXIS_KEYS,
+  findBrandSectionBodies,
+  parseBrandVerdicts,
+} from '../../utils/brandEvalParser'
 
 /**
  * Heatmap-style competitor matrix: brands (rows) × 6 evaluation axes (cols).
@@ -16,66 +21,11 @@ import EvidenceDetail from './EvidenceDetail'
  * is unchanged on unsupported reports.
  */
 
-const AXIS_KEYS = ['検索意図一致', 'FV訴求', 'CTA明確性', '信頼構築', '価格・オファー', '購買導線']
-
-function findBrandSectionBodies(reportMd) {
-  if (typeof reportMd !== 'string') return []
-  // Find the brand evaluation section (## 4. ブランド別評価 / ## ブランド別評価)
-  const sectionMatch = reportMd.match(/##\s*(?:\d+[.．]?\s*)?ブランド別評価[^\n]*/)
-  if (!sectionMatch) return []
-  const start = sectionMatch.index + sectionMatch[0].length
-  const rest = reportMd.slice(start)
-  const endMatch = rest.match(/\n##\s/)
-  const end = endMatch ? endMatch.index : rest.length
-  const sectionBody = rest.slice(0, end)
-
-  // Split on ### headings → brand chunks
-  const chunks = sectionBody.split(/\n###\s+/)
-  // First chunk is before any ### heading; skip it
-  return chunks.slice(1).map((chunk) => {
-    const [first, ...lines] = chunk.split('\n')
-    return { title: first.trim(), body: lines.join('\n') }
-  })
-}
-
-function parseBrandTable(body) {
-  const lines = body.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('|'))
-  if (lines.length < 3) return null
-
-  const header = lines[0].split('|').map((c) => c.trim()).filter(Boolean)
-  const axisIdx = header.findIndex((h) => /評価軸/.test(h))
-  const verdictIdx = header.findIndex((h) => /判定/.test(h))
-  const evidenceIdx = header.findIndex((h) => /証拠強度/.test(h))
-  const reasonIdx = header.findIndex((h) => /根拠/.test(h))
-  if (axisIdx === -1 || verdictIdx === -1) return null
-
-  const verdicts = {}
-  for (const line of lines.slice(2)) {
-    const cells = line.split('|').map((c) => c.trim())
-    const offset = 1 // leading empty before first pipe
-    const axis = cells[axisIdx + offset]
-    const verdictRaw = cells[verdictIdx + offset] || ''
-    const evidence = evidenceIdx !== -1 ? cells[evidenceIdx + offset] : ''
-    const reason = reasonIdx !== -1 ? cells[reasonIdx + offset] : ''
-    if (!axis) continue
-
-    const verdictMatch = verdictRaw.match(/強|同等|弱|評価保留/)
-    const normalizedAxis = AXIS_KEYS.find((k) => axis.includes(k) || k.includes(axis.replace(/[・\s]/g, '')))
-    if (!normalizedAxis) continue
-    verdicts[normalizedAxis] = {
-      verdict: verdictMatch ? verdictMatch[0] : null,
-      evidence: evidence || '',
-      reason: reason || '',
-    }
-  }
-  return Object.keys(verdicts).length > 0 ? verdicts : null
-}
-
 function parseMatrix(reportMd) {
   const brandChunks = findBrandSectionBodies(reportMd)
   const rows = []
   for (const chunk of brandChunks) {
-    const verdicts = parseBrandTable(chunk.body)
+    const verdicts = parseBrandVerdicts(chunk.body)
     if (!verdicts) continue
     rows.push({ brand: chunk.title, verdicts })
   }

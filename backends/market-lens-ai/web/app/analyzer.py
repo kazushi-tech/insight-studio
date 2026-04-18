@@ -1154,6 +1154,19 @@ def build_competitive_lp_prompt(extracted: ExtractedData) -> str:
 """
 
 
+_OUTPUT_SCHEMA_CONTRACT = """
+## 出力スキーマ契約（違反は再生成対象）
+以下の `##` 見出しを完全一致で出力（追加・省略・昇格は契約違反）:
+1. `## エグゼクティブサマリー`
+2. `## 分析対象と比較前提`
+3. `## 競合比較サマリー` — 内部に `### 3-1. 市場概況` を必須（`## 市場概況`への昇格は禁止）、`### 3-2. 競合広告投資推定` `### 3-3. 消費者インサイト` も `###`
+4. `## ブランド別評価` — 各ブランドは `### <ブランド名>`（`## <ブランド名>`への昇格禁止）、全ブランド必ず出力
+5. `## 実行プラン` **← 欠損は出力無効**。内部に `### 最優先3施策` `### 5-1. LP改善施策` `### 5-2. 検索広告施策` を必須
+
+エグゼクティブサマリーに「**最優先施策**: ①...」とインライン列挙しても `### 最優先3施策` の代替にはならない。**両方必ず出力**。
+"""
+
+
 def build_deep_comparison_prompt(
     extracted_list: list[ExtractedData],
     *,
@@ -1193,6 +1206,8 @@ def build_deep_comparison_prompt(
 
     return f"""あなたは広告代理店のシニアストラテジストです。
 以下のサイトを比較し、クライアントにそのまま提出できる代理店品質の競合分析レポートを作成してください。
+
+{_OUTPUT_SCHEMA_CONTRACT}
 
 {discovery_context}
 {shared_eval_context}
@@ -1440,6 +1455,8 @@ def build_wide_comparison_prompt(
 
     return f"""あなたは広告代理店のシニアストラテジストです。
 4サイト以上の比較なので、出力は**高シグナル優先**で簡潔にまとめてください。
+
+{_OUTPUT_SCHEMA_CONTRACT}
 
 {discovery_context}
 {shared_eval_context}

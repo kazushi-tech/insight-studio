@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Chart, RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js'
 import { REPORT_COLORS, applyChartDefaults } from './reportTheme'
+import {
+  AXIS_KEYS,
+  findBrandSectionBodies,
+  parseBrandVerdicts,
+} from '../../utils/brandEvalParser'
 
 Chart.register(RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
@@ -11,8 +16,6 @@ Chart.register(RadarController, RadialLinearScale, PointElement, LineElement, Fi
  * 評価保留 is treated as a gap in the polygon (skipped via null).
  */
 
-const AXIS_KEYS = ['検索意図一致', 'FV訴求', 'CTA明確性', '信頼構築', '価格・オファー', '購買導線']
-
 const VERDICT_SCORE = {
   強: 1.0,
   同等: 0.5,
@@ -20,52 +23,18 @@ const VERDICT_SCORE = {
   評価保留: null,
 }
 
-function findBrandSectionBodies(reportMd) {
-  if (typeof reportMd !== 'string') return []
-  const sectionMatch = reportMd.match(/##\s*(?:\d+[.．]?\s*)?ブランド別評価[^\n]*/)
-  if (!sectionMatch) return []
-  const start = sectionMatch.index + sectionMatch[0].length
-  const rest = reportMd.slice(start)
-  const endMatch = rest.match(/\n##\s/)
-  const end = endMatch ? endMatch.index : rest.length
-  const sectionBody = rest.slice(0, end)
-  const chunks = sectionBody.split(/\n###\s+/)
-  return chunks.slice(1).map((chunk) => {
-    const [first, ...lines] = chunk.split('\n')
-    return { title: first.trim(), body: lines.join('\n') }
-  })
-}
-
-function parseBrandScores(body) {
-  const lines = body.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('|'))
-  if (lines.length < 3) return null
-  const header = lines[0].split('|').map((c) => c.trim()).filter(Boolean)
-  const axisIdx = header.findIndex((h) => /評価軸/.test(h))
-  const verdictIdx = header.findIndex((h) => /判定/.test(h))
-  if (axisIdx === -1 || verdictIdx === -1) return null
-
-  const scores = {}
-  for (const line of lines.slice(2)) {
-    const cells = line.split('|').map((c) => c.trim())
-    const offset = 1
-    const axis = cells[axisIdx + offset]
-    const verdictRaw = cells[verdictIdx + offset] || ''
-    if (!axis) continue
-    const verdictMatch = verdictRaw.match(/強|同等|弱|評価保留/)
-    const normalizedAxis = AXIS_KEYS.find((k) => axis.includes(k) || k.includes(axis.replace(/[・\s]/g, '')))
-    if (!normalizedAxis) continue
-    const verdict = verdictMatch ? verdictMatch[0] : '評価保留'
-    scores[normalizedAxis] = VERDICT_SCORE[verdict]
-  }
-  return Object.keys(scores).length > 0 ? scores : null
-}
-
 function parseRadarData(reportMd) {
   const chunks = findBrandSectionBodies(reportMd)
   const brands = []
   for (const c of chunks) {
-    const scores = parseBrandScores(c.body)
-    if (!scores) continue
+    const verdicts = parseBrandVerdicts(c.body)
+    if (!verdicts) continue
+    const scores = {}
+    for (const [axis, cell] of Object.entries(verdicts)) {
+      const verdict = cell.verdict ?? '評価保留'
+      scores[axis] = VERDICT_SCORE[verdict] ?? null
+    }
+    if (Object.keys(scores).length === 0) continue
     brands.push({ brand: c.title, scores })
   }
   return brands

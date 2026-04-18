@@ -200,6 +200,7 @@ class TestAppendixSeparation:
             "## ブランド別評価\n"
             "評価\n\n"
             "## 実行プラン\n"
+            "### 最優先3施策\n"
             "施策"
         )
 
