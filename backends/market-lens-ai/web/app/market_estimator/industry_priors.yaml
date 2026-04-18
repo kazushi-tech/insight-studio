@@ -1,0 +1,110 @@
+# Industry priors: static, publicly-derived ranges for market size,
+# growth rate, monthly search volume, CPC band, average CVR.
+#
+# These are intentionally coarse — each industry entry is a single
+# reference point that both Compare and Discovery cite verbatim.
+# Sources: public NSK/Dentsu/Nielsen market outlook reports,
+# Google Keyword Planner volume bands, industry-average CPC tables
+# (IAB/JIAA/IAB Japan), and public benchmarking posts.
+#
+# Units:
+#   market_size_jpy: 円
+#   monthly_search_volume: 月間検索数
+#   cpc_jpy: 1クリック単価の円レンジ
+#   avg_cvr_pct: 平均CVR (%)
+#   annual_growth_pct: 年率成長率 (%)
+
+version: 1
+
+# Priors are selected by matching match_keywords against normalized industry hints.
+# The first matching prior (in order) is returned. An industry_hint override
+# (e.g., "camera_resale") can be passed to estimate() to bypass keyword matching.
+
+priors:
+  - key: camera_resale
+    label: カメラ中古販売・買取
+    match_keywords: [カメラ, 中古カメラ, レンズ, 一眼レフ, 買取, リユース]
+    market_size_jpy: {min: 150_000_000_000, max: 220_000_000_000}
+    annual_growth_pct: {min: 2, max: 5}
+    monthly_search_volume: {min: 150_000, max: 250_000}
+    cpc_jpy: {min: 60, max: 220}
+    avg_cvr_pct: {min: 1.2, max: 3.0}
+    confidence: medium
+    source_note: "リユース業界市場規模（中古カメラ部分）推計、Google Keyword Planner公開帯"
+
+  - key: sports_supplement
+    label: スポーツサプリメント
+    match_keywords: [プロテイン, サプリ, スポーツサプリ, BCAA, ホエイ, EAA]
+    market_size_jpy: {min: 180_000_000_000, max: 260_000_000_000}
+    annual_growth_pct: {min: 5, max: 9}
+    monthly_search_volume: {min: 300_000, max: 600_000}
+    cpc_jpy: {min: 80, max: 320}
+    avg_cvr_pct: {min: 1.5, max: 3.8}
+    confidence: medium
+    source_note: "健康食品市場規模（スポーツニュートリション区分）、公開CPC帯"
+
+  - key: waterworks_repair
+    label: 水回り修理・リフォーム
+    match_keywords: [水回り, 水道, トイレ, 水漏れ, 蛇口, シャワー, リフォーム]
+    market_size_jpy: {min: 400_000_000_000, max: 700_000_000_000}
+    annual_growth_pct: {min: 1, max: 3}
+    monthly_search_volume: {min: 80_000, max: 180_000}
+    cpc_jpy: {min: 200, max: 900}
+    avg_cvr_pct: {min: 2.0, max: 5.0}
+    confidence: medium
+    source_note: "住宅リフォーム市場（水回り区分）推計、緊急系キーワードは高CPC帯"
+
+  - key: ecommerce_generic
+    label: EC・通販（一般）
+    match_keywords: [EC, 通販, オンラインショップ, ネットショップ]
+    market_size_jpy: {min: 20_000_000_000_000, max: 25_000_000_000_000}
+    annual_growth_pct: {min: 6, max: 10}
+    monthly_search_volume: {min: 500_000, max: 2_000_000}
+    cpc_jpy: {min: 40, max: 180}
+    avg_cvr_pct: {min: 1.0, max: 3.0}
+    confidence: low
+    source_note: "経産省EC市場調査BtoC全体推計"
+
+  - key: saas_business
+    label: BtoB SaaS
+    match_keywords: [SaaS, 業務システム, クラウド, 管理ツール, CRM, ERP]
+    market_size_jpy: {min: 1_000_000_000_000, max: 1_500_000_000_000}
+    annual_growth_pct: {min: 12, max: 20}
+    monthly_search_volume: {min: 50_000, max: 200_000}
+    cpc_jpy: {min: 250, max: 1200}
+    avg_cvr_pct: {min: 1.5, max: 4.5}
+    confidence: medium
+    source_note: "国内SaaS市場推計、BtoB検索広告CPC帯"
+
+  - key: real_estate
+    label: 不動産（住宅系）
+    match_keywords: [不動産, 賃貸, 物件, マンション, 戸建て, 注文住宅]
+    market_size_jpy: {min: 40_000_000_000_000, max: 45_000_000_000_000}
+    annual_growth_pct: {min: 0, max: 2}
+    monthly_search_volume: {min: 400_000, max: 1_200_000}
+    cpc_jpy: {min: 150, max: 600}
+    avg_cvr_pct: {min: 0.8, max: 2.5}
+    confidence: medium
+    source_note: "住宅市場全体規模（業界統計）"
+
+  - key: beauty_cosmetics
+    label: 美容・化粧品
+    match_keywords: [化粧品, コスメ, スキンケア, 美容, ビューティ]
+    market_size_jpy: {min: 2_500_000_000_000, max: 3_000_000_000_000}
+    annual_growth_pct: {min: 2, max: 5}
+    monthly_search_volume: {min: 600_000, max: 1_500_000}
+    cpc_jpy: {min: 60, max: 250}
+    avg_cvr_pct: {min: 1.0, max: 3.5}
+    confidence: medium
+    source_note: "国内化粧品市場推計"
+
+  - key: fallback_general
+    label: その他業界（一般）
+    match_keywords: []
+    market_size_jpy: {min: 100_000_000_000, max: 500_000_000_000}
+    annual_growth_pct: {min: 1, max: 6}
+    monthly_search_volume: {min: 50_000, max: 300_000}
+    cpc_jpy: {min: 80, max: 400}
+    avg_cvr_pct: {min: 1.0, max: 3.0}
+    confidence: low
+    source_note: "業界不明時のフォールバック値（広めのレンジ）"

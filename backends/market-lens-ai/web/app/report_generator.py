@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 import re as _re
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
+from .deterministic_evaluator import VERDICT_DEFER, evaluate_all
 from .models import ExtractedData, ScanResult
 
 logger = logging.getLogger(__name__)
@@ -310,7 +312,96 @@ def _quality_gate_check(analysis_md: str, result: ScanResult) -> tuple[list[str]
         if not _re.search(r'(?:目安|仮説|初期|レンジ|Phase|phase)', context):
             issues.append("予算配分警告: 固定比率が条件なしで記載されています（phase設計推奨）")
 
+    # ── 10. Label mismatch check (Phase A-6) ──
+    mismatch_issues = _check_label_mismatch(analysis_md, result)
+    for m in mismatch_issues:
+        issues.append(m)
+
     return issues, is_critical
+
+
+# Axis labels as written in reports (synonyms) mapped to deterministic evaluator keys.
+_AXIS_LABEL_TO_KEY = {
+    "検索意図一致": "search_intent_match",
+    "検索意図": "search_intent_match",
+    "FV訴求": "fv_appeal",
+    "FV": "fv_appeal",
+    "CTA明確性": "cta_clarity",
+    "CTA": "cta_clarity",
+    "信頼構築": "trust_building",
+    "信頼": "trust_building",
+    "価格・オファー": "price_offer",
+    "価格": "price_offer",
+    "オファー": "price_offer",
+    "購買導線": "purchase_flow",
+    "購買": "purchase_flow",
+}
+
+
+def _brand_token_from_url(url: str) -> str:
+    try:
+        host = urlparse(url).hostname or url
+    except Exception:
+        host = url
+    return host.replace("www.", "").split(".")[0] if host else ""
+
+
+def _check_label_mismatch(analysis_md: str, result: ScanResult) -> list[str]:
+    """Detect `確認済み` claims whose underlying source fields are empty.
+
+    Uses the deterministic evaluator: any axis row that reports `確認済み`
+    but the deterministic evaluator emitted `評価保留` for the same brand is
+    a label mismatch. These surface in Appendix A and on the front-end via
+    ``reportQuality.js`` label-mismatch detection.
+    """
+    if not getattr(result, "extracted", None):
+        return []
+
+    try:
+        evaluations = evaluate_all(result.extracted)
+    except Exception as exc:
+        logger.warning("label mismatch evaluator failed: %s", exc)
+        return []
+
+    issues: list[str] = []
+    # Parse the body into per-brand sections by using the first-token of each URL as a hint.
+    # We only need to find axis rows that carry `確認済み`. To be brand-scoped, we look for
+    # the nearest preceding brand token in the last ~400 characters before the row.
+    table_row_re = _re.compile(r"^\|[^\n]+\|$", _re.MULTILINE)
+    for m in table_row_re.finditer(analysis_md):
+        row = m.group(0)
+        # Quickly reject rows that don't include 確認済み
+        if "確認済み" not in row:
+            continue
+        cells = [c.strip() for c in row.strip("|").split("|")]
+        # First cell is the axis label in per-brand evaluation tables.
+        axis_label = cells[0] if cells else ""
+        axis_key = None
+        for label, key in _AXIS_LABEL_TO_KEY.items():
+            if axis_label == label or label in axis_label:
+                axis_key = key
+                break
+        if axis_key is None:
+            continue
+
+        # Locate the preceding brand anchor (最寄りの URL token in the preceding 500 chars).
+        window = analysis_md[max(0, m.start() - 500) : m.start()]
+        matched_eval = None
+        for ev in evaluations:
+            token = _brand_token_from_url(ev.url)
+            if token and token in window:
+                matched_eval = ev
+        if matched_eval is None:
+            continue
+        verdict = matched_eval.verdict_for(axis_key)
+        if verdict and verdict.verdict == VERDICT_DEFER:
+            issues.append(
+                f"Label mismatch: {matched_eval.brand_label} の「{axis_label}」行で"
+                f"「確認済み」と記載されているが、抽出データでは根拠が空のため"
+                f"`評価保留` が妥当です。"
+            )
+
+    return issues
 
 
 def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle:

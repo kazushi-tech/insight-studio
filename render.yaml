@@ -54,6 +54,9 @@ services:
         value: "4"
       - key: ANTHROPIC_DISCOVERY_FALLBACK_MODEL
         value: "claude-haiku-4-5-20251001"
+      # Phase B-7: ReportEnvelope v0 JSON side-channel enabled
+      - key: REPORT_ENVELOPE_V0
+        value: "true"
       # --- ads-insights 設定 (統合) ---
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false

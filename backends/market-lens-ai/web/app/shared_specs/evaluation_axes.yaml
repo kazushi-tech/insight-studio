@@ -1,0 +1,153 @@
+# Six-axis evaluation specification (machine-readable).
+#
+# Both the Compare flow (build_deep_comparison_prompt) and the Discovery flow
+# (build_wide_comparison_prompt) must use the same axis definitions so the
+# same extraction data produces the same verdicts across reports.
+#
+# Each axis has four possible verdicts: 強 / 同等 / 弱 / 評価保留.
+# Conditions are evaluated by deterministic_evaluator.py against
+# ExtractedData fields before the LLM prompt is built.
+#
+# Field names refer to ExtractedData attributes (models.py).
+# Supported predicates:
+#   non_empty        — field is a non-empty string or non-empty list
+#   contains_any     — field contains any of the given substrings (case-insensitive)
+#   min_items        — list length >= N
+#   min_length       — string length >= N characters
+#   keyword_any      — true if search keyword appears in field
+#
+# Verdicts:
+#   強        — all "required" predicates pass AND any "boost" passes
+#   同等      — required predicates pass, no boost
+#   弱        — none of required predicates pass
+#   評価保留  — primary source field itself is empty / unextractable
+
+version: 1
+
+axes:
+  - key: search_intent_match
+    label: 検索意図一致
+    description: 想定検索キーワードとFV/本文コピーの主旨が一致しているか
+    primary_sources: [hero_copy, h1, title, meta_description]
+    strong_conditions:
+      required:
+        - non_empty: hero_copy
+        - min_length: {field: hero_copy, value: 8}
+      boost:
+        - non_empty: h1
+        - min_length: {field: meta_description, value: 30}
+    weak_conditions:
+      any:
+        - field_equals_any:
+            field: hero_copy
+            values: ["ONLINE MAGAZINE", "MAGAZINE", "BLOG", "NEWS", ""]
+    defer_when:
+      any:
+        - is_empty: hero_copy
+        - is_empty: h1
+
+  - key: fv_appeal
+    label: FV訴求
+    description: ファーストビューに購買動機訴求（便益・差別化）が存在するか
+    primary_sources: [hero_copy, h1, main_cta, banner_texts]
+    strong_conditions:
+      required:
+        - non_empty: hero_copy
+        - min_length: {field: hero_copy, value: 12}
+      boost:
+        - non_empty: main_cta
+        - min_items: {field: banner_texts, value: 1}
+    weak_conditions:
+      any:
+        - field_equals_any:
+            field: hero_copy
+            values: ["ONLINE MAGAZINE", "MAGAZINE", "BLOG", "お知らせ", "NEWS"]
+        - is_empty: hero_copy
+    defer_when:
+      any:
+        - is_empty: hero_copy
+
+  - key: cta_clarity
+    label: CTA明確性
+    description: 主要CTAが具体的かつ目立つ位置に配置されているか
+    primary_sources: [main_cta, secondary_ctas, contact_paths]
+    strong_conditions:
+      required:
+        - non_empty: main_cta
+        - min_length: {field: main_cta, value: 2}
+      boost:
+        - min_items: {field: secondary_ctas, value: 1}
+        - min_items: {field: contact_paths, value: 1}
+    weak_conditions:
+      any:
+        - is_empty: main_cta
+    defer_when:
+      any:
+        - is_empty: main_cta
+
+  - key: trust_building
+    label: 信頼構築
+    description: 第三者証拠（実績・レビュー・保証・コーポレート）の提示量
+    primary_sources: [testimonials, review_signals, trust_badges, guarantees, corporate_elements]
+    strong_conditions:
+      required:
+        - any_non_empty:
+            fields: [testimonials, review_signals, trust_badges, guarantees]
+      boost:
+        - min_items: {field: corporate_elements, value: 1}
+        - min_items: {field: testimonials, value: 2}
+    weak_conditions:
+      all:
+        - is_empty: testimonials
+        - is_empty: review_signals
+        - is_empty: trust_badges
+        - is_empty: guarantees
+    defer_when:
+      all:
+        - is_empty: testimonials
+        - is_empty: review_signals
+        - is_empty: trust_badges
+        - is_empty: guarantees
+        - is_empty: corporate_elements
+
+  - key: price_offer
+    label: 価格・オファー
+    description: 価格提示・限定特典・配送条件など購買オファーの明瞭さ
+    primary_sources: [pricing_snippet, offer_terms, promo_claims, shipping_signals, urgency_elements]
+    strong_conditions:
+      required:
+        - any_non_empty:
+            fields: [pricing_snippet, offer_terms, promo_claims]
+      boost:
+        - non_empty: shipping_signals
+        - non_empty: urgency_elements
+    weak_conditions:
+      all:
+        - is_empty: pricing_snippet
+        - is_empty: offer_terms
+        - is_empty: promo_claims
+    defer_when:
+      all:
+        - is_empty: pricing_snippet
+        - is_empty: offer_terms
+        - is_empty: promo_claims
+        - is_empty: shipping_signals
+
+  - key: purchase_flow
+    label: 購買導線
+    description: 申込・購入・問い合わせへの導線の明確さ
+    primary_sources: [main_cta, secondary_ctas, contact_paths, feature_bullets]
+    strong_conditions:
+      required:
+        - non_empty: main_cta
+      boost:
+        - min_items: {field: contact_paths, value: 1}
+        - min_items: {field: secondary_ctas, value: 2}
+    weak_conditions:
+      all:
+        - is_empty: main_cta
+        - is_empty: contact_paths
+    defer_when:
+      all:
+        - is_empty: main_cta
+        - is_empty: contact_paths
