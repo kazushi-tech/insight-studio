@@ -10,8 +10,14 @@ import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisPro
 import { getScoreLabel } from '../utils/scoreThresholds'
 import { copyReportToClipboard, buildCompareReportText } from '../utils/reportExport'
 import { recordScore, getPreviousScore, formatScoreDelta } from '../utils/scoreHistory'
-import { checkReportQuality, splitReportSections, stripModelDates } from '../utils/reportQuality'
+import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables } from '../utils/reportQuality'
+import PrintButton from '../components/report/PrintButton'
+import PriorityActionHero from '../components/report/PriorityActionHero'
+import CompetitorMatrix from '../components/report/CompetitorMatrix'
+import MarketRangeBar from '../components/report/MarketRangeBar'
+import BrandRadarChart from '../components/report/BrandRadarChart'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
+import { useReportEnvelope } from '../hooks/useReportEnvelope'
 
 
 function formatElapsed(ms) {
@@ -314,6 +320,9 @@ export default function Compare() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
+  // Prefetch ReportEnvelope v0 JSON side-channel for future visualization wiring.
+  // Silent 404 fallback when flag off; consumers will bind envelope.{priority_actions,market_estimate,brand_evaluations} in a follow-up.
+  useReportEnvelope(result?.run_id ? 'scan' : null, result?.run_id || null)
   const discoveryRun = getRun('discovery')
   const discoveryResult = discoveryRun?.status === 'completed' ? discoveryRun.result : null
   const recoveryMode = loading && Boolean(run?.meta?.recoveryMode)
@@ -465,7 +474,7 @@ export default function Compare() {
     qualityIsCritical: result?.quality_is_critical,
   }
   const { body: reportBody, appendix: reportAppendix } = splitReportSections(strippedReport)
-  const report = stripModelDates(reportBody)
+  const report = stripTruncatedTables(stripModelDates(reportBody))
   const { isQualityFailure, issues: qualityIssues } = checkReportQuality(strippedReport, backendQuality)
   const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
   const executionMetaEntries = getExecutionMetaEntries(executionMeta, {
@@ -686,16 +695,19 @@ export default function Compare() {
                 <span className="text-sm font-bold">分析レポート</span>
               </div>
               {result && (
-                <button
-                  onClick={() => {
-                    const text = buildCompareReportText({ overallScore, scores, summary: result?.summary, report })
-                    copyReportToClipboard(text)
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">content_copy</span>
-                  レポートをコピー
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const text = buildCompareReportText({ overallScore, scores, summary: result?.summary, report })
+                      copyReportToClipboard(text)
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors print:hidden"
+                  >
+                    <span className="material-symbols-outlined text-sm">content_copy</span>
+                    レポートをコピー
+                  </button>
+                  <PrintButton />
+                </div>
               )}
             </div>
             {extracted && (
@@ -703,6 +715,14 @@ export default function Compare() {
             )}
             {report ? (
               <>
+                <PriorityActionHero reportMd={report} />
+                <div className="mt-6 space-y-6">
+                  <MarketRangeBar reportMd={rawReport} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <CompetitorMatrix reportMd={report} />
+                    <BrandRadarChart reportMd={report} />
+                  </div>
+                </div>
                 {isQualityFailure && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
                     <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>

@@ -1,12 +1,16 @@
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Children, isValidElement, cloneElement, Fragment } from 'react'
+import JudgmentBadge from './report/JudgmentBadge'
 
 /* ── Badge Rendering for Report Quality ── */
 
+// Judgment verdicts — rendered as <JudgmentBadge> only when a table cell
+// contains the verdict as its sole token (prose like 「強み」「弱い」 is not matched).
+const JUDGMENT_VALUES = new Set(['強', '同等', '弱', '評価保留'])
+
 const BADGE_DEFS = [
   { regex: /確認済み/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 align-middle' },
-  { regex: /評価保留/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 align-middle' },
   { regex: /【市場推定】/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 align-middle' },
   { regex: /取得不可/g, cls: 'italic text-gray-400 text-xs align-middle' },
 ]
@@ -574,9 +578,11 @@ function getComponents(size = 'normal', variant = null) {
       )
     },
     td: ({ children, style, node }) => {
-      const text = String(children ?? '')
+      const text = typeof children === 'string' ? children : extractText(children)
+      const trimmed = text.trim()
       const numeric = isNumericCell(text)
       const url = isPlainHttpUrl(text)
+      const isJudgment = JUDGMENT_VALUES.has(trimmed)
       const cellIndex = node?.position?.start?.column ?? 1
       const isFirstCol = cellIndex <= 1
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : ''
@@ -590,6 +596,8 @@ function getComponents(size = 'normal', variant = null) {
         >
           {shortenUrlForDisplay(text)}
         </a>
+      ) : isJudgment ? (
+        <JudgmentBadge verdict={trimmed} />
       ) : isDiscovery ? processBadgesInChildren(children) : children
 
       if (isDiscovery) {

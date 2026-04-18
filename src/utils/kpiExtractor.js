@@ -145,6 +145,68 @@ export function extractKpis(sectionMd) {
 }
 
 /**
+ * Parse a range string like "200〜400", "2.5〜5.0", "2,000〜6,000" into {min, max}.
+ */
+function parseRange(raw) {
+  if (!raw) return null
+  const cleaned = String(raw).replace(/[,，]/g, '').replace(/\s/g, '')
+  const match = cleaned.match(/(-?\d+(?:\.\d+)?)\s*[〜～~\-−–—]+\s*(-?\d+(?:\.\d+)?)/)
+  if (!match) {
+    const singleMatch = cleaned.match(/(-?\d+(?:\.\d+)?)/)
+    if (!singleMatch) return null
+    const v = parseFloat(singleMatch[1])
+    return Number.isFinite(v) ? { min: v, max: v } : null
+  }
+  const min = parseFloat(match[1])
+  const max = parseFloat(match[2])
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+  return { min: Math.min(min, max), max: Math.max(min, max) }
+}
+
+/**
+ * Extract the deterministic market range table injected by the backend.
+ *
+ * Looks for:
+ *   ## 市場推定データ（参照必須）
+ *   ...
+ *   | 指標 | レンジ | 単位 |
+ *   | --- | --- | --- |
+ *   | 市場規模 | 200〜400 | 億円 |
+ *   ...
+ *
+ * @param {string} reportMd
+ * @returns {Array<{label: string, min: number, max: number, unit: string, confidence?: string}>}
+ */
+export function extractMarketRanges(reportMd) {
+  if (typeof reportMd !== 'string' || !reportMd.trim()) return []
+  const idx = reportMd.indexOf('市場推定データ')
+  if (idx === -1) return []
+  const slice = reportMd.slice(idx, idx + 3000)
+
+  // Extract confidence
+  const confMatch = slice.match(/\*\*信頼度\*\*[:：]\s*([^\n]+)/)
+  const confidence = confMatch ? confMatch[1].trim() : ''
+
+  // Parse table rows
+  const lines = slice.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('|'))
+  if (lines.length < 3) return []
+
+  const ranges = []
+  for (const line of lines.slice(2)) {
+    const cells = line.split('|').map((c) => c.trim())
+    // leading empty cell, so real cells are indices 1..
+    const label = cells[1]
+    const rangeRaw = cells[2]
+    const unit = cells[3] || ''
+    if (!label || !rangeRaw || label.startsWith('-')) continue
+    const range = parseRange(rangeRaw)
+    if (!range) continue
+    ranges.push({ label, ...range, unit, confidence })
+  }
+  return ranges
+}
+
+/**
  * Extract competitive set (brand names) from report.
  * @param {string} reportMd - Raw markdown report
  * @returns {string[]} Array of brand names found
