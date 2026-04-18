@@ -240,6 +240,23 @@ def _quality_gate_check(analysis_md: str, result: ScanResult) -> tuple[list[str]
             issues.append("セクション欠損: アクションプランが見つかりません")
             is_critical = True
 
+    # ── 5b. 最優先3施策 sub-heading presence check (Task A — schema contract) ──
+    # Require a dedicated `### 最優先3施策` sub-heading inside the action plan section.
+    # Inline "最優先施策:" text in executive summary does NOT satisfy this requirement.
+    if headings_present.get("実行プラン", False) or any(
+        "実行プラン" in h or "アクション" in h for h in normalized_headings
+    ):
+        has_priority3_heading = any(
+            _re.match(r'^#{2,4}\s+.*最優先\s*[3３]\s*施策', h.strip())
+            for h in [m.group(0) for m in _HEADING_LINE.finditer(analysis_md)]
+        )
+        if not has_priority3_heading:
+            issues.append(
+                "セクション欠損: 最優先3施策サブセクションが見つかりません"
+                "（エグゼクティブサマリー内のインライン記述は代替になりません）"
+            )
+            is_critical = True
+
     # ── 6. Section 5-2 completeness check (Task E) ──
     # For multi-URL reports, verify that 5-2 search ad section is complete
     if len(result.urls) > 1:
