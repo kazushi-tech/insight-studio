@@ -156,3 +156,42 @@ script の import / CLI は問題なく動作。実行には以下が必要：
 ---
 
 **Phase 5B 成果物**: `src/styles/landing.css`, `scripts/phase5b-verify.py`, `.gitignore`, 本 result.md。
+
+---
+
+## 7. 2026-04-19 E2E 実行結果（追記）
+
+### 7-1. 実行サマリ
+
+| 項目 | 値 |
+|---|---|
+| 実行日時 | 2026-04-19 09:00 JST |
+| search_id | `a03bc0f98cfa`（local DB に存在せず、staging のみのジョブ） |
+| AUTH_TOKEN | 未指定（harness が dev stub token を seed） |
+| BASE_URL | `http://localhost:3002`（vite dev + `unified_app:app` on 8002） |
+| Gate | **FAIL** — `all_passed: false` |
+
+4 パターン判定:
+
+| # | URL | passed |
+|---|---|---|
+| G | `/discovery?search_id=a03bc0f98cfa&ui=v1` | ✅ PASS（v1 checks は `.ui-v2` 非存在のみ）|
+| H | `/discovery?search_id=a03bc0f98cfa&ui=v2` | ❌ FAIL `ui-v2 root not found` |
+| I | `/compare?search_id=a03bc0f98cfa&ui=v2` | ❌ FAIL 同上 |
+| J | 同 H + envelope forced null | ❌ FAIL 同上 |
+
+詳細と根本原因分析は [plans/2026-04-18-phase5b-e2e-failure.md](2026-04-18-phase5b-e2e-failure.md) にまとめた。
+
+### 7-2. PR #42 harness のバグを修正
+
+実行前準備の過程で PR #42 成果物に 3 点の不備を発見し、本 PR で修正した：
+
+- **URL path**: `/discovery/result`, `/compare/result` は存在せぬ route。catch-all で `/` に redirect されておった → `/discovery`, `/compare` に修正
+- **auth key**: `auth_token` は AuthGuard が読まぬキー。Phase 5A と同じ `is_ads_token` + `is_user` (admin role) を seed するよう修正
+- **MD fallback intercept**: `**/api/ml/discovery/*/report-envelope` は実在せぬ path。正しくは `**/api/ml/discovery/jobs/*/report.json` / `**/api/ml/scans/*/report.json`
+
+### 7-3. 次のアクション
+
+- Phase 5C 起草は保留（プラン §3-4 指示）
+- 不二樹判断待ち — failure doc §5 の選択肢 A〜C から選択してもらう
+- harness 自体は修正済ゆえ、staging の完了済ジョブ + 対応 token が与えられれば同一 script で即再実行可能じゃ
