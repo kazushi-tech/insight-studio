@@ -81,7 +81,11 @@ export default function PriorityActionHeroV2({ envelope, reportMd }) {
   if (!actions.length) return null
 
   return (
-    <section className={`${styles.hero} md-v2-enter`} aria-label="最優先施策">
+    <section
+      className={`${styles.hero} md-v2-enter`}
+      aria-label="最優先施策"
+      data-testid="priority-action-hero-v2"
+    >
       <div className={styles.header}>
         <span className={styles.headerDot} aria-hidden="true" />
         <span className={styles.headerLabel}>Priority Actions — 最優先施策</span>
