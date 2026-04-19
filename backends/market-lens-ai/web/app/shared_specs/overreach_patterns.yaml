@@ -1,0 +1,68 @@
+# Overreach pattern taxonomy — claims that require stronger trust tier
+# evidence than the extracted data provides.
+#
+# Consumed by confidence_tier_validator.py. Each rule defines:
+#   trigger: when does this rule apply to a brand (by trust_tier or axis verdict)
+#   forbidden_patterns: regex patterns to search for in the brand's report section
+#                       + a safer rewrite string
+#
+# Philosophy: warn mode only (no hard fail, no re-generation). The goal is
+# to prevent strong third-party-style language (L1-level claims) from being
+# attributed to brands whose LP only offers L5 self-claims.
+
+version: 1
+
+rules:
+  # L5-only brands (self-claim only) cannot substantiate third-party
+  # certification language. Rewrite to neutral phrasing.
+  - id: l5_only_certification
+    description: >
+      Trust tier L5 self-claim-only brands must not claim external
+      certification / doping clearance / third-party evaluation.
+    trigger:
+      when_trust_tier_in: [L5]
+    forbidden_patterns:
+      - pattern: "アンチドーピング対応"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "アンチドーピング認証"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "WADA\\s*検査済[みさ]?"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "WADA\\s*認定"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "WADA\\s*認証"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "第三者機関による評価"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "第三者認証[済み]?"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "認証されている"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "認証済み"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "検査済み"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "公的認定を取得"
+        rewrite: "関連情報の記載あり（内容未確認）"
+      - pattern: "保証されている"
+        rewrite: "関連情報の記載あり（内容未確認）"
+
+  # Brands with any 評価保留 axis must not make comparative absolute claims
+  # about that brand.
+  - id: defer_comparative_claims
+    description: >
+      When deterministic evaluator returns 評価保留 on one or more axes,
+      downgrade comparative absolutes to deferred-judgement phrasing.
+    trigger:
+      when_axis_verdict_in: [評価保留]
+    forbidden_patterns:
+      - pattern: "他社を圧倒している"
+        rewrite: "判定保留（データ不足）"
+      - pattern: "他社を圧倒"
+        rewrite: "判定保留（データ不足）"
+      - pattern: "他社より抜きん出て"
+        rewrite: "判定保留（データ不足）"
+      - pattern: "競合より優れている"
+        rewrite: "判定保留（データ不足）"
+      - pattern: "競合より劣っている"
+        rewrite: "判定保留（データ不足）"

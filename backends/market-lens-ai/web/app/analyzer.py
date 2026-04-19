@@ -9,6 +9,7 @@ from pathlib import Path
 from .models import ExtractedData, TokenUsage
 from .llm_client import call_multimodal_model as _call_multimodal_model
 from .llm_client import call_text_model as _call_text_model
+from .confidence_tier_validator import validate_and_annotate
 from .deterministic_evaluator import evaluate_all, format_judgment_block
 from .market_estimator import estimate as _estimate_market, format_market_estimate_block
 
@@ -1679,6 +1680,41 @@ def _comparison_output_token_budget(site_count: int, *, compact: bool = False) -
     return _MULTI_URL_MAX_OUTPUT_TOKENS
 
 
+def _apply_confidence_tier_validator(
+    report_md: str, extracted_list: list[ExtractedData]
+) -> str:
+    """Post-process LLM report markdown through the confidence tier validator.
+
+    Detects over-reach claims unsupported by the brand's extracted trust
+    signals and rewrites them to safer phrasing, appending a notes
+    section when rewrites occurred. Failures are logged and swallowed so
+    the validator never blocks report delivery.
+    """
+    if not report_md or not extracted_list:
+        return report_md
+    try:
+        evaluations = evaluate_all(extracted_list)
+    except Exception as exc:
+        logger.warning("confidence_tier_validator: evaluate_all failed: %s", exc)
+        return report_md
+    try:
+        outcome = validate_and_annotate(
+            report_markdown=report_md,
+            brand_evaluations=evaluations,
+            context="discovery",
+        )
+    except Exception as exc:
+        logger.warning("confidence_tier_validator failed: %s", exc)
+        return report_md
+    if not outcome.is_clean:
+        logger.info(
+            "confidence_tier_validator rewrote %d over-reach claim(s) across %d brand(s)",
+            len(outcome.violations),
+            len(evaluations),
+        )
+    return outcome.rewritten_markdown
+
+
 async def analyze(
     extracted_list: list[ExtractedData],
     model: str | None = None,
@@ -1725,11 +1761,13 @@ async def analyze(
         screenshot = _load_screenshot(extracted_list[0].screenshot_path)
         if screenshot:
             try:
-                return await _call_multimodal_model(
+                report_md, usage = await _call_multimodal_model(
                     prompt, image_data=screenshot,
                     provider=provider,
                     model=model, api_key=api_key,
                 )
+                report_md = _apply_confidence_tier_validator(report_md, extracted_list)
+                return report_md, usage
             except Exception:
                 logger.warning(
                     "Multimodal analysis failed, falling back to text-only",
@@ -1740,4 +1778,8 @@ async def analyze(
         if len(extracted_list) == 1
         else _comparison_output_token_budget(len(extracted_list), compact=compact_output)
     )
-    return await _call_text_model(prompt, provider=provider, model=model, api_key=api_key, max_output_tokens=token_budget)
+    report_md, usage = await _call_text_model(
+        prompt, provider=provider, model=model, api_key=api_key, max_output_tokens=token_budget
+    )
+    report_md = _apply_confidence_tier_validator(report_md, extracted_list)
+    return report_md, usage
