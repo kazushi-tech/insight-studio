@@ -80,10 +80,16 @@ class PatternResult:
 
 
 def seed_auth(context: BrowserContext) -> None:
-    if not AUTH_TOKEN:
-        return
+    # AuthGuard reads `is_ads_token` + `is_user` from localStorage. When AUTH_TOKEN
+    # is provided we honor it, otherwise we seed a deterministic dev-mode stub so
+    # the Discovery / Compare pages (both under AuthGuard) become reachable.
+    token = AUTH_TOKEN or "phase5b-dev-token"
+    user = {"role": "admin", "display_name": "Phase 5B Tester"}
     context.add_init_script(
-        f"window.localStorage.setItem('auth_token', {json.dumps(AUTH_TOKEN)});"
+        "window.localStorage.setItem('is_ads_token', "
+        f"{json.dumps(token)});"
+        "window.localStorage.setItem('is_user', "
+        f"{json.dumps(json.dumps(user))});"
     )
 
 
@@ -114,8 +120,11 @@ def maybe_force_envelope_null(page: Page, forced: bool) -> None:
     def handler(route: Route) -> None:
         route.fulfill(status=404, body='{"detail":"forced null by phase5b"}')
 
-    page.route("**/api/ml/discovery/*/report-envelope", handler)
-    page.route("**/api/ml/scan/*/report-envelope", handler)
+    # Real endpoints (see src/api/marketLens.js:888-894):
+    #   GET /api/ml/scans/{run_id}/report.json
+    #   GET /api/ml/discovery/jobs/{job_id}/report.json
+    page.route("**/api/ml/discovery/jobs/*/report.json", handler)
+    page.route("**/api/ml/scans/*/report.json", handler)
 
 
 def v2_checks(page: Page, result: PatternResult) -> None:
@@ -238,11 +247,14 @@ def main() -> int:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
+            # App routes are /discovery and /compare (see src/App.jsx). The
+            # previous `/discovery/result` was a mistaken assumption that fell
+            # through the AuthGuard catch-all to `/`.
             results.append(
                 run_pattern(
                     browser,
                     "G_discovery_v1",
-                    f"/discovery/result?search_id={SEARCH_ID}&ui=v1",
+                    f"/discovery?search_id={SEARCH_ID}&ui=v1",
                     is_v2=False,
                 )
             )
@@ -250,7 +262,7 @@ def main() -> int:
                 run_pattern(
                     browser,
                     "H_discovery_v2",
-                    f"/discovery/result?search_id={SEARCH_ID}&ui=v2",
+                    f"/discovery?search_id={SEARCH_ID}&ui=v2",
                     is_v2=True,
                 )
             )
@@ -258,7 +270,7 @@ def main() -> int:
                 run_pattern(
                     browser,
                     "I_compare_v2",
-                    f"/compare/result?search_id={SEARCH_ID}&ui=v2",
+                    f"/compare?search_id={SEARCH_ID}&ui=v2",
                     is_v2=True,
                 )
             )
@@ -266,7 +278,7 @@ def main() -> int:
                 run_pattern(
                     browser,
                     "J_discovery_v2_md_fallback",
-                    f"/discovery/result?search_id={SEARCH_ID}&ui=v2",
+                    f"/discovery?search_id={SEARCH_ID}&ui=v2",
                     is_v2=True,
                     force_envelope_null=True,
                 )
