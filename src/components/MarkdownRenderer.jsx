@@ -2,6 +2,7 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Children, isValidElement, cloneElement, Fragment } from 'react'
 import JudgmentBadge from './report/JudgmentBadge'
+import ChartGroupCard from './ads/ChartGroupCard'
 
 /* ── Badge Rendering for Report Quality ── */
 
@@ -132,6 +133,41 @@ function extractText(node) {
 
 function isAxisMappingBlock(text) {
   return /【.+?】/.test(text) && /←[―─\-－—–]+→/.test(text)
+}
+
+/**
+ * Detect whether a `pre` block is a `chart` fence — either explicitly flagged
+ * via `language-chart` on its inner <code>, or containing a JSON payload with
+ * both `labels` and `datasets` keys at the top level.
+ */
+function getChartFenceCandidate(children, rawText) {
+  const childArray = Children.toArray(children)
+  for (const child of childArray) {
+    if (isValidElement(child) && typeof child.props?.className === 'string') {
+      if (/language-chart\b/.test(child.props.className)) return { explicit: true }
+    }
+  }
+  const trimmed = String(rawText ?? '').trim()
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
+  if (!/"labels"\s*:/.test(trimmed) || !/"datasets"\s*:/.test(trimmed)) return null
+  return { explicit: false }
+}
+
+function tryParseChartGroup(text) {
+  try {
+    const parsed = JSON.parse(text)
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Array.isArray(parsed.labels) &&
+      Array.isArray(parsed.datasets)
+    ) {
+      return parsed
+    }
+  } catch {
+    return null
+  }
+  return null
 }
 
 function parseAxisMappings(text) {
@@ -447,8 +483,17 @@ function getComponents(size = 'normal', variant = null) {
       )
     },
     pre: ({ children }) => {
+      const text = extractText(children)
+
+      // Chart fence: `language-chart` class OR JSON with labels + datasets.
+      // Applies to all variants; falls through to <pre> on parse failure.
+      const chartCandidate = getChartFenceCandidate(children, text)
+      if (chartCandidate) {
+        const parsed = tryParseChartGroup(text)
+        if (parsed) return <ChartGroupCard group={parsed} />
+      }
+
       if (isDiscovery || isAiInsight) {
-        const text = extractText(children)
         if (isAxisMappingBlock(text)) {
           const axes = parseAxisMappings(text)
           if (axes.length > 0) return <AxisMappingChart axes={axes} />

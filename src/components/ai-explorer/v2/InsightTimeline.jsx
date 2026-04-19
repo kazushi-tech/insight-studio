@@ -102,6 +102,7 @@ export default function InsightTimeline({
   reportError,
   reportBundle,
   currentRun,
+  chartGroups,
 }) {
   const endRef = useRef(null)
 
@@ -364,7 +365,7 @@ export default function InsightTimeline({
           ) : (
             <>
               {completedTurns.map((turn, idx) => (
-                <InsightTurnCard key={idx} turn={turn} size={fontSize} />
+                <InsightTurnCard key={idx} turn={turn} size={fontSize} chartGroups={chartGroups} />
               ))}
               {(pendingTurn || loading) && (
                 <LoadingSkeleton

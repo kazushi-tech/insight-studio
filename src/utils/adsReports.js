@@ -234,6 +234,50 @@ export function buildAnalysisInstructions(queryTypes = [], periods = []) {
   ].join('\n')
 }
 
+function normalizeSearchText(text) {
+  return String(text ?? '')
+    .toLowerCase()
+    .replace(/[\u2010-\u2015\u2212]/g, '-') // unify dashes
+    .replace(/[\s\u3000]+/g, ' ') // unify whitespace incl full-width
+    .trim()
+}
+
+/**
+ * Match the chart groups most relevant to an AI response by scoring title,
+ * KPI-label, and dataset-label hits against the response text. Used to power
+ * the related-charts accordion in InsightTurnCard.
+ */
+export function matchRelevantCharts(aiContent, chartGroups, { limit = 3 } = {}) {
+  if (!aiContent || !Array.isArray(chartGroups) || chartGroups.length === 0) return []
+  const normalized = normalizeSearchText(aiContent)
+  if (!normalized) return []
+
+  const scored = chartGroups.map((group) => {
+    const title = group?.title || ''
+    const titleHit = title && normalized.includes(normalizeSearchText(title)) ? 3 : 0
+
+    let kpiHit = 0
+    const kpis = Array.isArray(group?.kpis) ? group.kpis : []
+    for (const kpi of kpis) {
+      const label = kpi?.label || ''
+      if (label && normalized.includes(normalizeSearchText(label))) kpiHit += 1
+    }
+    const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+    for (const ds of datasets) {
+      const label = ds?.label || ''
+      if (label && normalized.includes(normalizeSearchText(label))) kpiHit += 1
+    }
+
+    return { group, score: titleHit + kpiHit }
+  })
+
+  return scored
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(0, limit))
+    .map((s) => s.group)
+}
+
 export function buildAiChartContext(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
 

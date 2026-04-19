@@ -16,6 +16,13 @@ vi.mock('../../../MarkdownRenderer', () => ({
   )),
 }))
 
+// Keep ChartGroupCard light for panel-rendering assertions.
+vi.mock('../../../ads/ChartGroupCard', () => ({
+  default: vi.fn(({ group }) => (
+    <div data-testid="chart-group-card">{group?.title ?? ''}</div>
+  )),
+}))
+
 describe('InsightTurnCard', () => {
   it('renders AI content via MarkdownRenderer with variant="ai-insight"', () => {
     render(
@@ -75,5 +82,52 @@ describe('InsightTurnCard', () => {
     )
     const card = container.querySelector('[data-testid="insight-turn-card"]')
     expect(card.className).not.toContain(styles.turnCardError)
+  })
+
+  it('does not render the chart panel when chartGroups is empty/undefined', () => {
+    render(
+      <InsightTurnCard
+        turn={{ userPrompt: 'q', aiContent: 'CVR推移について' }}
+      />,
+    )
+    expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
+    expect(screen.queryByText(/関連データグラフを展開/)).not.toBeInTheDocument()
+  })
+
+  it('renders the chart panel when chartGroups contain a matching title', () => {
+    const group = {
+      title: 'CVR推移',
+      labels: ['W1', 'W2'],
+      datasets: [{ label: 'CVR', data: [1, 2] }],
+      chartType: 'line',
+    }
+    render(
+      <InsightTurnCard
+        turn={{
+          userPrompt: 'q',
+          aiContent: '直近のCVR推移が改善しています。',
+        }}
+        chartGroups={[group]}
+      />,
+    )
+    expect(screen.getByTestId('chart-group-card')).toBeInTheDocument()
+    expect(screen.getByText('関連データグラフを展開 (1)')).toBeInTheDocument()
+  })
+
+  it('does not render the chart panel when no chartGroups match the content', () => {
+    const group = {
+      title: '全然関係ない',
+      labels: ['W1'],
+      datasets: [{ label: 'other', data: [1] }],
+      chartType: 'line',
+    }
+    render(
+      <InsightTurnCard
+        turn={{ userPrompt: 'q', aiContent: '通常のテキストです' }}
+        chartGroups={[group]}
+      />,
+    )
+    expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
+    expect(screen.queryByText(/関連データグラフを展開/)).not.toBeInTheDocument()
   })
 })

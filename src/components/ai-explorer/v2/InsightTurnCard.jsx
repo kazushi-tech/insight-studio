@@ -1,22 +1,27 @@
 import MarkdownRenderer from '../../MarkdownRenderer'
 import UserPromptPill from './UserPromptPill'
+import InsightChartPanel from './InsightChartPanel'
+import { matchRelevantCharts } from '../../../utils/adsReports'
 import styles from './AiExplorerV2.module.css'
 
 /**
  * InsightTurnCard — a single user prompt + AI response rendered as one
- * full-width card. Replaces the v1 chat-bubble pair. Phase 1 leaves
- * `chartGroups` and `insightMeta` as accepted-but-ignored props so Phase 2/3
- * integration sites don't have to change their call shape.
+ * full-width card. Replaces the v1 chat-bubble pair. Phase 2 wires up the
+ * `chartGroups` prop to surface related charts under the AI markdown via
+ * InsightChartPanel. `insightMeta` remains accepted-but-ignored for Phase 3.
  */
 export default function InsightTurnCard({
   turn = {},
   size = 'normal',
-  // eslint-disable-next-line no-unused-vars
   chartGroups,
   // eslint-disable-next-line no-unused-vars
   insightMeta,
 }) {
   const { userPrompt = '', userTimestamp, aiContent = '', aiTimestamp, isError } = turn
+
+  const relevantCharts = Array.isArray(chartGroups) && chartGroups.length > 0
+    ? matchRelevantCharts(aiContent, chartGroups, { limit: 3 })
+    : []
 
   return (
     <article
@@ -41,6 +46,7 @@ export default function InsightTurnCard({
 
       <div className={styles.turnBody}>
         <MarkdownRenderer content={aiContent} variant="ai-insight" size={size} />
+        {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
       </div>
     </article>
   )
