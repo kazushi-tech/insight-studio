@@ -385,6 +385,7 @@ function getComponents(size = 'normal', variant = null) {
   const preset = SIZE_PRESETS[size] ?? SIZE_PRESETS.normal
   const isEP = variant === 'essential-pack'
   const isDiscovery = variant === 'discovery'
+  const isAiInsight = variant === 'ai-insight'
 
   return {
     h1: ({ children }) => {
@@ -407,6 +408,18 @@ function getComponents(size = 'normal', variant = null) {
         )
       }
 
+      if (isAiInsight) {
+        const icon = getSectionIcon(headingText)
+        return (
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
+              <span className="material-symbols-outlined text-xl">{icon}</span>
+            </div>
+            <h3 id={id} className="text-xl font-bold text-primary japanese-text">{children}</h3>
+          </div>
+        )
+      }
+
       return <h3 id={id} className={`${preset.h2} font-bold japanese-text text-on-surface scroll-mt-20`}>{children}</h3>
     },
     h3: ({ children }) => {
@@ -415,11 +428,11 @@ function getComponents(size = 'normal', variant = null) {
     },
     p: ({ children }) => (
       <p className={`${preset.paragraph} whitespace-pre-wrap text-on-surface-variant japanese-text`}>
-        {isDiscovery ? processBadgesInChildren(children) : children}
+        {(isDiscovery || isAiInsight) ? processBadgesInChildren(children) : children}
       </p>
     ),
     strong: ({ children }) => {
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return <strong className="text-on-surface font-bold">{children}</strong>
       }
       return <strong>{children}</strong>
@@ -434,7 +447,7 @@ function getComponents(size = 'normal', variant = null) {
       )
     },
     pre: ({ children }) => {
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         const text = extractText(children)
         if (isAxisMappingBlock(text)) {
           const axes = parseAxisMappings(text)
@@ -455,7 +468,7 @@ function getComponents(size = 'normal', variant = null) {
     ul: ({ children, depth }) => {
       const indent = depth > 0 ? 'pl-5' : 'pl-6'
 
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return (
           <ul className={`space-y-4 pl-0 list-none ${preset.list} text-on-surface-variant`}>
             {children}
@@ -472,7 +485,7 @@ function getComponents(size = 'normal', variant = null) {
     ol: ({ children, depth }) => {
       const indent = depth > 0 ? 'pl-5' : 'pl-6'
 
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return (
           <ol className={`space-y-6 pl-0 list-none counter-reset-[discovery-counter] ${preset.list} text-on-surface-variant`}>
             {children}
@@ -487,7 +500,7 @@ function getComponents(size = 'normal', variant = null) {
       )
     },
     li: ({ children, index }) => {
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         // 番号付きリストかどうかを判定（ol内ならindexがnumber）
         if (typeof index === 'number') {
           return (
@@ -510,7 +523,7 @@ function getComponents(size = 'normal', variant = null) {
       return <li>{children}</li>
     },
     table: ({ children }) => {
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return (
           <div className="my-5 max-w-full overflow-x-auto rounded-[0.75rem] ghost-border-thin -mx-2">
             <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
@@ -528,17 +541,17 @@ function getComponents(size = 'normal', variant = null) {
       )
     },
     thead: ({ children }) => {
-      if (isDiscovery) return <thead className="bg-primary/5">{children}</thead>
+      if (isDiscovery || isAiInsight) return <thead className="bg-primary/5">{children}</thead>
       return <thead className="bg-surface-container-low">{children}</thead>
     },
     tbody: ({ children }) => {
-      if (isDiscovery) return <tbody className="divide-y divide-outline-variant/5">{children}</tbody>
+      if (isDiscovery || isAiInsight) return <tbody className="divide-y divide-outline-variant/5">{children}</tbody>
       if (isEP) return <tbody className="divide-y divide-outline-variant/10">{children}</tbody>
       return <tbody>{children}</tbody>
     },
     tr: ({ children, isHeader }) => {
       if (isHeader) return <tr>{children}</tr>
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return <tr className="hover:bg-primary/[0.02] transition-colors">{children}</tr>
       }
       if (isEP) {
@@ -553,7 +566,7 @@ function getComponents(size = 'normal', variant = null) {
       const columnClass = getColumnClass(text, isFirstCol ? 0 : 1)
       const align = style?.textAlign === 'right' ? 'text-right' : style?.textAlign === 'center' ? 'text-center' : 'text-left'
 
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return (
           <th className={`px-5 py-3.5 text-[13px] font-bold text-primary whitespace-nowrap border-b-2 border-primary/15 ${align} ${columnClass}`}>
             {children}
@@ -598,9 +611,9 @@ function getComponents(size = 'normal', variant = null) {
         </a>
       ) : isJudgment ? (
         <JudgmentBadge verdict={trimmed} />
-      ) : isDiscovery ? processBadgesInChildren(children) : children
+      ) : (isDiscovery || isAiInsight) ? processBadgesInChildren(children) : children
 
-      if (isDiscovery) {
+      if (isDiscovery || isAiInsight) {
         return (
           <td
             title={text}
@@ -656,6 +669,7 @@ export default function MarkdownRenderer({ content, className = '', size = 'norm
   const markdown = typeof content === 'string' ? content.trim() : ''
   const components = getComponents(size, variant)
   const isDiscovery = variant === 'discovery'
+  const isAiInsight = variant === 'ai-insight'
 
   if (!markdown) return null
 
@@ -706,6 +720,50 @@ export default function MarkdownRenderer({ content, className = '', size = 'norm
                   </Markdown>
                 </div>
               )}
+            </section>
+          )
+        })}
+      </div>
+    )
+  }
+
+  if (isAiInsight) {
+    const sections = splitMarkdownSections(markdown)
+    const sectionBodyComponents = { ...components }
+    sectionBodyComponents.h2 = () => null
+
+    return (
+      <div className={`ai-insight-report space-y-8 ${className}`}>
+        {sections.map((section, i) => {
+          if (section.heading === null) {
+            if (!section.body) return null
+            return (
+              <div key={`preamble-${i}`}>
+                <Markdown remarkPlugins={[remarkGfm]} components={components}>
+                  {section.body}
+                </Markdown>
+              </div>
+            )
+          }
+
+          const icon = getSectionIcon(section.heading)
+
+          return (
+            <section
+              key={`section-${i}`}
+              className="ai-insight-section bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
+                  <span className="material-symbols-outlined text-xl">{icon}</span>
+                </div>
+                <h3 className="text-xl font-bold text-primary japanese-text">{section.heading}</h3>
+              </div>
+              <div className="space-y-6">
+                <Markdown remarkPlugins={[remarkGfm]} components={sectionBodyComponents}>
+                  {section.body}
+                </Markdown>
+              </div>
             </section>
           )
         })}

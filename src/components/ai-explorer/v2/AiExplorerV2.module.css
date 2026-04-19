@@ -1,0 +1,691 @@
+/* ──────────────────────────────────────────────────────────────────────────
+ * AI Explorer v2 — Stitch 2.0 renewal CSS module.
+ * Phase 1 scope: timeline card shell, quick prompts, skeleton loader,
+ * period selector popover, composer bar. Tailwind utilities still cover
+ * layout/typography inside children; this module owns the core visual
+ * identity (radii, tonal layering, motion).
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/* ───────── Layout ───────── */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 4rem);
+  padding: 1.25rem 1.5rem 0;
+  gap: 1rem;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.headerControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.headerLeft {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.timelineWrap {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem 0 1.5rem;
+}
+
+.timeline {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ───────── Turn card ───────── */
+
+.turnCard {
+  background: var(--md-sys-color-surface-container-lowest, #ffffff);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid rgba(191, 201, 193, 0.15);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+}
+
+.turnCardError {
+  border-color: #ba1a1a;
+  background: #ffdad6;
+}
+
+.turnHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.turnHeaderMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.turnBody {
+  /* Prose children control their own spacing. */
+}
+
+.aiAvatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: rgba(0, 57, 37, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #003925;
+}
+
+.aiLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #404943;
+  letter-spacing: 0.02em;
+}
+
+/* ───────── User prompt pill ───────── */
+
+.promptPillWrap {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.promptPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(0, 57, 37, 0.06);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #003925;
+  cursor: pointer;
+  border: none;
+  transition: background 150ms cubic-bezier(0.2, 0, 0, 1);
+  max-width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.promptPill:hover {
+  background: rgba(0, 57, 37, 0.1);
+}
+
+.promptPill:focus-visible {
+  outline: 2px solid #003925;
+  outline-offset: 2px;
+}
+
+.promptPillExpanded {
+  border-radius: 16px;
+  max-width: 100%;
+  white-space: normal;
+  align-items: flex-start;
+  padding: 0.75rem 1rem;
+  line-height: 1.6;
+}
+
+.promptPillSummary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 560px;
+  display: inline-block;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: #707973;
+  font-weight: 500;
+}
+
+/* ───────── Quick prompts ───────── */
+
+.quickPromptGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .quickPromptGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.quickPromptCard {
+  background: #ffffff;
+  border: 1px solid rgba(191, 201, 193, 0.2);
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-family: inherit;
+}
+
+.quickPromptCard:hover:not(:disabled) {
+  border-color: rgba(0, 57, 37, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 57, 37, 0.06);
+}
+
+.quickPromptCard:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quickPromptCard:focus-visible {
+  outline: 2px solid #003925;
+  outline-offset: 2px;
+}
+
+.quickPromptIcon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 12px;
+  background: rgba(0, 57, 37, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #003925;
+}
+
+.quickPromptTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1c19;
+}
+
+.quickPromptDescription {
+  font-size: 0.8125rem;
+  color: #404943;
+  line-height: 1.5;
+}
+
+/* ───────── Loading skeleton ───────── */
+
+.skeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.skeletonRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 2rem;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(191, 201, 193, 0.15);
+}
+
+.skeletonHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.skeletonHeaderIcon {
+  color: #003925;
+}
+
+.skeletonLabel {
+  font-size: 0.875rem;
+  color: #404943;
+  font-weight: 600;
+  text-align: center;
+}
+
+.skeletonProgressTrack {
+  width: 18rem;
+  max-width: 100%;
+  height: 0.375rem;
+  background: #e8e8e3;
+  border-radius: 999px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.skeletonProgressFill {
+  height: 100%;
+  width: 40%;
+  background: #003925;
+  border-radius: 999px;
+  animation: aiev2-shimmer 1.6s cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+.skeletonCaption {
+  font-size: 0.75rem;
+  color: #707973;
+  text-align: center;
+}
+
+.skeletonBars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.skeletonBar {
+  height: 0.75rem;
+  background: linear-gradient(90deg, #eeeee9 0%, #f4f4ef 50%, #eeeee9 100%);
+  border-radius: 6px;
+  animation: aiev2-shimmer 1.8s infinite;
+}
+
+@keyframes aiev2-shimmer {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+/* ───────── Period selector ───────── */
+
+.periodTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(191, 201, 193, 0.3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1a1c19;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 150ms ease;
+}
+
+.periodTrigger:hover {
+  border-color: rgba(0, 57, 37, 0.4);
+}
+
+.periodTrigger:focus-visible {
+  outline: 2px solid #003925;
+  outline-offset: 2px;
+}
+
+.periodSelector {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 0.5rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 57, 37, 0.12);
+  border: 1px solid rgba(191, 201, 193, 0.2);
+  z-index: 40;
+  width: 640px;
+  max-width: calc(100vw - 2rem);
+  overflow: hidden;
+}
+
+.periodSelectorInner {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+}
+
+@media (max-width: 640px) {
+  .periodSelectorInner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.periodPresetList {
+  background: #f4f4ef;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.periodPresetButton {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  font-size: 0.8125rem;
+  color: #404943;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: inherit;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.periodPresetButton:hover {
+  background: rgba(0, 57, 37, 0.05);
+}
+
+.periodPresetButtonActive {
+  background: rgba(0, 57, 37, 0.1);
+  color: #003925;
+  font-weight: 600;
+}
+
+.periodCalendar {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.periodCalendarHeader {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1a1c19;
+  text-align: center;
+}
+
+.periodCalendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.125rem;
+}
+
+.periodCalendarDay {
+  font-size: 0.6875rem;
+  color: #707973;
+  text-align: center;
+  padding: 0.25rem 0;
+  font-weight: 600;
+}
+
+.periodCalendarCell {
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 0.375rem 0;
+  border-radius: 6px;
+  color: #1a1c19;
+}
+
+.periodCalendarCellMuted {
+  color: #bfc9c1;
+}
+
+.periodFooter {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid rgba(191, 201, 193, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ffffff;
+}
+
+.periodFooterLabel {
+  font-size: 0.75rem;
+  color: #404943;
+}
+
+.periodApplyButton {
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  background: #003925;
+  color: #ffffff;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.periodApplyButton:hover {
+  background: #0f5238;
+}
+
+.periodApplyButton:focus-visible {
+  outline: 2px solid #0f5238;
+  outline-offset: 2px;
+}
+
+/* ───────── Empty state ───────── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 0;
+  text-align: center;
+}
+
+.emptyIcon {
+  width: 5rem;
+  height: 5rem;
+  margin: 0 auto 1.5rem;
+  border-radius: 50%;
+  background: rgba(0, 57, 37, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #003925;
+}
+
+.emptyIcon span {
+  font-size: 2rem;
+}
+
+.emptyTitle {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #1a1c19;
+  margin-bottom: 0.75rem;
+}
+
+.emptyBody {
+  font-size: 0.9375rem;
+  color: #404943;
+  max-width: 36rem;
+  margin: 0 auto 2rem;
+  line-height: 1.6;
+}
+
+.emptyQuickPrompts {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ───────── Composer bar ───────── */
+
+.composerBar {
+  position: sticky;
+  bottom: 0;
+  background: rgba(250, 250, 245, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 1rem 0;
+  border-top: 1px solid rgba(191, 201, 193, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.composerQuickChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.composerChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(0, 57, 37, 0.06);
+  color: #003925;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.composerChip:hover:not(:disabled) {
+  background: rgba(0, 57, 37, 0.12);
+}
+
+.composerChip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.composerInput {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #ffffff;
+  border: 1px solid rgba(191, 201, 193, 0.25);
+  border-radius: 999px;
+  padding: 0.5rem 0.5rem 0.5rem 1.5rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.composerInput:focus-within {
+  border-color: #003925;
+  box-shadow: 0 0 0 3px rgba(0, 57, 37, 0.1);
+}
+
+.composerField {
+  flex: 1 1 auto;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: #1a1c19;
+  padding: 0.375rem 0;
+}
+
+.composerField::placeholder {
+  color: #909994;
+}
+
+.composerField:disabled {
+  color: #909994;
+  cursor: not-allowed;
+}
+
+.composerSend {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: #003925;
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.composerSend:hover:not(:disabled) {
+  background: #0f5238;
+}
+
+.composerSend:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.composerSecurity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  font-size: 0.75rem;
+  color: #707973;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.composerSecurity span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ───────── Status chip / banner helpers (reused styling) ───────── */
+
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+}
+
+.bannerWarning {
+  background: #fff7ec;
+  border: 1px solid #ffd8a8;
+  color: #93580f;
+}
+
+.bannerInfo {
+  background: #f4f4ef;
+  border: 1px solid rgba(191, 201, 193, 0.25);
+  color: #404943;
+}
