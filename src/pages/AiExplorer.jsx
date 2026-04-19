@@ -15,6 +15,8 @@ import {
 } from '../utils/adsReports'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
+import { useUiVersion } from '../hooks/useUiVersion'
+import InsightTimeline from '../components/ai-explorer/v2/InsightTimeline'
 
 function formatAnalysisError(error) {
   if (error.isAuthError) return AUTH_EXPIRED_MESSAGE
@@ -69,6 +71,7 @@ function toConversationHistory(messages) {
 }
 
 export default function AiExplorer() {
+  const { isV2 } = useUiVersion()
   const {
     isAdsAuthenticated,
     analysisKey,
@@ -428,6 +431,38 @@ export default function AiExplorer() {
     : status.startsWith('✓')
     ? 'check_circle'
     : 'info'
+
+  if (isV2) {
+    return (
+      <InsightTimeline
+        messages={messages}
+        input={input}
+        setInput={setInput}
+        onSend={handleSend}
+        loading={loading}
+        promptDisabled={promptDisabled}
+        fontSize={fontSize}
+        status={status}
+        statusTone={statusTone}
+        statusIcon={statusIcon}
+        contextMode={contextMode}
+        setContextMode={setContextMode}
+        handleFontSizeChange={handleFontSizeChange}
+        mlIndicatorTone={mlIndicatorTone}
+        mlIndicatorDot={mlIndicatorDot}
+        mlIndicatorLabel={mlIndicatorLabel}
+        reportLoading={reportLoading}
+        setupState={setupState}
+        isAdsAuthenticated={isAdsAuthenticated}
+        handleRefreshReport={handleRefreshReport}
+        hasAnalysisKey={hasAnalysisKey}
+        onClearChat={() => { setMessages([]); setStatus(''); clearDraft('ai-explorer') }}
+        mlStatus={mlStatus}
+        reportError={reportError}
+        reportBundle={reportBundle}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
