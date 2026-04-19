@@ -82,6 +82,10 @@ class ReportEnvelope(BaseModel):
     priority_actions: list[PriorityAction] = Field(default_factory=list)
     market_estimate: Optional[MarketEstimate] = None
     brand_evaluations: list[BrandEvaluation] = Field(default_factory=list)
+    validator_notes: list[str] = Field(
+        default_factory=list,
+        description="Confidence-tier validator notes appended when over-reach claims were rewritten.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -239,6 +243,8 @@ def build_envelope_from_md(report_id: str, kind: str, report_md: str) -> ReportE
     Sections that aren't present return empty / None — the envelope is always
     safe to serialize, callers decide whether empty sections are a problem.
     """
+    from ..confidence_tier_validator import extract_notes_from_markdown
+
     md = report_md or ""
     return ReportEnvelope(
         report_id=report_id,
@@ -246,4 +252,5 @@ def build_envelope_from_md(report_id: str, kind: str, report_md: str) -> ReportE
         priority_actions=_parse_priority_actions(md),
         market_estimate=_parse_market_estimate(md),
         brand_evaluations=_parse_brand_evaluations(md),
+        validator_notes=extract_notes_from_markdown(md),
     )
