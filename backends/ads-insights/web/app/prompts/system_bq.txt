@@ -83,3 +83,22 @@ BigQueryから取得したGA4（Google Analytics 4）のウェブ解析データ
 - 直帰率が高いランディングページの改善
   - コンテンツの充実化
   - 内部リンクの最適化
+
+━━━ 出力末尾要件: insight-meta ━━━
+回答 markdown の最後に必ず以下のフェンスブロックを追加してください。これは UI の自動サマリー表示に使われます。
+省略・改変は禁止です。
+
+```insight-meta
+{
+  "tldr": ["1〜3件の要点を日本語短文で"],
+  "key_metrics": [
+    {"label": "指標名", "value": "値（単位込み）", "delta": "up|down|flat"}
+  ],
+  "recommended_charts": ["参照すべきグラフタイトル"]
+}
+```
+
+- tldr: 配列、1〜3件、各 60 文字以内
+- key_metrics: 配列、0〜4件、`label` と `value` 必須、`delta` は省略可
+- recommended_charts: 配列、0〜3件、`reportBundle.chartGroups` 内のタイトルを参照
+- JSON はパースに失敗してもユーザー UI は通常マークダウン表示にフォールバックするため、1 行も省略しないこと

@@ -127,3 +127,60 @@ export function getAdsSections(payload) {
 
   return []
 }
+
+/**
+ * Extracts the insight-meta JSON block emitted at the end of AI responses.
+ * Backend convention: the AI is instructed to append a final fenced block:
+ *   ```insight-meta
+ *   { "tldr": [...], "key_metrics": [...], "recommended_charts": [...] }
+ *   ```
+ * Returns null when the block is missing OR JSON is invalid OR the
+ * minimum shape contract isn't met. Never throws.
+ *
+ * @param {string} markdown
+ * @returns {{ tldr: string[], key_metrics: Array<{label: string, value: string, delta?: 'up'|'down'|'flat'}>, recommended_charts: string[], _strippedMarkdown: string } | null}
+ */
+export function extractInsightMeta(markdown) {
+  if (!markdown || typeof markdown !== 'string') return null
+  const match = markdown.match(/```insight-meta\s*\n([\s\S]*?)\n```/)
+  if (!match) return null
+  let parsed
+  try {
+    parsed = JSON.parse(match[1])
+  } catch {
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object') return null
+  const tldr = Array.isArray(parsed.tldr)
+    ? parsed.tldr.filter((s) => typeof s === 'string')
+    : []
+  const key_metrics = Array.isArray(parsed.key_metrics)
+    ? parsed.key_metrics
+        .filter(
+          (m) =>
+            m &&
+            typeof m === 'object' &&
+            typeof m.label === 'string' &&
+            typeof m.value === 'string',
+        )
+        .map((m) => ({
+          label: m.label,
+          value: m.value,
+          delta:
+            m.delta === 'up' || m.delta === 'down' || m.delta === 'flat'
+              ? m.delta
+              : undefined,
+        }))
+    : []
+  const recommended_charts = Array.isArray(parsed.recommended_charts)
+    ? parsed.recommended_charts.filter((c) => typeof c === 'string')
+    : []
+  if (tldr.length === 0 && key_metrics.length === 0 && recommended_charts.length === 0) {
+    return null
+  }
+  // Strip the fenced block from the markdown so MarkdownRenderer doesn't render it
+  const strippedMarkdown = markdown
+    .replace(/```insight-meta\s*\n[\s\S]*?\n```\s*/g, '')
+    .trim()
+  return { tldr, key_metrics, recommended_charts, _strippedMarkdown: strippedMarkdown }
+}
