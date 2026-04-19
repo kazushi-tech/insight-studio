@@ -75,7 +75,11 @@ export default function MarketRangeV2({ envelope, reportMd }) {
   if (!data) return null
 
   return (
-    <section className={`${styles.panel} md-v2-enter`} aria-label="市場推定レンジ">
+    <section
+      className={`${styles.panel} md-v2-enter`}
+      aria-label="市場推定レンジ"
+      data-testid="market-range-v2"
+    >
       <header className={styles.header}>
         <span className={styles.label}>Market Estimate — 市場推定レンジ</span>
         {data.confidence && <ConfidencePill confidence={data.confidence} />}

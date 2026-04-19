@@ -56,7 +56,11 @@ export default function CompetitorMatrixV2({ envelope, reportMd }) {
   if (!rows.length) return null
 
   return (
-    <section className={`${styles.panel} md-v2-enter`} aria-label="競合比較マトリクス">
+    <section
+      className={`${styles.panel} md-v2-enter`}
+      aria-label="競合比較マトリクス"
+      data-testid="competitor-matrix-v2"
+    >
       <header className={styles.header}>
         <span className={styles.label}>Competitor Matrix — 競合比較</span>
       </header>

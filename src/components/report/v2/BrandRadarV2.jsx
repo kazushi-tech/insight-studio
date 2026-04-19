@@ -163,7 +163,11 @@ export default function BrandRadarV2({ envelope, reportMd }) {
   if (!brands.length) return null
 
   return (
-    <section className={`${styles.panel} md-v2-enter`} aria-label="ブランド別レーダー">
+    <section
+      className={`${styles.panel} md-v2-enter`}
+      aria-label="ブランド別レーダー"
+      data-testid="brand-radar-v2"
+    >
       <header className={styles.header}>
         <span className={styles.label}>Brand Radar — 6軸評価</span>
         <div className={styles.toggleGroup} role="tablist">
