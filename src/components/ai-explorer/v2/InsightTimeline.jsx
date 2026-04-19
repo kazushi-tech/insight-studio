@@ -3,7 +3,6 @@ import { LoadingSpinner, ErrorBanner } from '../../ui'
 import InsightTurnCard from './InsightTurnCard'
 import LoadingSkeleton from './LoadingSkeleton'
 import QuickPromptCard from './QuickPromptCard'
-import PeriodSelector from './PeriodSelector'
 import styles from './AiExplorerV2.module.css'
 
 /**
@@ -101,7 +100,6 @@ export default function InsightTimeline({
   mlStatus,
   reportError,
   reportBundle,
-  currentRun,
   chartGroups,
 }) {
   const endRef = useRef(null)
@@ -190,10 +188,10 @@ export default function InsightTimeline({
             )}
             {setContextMode && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <p style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: '#707973' }}>
+                <p style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
                   Context
                 </p>
-                <div style={{ display: 'inline-flex', background: '#f4f4ef', borderRadius: 999, padding: '0.125rem' }}>
+                <div style={{ display: 'inline-flex', background: 'var(--color-surface-container-low)', borderRadius: 999, padding: '0.125rem' }}>
                   <button
                     type="button"
                     onClick={() => setContextMode('ads-only')}
@@ -203,8 +201,8 @@ export default function InsightTimeline({
                       borderRadius: 999,
                       fontSize: '0.75rem',
                       fontWeight: 700,
-                      background: contextMode === 'ads-only' ? '#003925' : 'transparent',
-                      color: contextMode === 'ads-only' ? '#ffffff' : '#404943',
+                      background: contextMode === 'ads-only' ? 'var(--color-primary)' : 'transparent',
+                      color: contextMode === 'ads-only' ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
                       border: 'none',
                       cursor: 'pointer',
                     }}
@@ -220,8 +218,8 @@ export default function InsightTimeline({
                       borderRadius: 999,
                       fontSize: '0.75rem',
                       fontWeight: 700,
-                      background: contextMode === 'ads-with-ml' ? '#003925' : 'transparent',
-                      color: contextMode === 'ads-with-ml' ? '#ffffff' : '#404943',
+                      background: contextMode === 'ads-with-ml' ? 'var(--color-primary)' : 'transparent',
+                      color: contextMode === 'ads-with-ml' ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
                       border: 'none',
                       cursor: 'pointer',
                     }}
@@ -239,10 +237,10 @@ export default function InsightTimeline({
             )}
             {handleFontSizeChange && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <p style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: '#707973' }}>
+                <p style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
                   Size
                 </p>
-                <div style={{ display: 'inline-flex', background: '#f4f4ef', borderRadius: 999, padding: '0.125rem' }}>
+                <div style={{ display: 'inline-flex', background: 'var(--color-surface-container-low)', borderRadius: 999, padding: '0.125rem' }}>
                   {[
                     { key: 'normal', label: '小' },
                     { key: 'large', label: '中' },
@@ -257,8 +255,8 @@ export default function InsightTimeline({
                         borderRadius: 999,
                         fontSize: '0.75rem',
                         fontWeight: 700,
-                        background: fontSize === opt.key ? '#003925' : 'transparent',
-                        color: fontSize === opt.key ? '#ffffff' : '#404943',
+                        background: fontSize === opt.key ? 'var(--color-primary)' : 'transparent',
+                        color: fontSize === opt.key ? 'var(--color-on-primary)' : 'var(--color-on-surface-variant)',
                         border: 'none',
                         cursor: 'pointer',
                       }}
@@ -271,7 +269,6 @@ export default function InsightTimeline({
             )}
           </div>
           <div className={styles.headerRight}>
-            <PeriodSelector analysisRun={currentRun} />
             <button
               type="button"
               onClick={onClearChat}
@@ -280,8 +277,8 @@ export default function InsightTimeline({
               style={{
                 padding: '0.5rem 0.875rem',
                 borderRadius: 12,
-                background: '#f4f4ef',
-                color: '#404943',
+                background: 'var(--color-surface-container-low)',
+                color: 'var(--color-on-surface-variant)',
                 border: 'none',
                 fontSize: '0.75rem',
                 fontWeight: 700,
@@ -306,8 +303,8 @@ export default function InsightTimeline({
               style={{
                 padding: '0.5rem 0.875rem',
                 borderRadius: 12,
-                background: '#003925',
-                color: '#ffffff',
+                background: 'var(--color-primary)',
+                color: 'var(--color-on-primary)',
                 border: 'none',
                 fontSize: '0.75rem',
                 fontWeight: 700,
@@ -330,17 +327,17 @@ export default function InsightTimeline({
         </div>
 
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
-          <p className="japanese-text" style={{ fontSize: '0.75rem', color: '#93580f' }}>
+          <p className="japanese-text" style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>
             Market Lens の履歴 API が停止中のため、広告データのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'cold_start' && (
-          <p className="japanese-text" style={{ fontSize: '0.75rem', color: '#0369a1' }}>
+          <p className="japanese-text" style={{ fontSize: '0.75rem', color: 'var(--color-info)' }}>
             Market Lens バックエンドが起動中です。1〜2分後にコンテキスト更新を試してください。広告データのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'error' && (
-          <p className="japanese-text" style={{ fontSize: '0.75rem', color: '#ba1a1a' }}>
+          <p className="japanese-text" style={{ fontSize: '0.75rem', color: 'var(--color-error)' }}>
             Market Lens の履歴取得に失敗しました。広告データのみで回答します。
           </p>
         )}
