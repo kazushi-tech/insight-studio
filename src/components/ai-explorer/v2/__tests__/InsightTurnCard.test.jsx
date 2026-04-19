@@ -130,4 +130,66 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
     expect(screen.queryByText(/関連データグラフを展開/)).not.toBeInTheDocument()
   })
+
+  it('renders the summary hero when insightMeta is provided as a prop', () => {
+    render(
+      <InsightTurnCard
+        turn={{ userPrompt: 'q', aiContent: '## 本文' }}
+        insightMeta={{
+          tldr: ['CTR上昇'],
+          key_metrics: [{ label: 'CTR', value: '3.5%', delta: 'up' }],
+          recommended_charts: ['CVR推移'],
+        }}
+      />,
+    )
+    expect(screen.getByTestId('insight-summary-hero')).toBeInTheDocument()
+    expect(screen.getByText('CTR上昇')).toBeInTheDocument()
+    expect(screen.getByText('CTR')).toBeInTheDocument()
+    expect(screen.getByText('CVR推移')).toBeInTheDocument()
+  })
+
+  it('auto-derives meta from aiContent containing a valid insight-meta block and renders the stripped markdown', () => {
+    const aiContent = [
+      '## 分析結果',
+      '本文テキスト',
+      '',
+      '```insight-meta',
+      JSON.stringify({
+        tldr: ['要点1'],
+        key_metrics: [{ label: 'CTR', value: '3.5%' }],
+        recommended_charts: [],
+      }),
+      '```',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-summary-hero')).toBeInTheDocument()
+    expect(screen.getByText('要点1')).toBeInTheDocument()
+
+    const md = screen.getByTestId('markdown-renderer')
+    expect(md.textContent).toContain('## 分析結果')
+    expect(md.textContent).toContain('本文テキスト')
+    expect(md.textContent).not.toContain('insight-meta')
+  })
+
+  it('renders no hero and preserves original aiContent when no meta block is present', () => {
+    const aiContent = '## 普通のレポート\n- 項目A'
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.queryByTestId('insight-summary-hero')).not.toBeInTheDocument()
+    const md = screen.getByTestId('markdown-renderer')
+    expect(md.textContent).toContain('## 普通のレポート')
+    expect(md.textContent).toContain('項目A')
+  })
+
+  it('renders no hero and preserves aiContent when insight-meta JSON is malformed', () => {
+    const aiContent = '## レポート\n\n```insight-meta\n{ invalid json }\n```'
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.queryByTestId('insight-summary-hero')).not.toBeInTheDocument()
+    // Markdown passes through unchanged — fenced block still visible as-is
+    const md = screen.getByTestId('markdown-renderer')
+    expect(md.textContent).toContain('## レポート')
+  })
 })
