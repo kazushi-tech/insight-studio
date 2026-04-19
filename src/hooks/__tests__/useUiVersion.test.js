@@ -12,8 +12,8 @@ describe('useUiVersion (resolveUiVersion)', () => {
     window.history.replaceState({}, '', '/')
   })
 
-  it('defaults to v1 when no query or storage set', () => {
-    expect(resolveUiVersion()).toBe('v1')
+  it('defaults to v2 when no query or storage set', () => {
+    expect(resolveUiVersion()).toBe('v2')
   })
 
   it('reads ?ui=v2 from URL', () => {
@@ -21,9 +21,9 @@ describe('useUiVersion (resolveUiVersion)', () => {
     expect(resolveUiVersion()).toBe('v2')
   })
 
-  it('ignores invalid ?ui values', () => {
+  it('ignores invalid ?ui values (falls back to v2 default)', () => {
     window.history.replaceState({}, '', '/?ui=v99')
-    expect(resolveUiVersion()).toBe('v1')
+    expect(resolveUiVersion()).toBe('v2')
   })
 
   it('falls back to localStorage when query missing', () => {

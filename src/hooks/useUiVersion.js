@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 
 const STORAGE_KEY = 'reportUiVersion'
 const VALID = new Set(['v1', 'v2'])
-const DEFAULT = 'v1'
+const DEFAULT = 'v2'
 
 function readFromQuery() {
   if (typeof window === 'undefined') return null
