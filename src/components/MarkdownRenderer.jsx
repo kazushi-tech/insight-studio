@@ -11,15 +11,15 @@ import ChartGroupCard from './ads/ChartGroupCard'
 const JUDGMENT_VALUES = new Set(['強', '同等', '弱', '評価保留'])
 
 const BADGE_DEFS = [
-  { regex: /確認済み/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 align-middle' },
-  { regex: /【市場推定】/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 align-middle' },
-  { regex: /取得不可/g, cls: 'italic text-gray-400 text-xs align-middle' },
+  { regex: /確認済み/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 align-middle' },
+  { regex: /【市場推定】/g, cls: 'inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 align-middle' },
+  { regex: /取得不可/g, cls: 'italic text-gray-400 dark:text-gray-500 text-xs align-middle' },
 ]
 
 const RANK_DEFS = [
-  { regex: /1位/g, cls: 'inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black bg-yellow-100 text-yellow-700 align-middle' },
-  { regex: /2位/g, cls: 'inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black bg-gray-200 text-gray-600 align-middle' },
-  { regex: /3位/g, cls: 'inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black bg-orange-100 text-orange-700 align-middle' },
+  { regex: /1位/g, cls: 'inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300 align-middle' },
+  { regex: /2位/g, cls: 'inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-300 align-middle' },
+  { regex: /3位/g, cls: 'inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 align-middle' },
 ]
 
 let _badgeKey = 0
