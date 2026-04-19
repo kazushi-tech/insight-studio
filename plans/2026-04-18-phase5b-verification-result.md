@@ -195,3 +195,59 @@ script の import / CLI は問題なく動作。実行には以下が必要：
 - Phase 5C 起草は保留（プラン §3-4 指示）
 - 不二樹判断待ち — failure doc §5 の選択肢 A〜C から選択してもらう
 - harness 自体は修正済ゆえ、staging の完了済ジョブ + 対応 token が与えられれば同一 script で即再実行可能じゃ
+
+---
+
+## 8. fixture-based E2E（2026-04-19 10:47 JST）— **Gate PASS**
+
+実行プラン [plans/claude-html-markdown-claude-claude-jolly-kay.md](claude-html-markdown-claude-claude-jolly-kay.md) に従い、Render の永続ディスク未アタッチで prod jobId が調達できぬ状況を**リポジトリ内 fixture**に切替えて突破した。
+
+### 8-1. 実行条件
+
+| 項目 | 値 |
+|---|---|
+| 実行日時 | 2026-04-19 10:47 JST |
+| ベースコミット | PR #45 マージ後の master |
+| DISCOVERY_SEARCH_ID | 未設定（G/H/J は skip） |
+| BASE_URL | `http://localhost:3002`（vite dev、backend 不要） |
+| Gate | **PASS** — `all_passed: true` |
+| コスト | LLM $0、Render 追加 $0 |
+
+### 8-2. 新規 Pattern（fixture cohort）
+
+| # | URL | passed | 検証ポイント |
+|---|---|---|---|
+| **L** | `/debug/report-v2?fixture=discovery-sample&ui=v2` | ✅ **PASS** | envelope 経路で 5 コンポ全描画、3 ブランド、confidence pill 描画 |
+| **M** | `/debug/report-v2?fixture=discovery-minimal-md&ui=v2` | ✅ **PASS** | envelope null → MD fallback で 5 コンポ全描画、brandEvalParser が 3 ブランド分離 |
+
+### 8-3. 主要計測値（L / M 共通）
+
+- `ui_v2_root_count`: 1
+- `priority_action_hero_v2`: 1（`data-testid='priority-action-hero-v2'`）
+- `competitor_matrix_v2`: 2（data-testid + `table` の両ヒット、意図通り）
+- `brand_radar_v2`: 2（data-testid + `canvas`）
+- `market_range_v2`: 1
+- `confidence_pill`: 1
+- `--md-sys-color-primary`: `#003925` ✅
+- `font-family`: `Inter, Manrope, system-ui, -apple-system, sans-serif` ✅
+- console error / page error / failed request: **全 0**
+
+成果物: [verify_output/phase5b/summary.json](../verify_output/phase5b/summary.json) + `L_fixture_v2_envelope.png` / `M_fixture_v2_md_fallback.png`。
+
+### 8-4. 本 PR の実装
+
+1. **`/debug/report-v2` に `?fixture=<name>` 分岐追加** — [src/pages/debug/ReportV2Debug.jsx](../src/pages/debug/ReportV2Debug.jsx) を拡張。jobId 経路は既存のまま。
+2. **fixture 2 種** — [src/pages/debug/fixtures/discovery-sample.js](../src/pages/debug/fixtures/discovery-sample.js)（realistic envelope + MD）、[src/pages/debug/fixtures/discovery-minimal-md.js](../src/pages/debug/fixtures/discovery-minimal-md.js)（envelope null、MD のみ、3 ブランド）。
+3. **harness 拡張** — [scripts/phase5b-verify.py](../scripts/phase5b-verify.py) に Pattern L / M を追加。DISCOVERY_SEARCH_ID 未設定時は jobId cohort を skipped エントリに記録。
+4. **v2 コンポーネントに `data-testid` 付与** — PriorityActionHero / CompetitorMatrix / BrandRadar / MarketRange / ConfidencePill。CSS モジュールのハッシュに依存しないセレクタ安定化のため。
+5. **fixtures は本番バンドルから tree-shaken** — `grep -r "discovery-sample" dist/` で確認済み（debug route が `import.meta.env.DEV` ガード配下）。
+
+### 8-5. 限界と補強計画
+
+- 本 Gate は **realistic fixture + MD fallback fixture** のブラウザ実描画で成立。実ユーザーデータの全分布を網羅せぬ点は正直に記録する。
+- Render `market-lens-ai` の永続ディスク attach 後、prod jobId 経路 **G / H / J を再実行**して補強する（別プラン）。
+- Phase 5C 昇格後は console error / Sentry / 不二樹フィードバックを 24-48h 強めに監視する。
+
+### 8-6. 次のアクション
+
+Phase 5C（`useUiVersion.DEFAULT='v1' → 'v2'`）プラン起草は本 Gate PASS を根拠に **進行可能**。プラン成果物は別ファイルに起草予定。

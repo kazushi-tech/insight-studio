@@ -25,6 +25,7 @@ export default function ConfidencePill({ confidence }) {
     <span
       className={`${styles.pill} ${styles[variant] ?? ''}`}
       aria-label={`信頼度 ${label}`}
+      data-testid="confidence-pill"
     >
       <span className={styles.dot} aria-hidden="true" />
       信頼度 {label}

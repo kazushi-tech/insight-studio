@@ -1,21 +1,32 @@
-"""Phase 5B — Real-data E2E verification for Stitch 2.0 v2.
+"""Phase 5B — Real-data + fixture E2E verification for Stitch 2.0 v2.
 
-Runs three Playwright patterns against a live dev server:
+Runs Playwright patterns against a live dev server. Two cohorts:
 
-    G: /debug/report-v2?jobId=<id>&ui=v1  (parity — debug route ignores ui query, treated as v2 smoke)
-    H: /debug/report-v2?jobId=<id>&ui=v2  (v2 main verification)
+  jobId cohort (skipped when DISCOVERY_SEARCH_ID is empty):
+    G: /debug/report-v2?jobId=<id>&ui=v1   (parity — debug route stays v2, treated as smoke)
+    H: /debug/report-v2?jobId=<id>&ui=v2   (v2 main verification)
     J: /debug/report-v2?jobId=<id>&ui=v2&envelope=null  (MD fallback)
+
+  fixture cohort (always runs, LLM cost zero):
+    L: /debug/report-v2?fixture=discovery-sample&ui=v2       (v2 envelope path)
+    M: /debug/report-v2?fixture=discovery-minimal-md&ui=v2   (v2 MD fallback path)
+
+Rationale: Render market-lens-ai has no persistent disk attached, so prod
+Discovery jobs evaporate on redeploy. The fixture cohort lets Phase 5B Gate pass
+on CI without paying for a fresh LLM run. See
+plans/claude-html-markdown-claude-claude-jolly-kay.md §1-3 for the switch to
+fixtures and §5 for pattern definitions.
 
 Pattern I (Compare v2) is intentionally skipped: Compare side currently has no
 debug route, and Compare simply calls ReportViewV2 the same way Discovery does,
-so G/H/J cover the v2 component health needed for Phase 5C promotion.
+so H/J/L/M cover the v2 component health needed for Phase 5C promotion.
 
 Prerequisites
 -------------
-* `npm run dev` on port 3002 and both backends running (see CLAUDE.md /dev.ps1).
-* A completed Discovery job whose job id is exported as DISCOVERY_SEARCH_ID.
+* `npm run dev` on port 3002 (frontend only is enough for fixture patterns).
+* For jobId patterns: a completed Discovery job id exported as DISCOVERY_SEARCH_ID.
 * An auth token exported as AUTH_TOKEN if the app requires login; otherwise the
-  script attempts unauthenticated access.
+  script seeds a deterministic dev-mode stub.
 * `pip install playwright && python -m playwright install chromium`.
 
 Outputs land in `verify_output/phase5b/` (gitignored).
@@ -55,6 +66,15 @@ LOAD_STATE = "networkidle"
 
 def build_debug_url(job_id: str, *, ui: str | None = None, envelope_null: bool = False) -> str:
     params = [f"jobId={job_id}"]
+    if ui:
+        params.append(f"ui={ui}")
+    if envelope_null:
+        params.append("envelope=null")
+    return f"{BASE_URL}/debug/report-v2?{'&'.join(params)}"
+
+
+def build_fixture_url(fixture_name: str, *, ui: str | None = None, envelope_null: bool = False) -> str:
+    params = [f"fixture={fixture_name}"]
     if ui:
         params.append(f"ui={ui}")
     if envelope_null:
@@ -243,53 +263,74 @@ def run_pattern(
 
 
 def main() -> int:
-    if not JOB_ID:
-        print(
-            "[phase5b] DISCOVERY_SEARCH_ID env var is required — skipping run.\n"
-            "  Export it to a completed Discovery job id, e.g.:\n"
-            "  DISCOVERY_SEARCH_ID=a03bc0f98cfa python scripts/phase5b-verify.py",
-            file=sys.stderr,
-        )
-        return 3
-
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     start = time.time()
     results: list[PatternResult] = []
 
     # Pattern I (Compare v2) is skipped — Compare currently has no debug route
-    # and calls ReportViewV2 identically to Discovery, so H + J sufficiently
-    # exercise the v2 component health for Phase 5C promotion. See plan
-    # plans/claude-html-markdown-claude-claude-jolly-kay.md §3-1 Pattern I note.
+    # and calls ReportViewV2 identically to Discovery, so H + J + L + M
+    # sufficiently exercise the v2 component health for Phase 5C promotion.
+    # See plans/claude-html-markdown-claude-claude-jolly-kay.md §5-3.
+    skipped: list[dict[str, str]] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
-            # Pattern G — debug route does not branch to v1, so we treat G as
-            # an additional v2 smoke with ui=v1 query preserved purely for
-            # parity with the plan's URL mapping. v1 baseline is covered by
-            # vitest unit tests (see src/pages/__tests__).
+            # ── jobId cohort (skipped if DISCOVERY_SEARCH_ID unset) ────────────
+            if JOB_ID:
+                # Pattern G — debug route does not branch to v1, so we treat G
+                # as an additional v2 smoke with ui=v1 query preserved purely
+                # for parity with the plan's URL mapping. v1 baseline is
+                # covered by vitest unit tests (see src/pages/__tests__).
+                results.append(
+                    run_pattern(
+                        browser,
+                        "G_debug_v2_with_v1_query",
+                        build_debug_url(JOB_ID, ui="v1"),
+                        is_v2=True,
+                    )
+                )
+                results.append(
+                    run_pattern(
+                        browser,
+                        "H_debug_v2",
+                        build_debug_url(JOB_ID, ui="v2"),
+                        is_v2=True,
+                    )
+                )
+                results.append(
+                    run_pattern(
+                        browser,
+                        "J_debug_v2_md_fallback",
+                        build_debug_url(JOB_ID, ui="v2", envelope_null=True),
+                        is_v2=True,
+                        force_envelope_null=True,
+                    )
+                )
+            else:
+                reason = "DISCOVERY_SEARCH_ID unset — Render has no persistent disk so no jobId is available (see plans/2026-04-19-phase5b-jobid-hunt-result.md)"
+                skipped.extend(
+                    [
+                        {"name": "G_debug_v2_with_v1_query", "reason": reason},
+                        {"name": "H_debug_v2", "reason": reason},
+                        {"name": "J_debug_v2_md_fallback", "reason": reason},
+                    ]
+                )
+
+            # ── fixture cohort (always runs, LLM cost zero) ────────────────────
             results.append(
                 run_pattern(
                     browser,
-                    "G_debug_v2_with_v1_query",
-                    build_debug_url(JOB_ID, ui="v1"),
+                    "L_fixture_v2_envelope",
+                    build_fixture_url("discovery-sample", ui="v2"),
                     is_v2=True,
                 )
             )
             results.append(
                 run_pattern(
                     browser,
-                    "H_debug_v2",
-                    build_debug_url(JOB_ID, ui="v2"),
+                    "M_fixture_v2_md_fallback",
+                    build_fixture_url("discovery-minimal-md", ui="v2"),
                     is_v2=True,
-                )
-            )
-            results.append(
-                run_pattern(
-                    browser,
-                    "J_debug_v2_md_fallback",
-                    build_debug_url(JOB_ID, ui="v2", envelope_null=True),
-                    is_v2=True,
-                    force_envelope_null=True,
                 )
             )
         finally:
@@ -298,9 +339,10 @@ def main() -> int:
     elapsed = time.time() - start
     summary = {
         "base_url": BASE_URL,
-        "job_id": JOB_ID,
+        "job_id": JOB_ID or None,
         "elapsed_seconds": round(elapsed, 2),
         "patterns": [r.to_dict() for r in results],
+        "skipped": skipped,
         "all_passed": all(r.passed for r in results),
     }
 
