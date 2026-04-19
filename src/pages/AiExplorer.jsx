@@ -460,6 +460,7 @@ export default function AiExplorer() {
         mlStatus={mlStatus}
         reportError={reportError}
         reportBundle={reportBundle}
+        chartGroups={reportBundle?.chartGroups}
       />
     )
   }
