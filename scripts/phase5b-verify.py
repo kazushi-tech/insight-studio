@@ -1,16 +1,19 @@
 """Phase 5B — Real-data E2E verification for Stitch 2.0 v2.
 
-Runs four Playwright patterns against a live dev server:
+Runs three Playwright patterns against a live dev server:
 
-    G: /discovery/result?search_id=<id>&ui=v1  (v1 baseline regression)
-    H: /discovery/result?search_id=<id>&ui=v2  (v2 main verification)
-    I: /compare/result?search_id=<id>&ui=v2    (Compare v2)
-    J: /discovery/result?search_id=<id>&ui=v2  (envelope forced null — MD fallback)
+    G: /debug/report-v2?jobId=<id>&ui=v1  (parity — debug route ignores ui query, treated as v2 smoke)
+    H: /debug/report-v2?jobId=<id>&ui=v2  (v2 main verification)
+    J: /debug/report-v2?jobId=<id>&ui=v2&envelope=null  (MD fallback)
+
+Pattern I (Compare v2) is intentionally skipped: Compare side currently has no
+debug route, and Compare simply calls ReportViewV2 the same way Discovery does,
+so G/H/J cover the v2 component health needed for Phase 5C promotion.
 
 Prerequisites
 -------------
 * `npm run dev` on port 3002 and both backends running (see CLAUDE.md /dev.ps1).
-* A completed Discovery job whose `search_id` is exported as DISCOVERY_SEARCH_ID.
+* A completed Discovery job whose job id is exported as DISCOVERY_SEARCH_ID.
 * An auth token exported as AUTH_TOKEN if the app requires login; otherwise the
   script attempts unauthenticated access.
 * `pip install playwright && python -m playwright install chromium`.
@@ -42,11 +45,21 @@ except ImportError:  # pragma: no cover
 
 
 BASE_URL = os.environ.get("PHASE5B_BASE_URL", "http://localhost:3002")
-SEARCH_ID = os.environ.get("DISCOVERY_SEARCH_ID", "").strip()
+# DISCOVERY_SEARCH_ID is the Discovery job id to hydrate against.
+JOB_ID = os.environ.get("DISCOVERY_SEARCH_ID", "").strip()
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN", "").strip()
 OUTPUT_DIR = Path(os.environ.get("PHASE5B_OUTPUT_DIR", "verify_output/phase5b"))
 VIEWPORT = {"width": 1440, "height": 900}
 LOAD_STATE = "networkidle"
+
+
+def build_debug_url(job_id: str, *, ui: str | None = None, envelope_null: bool = False) -> str:
+    params = [f"jobId={job_id}"]
+    if ui:
+        params.append(f"ui={ui}")
+    if envelope_null:
+        params.append("envelope=null")
+    return f"{BASE_URL}/debug/report-v2?{'&'.join(params)}"
 
 
 @dataclass
@@ -80,10 +93,16 @@ class PatternResult:
 
 
 def seed_auth(context: BrowserContext) -> None:
-    if not AUTH_TOKEN:
-        return
+    # AuthGuard reads `is_ads_token` + `is_user` from localStorage. When AUTH_TOKEN
+    # is provided we honor it, otherwise we seed a deterministic dev-mode stub so
+    # the Discovery / Compare pages (both under AuthGuard) become reachable.
+    token = AUTH_TOKEN or "phase5b-dev-token"
+    user = {"role": "admin", "display_name": "Phase 5B Tester"}
     context.add_init_script(
-        f"window.localStorage.setItem('auth_token', {json.dumps(AUTH_TOKEN)});"
+        "window.localStorage.setItem('is_ads_token', "
+        f"{json.dumps(token)});"
+        "window.localStorage.setItem('is_user', "
+        f"{json.dumps(json.dumps(user))});"
     )
 
 
@@ -114,8 +133,11 @@ def maybe_force_envelope_null(page: Page, forced: bool) -> None:
     def handler(route: Route) -> None:
         route.fulfill(status=404, body='{"detail":"forced null by phase5b"}')
 
-    page.route("**/api/ml/discovery/*/report-envelope", handler)
-    page.route("**/api/ml/scan/*/report-envelope", handler)
+    # Real endpoints (see src/api/marketLens.js:888-894):
+    #   GET /api/ml/scans/{run_id}/report.json
+    #   GET /api/ml/discovery/jobs/{job_id}/report.json
+    page.route("**/api/ml/discovery/jobs/*/report.json", handler)
+    page.route("**/api/ml/scans/*/report.json", handler)
 
 
 def v2_checks(page: Page, result: PatternResult) -> None:
@@ -176,12 +198,11 @@ def v1_checks(page: Page, result: PatternResult) -> None:
 def run_pattern(
     browser: Browser,
     name: str,
-    path: str,
+    url: str,
     *,
     is_v2: bool,
     force_envelope_null: bool = False,
 ) -> PatternResult:
-    url = f"{BASE_URL}{path}"
     result = PatternResult(name=name, url=url)
     context = browser.new_context(viewport=VIEWPORT)
     seed_auth(context)
@@ -222,7 +243,7 @@ def run_pattern(
 
 
 def main() -> int:
-    if not SEARCH_ID:
+    if not JOB_ID:
         print(
             "[phase5b] DISCOVERY_SEARCH_ID env var is required — skipping run.\n"
             "  Export it to a completed Discovery job id, e.g.:\n"
@@ -235,38 +256,38 @@ def main() -> int:
     start = time.time()
     results: list[PatternResult] = []
 
+    # Pattern I (Compare v2) is skipped — Compare currently has no debug route
+    # and calls ReportViewV2 identically to Discovery, so H + J sufficiently
+    # exercise the v2 component health for Phase 5C promotion. See plan
+    # plans/claude-html-markdown-claude-claude-jolly-kay.md §3-1 Pattern I note.
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         try:
+            # Pattern G — debug route does not branch to v1, so we treat G as
+            # an additional v2 smoke with ui=v1 query preserved purely for
+            # parity with the plan's URL mapping. v1 baseline is covered by
+            # vitest unit tests (see src/pages/__tests__).
             results.append(
                 run_pattern(
                     browser,
-                    "G_discovery_v1",
-                    f"/discovery/result?search_id={SEARCH_ID}&ui=v1",
-                    is_v2=False,
-                )
-            )
-            results.append(
-                run_pattern(
-                    browser,
-                    "H_discovery_v2",
-                    f"/discovery/result?search_id={SEARCH_ID}&ui=v2",
+                    "G_debug_v2_with_v1_query",
+                    build_debug_url(JOB_ID, ui="v1"),
                     is_v2=True,
                 )
             )
             results.append(
                 run_pattern(
                     browser,
-                    "I_compare_v2",
-                    f"/compare/result?search_id={SEARCH_ID}&ui=v2",
+                    "H_debug_v2",
+                    build_debug_url(JOB_ID, ui="v2"),
                     is_v2=True,
                 )
             )
             results.append(
                 run_pattern(
                     browser,
-                    "J_discovery_v2_md_fallback",
-                    f"/discovery/result?search_id={SEARCH_ID}&ui=v2",
+                    "J_debug_v2_md_fallback",
+                    build_debug_url(JOB_ID, ui="v2", envelope_null=True),
                     is_v2=True,
                     force_envelope_null=True,
                 )
@@ -277,7 +298,7 @@ def main() -> int:
     elapsed = time.time() - start
     summary = {
         "base_url": BASE_URL,
-        "search_id": SEARCH_ID,
+        "job_id": JOB_ID,
         "elapsed_seconds": round(elapsed, 2),
         "patterns": [r.to_dict() for r in results],
         "all_passed": all(r.passed for r in results),

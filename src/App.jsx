@@ -19,6 +19,7 @@ import LpCompare from './pages/landing/LpCompare'
 import LpPerformance from './pages/landing/LpPerformance'
 import LpCreative from './pages/landing/LpCreative'
 import LpDiscovery from './pages/landing/LpDiscovery'
+import ReportV2Debug from './pages/debug/ReportV2Debug'
 import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 import { useRbac } from './contexts/RbacContext'
@@ -113,6 +114,9 @@ export default function App() {
           <Route path="cases" element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<AdminGuard><ProjectManagement /></AdminGuard>} />
           <Route path="settings" element={<Settings />} />
+          {import.meta.env.DEV && (
+            <Route path="debug/report-v2" element={<ReportV2Debug />} />
+          )}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
