@@ -35,6 +35,7 @@ from pathlib import Path
 
 # Case authentication
 import bcrypt
+import pyotp
 
 # Load environment variables from .env.local
 try:
@@ -1254,6 +1255,10 @@ if not _AUTH_PASSWORD:
 _auth_tokens: dict[str, float] = {}  # token -> expiry timestamp
 _AUTH_TOKEN_TTL = 24 * 3600  # 24 hours
 
+# Case 2FA device-trust tokens — memory only, resets on restart (same trade-off as _auth_tokens)
+_device_trust_tokens: dict[str, tuple[str, float]] = {}  # token -> (case_id, expiry)
+_DEVICE_TRUST_TTL = 14 * 24 * 3600  # 14 days — tweak this single constant to change skip window
+
 def _generate_auth_token() -> str:
     token = secrets.token_urlsafe(32)
     _auth_tokens[token] = time.time() + _AUTH_TOKEN_TTL
@@ -1267,6 +1272,21 @@ def _validate_token(token: str) -> bool:
         del _auth_tokens[token]
         return False
     return True
+
+def _generate_device_trust_token(case_id: str) -> str:
+    token = secrets.token_urlsafe(32)
+    _device_trust_tokens[token] = (case_id, time.time() + _DEVICE_TRUST_TTL)
+    return token
+
+def _validate_device_trust_token(token: str, case_id: str) -> bool:
+    entry = _device_trust_tokens.get(token)
+    if entry is None:
+        return False
+    stored_case_id, expiry = entry
+    if time.time() > expiry:
+        del _device_trust_tokens[token]
+        return False
+    return stored_case_id == case_id
 
 # Public paths that don't require auth
 _AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health", "/api/cases", "/api/cases/login"}
@@ -2566,62 +2586,168 @@ def api_case_bq_status(case_id: str):
         return _json({"ok": True, "connected": False, "error": str(e)})
 
 
+def _case_login_success_payload(case: dict) -> dict:
+    auth_token = _generate_auth_token()
+    trust_token = _generate_device_trust_token(case["case_id"])
+    return {
+        "ok": True,
+        "case_id": case["case_id"],
+        "name": case.get("name", case["case_id"]),
+        "dataset_id": case.get("dataset_id", ""),
+        "description": case.get("description", ""),
+        "token": auth_token,
+        "device_trust_token": trust_token,
+        "device_trust_ttl_seconds": _DEVICE_TRUST_TTL,
+    }
+
+
 @app.post("/api/cases/login")
 async def api_cases_login(request: Request):
     """
-    Case authentication endpoint.
-    Request: { "case_id": "xxx", "password": "xxx" }
-    Success: { "ok": true, "case_id": "xxx", "name": "xxx", "dataset_id": "xxx" }
+    Case authentication endpoint with optional TOTP 2FA.
+    Request: {
+      "case_id": "xxx",
+      "password": "xxx",
+      "totp_code": "123456"?,
+      "device_trust_token": "xxx"?
+    }
+    Success (final): { "ok": true, "case_id", "name", "dataset_id", "token", "device_trust_token", ... }
+    TOTP required: { "ok": false, "totp_required": true, "case_id", "name" }
     Failure: { "ok": false, "error": "xxx" }
     """
+    from starlette.responses import JSONResponse
+    ip = _get_login_client_ip(request)
+    if _is_login_locked(ip):
+        return JSONResponse(
+            {"ok": False, "error": "Too many failed attempts. Try again later."},
+            status_code=429,
+        )
+
     try:
         body = await request.json()
+        if not isinstance(body, dict):
+            return _json({"ok": False, "error": "Invalid request body"}, status=400)
         case_id = body.get("case_id", "")
         password = body.get("password", "")
+        totp_code = body.get("totp_code") or ""
+        device_trust_token = body.get("device_trust_token") or ""
     except Exception:
         return _json({"ok": False, "error": "Invalid request body"}, status=400)
 
+    if not isinstance(case_id, str) or not isinstance(password, str):
+        return _json({"ok": False, "error": "case_id and password must be strings"}, status=400)
     if not case_id or not password:
         return _json({"ok": False, "error": "case_id and password are required"}, status=400)
 
-    # Load cases from master file
     cases_master = _load_cases_master()
+    case = next((c for c in cases_master if c.get("case_id") == case_id), None)
 
-    # Find the case
-    case = None
-    for c in cases_master:
-        if c.get("case_id") == case_id:
-            case = c
-            break
-
-    if not case:
+    if not case or not case.get("is_active", True):
+        _record_login_failure(ip)
         return _json({"ok": False, "error": "案件が見つかりません"}, status=404)
 
-    # Check if case is active
-    if not case.get("is_active", True):
-        return _json({"ok": False, "error": "案件が見つかりません"}, status=404)
-
-    # Verify password
     password_hash = case.get("password_hash", "")
     if not password_hash:
         return _json({"ok": False, "error": "案件の設定が不正です"}, status=500)
 
     try:
-        if bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8")):
-            token = _generate_auth_token()
-            return _json({
-                "ok": True,
-                "case_id": case["case_id"],
-                "name": case.get("name", case["case_id"]),
-                "dataset_id": case.get("dataset_id", ""),
-                "description": case.get("description", ""),
-                "token": token
-            })
-        else:
-            return _json({"ok": False, "error": "パスワードが正しくありません"}, status=401)
+        password_ok = bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
     except Exception as e:
         print(f"[api_cases_login] Password verification error: {e}")
         return _json({"ok": False, "error": "認証エラーが発生しました"}, status=500)
+
+    if not password_ok:
+        _record_login_failure(ip)
+        return _json({"ok": False, "error": "パスワードが正しくありません"}, status=401)
+
+    totp_enabled = bool(case.get("totp_enabled", False))
+    totp_secret = case.get("totp_secret") or ""
+
+    # Case 1: TOTP disabled for this case → password is enough
+    if not totp_enabled or not totp_secret:
+        _clear_login_failures(ip)
+        return _json(_case_login_success_payload(case))
+
+    # Case 2: valid device_trust_token → skip TOTP
+    if isinstance(device_trust_token, str) and device_trust_token and \
+            _validate_device_trust_token(device_trust_token, case_id):
+        _clear_login_failures(ip)
+        return _json(_case_login_success_payload(case))
+
+    # Case 3: TOTP required but not provided
+    if not isinstance(totp_code, str) or not totp_code.strip():
+        return _json({
+            "ok": False,
+            "totp_required": True,
+            "case_id": case["case_id"],
+            "name": case.get("name", case["case_id"]),
+        })
+
+    # Case 4: TOTP provided → verify
+    try:
+        totp_valid = pyotp.TOTP(totp_secret).verify(totp_code.strip(), valid_window=1)
+    except Exception as e:
+        print(f"[api_cases_login] TOTP verification error: {e}")
+        return _json({"ok": False, "error": "認証エラーが発生しました"}, status=500)
+
+    if not totp_valid:
+        _record_login_failure(ip)
+        return _json({
+            "ok": False,
+            "totp_required": True,
+            "error": "認証コードが正しくありません",
+            "case_id": case["case_id"],
+            "name": case.get("name", case["case_id"]),
+        }, status=401)
+
+    _clear_login_failures(ip)
+    return _json(_case_login_success_payload(case))
+
+
+@app.post("/api/cases/{case_id}/totp/setup")
+async def api_case_totp_setup(case_id: str, request: Request):
+    """
+    Admin-only TOTP secret provisioning.
+    Requires a valid global auth token (Authorization: Bearer ...), NOT a case-specific token.
+    Returns a freshly-generated secret, otpauth URI and base64-encoded QR PNG.
+    The admin must then paste the secret into cases.json + set totp_enabled: true.
+    """
+    import base64
+    import io
+
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
+    if not _validate_token(token):
+        return _json({"ok": False, "error": "Unauthorized"}, status=401)
+
+    cases_master = _load_cases_master()
+    case = next((c for c in cases_master if c.get("case_id") == case_id), None)
+    if not case:
+        return _json({"ok": False, "error": "案件が見つかりません"}, status=404)
+
+    secret = pyotp.random_base32()
+    issuer = "InsightStudio"
+    account_name = case.get("name") or case_id
+    otpauth_uri = pyotp.TOTP(secret).provisioning_uri(name=account_name, issuer_name=issuer)
+
+    try:
+        import qrcode
+        img = qrcode.make(otpauth_uri)
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        qr_png_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as e:
+        print(f"[api_case_totp_setup] QR generation error: {e}")
+        qr_png_b64 = ""
+
+    return _json({
+        "ok": True,
+        "case_id": case_id,
+        "secret": secret,
+        "otpauth_uri": otpauth_uri,
+        "qr_png_base64": qr_png_b64,
+        "instructions": "cases.json の該当案件に `totp_secret` を貼り付け、`totp_enabled: true` に設定して再起動してください。",
+    })
 
 
 

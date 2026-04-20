@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { DEFAULT_ADS_DATASET_ID, loginCase } from '../api/adsInsights'
+import { DEFAULT_ADS_DATASET_ID, loginCase, getCaseTrustToken, setCaseTrustToken } from '../api/adsInsights'
 
 const AdsSetupContext = createContext(null)
 
@@ -177,8 +177,20 @@ export function AdsSetupProvider({ children }) {
     localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
   }, [])
 
-  const authenticateCase = useCallback(async (caseId, password) => {
-    const result = await loginCase(caseId, password)
+  // Returns { status: 'ok', caseInfo } or { status: 'totp_required', caseName }.
+  // Throws on hard failures (wrong password, network, etc.).
+  const authenticateCase = useCallback(async (caseId, password, { totpCode = null } = {}) => {
+    const trustToken = getCaseTrustToken(caseId)
+    const result = await loginCase(caseId, password, {
+      totpCode,
+      deviceTrustToken: trustToken,
+    })
+    if (!result.ok) {
+      if (result.totp_required) {
+        return { status: 'totp_required', caseName: result.name || caseId, caseId }
+      }
+      throw new Error(result.error || '認証に失敗しました')
+    }
     const caseInfo = {
       case_id: result.case_id,
       name: result.name,
@@ -188,9 +200,13 @@ export function AdsSetupProvider({ children }) {
     setIsCaseAuthenticated(true)
     localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
     localStorage.setItem(CASE_AUTH_KEY, 'true')
+    // Stale trust token → server didn't accept it; loginCase already saved a new one on success
+    if (trustToken && !result.device_trust_token) {
+      setCaseTrustToken(caseId, null)
+    }
     // loginCase が token を返していたら AuthContext にも同期
     syncTokenFromApi()
-    return caseInfo
+    return { status: 'ok', caseInfo }
   }, [syncTokenFromApi])
 
   const clearCase = useCallback(() => {
