@@ -27,3 +27,5 @@ bcrypt>=4.0.0
 jinja2>=3.1.0
 pathvalidate
 PyYAML>=6.0
+pyotp>=2.9.0
+qrcode[pil]>=7.4.0
