@@ -48,9 +48,9 @@ _SIGNAL_LIMIT = 3
 _COMPARISON_BODY_SNIPPET_LIMIT = 300
 _COMPARISON_LIST_LIMIT = 3
 _SINGLE_URL_MAX_OUTPUT_TOKENS = 2560
-_MULTI_URL_MAX_OUTPUT_TOKENS = 4096
-_MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 6144
-_MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 5120
+_MULTI_URL_MAX_OUTPUT_TOKENS = 6144
+_MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 7168
+_MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 6144
 
 _NAV_LABEL_CHECK = _re.compile(
     r"^(?:BRAND|CATEGORY|RANKING|SHOP|COLLECTION|MENU|NEWS|"
@@ -1675,8 +1675,10 @@ def _comparison_output_token_budget(site_count: int, *, compact: bool = False) -
     if compact:
         # Compact mode: cap tokens to accelerate LLM response (40% reduction)
         return 3072 if site_count >= 3 else 2560
-    if site_count >= 3:
+    if site_count >= 4:
         return _MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES
+    if site_count == 3:
+        return _MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES
     return _MULTI_URL_MAX_OUTPUT_TOKENS
 
 
@@ -1794,6 +1796,12 @@ async def analyze(
                     provider=provider,
                     model=model, api_key=api_key,
                 )
+                if getattr(usage, "truncated", False):
+                    logger.warning(
+                        "analyzer_report truncated kind=multimodal output_tokens=%s model=%s",
+                        getattr(usage, "completion_tokens", None),
+                        getattr(usage, "model", None),
+                    )
                 report_md = _apply_confidence_tier_validator(report_md, extracted_list)
                 report_md = _apply_numeric_sanity_validator(report_md)
                 return report_md, usage
@@ -1810,6 +1818,13 @@ async def analyze(
     report_md, usage = await _call_text_model(
         prompt, provider=provider, model=model, api_key=api_key, max_output_tokens=token_budget
     )
+    if getattr(usage, "truncated", False):
+        logger.warning(
+            "analyzer_report truncated site_count=%d token_budget=%d output_tokens=%s model=%s",
+            len(extracted_list), token_budget,
+            getattr(usage, "completion_tokens", None),
+            getattr(usage, "model", None),
+        )
     report_md = _apply_confidence_tier_validator(report_md, extracted_list)
     report_md = _apply_numeric_sanity_validator(report_md)
     return report_md, usage

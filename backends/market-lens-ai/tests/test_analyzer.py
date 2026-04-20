@@ -478,16 +478,16 @@ class TestAnalyzeBranching:
             assert result_text == "Comparison result"
 
     @pytest.mark.asyncio
-    async def test_multi_url_passes_4096_max_tokens(self):
+    async def test_multi_url_passes_6144_max_tokens(self):
         data = [_sample_extracted("https://a.com"), _sample_extracted("https://b.com")]
         mock_return = ("result", TokenUsage())
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
             await analyze(data)
-            assert mock_text.call_args[1]["max_output_tokens"] == 4096
+            assert mock_text.call_args[1]["max_output_tokens"] == 6144
 
     @pytest.mark.asyncio
-    async def test_three_url_passes_6144_max_tokens(self):
+    async def test_three_url_passes_7168_max_tokens(self):
         data = [
             _sample_extracted("https://a.com"),
             _sample_extracted("https://b.com"),
@@ -497,10 +497,10 @@ class TestAnalyzeBranching:
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
             await analyze(data)
-            assert mock_text.call_args[1]["max_output_tokens"] == 6144
+            assert mock_text.call_args[1]["max_output_tokens"] == 7168
 
     @pytest.mark.asyncio
-    async def test_four_url_passes_5120_max_tokens(self):
+    async def test_four_url_passes_6144_max_tokens(self):
         data = [
             _sample_extracted("https://a.com"),
             _sample_extracted("https://b.com"),
@@ -511,7 +511,7 @@ class TestAnalyzeBranching:
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
             await analyze(data)
-            assert mock_text.call_args[1]["max_output_tokens"] == 5120
+            assert mock_text.call_args[1]["max_output_tokens"] == 6144
 
     @pytest.mark.asyncio
     async def test_four_url_uses_wide_prompt(self):

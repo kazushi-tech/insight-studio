@@ -176,34 +176,42 @@ export default function AiExplorer() {
     setMlLoading(true)
     setMlStatus('loading')
 
+    let cancelled = false
     let retried = false
+    let retryTimer = null
 
     getScans()
       .then((data) => {
+        if (cancelled) return
         const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
         const summary = summarizeHistory(items)
         setMlContextSummary(summary)
         setMlStatus(summary ? 'ready' : 'empty')
       })
       .catch((e) => {
+        if (cancelled) return
         const info = classifyError(e)
         if (!retried && (info.category === 'cold_start' || info.category === 'network')) {
           retried = true
-          setTimeout(() => {
+          retryTimer = setTimeout(() => {
+            retryTimer = null
+            if (cancelled) return
             setMlLoading(true)
             setMlStatus('loading')
             getScans()
               .then((data) => {
+                if (cancelled) return
                 const items = data.scans ?? data.history ?? data.results ?? (Array.isArray(data) ? data : [])
                 const summary = summarizeHistory(items)
                 setMlContextSummary(summary)
                 setMlStatus(summary ? 'ready' : 'empty')
               })
               .catch(() => {
+                if (cancelled) return
                 setMlContextSummary(null)
                 setMlStatus('error')
               })
-              .finally(() => setMlLoading(false))
+              .finally(() => { if (!cancelled) setMlLoading(false) })
           }, 5000)
           setMlStatus('cold_start')
           setMlLoading(false)
@@ -218,7 +226,15 @@ export default function AiExplorer() {
           setMlStatus('error')
         }
       })
-      .finally(() => { if (!retried) setMlLoading(false) })
+      .finally(() => { if (!cancelled && !retried) setMlLoading(false) })
+
+    return () => {
+      cancelled = true
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+        retryTimer = null
+      }
+    }
   }, [contextMode])
 
   const chartContext = useMemo(

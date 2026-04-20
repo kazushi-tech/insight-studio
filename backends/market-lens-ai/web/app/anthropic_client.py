@@ -156,7 +156,14 @@ def _usage_from_message(message: anthropic.types.Message, model: str) -> TokenUs
         completion_tokens=message.usage.output_tokens,
         total_tokens=message.usage.input_tokens + message.usage.output_tokens,
         model=message.model or model,
+        truncated=getattr(message, "stop_reason", None) == "max_tokens",
     )
+
+
+_TRUNCATION_NOTICE = (
+    "\n\n> ⚠️ **自動注記:** レスポンスが出力上限に達したため末尾が切り詰められた可能性があります。"
+    "重要箇所が欠けている場合は対象を絞って再生成してください。"
+)
 
 
 async def call_anthropic(
@@ -191,12 +198,14 @@ async def call_anthropic(
                     "call_anthropic SUCCESS model=%s elapsed=%.1fs stop_reason=%s input_tokens=%s output_tokens=%s",
                     m, _elapsed, _stop_reason, _in_tokens, _out_tokens,
                 )
+                text = _extract_text_from_message(message)
                 if _stop_reason == "max_tokens":
                     logger.warning(
                         "llm_response truncation model=%s stop_reason=max_tokens input_tokens=%s output_tokens=%s",
                         m, _in_tokens, _out_tokens,
                     )
-                return _extract_text_from_message(message), _usage_from_message(message, m)
+                    text = f"{text}{_TRUNCATION_NOTICE}"
+                return text, _usage_from_message(message, m)
             except anthropic.NotFoundError as e:
                 logger.warning("Model %s not found (%.1fs), trying fallback: %s", m, time.monotonic() - _t0, e)
                 last_error = e
@@ -284,12 +293,14 @@ async def call_anthropic_multimodal(
                     "call_anthropic_multimodal SUCCESS model=%s stop_reason=%s input_tokens=%s output_tokens=%s",
                     m, _stop_reason, _in_tokens, _out_tokens,
                 )
+                text = _extract_text_from_message(message)
                 if _stop_reason == "max_tokens":
                     logger.warning(
                         "llm_response truncation model=%s stop_reason=max_tokens input_tokens=%s output_tokens=%s kind=multimodal",
                         m, _in_tokens, _out_tokens,
                     )
-                return _extract_text_from_message(message), _usage_from_message(message, m)
+                    text = f"{text}{_TRUNCATION_NOTICE}"
+                return text, _usage_from_message(message, m)
             except anthropic.NotFoundError as e:
                 logger.warning("Multimodal model %s not found, trying fallback: %s", m, e)
                 last_error = e
