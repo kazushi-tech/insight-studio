@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
+import { useReportHistory } from '../contexts/ReportHistoryContext'
 import {
   buildAiChartContext,
   buildAnalysisInstructions,
@@ -81,6 +82,7 @@ export default function AiExplorer() {
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const { getDraft, setDraft, clearDraft } = useAnalysisRuns()
   const { avatarInitial } = useUserProfile()
+  const { restoreTarget, clearRestoreTarget, addEntry } = useReportHistory()
 
   const FONT_SIZE_KEY = 'is-ai-chat-font-size'
   const USER_TEXT_SIZE = { normal: 'text-sm', large: 'text-base', xlarge: 'text-lg' }
@@ -127,6 +129,31 @@ export default function AiExplorer() {
     return () => clearTimeout(draftTimerRef.current)
   }, [messages, contextMode, setDraft])
 
+  // Subscribe to restoreTarget — replaces messages/reportBundle from a history entry.
+  // No API calls: MarkdownRenderer and InsightChartPanel render purely from state.
+  useEffect(() => {
+    if (!restoreTarget?.entry) return
+    const entry = restoreTarget.entry
+
+    // Archive current in-progress session before overwriting (if any).
+    if (messages.length > 0 && reportBundle?.reportMd) {
+      addEntry({ setupState, reportBundle, messages, contextMode })
+    }
+
+    const restoredMessages = Array.isArray(entry.messages) ? entry.messages : []
+    const restoredContextMode = entry.contextMode === 'ads-with-ml' ? 'ads-with-ml' : 'ads-only'
+
+    setMessages(restoredMessages)
+    setContextMode(restoredContextMode)
+    setReportBundle({
+      ...(entry.reportBundle ?? {}),
+      source: 'restored_from_history',
+    })
+    setDraft('ai-explorer', { messages: restoredMessages, contextMode: restoredContextMode })
+    setStatus('✓ 履歴から復元しました（API 未使用）')
+    clearRestoreTarget()
+  }, [restoreTarget]) // eslint-disable-line react-hooks/exhaustive-deps -- one-shot per restoreTarget
+
   function handleFontSizeChange(size) {
     setFontSize(size)
     localStorage.setItem(FONT_SIZE_KEY, size)
@@ -139,6 +166,7 @@ export default function AiExplorer() {
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
     if (reportBundle?.source === 'bq_generate_batch') return
+    if (reportBundle?.source === 'restored_from_history') return
 
     let cancelled = false
 

@@ -1,6 +1,35 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
 import { DEFAULT_ADS_DATASET_ID, loginCase, getCaseTrustToken, setCaseTrustToken } from '../api/adsInsights'
+import {
+  buildEntry as buildHistoryEntry,
+  loadHistory as loadReportHistory,
+  saveHistory as saveReportHistory,
+  REPORT_HISTORY_MAX,
+} from '../utils/reportHistoryStorage'
+
+const REPORT_HISTORY_UPDATED_EVENT = 'report-history-updated'
+const AI_EXPLORER_DRAFT_KEY = 'is-draft-ai-explorer'
+
+function arraysDiffer(a, b) {
+  const arrA = Array.isArray(a) ? a : []
+  const arrB = Array.isArray(b) ? b : []
+  if (arrA.length !== arrB.length) return true
+  const sortedA = [...arrA].sort()
+  const sortedB = [...arrB].sort()
+  for (let i = 0; i < sortedA.length; i += 1) {
+    if (sortedA[i] !== sortedB[i]) return true
+  }
+  return false
+}
+
+function hasSetupChanged(prev, next) {
+  if (!prev || !next) return false
+  if (prev.datasetId !== next.datasetId) return true
+  if (arraysDiffer(prev.periods, next.periods)) return true
+  if (arraysDiffer(prev.queryTypes, next.queryTypes)) return true
+  return false
+}
 
 const AdsSetupContext = createContext(null)
 
@@ -238,6 +267,35 @@ export function AdsSetupProvider({ children }) {
       datasetId: payload.datasetId ?? getCurrentDatasetId(),
       completedAt: new Date().toISOString(),
     }
+
+    // Auto-archive previous report before overwriting state.
+    // Only fires when setup semantically changes (periods / datasetId / queryTypes),
+    // so granularity-only tweaks do not pollute history.
+    const caseId = currentCase?.case_id ?? null
+    if (caseId && setupState && reportBundle?.reportMd && hasSetupChanged(setupState, state)) {
+      try {
+        const draftRaw = sessionStorage.getItem(AI_EXPLORER_DRAFT_KEY)
+        const draft = draftRaw ? JSON.parse(draftRaw) : null
+        const prevMessages = Array.isArray(draft?.messages) ? draft.messages : []
+        if (prevMessages.length > 0) {
+          const existing = loadReportHistory(caseId)
+          const entry = buildHistoryEntry({
+            caseId,
+            setupState,
+            reportBundle,
+            messages: prevMessages,
+            contextMode: draft?.contextMode ?? 'ads-only',
+          })
+          const next = [entry, ...existing].slice(0, REPORT_HISTORY_MAX)
+          saveReportHistory(caseId, next)
+          sessionStorage.removeItem(AI_EXPLORER_DRAFT_KEY)
+          window.dispatchEvent(new Event(REPORT_HISTORY_UPDATED_EVENT))
+        }
+      } catch (e) {
+        console.warn('[ReportHistory] auto-archive failed:', e)
+      }
+    }
+
     setSetupState(state)
     setReportBundle(nextReportBundle)
     saveState(state, currentCase?.case_id)
@@ -245,7 +303,7 @@ export function AdsSetupProvider({ children }) {
     // (data was successfully fetched from backend during wizard)
     setIsCaseAuthenticated(true)
     localStorage.setItem(CASE_AUTH_KEY, 'true')
-  }, [currentCase?.case_id, getCurrentDatasetId])
+  }, [currentCase?.case_id, getCurrentDatasetId, setupState, reportBundle])
 
   return (
     <AdsSetupContext.Provider
