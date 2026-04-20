@@ -16,8 +16,8 @@
     "description": "ペタビット自社サイト",
     "dataset_id": "analytics_311324674",
     "password_hash": "$2b$12$ZvFP1kqr8PH8.XerbFRaZeap7t7BzzycwfyLBoMuoqBbT9AUgWyQO",
-    "totp_secret": "BS2V3DH3HDKJDMNHJLJGNFLS6I3O4CN5",
-    "totp_enabled": true,
+    "totp_secret": "",
+    "totp_enabled": false,
     "is_active": true,
     "is_internal": true
   },
