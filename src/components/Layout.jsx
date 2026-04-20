@@ -16,6 +16,7 @@ import { getApiKeyValidationError, validateClaudeKeyRemote } from '../utils/apiK
 import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
+import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 
 const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
 
@@ -337,6 +338,8 @@ export default function Layout() {
   const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedCase, setSelectedCase] = useState(null)
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
+  const location = useLocation()
   const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
@@ -567,6 +570,18 @@ export default function Layout() {
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
+              {/* Report History Drawer Trigger */}
+              <button
+                onClick={() => {
+                  if (location.pathname !== '/ads/ai') navigate('/ads/ai')
+                  setShowHistoryDrawer(true)
+                }}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                title="レポート履歴"
+                aria-label="レポート履歴を開く"
+              >
+                <span className="material-symbols-outlined">history</span>
+              </button>
               {/* API Key Settings */}
               <button
                 onClick={() => setShowKeyModal(true)}
@@ -636,6 +651,8 @@ export default function Layout() {
       )}
       {/* Guide Modal */}
       {showGuide && <GuideModal onClose={() => setShowGuide(false)} />}
+      {/* Report History Drawer */}
+      <ReportHistoryDrawer open={showHistoryDrawer} onClose={() => setShowHistoryDrawer(false)} />
     </div>
   )
 }

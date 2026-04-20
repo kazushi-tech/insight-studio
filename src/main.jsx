@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { RbacProvider } from './contexts/RbacContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { AdsSetupProvider } from './contexts/AdsSetupContext'
+import { ReportHistoryProvider } from './contexts/ReportHistoryContext'
 import { AnalysisRunsProvider } from './contexts/AnalysisRunsContext'
 import { BackendReadinessProvider } from './contexts/BackendReadinessContext'
 import { UserProfileProvider } from './contexts/UserProfileContext'
@@ -29,11 +30,13 @@ createRoot(document.getElementById('root')).render(
           <RbacProvider>
             <UserProfileProvider>
               <AdsSetupProvider>
-                <BackendReadinessProvider>
-                  <AnalysisRunsProvider>
-                    <App />
-                  </AnalysisRunsProvider>
-                </BackendReadinessProvider>
+                <ReportHistoryProvider>
+                  <BackendReadinessProvider>
+                    <AnalysisRunsProvider>
+                      <App />
+                    </AnalysisRunsProvider>
+                  </BackendReadinessProvider>
+                </ReportHistoryProvider>
               </AdsSetupProvider>
             </UserProfileProvider>
           </RbacProvider>
