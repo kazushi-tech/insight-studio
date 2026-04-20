@@ -54,6 +54,8 @@ class TokenUsage(BaseModel):
     completion_tokens: int = 0
     total_tokens: int = 0
     model: str = ""
+    # True when the LLM returned stop_reason="max_tokens" (output was truncated).
+    truncated: bool = False
 
 
 class ScanResult(BaseModel):
