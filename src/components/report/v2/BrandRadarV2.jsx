@@ -79,19 +79,26 @@ export default function BrandRadarV2({ envelope, reportMd }) {
 
   useEffect(() => {
     if (!brands.length || !canvasRef.current) return
-    const visible = mode === 'all' ? brands : brands.filter((b) => b.brand === mode)
-    const datasets = visible.map((b, i) => {
+    const datasets = brands.map((b, i) => {
       const color = BRAND_PALETTE_V2[i % BRAND_PALETTE_V2.length]
+      const isFocused = mode === 'all' || mode === b.brand
+      // Extract rgba fill alpha so we can dim unfocused brands cleanly.
+      const dimBg = color.bg.replace(
+        /rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/,
+        'rgba($1,$2,$3, 0.06)'
+      )
+      const dimBorder = isFocused ? color.border : `${color.border}33`
       return {
         label: b.brand,
         data: AXIS_KEYS.map((k) => (b.scores[k] == null ? null : b.scores[k])),
-        borderColor: color.border,
-        backgroundColor: color.bg,
-        borderWidth: 2,
-        pointBackgroundColor: color.border,
-        pointRadius: 3,
-        pointHoverRadius: 6,
+        borderColor: dimBorder,
+        backgroundColor: isFocused ? color.bg : dimBg,
+        borderWidth: isFocused ? 2 : 1,
+        pointBackgroundColor: dimBorder,
+        pointRadius: isFocused ? 3 : 1,
+        pointHoverRadius: isFocused ? 6 : 3,
         spanGaps: true,
+        order: isFocused ? 1 : 2,
       }
     })
 

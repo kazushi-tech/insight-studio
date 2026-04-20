@@ -96,3 +96,16 @@
   border-radius: 2px;
   background: var(--md-sys-color-primary);
 }
+
+.rowMasked {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--md-v2-radius-button);
+  background: var(--md-sys-color-error-container, #ffe4e4);
+  border-left: 3px solid var(--md-sys-color-error, #ba1a1a);
+}
+
+.rowMaskedValue {
+  color: var(--md-sys-color-error, #ba1a1a);
+  font-weight: 700;
+  font-size: 0.8125rem;
+}

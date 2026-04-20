@@ -15,6 +15,20 @@ function formatNumber(n) {
   return n.toFixed(1)
 }
 
+const LOW_CONFIDENCE_TOKENS = ['低', 'low']
+const WIDTH_MASK_RATIO = 10
+
+function isLowConfidence(raw) {
+  if (!raw) return false
+  const text = String(raw).toLowerCase()
+  return LOW_CONFIDENCE_TOKENS.some((t) => text.includes(t.toLowerCase()))
+}
+
+function rangeRatio(min, max) {
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0) return Infinity
+  return max / min
+}
+
 function fromEnvelope(marketEstimate) {
   if (!marketEstimate || !Array.isArray(marketEstimate.ranges) || marketEstimate.ranges.length === 0) {
     return null
@@ -39,10 +53,23 @@ function fromMd(reportMd) {
   }
 }
 
-function RangeRow({ label, min, max, unit }) {
+function RangeRow({ label, min, max, unit, masked, ratio }) {
   const ceiling = max === 0 ? 1 : max
   const fillStart = (min / ceiling) * 100
   const fillEnd = 100
+
+  if (masked) {
+    return (
+      <div className={`${styles.row} ${styles.rowMasked}`} data-testid="market-range-masked">
+        <div className={styles.rowHead}>
+          <span className={styles.rowLabel}>{label}</span>
+          <span className={`${styles.rowValue} ${styles.rowMaskedValue}`}>
+            推定根拠不足（low信頼・幅{ratio.toFixed(1)}×）
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.row}>
@@ -86,9 +113,11 @@ export default function MarketRangeV2({ envelope, reportMd }) {
       </header>
 
       <div className={styles.rows}>
-        {data.ranges.map((r, i) => (
-          <RangeRow key={i} {...r} />
-        ))}
+        {data.ranges.map((r, i) => {
+          const ratio = rangeRatio(r.min, r.max)
+          const masked = isLowConfidence(data.confidence) && ratio >= WIDTH_MASK_RATIO
+          return <RangeRow key={i} {...r} masked={masked} ratio={ratio} />
+        })}
       </div>
     </section>
   )

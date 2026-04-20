@@ -244,6 +244,9 @@ def build_envelope_from_md(report_id: str, kind: str, report_md: str) -> ReportE
     safe to serialize, callers decide whether empty sections are a problem.
     """
     from ..confidence_tier_validator import extract_notes_from_markdown
+    from ..numeric_sanity_validator import (
+        extract_notes_from_markdown as extract_numeric_notes,
+    )
 
     md = report_md or ""
     return ReportEnvelope(
@@ -252,5 +255,8 @@ def build_envelope_from_md(report_id: str, kind: str, report_md: str) -> ReportE
         priority_actions=_parse_priority_actions(md),
         market_estimate=_parse_market_estimate(md),
         brand_evaluations=_parse_brand_evaluations(md),
-        validator_notes=extract_notes_from_markdown(md),
+        validator_notes=[
+            *extract_notes_from_markdown(md),
+            *extract_numeric_notes(md),
+        ],
     )

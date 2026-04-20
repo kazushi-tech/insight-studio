@@ -83,6 +83,25 @@
   max-width: 9rem;
 }
 
+.axisName {
+  display: block;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  white-space: nowrap;
+  font-size: 0.8125rem;
+}
+
+.brandHead {
+  display: inline-block;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--md-sys-color-on-surface);
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
 .cellCell {
   padding: 0;
   min-width: 92px;

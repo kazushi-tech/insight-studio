@@ -69,21 +69,21 @@ export default function CompetitorMatrixV2({ envelope, reportMd }) {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th className={styles.thBrand}>ブランド</th>
-              {AXIS_KEYS.map((axis) => (
-                <th key={axis} className={styles.th}>
-                  {axis}
+              <th className={styles.thBrand}>評価軸</th>
+              {rows.map((row, ri) => (
+                <th key={ri} className={styles.th} title={row.brand}>
+                  <span className={styles.brandHead}>{row.brand}</span>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, ri) => (
-              <tr key={ri}>
-                <th scope="row" className={styles.rowHead} title={row.brand}>
-                  <span className={styles.brandName}>{row.brand}</span>
+            {AXIS_KEYS.map((axis) => (
+              <tr key={axis}>
+                <th scope="row" className={styles.rowHead} title={axis}>
+                  <span className={styles.axisName}>{axis}</span>
                 </th>
-                {AXIS_KEYS.map((axis, ci) => {
+                {rows.map((row, ci) => {
                   const cell = row.verdicts[axis]
                   const verdict = cell?.verdict
                   const token = verdict ? VERDICT_TOKENS_V2[verdict] : null
