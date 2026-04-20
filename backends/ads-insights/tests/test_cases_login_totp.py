@@ -20,8 +20,9 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-# APP_PASSWORD / DATA_PROVIDER must be set before importing backend_api
+# APP_PASSWORD / JWT_SECRET / DATA_PROVIDER must be set before importing backend_api
 os.environ.setdefault("APP_PASSWORD", "test-secret-pw-42")
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 os.environ.setdefault("DATA_PROVIDER", "mock")
 
 import bcrypt
@@ -36,7 +37,6 @@ if str(ROOT) not in sys.path:
 from web.app.backend_api import (  # noqa: E402
     app,
     _login_failures,
-    _device_trust_tokens,
 )
 
 
@@ -77,10 +77,8 @@ def _fake_cases(*, totp_enabled: bool, totp_secret: str | None = None) -> list:
 @pytest.fixture(autouse=True)
 def _reset_rate_and_tokens():
     _login_failures.clear()
-    _device_trust_tokens.clear()
     yield
     _login_failures.clear()
-    _device_trust_tokens.clear()
 
 
 @pytest.fixture()

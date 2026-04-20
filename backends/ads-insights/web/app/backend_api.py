@@ -1242,8 +1242,9 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "Accept", "Authorization"],
 )
 
-# ── 認証 (簡易トークン方式) ──────────────────────────────────
+# ── 認証 (JWT 方式) ──────────────────────────────────────────
 import hashlib, secrets, time as _time_mod
+import jwt
 time = _time_mod  # ensure 'time' is available for rate limiter below
 
 _AUTH_PASSWORD = (os.getenv("APP_PASSWORD") or "").strip()
@@ -1252,41 +1253,51 @@ if not _AUTH_PASSWORD:
         "APP_PASSWORD environment variable must be set. "
         "Add it to .env.local for local dev or set it in the Render dashboard for production."
     )
-_auth_tokens: dict[str, float] = {}  # token -> expiry timestamp
-_AUTH_TOKEN_TTL = 24 * 3600  # 24 hours
 
-# Case 2FA device-trust tokens — memory only, resets on restart (same trade-off as _auth_tokens)
-_device_trust_tokens: dict[str, tuple[str, float]] = {}  # token -> (case_id, expiry)
+_JWT_SECRET = (os.getenv("JWT_SECRET") or "").strip()
+if not _JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET environment variable must be set. "
+        "Add it to .env.local for local dev or set it in the Render dashboard for production."
+    )
+_JWT_ALG = "HS256"
+_AUTH_TOKEN_TTL = 24 * 3600  # 24 hours
 _DEVICE_TRUST_TTL = 14 * 24 * 3600  # 14 days — tweak this single constant to change skip window
 
 def _generate_auth_token() -> str:
-    token = secrets.token_urlsafe(32)
-    _auth_tokens[token] = time.time() + _AUTH_TOKEN_TTL
-    return token
+    payload = {
+        "typ": "auth",
+        "exp": int(time.time()) + _AUTH_TOKEN_TTL,
+        "jti": secrets.token_urlsafe(8),
+    }
+    return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALG)
 
 def _validate_token(token: str) -> bool:
-    expiry = _auth_tokens.get(token)
-    if expiry is None:
+    if not token:
         return False
-    if time.time() > expiry:
-        del _auth_tokens[token]
+    try:
+        payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALG])
+    except jwt.InvalidTokenError:
         return False
-    return True
+    return payload.get("typ") == "auth"
 
 def _generate_device_trust_token(case_id: str) -> str:
-    token = secrets.token_urlsafe(32)
-    _device_trust_tokens[token] = (case_id, time.time() + _DEVICE_TRUST_TTL)
-    return token
+    payload = {
+        "typ": "device_trust",
+        "case_id": case_id,
+        "exp": int(time.time()) + _DEVICE_TRUST_TTL,
+        "jti": secrets.token_urlsafe(8),
+    }
+    return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALG)
 
 def _validate_device_trust_token(token: str, case_id: str) -> bool:
-    entry = _device_trust_tokens.get(token)
-    if entry is None:
+    if not token:
         return False
-    stored_case_id, expiry = entry
-    if time.time() > expiry:
-        del _device_trust_tokens[token]
+    try:
+        payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALG])
+    except jwt.InvalidTokenError:
         return False
-    return stored_case_id == case_id
+    return payload.get("typ") == "device_trust" and payload.get("case_id") == case_id
 
 # Public paths that don't require auth
 _AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health", "/api/cases", "/api/cases/login"}

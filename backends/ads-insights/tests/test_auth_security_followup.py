@@ -12,9 +12,10 @@ import os
 import sys
 from pathlib import Path
 
-# APP_PASSWORD must be set BEFORE importing backend_api (module-level check)
+# APP_PASSWORD / JWT_SECRET must be set BEFORE importing backend_api (module-level checks)
 _TEST_PASSWORD = "test-secret-pw-42"
 os.environ["APP_PASSWORD"] = _TEST_PASSWORD
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 # DATA_PROVIDER=mock so we don't need Excel files
 os.environ["DATA_PROVIDER"] = "mock"
 
