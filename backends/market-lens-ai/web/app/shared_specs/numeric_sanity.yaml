@@ -1,0 +1,29 @@
+# Numeric sanity thresholds — guard against magnitude errors
+# and unusable confidence-vs-width ranges in LLM-generated reports.
+#
+# Consumed by numeric_sanity_validator.py. Philosophy is the same as
+# overreach_patterns.yaml: warn-mode only, no hard fail, no regeneration.
+#
+# Units: all amounts in 億円 (100M JPY). Convert 兆円 → ×10000 for checks.
+
+version: 1
+
+market_size:
+  # EC-category markets are categorically smaller than total BtoC EC
+  # (約19兆円 = 190,000億円 in 2024). A single-category EC market above
+  # 1兆円 (10,000億円) is suspicious; above 5兆円 (50,000億円) is almost
+  # certainly a magnitude error and must be flagged.
+  soft_warn_above_oku: 10000   # 1兆円 → note as suspicious
+  hard_warn_above_oku: 50000   # 5兆円 → treat as magnitude error
+
+ad_spend_range:
+  # Max/Min ratio threshold per confidence tier. A wider spread than this
+  # means the estimate is not usable for budgeting decisions.
+  ratio_cap_by_confidence:
+    high: 3.0
+    medium: 6.0
+    low: 10.0
+    unknown: 10.0
+  # When confidence is low AND ratio exceeds the cap, suppress the range
+  # display and add a note. When medium/high, only note the issue.
+  mask_when_low: true

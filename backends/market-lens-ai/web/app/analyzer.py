@@ -1715,6 +1715,34 @@ def _apply_confidence_tier_validator(
     return outcome.rewritten_markdown
 
 
+def _apply_numeric_sanity_validator(report_md: str) -> str:
+    """Post-process LLM report markdown through the numeric sanity validator.
+
+    Flags market-size magnitude errors and unusable ad-spend range widths,
+    appending a numeric-sanity notes section when issues are detected.
+    Failures are logged and swallowed so the validator never blocks
+    report delivery.
+    """
+    if not report_md:
+        return report_md
+    try:
+        from .numeric_sanity_validator import validate_and_annotate as _numeric_validate
+
+        outcome = _numeric_validate(
+            report_markdown=report_md,
+            context="discovery",
+        )
+    except Exception as exc:
+        logger.warning("numeric_sanity_validator failed: %s", exc)
+        return report_md
+    if not outcome.is_clean:
+        logger.info(
+            "numeric_sanity_validator flagged %d numeric issue(s)",
+            len(outcome.issues),
+        )
+    return outcome.rewritten_markdown
+
+
 async def analyze(
     extracted_list: list[ExtractedData],
     model: str | None = None,
@@ -1767,6 +1795,7 @@ async def analyze(
                     model=model, api_key=api_key,
                 )
                 report_md = _apply_confidence_tier_validator(report_md, extracted_list)
+                report_md = _apply_numeric_sanity_validator(report_md)
                 return report_md, usage
             except Exception:
                 logger.warning(
@@ -1782,4 +1811,5 @@ async def analyze(
         prompt, provider=provider, model=model, api_key=api_key, max_output_tokens=token_budget
     )
     report_md = _apply_confidence_tier_validator(report_md, extracted_list)
+    report_md = _apply_numeric_sanity_validator(report_md)
     return report_md, usage

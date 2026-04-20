@@ -10,12 +10,27 @@
   letter-spacing: 0.04em;
 }
 
+.dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
 .dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
+  border: 1.5px solid currentColor;
+  box-sizing: border-box;
+}
+
+.dotFilled {
   background: currentColor;
-  opacity: 0.85;
+  opacity: 0.95;
+}
+
+.dotEmpty {
+  background: transparent;
+  opacity: 0.45;
 }
 
 .high {
