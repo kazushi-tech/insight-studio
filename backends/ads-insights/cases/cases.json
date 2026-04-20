@@ -5,6 +5,8 @@
     "description": "サウルスジャパン広告運用案件",
     "dataset_id": "analytics_311324674",
     "password_hash": "$2b$12$/LW06QHFKMV1OUYQhl5WK.iW91AXXLiE3ykmALNpHvuJI.Fsr//.2",
+    "totp_secret": "",
+    "totp_enabled": false,
     "is_active": true,
     "is_internal": false
   },
@@ -14,6 +16,8 @@
     "description": "ペタビット自社サイト",
     "dataset_id": "analytics_311324674",
     "password_hash": "$2b$12$ZvFP1kqr8PH8.XerbFRaZeap7t7BzzycwfyLBoMuoqBbT9AUgWyQO",
+    "totp_secret": "",
+    "totp_enabled": false,
     "is_active": true,
     "is_internal": true
   },
@@ -23,6 +27,8 @@
     "description": "カメラの大林 広告運用案件",
     "dataset_id": "camera-no-ohbayashi.analytics_363548540",
     "password_hash": "$2b$12$40./lsLtAkRAi4kFYczLcedQa9jA.0nw3pJ/c9yLl2WSZWDNn8IPa",
+    "totp_secret": "",
+    "totp_enabled": false,
     "is_active": true,
     "is_internal": false
   }

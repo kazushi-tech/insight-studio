@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getCasesPublic, loginCase } from '../api/adsInsights'
+import { getCasesPublic, loginCase, getCaseTrustToken } from '../api/adsInsights'
 
 // Dark theme tokens (isolated from app's light theme)
 const DK = {
@@ -25,6 +25,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // TOTP step: pending case awaiting 6-digit code
+  const [pendingTotp, setPendingTotp] = useState(null) // { caseId, caseName, password }
+  const [totpCode, setTotpCode] = useState('')
   const { loginAds, loginWithCase, user } = useAuth()
 
   // Prefetch active cases for parallel login attempts
@@ -42,6 +45,34 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    // Step 2: TOTP submission
+    if (pendingTotp) {
+      const trimmed = totpCode.trim()
+      if (!/^\d{6}$/.test(trimmed)) {
+        setError('6桁の認証コードを入力してください')
+        return
+      }
+      setLoading(true)
+      setError('')
+      try {
+        const result = await loginCase(pendingTotp.caseId, pendingTotp.password, {
+          totpCode: trimmed,
+          deviceTrustToken: getCaseTrustToken(pendingTotp.caseId),
+        })
+        if (result?.ok) {
+          loginWithCase(result)
+          return
+        }
+        setError(result?.error || '認証コードが正しくありません')
+      } catch (err) {
+        setError(err?.message || '認証コードが正しくありません')
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Step 1: password submission
     if (!password) {
       setError('パスワードを入力してください')
       return
@@ -54,11 +85,12 @@ export default function Login() {
         .then((r) => ({ type: 'admin', data: r }))
         .catch(() => null)
 
-      const casePromises = activeCases.map((c) =>
-        loginCase(c.case_id || c.id, password)
-          .then((r) => ({ type: 'case', data: r }))
+      const casePromises = activeCases.map((c) => {
+        const caseId = c.case_id || c.id
+        return loginCase(caseId, password, { deviceTrustToken: getCaseTrustToken(caseId) })
+          .then((r) => ({ type: 'case', data: r, caseInfo: c }))
           .catch(() => null)
-      )
+      })
 
       const results = await Promise.all([adminPromise, ...casePromises])
 
@@ -68,10 +100,21 @@ export default function Login() {
         return
       }
 
-      // Case password matched
-      const matched = results.find((r) => r?.type === 'case')
-      if (matched) {
-        loginWithCase(matched.data)
+      // Case password matched AND no TOTP required
+      const fullMatch = results.find((r) => r?.type === 'case' && r.data?.ok)
+      if (fullMatch) {
+        loginWithCase(fullMatch.data)
+        return
+      }
+
+      // Case password matched but TOTP required
+      const totpMatch = results.find((r) => r?.type === 'case' && r.data?.totp_required)
+      if (totpMatch) {
+        setPendingTotp({
+          caseId: totpMatch.data.case_id,
+          caseName: totpMatch.data.name,
+          password,
+        })
         return
       }
 
@@ -82,6 +125,12 @@ export default function Login() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleTotpCancel = () => {
+    setPendingTotp(null)
+    setTotpCode('')
+    setError('')
   }
 
   const hasError = !!error
@@ -148,51 +197,101 @@ export default function Login() {
           )}
 
           <form className="w-full space-y-6" onSubmit={handleSubmit}>
-            {/* Password Field */}
-            <div className="space-y-2">
-              <label
-                className="block text-xs font-semibold ml-1"
-                style={{ color: DK.textMuted }}
-              >
-                パスワード
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors"
-                  style={{ color: DK.textMuted }}
-                >
-                  <span className="material-symbols-outlined text-[20px]">lock</span>
+            {!pendingTotp ? (
+              <>
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <label
+                    className="block text-xs font-semibold ml-1"
+                    style={{ color: DK.textMuted }}
+                  >
+                    パスワード
+                  </label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors"
+                      style={{ color: DK.textMuted }}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">lock</span>
+                    </div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError('') }}
+                      disabled={loading}
+                      autoFocus
+                      className="w-full h-12 pl-12 pr-12 border-none rounded-xl transition-all duration-200 outline-none"
+                      style={{
+                        backgroundColor: DK.input,
+                        color: DK.text,
+                        border: inputRing,
+                      }}
+                      onFocus={(e) => { e.target.style.boxShadow = inputRingFocus; e.target.style.backgroundColor = DK.inputFocus }}
+                      onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = DK.input }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-4 flex items-center transition-colors"
+                      style={{ color: DK.textMuted }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = DK.gold}
+                      onMouseLeave={(e) => e.currentTarget.style.color = DK.textMuted}
+                      tabIndex={-1}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError('') }}
-                  disabled={loading}
-                  autoFocus
-                  className="w-full h-12 pl-12 pr-12 border-none rounded-xl transition-all duration-200 outline-none"
-                  style={{
-                    backgroundColor: DK.input,
-                    color: DK.text,
-                    border: inputRing,
-                  }}
-                  onFocus={(e) => { e.target.style.boxShadow = inputRingFocus; e.target.style.backgroundColor = DK.inputFocus }}
-                  onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = DK.input }}
-                />
+              </>
+            ) : (
+              <>
+                {/* TOTP step */}
+                <div className="space-y-2">
+                  <label
+                    className="block text-xs font-semibold ml-1"
+                    style={{ color: DK.textMuted }}
+                  >
+                    認証コード（6桁） — {pendingTotp.caseName}
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="\d{6}"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={totpCode}
+                    onChange={(e) => {
+                      setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                      setError('')
+                    }}
+                    disabled={loading}
+                    autoFocus
+                    className="w-full h-12 px-4 border-none rounded-xl text-lg tracking-[0.4em] font-mono outline-none"
+                    style={{
+                      backgroundColor: DK.input,
+                      color: DK.text,
+                      border: inputRing,
+                    }}
+                    onFocus={(e) => { e.target.style.boxShadow = inputRingFocus; e.target.style.backgroundColor = DK.inputFocus }}
+                    onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = DK.input }}
+                  />
+                  <p className="text-xs pt-1" style={{ color: DK.textMuted }}>
+                    Google Authenticator 等に表示されている 6 桁のコードを入力してください。
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-4 flex items-center transition-colors"
+                  onClick={handleTotpCancel}
+                  className="text-xs underline"
                   style={{ color: DK.textMuted }}
-                  onMouseEnter={(e) => e.currentTarget.style.color = DK.gold}
-                  onMouseLeave={(e) => e.currentTarget.style.color = DK.textMuted}
-                  tabIndex={-1}
                 >
-                  <span className="material-symbols-outlined text-[20px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
+                  パスワード入力に戻る
                 </button>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Login Button */}
             <div className="pt-4">
@@ -213,11 +312,11 @@ export default function Login() {
                       className="inline-block w-5 h-5 rounded-full border-2 animate-spin"
                       style={{ borderColor: `${DK.onGold}40`, borderTopColor: DK.onGold }}
                     />
-                    ログイン中...
+                    {pendingTotp ? '認証中...' : 'ログイン中...'}
                   </>
                 ) : (
                   <>
-                    ログイン
+                    {pendingTotp ? '認証' : 'ログイン'}
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </>
                 )}

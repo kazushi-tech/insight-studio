@@ -317,18 +317,51 @@ export function getCasesPublic() {
   return request('/cases', { skipAuth: true, suppressAuthErrorHandler: true })
 }
 
-/** POST /api/cases/login — 案件認証 */
-export async function loginCase(caseId, password) {
+/** localStorage key for case-specific device trust token (TOTP skip) */
+export const CASE_TRUST_TOKEN_KEY_PREFIX = 'is_case_trust_'
+
+export function getCaseTrustToken(caseId) {
+  if (!caseId) return null
+  try {
+    return localStorage.getItem(`${CASE_TRUST_TOKEN_KEY_PREFIX}${caseId}`) || null
+  } catch { return null }
+}
+
+export function setCaseTrustToken(caseId, token) {
+  if (!caseId) return
+  try {
+    if (token) {
+      localStorage.setItem(`${CASE_TRUST_TOKEN_KEY_PREFIX}${caseId}`, token)
+    } else {
+      localStorage.removeItem(`${CASE_TRUST_TOKEN_KEY_PREFIX}${caseId}`)
+    }
+  } catch { /* ignore storage failures */ }
+}
+
+/**
+ * POST /api/cases/login — 案件認証 (optional TOTP)
+ * Returns:
+ *   成功: { ok: true, case_id, name, dataset_id, token, device_trust_token }
+ *   TOTP要求: { ok: false, totp_required: true, case_id, name }
+ * Throws on wrong password/TOTP (401) or other errors.
+ */
+export async function loginCase(caseId, password, { totpCode = null, deviceTrustToken = null } = {}) {
+  const body = { case_id: caseId, password }
+  if (totpCode) body.totp_code = String(totpCode).trim()
+  if (deviceTrustToken) body.device_trust_token = deviceTrustToken
   const data = await request('/cases/login', {
     method: 'POST',
-    body: JSON.stringify({ case_id: caseId, password }),
+    body: JSON.stringify(body),
     skipAuth: true,
+    suppressAuthErrorHandler: true,
   })
-  // バックエンドがtokenを返した場合、グローバル認証も完了
-  if (data.token) {
+  if (data.ok && data.token) {
     authToken = data.token
   }
-  return data // { ok, case_id, name, dataset_id, token? }
+  if (data.ok && data.case_id && data.device_trust_token) {
+    setCaseTrustToken(data.case_id, data.device_trust_token)
+  }
+  return data
 }
 
 /** GET /api/health */

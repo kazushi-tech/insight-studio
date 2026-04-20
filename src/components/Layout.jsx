@@ -370,8 +370,8 @@ export default function Layout() {
     }
   }, [clearCase, canManageProjects, selectCase])
 
-  const handleCaseAuthenticate = useCallback(async (caseId, password) => {
-    await authenticateCase(caseId, password)
+  const handleCaseAuthenticate = useCallback(async (caseId, password, options = {}) => {
+    return authenticateCase(caseId, password, options)
   }, [authenticateCase])
 
   const handleAuthModalClose = useCallback(() => {
