@@ -114,8 +114,8 @@ export default function CaseSelector({ onCaseSelect }) {
         >
           {/* Confirm dialog */}
           {confirmCase && (
-            <div className="p-4 bg-amber-50 border-b border-amber-200">
-              <p className="text-sm text-amber-800 japanese-text mb-3">
+            <div className="p-4 bg-amber-50 dark:bg-warning-container border-b border-amber-200 dark:border-warning/30">
+              <p className="text-sm text-amber-800 dark:text-on-warning-container japanese-text mb-3">
                 案件を切り替えると、現在のセットアップがリセットされます。よろしいですか？
               </p>
               <div className="flex gap-2">
@@ -127,7 +127,7 @@ export default function CaseSelector({ onCaseSelect }) {
                 </button>
                 <button
                   onClick={() => setConfirmCase(null)}
-                  className="px-4 py-1.5 text-amber-700 text-xs font-bold hover:underline"
+                  className="px-4 py-1.5 text-amber-700 dark:text-on-warning-container text-xs font-bold hover:underline"
                 >
                   キャンセル
                 </button>

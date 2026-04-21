@@ -236,24 +236,24 @@ export default function SetupWizard() {
       </div>
 
       {authExpiredMessage && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-[0.75rem] px-5 py-3 text-sm text-red-800">
+        <div className="flex items-center gap-3 bg-red-50 dark:bg-error-container border border-red-200 dark:border-error/30 rounded-[0.75rem] px-5 py-3 text-sm text-red-800 dark:text-on-error-container">
           <span className="material-symbols-outlined text-lg">error</span>
           <span className="japanese-text flex-1">{authExpiredMessage}</span>
-          <button onClick={clearAuthExpiredMessage} className="text-red-600 hover:text-red-800 shrink-0">
+          <button onClick={clearAuthExpiredMessage} className="text-red-600 dark:text-error hover:text-red-800 shrink-0">
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
         </div>
       )}
 
       {!isAdsAuthenticated && !authExpiredMessage && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+        <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
         </div>
       )}
 
       {!currentCase && (
-        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-[0.75rem] px-5 py-3 text-sm text-blue-800">
+        <div className="flex items-center gap-3 bg-blue-50 dark:bg-info-container border border-blue-200 dark:border-info/30 rounded-[0.75rem] px-5 py-3 text-sm text-blue-800 dark:text-on-info-container">
           <span className="material-symbols-outlined text-lg">info</span>
           <span className="japanese-text">案件を選択してください。ヘッダーの案件セレクターから対象案件を選べます。</span>
         </div>
@@ -390,7 +390,7 @@ export default function SetupWizard() {
           ) : (
             <div className="space-y-4">
               {generatedPeriods.size > 0 && (
-                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+                <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
                   <span className="material-symbols-outlined text-lg">info</span>
                   <span className="japanese-text">
                     前回の処理で {generatedPeriods.size} 期間は生成済みです。再試行すると未完了分のみ送信します。

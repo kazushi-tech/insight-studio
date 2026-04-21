@@ -25,7 +25,7 @@ function BqStatusBadge({ status }) {
     )
   }
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500">
+    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 dark:text-error">
       <span className="w-2 h-2 rounded-full bg-red-400" />
       {status.error || '接続失敗'}
     </span>
@@ -234,7 +234,7 @@ export default function CaseManagement() {
         <div className="space-y-4">
           <div className="bg-surface-container-lowest p-6 rounded-2xl">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-warning-container flex items-center justify-center text-amber-600 dark:text-warning">
                 <span className="material-symbols-outlined">lock</span>
               </div>
               <h4 className="text-lg font-bold japanese-text">認証が必要です</h4>

@@ -260,7 +260,7 @@ function KeySettingsModal({ onClose }) {
             {claudeValidating ? '検証中...' : '保存'}
           </button>
           {claudeError && <p className="text-xs text-error">{claudeError}</p>}
-          {claudeWarning && <p className="text-xs text-amber-600">{claudeWarning}</p>}
+          {claudeWarning && <p className="text-xs text-amber-600 dark:text-warning">{claudeWarning}</p>}
         </div>
 
         <hr className="border-surface-container" />
@@ -269,9 +269,9 @@ function KeySettingsModal({ onClose }) {
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">考察スタジオ 認証</label>
           {isAdsAuthenticated ? (
-            <div className="flex items-center justify-between bg-emerald-50 rounded-xl px-4 py-3">
-              <span className="text-sm text-emerald-700 font-bold flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <div className="flex items-center justify-between bg-emerald-50 dark:bg-success-container rounded-xl px-4 py-3">
+              <span className="text-sm text-emerald-700 dark:text-on-success-container font-bold flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-success" />
                 認証済み
               </span>
               <button onClick={logoutAds} className="text-sm text-error font-bold hover:underline">
@@ -586,7 +586,7 @@ export default function Layout() {
               <button
                 onClick={() => setShowKeyModal(true)}
                 className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative ${
-                  !showKeyAttention ? 'text-emerald-600' : 'text-secondary'
+                  !showKeyAttention ? 'text-emerald-600 dark:text-success' : 'text-secondary'
                 }`}
                 title="API キー・接続設定"
                 aria-label="API キー・接続設定"

@@ -40,9 +40,9 @@ function CoverageBar({ ratio }) {
 
 function ScoreLabel({ ratio }) {
   const pct = Math.round(ratio * 100)
-  if (pct >= 70) return <span className="text-xs font-bold text-emerald-700">高信頼</span>
-  if (pct >= 50) return <span className="text-xs font-bold text-amber-700">注意</span>
-  return <span className="text-xs font-bold text-red-700">低信頼</span>
+  if (pct >= 70) return <span className="text-xs font-bold text-emerald-700 dark:text-on-success-container">高信頼</span>
+  if (pct >= 50) return <span className="text-xs font-bold text-amber-700 dark:text-on-warning-container">注意</span>
+  return <span className="text-xs font-bold text-red-700 dark:text-on-error-container">低信頼</span>
 }
 
 export default function DataCoverageCard({ extracted, className = '' }) {
@@ -88,7 +88,7 @@ export default function DataCoverageCard({ extracted, className = '' }) {
       </div>
 
       {hasCriticalGaps && (
-        <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+        <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl text-xs text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-sm text-amber-500">warning</span>
           <span>一部評価が不完全データに基づく可能性があります（pricing_snippet, main_cta 欠損）</span>
         </div>
@@ -105,7 +105,7 @@ export default function DataCoverageCard({ extracted, className = '' }) {
             {stat.criticalMissing.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-1">
                 {stat.criticalMissing.map(({ key, label }) => (
-                  <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-600 rounded-full text-[10px] font-bold">
+                  <span key={key} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 dark:bg-error-container text-red-600 dark:text-error rounded-full text-[10px] font-bold">
                     <span className="material-symbols-outlined text-[10px]">close</span>
                     {label} 未取得
                   </span>

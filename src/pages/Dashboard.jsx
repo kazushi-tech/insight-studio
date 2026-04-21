@@ -220,7 +220,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
     return (
       <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 flex items-center justify-center text-amber-600">
+          <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 dark:bg-warning-container flex items-center justify-center text-amber-600 dark:text-warning">
             <span className="material-symbols-outlined">lock</span>
           </div>
           <h4 className="text-lg font-bold japanese-text">広告分析</h4>
@@ -234,7 +234,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
     return (
       <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 flex items-center justify-center text-amber-600">
+          <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 dark:bg-warning-container flex items-center justify-center text-amber-600 dark:text-warning">
             <span className="material-symbols-outlined">settings_suggest</span>
           </div>
           <h4 className="text-lg font-bold japanese-text">広告分析セットアップ</h4>
@@ -259,7 +259,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
   return (
     <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-[0.75rem] bg-emerald-50 flex items-center justify-center text-emerald-600">
+        <div className="w-10 h-10 rounded-[0.75rem] bg-emerald-50 dark:bg-success-container flex items-center justify-center text-emerald-600 dark:text-on-success-container">
           <span className="material-symbols-outlined">check_circle</span>
         </div>
         <h4 className="text-lg font-bold japanese-text">広告分析セットアップ</h4>
@@ -501,7 +501,7 @@ export default function Dashboard() {
                         )}
                       </td>
                       <td className="py-4 px-6 text-right">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700">完了</span>
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-success-container text-emerald-700 dark:text-on-success-container">完了</span>
                       </td>
                     </tr>
                   ))}

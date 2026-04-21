@@ -22,7 +22,7 @@ export default function CreativeReference({ creativeRefs }) {
                   onError={(e) => { e.target.style.display = 'none' }}
                 />
                 {ref.kpis?.ctr != null && (
-                  <span className="absolute top-2 right-2 text-[9px] font-bold bg-white/90 text-on-surface px-1.5 py-0.5 rounded shadow-sm">
+                  <span className="absolute top-2 right-2 text-[9px] font-bold bg-white/90 dark:bg-surface-container-lowest/90 text-on-surface px-1.5 py-0.5 rounded shadow-sm">
                     CTR {ref.kpis.ctr.toFixed(2)}%
                   </span>
                 )}
