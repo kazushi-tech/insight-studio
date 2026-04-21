@@ -37,7 +37,7 @@ services:
         value: "8192"
       # Discovery Hub — タイムアウト設定
       - key: ANTHROPIC_TIMEOUT_SEC
-        value: "240"
+        value: "300"
       - key: DISCOVERY_BRAND_FETCH_TIMEOUT_SEC
         value: "30"
       - key: DISCOVERY_COMPETITOR_FETCH_TIMEOUT_SEC
@@ -45,9 +45,9 @@ services:
       - key: DISCOVERY_SEARCH_TIMEOUT_SEC
         value: "90"
       - key: DISCOVERY_ANALYZE_TIMEOUT_SEC
-        value: "210"
+        value: "300"
       - key: DISCOVERY_OVERALL_JOB_TIMEOUT_SEC
-        value: "360"
+        value: "480"
       - key: DISCOVERY_FETCH_COMPETITORS_STALL_TIMEOUT_SEC
         value: "210"
       - key: DISCOVERY_MAX_COMPETITORS
