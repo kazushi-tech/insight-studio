@@ -36,6 +36,8 @@ services:
       - key: GEMINI_MAX_OUTPUT_TOKENS
         value: "8192"
       # Discovery Hub — タイムアウト設定
+      - key: ANTHROPIC_TIMEOUT_SEC
+        value: "240"
       - key: DISCOVERY_BRAND_FETCH_TIMEOUT_SEC
         value: "30"
       - key: DISCOVERY_COMPETITOR_FETCH_TIMEOUT_SEC
