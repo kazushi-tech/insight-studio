@@ -41,7 +41,7 @@ export default function ReportViewV2({ envelope, reportMd }) {
 
   // IntersectionObserver to highlight current section in TOC
   useEffect(() => {
-    if (!headings.length) return
+    if (!headings.length || typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
