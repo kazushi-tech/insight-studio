@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../../contexts/AuthContext.jsx'
+import { RbacProvider } from '../../contexts/RbacContext.jsx'
 import { AnalysisRunsProvider } from '../../contexts/AnalysisRunsContext.jsx'
 
 /**
@@ -18,9 +19,13 @@ export function TestProviders({ children }) {
       AuthProvider,
       null,
       createElement(
-        AnalysisRunsProvider,
+        RbacProvider,
         null,
-        children,
+        createElement(
+          AnalysisRunsProvider,
+          null,
+          children,
+        ),
       ),
     ),
   )

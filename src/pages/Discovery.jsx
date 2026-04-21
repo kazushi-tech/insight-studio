@@ -5,6 +5,7 @@ import MarkdownRenderer from '../components/MarkdownRenderer'
 import DataCoverageCard from '../components/DataCoverageCard'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
+import { useRbac } from '../contexts/RbacContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { useBackendReadiness } from '../contexts/BackendReadinessContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
@@ -12,6 +13,7 @@ import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/report
 import { recordScore } from '../utils/scoreHistory'
 import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables, splitIssuesBySeverity } from '../utils/reportQuality'
 import PrintButton from '../components/report/PrintButton'
+import ReportQualityBadge from '../components/report/ReportQualityBadge'
 import PriorityActionHero from '../components/report/PriorityActionHero'
 import CompetitorMatrix from '../components/report/CompetitorMatrix'
 import MarketRangeBar from '../components/report/MarketRangeBar'
@@ -387,6 +389,7 @@ export default function Discovery() {
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
+  const { isAdmin } = useRbac()
   const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
   const backendStatus = useBackendReadiness()
 
@@ -927,7 +930,7 @@ export default function Discovery() {
           qualityIssues: result?.quality_issues,
           qualityIsCritical: result?.quality_is_critical,
         }
-        const { isQualityFailure: discQFail, issues: discQIssues } = checkReportQuality(result.report_md, discBackendQuality)
+        const { issues: discQIssues } = checkReportQuality(result.report_md, discBackendQuality)
 
         return (
           <>
@@ -960,13 +963,24 @@ export default function Discovery() {
               )}
               <PrintButton
                 onBeforePrint={() => {
-                  const { blockers } = splitIssuesBySeverity(discQIssues)
-                  if (blockers.length > 0) {
-                    return window.confirm(
-                      'このレポートには欠損セクションがあります。クライアント提出用PDFを作成しますか？\n（推奨: 先に「対象を絞って再実行」）'
-                    )
+                  // Phase Q2-3: confirm dialog only for admin — clients never see quality state.
+                  if (isAdmin) {
+                    const { blockers } = splitIssuesBySeverity(discQIssues)
+                    if (blockers.length > 0) {
+                      return window.confirm(
+                        'このレポートには欠損セクションがあります。クライアント提出用PDFを作成しますか？\n（推奨: 先に「対象を絞って再実行」）'
+                      )
+                    }
                   }
                   return true
+                }}
+              />
+              {/* Phase Q2-3: quality badge (admin only, hidden in print) */}
+              <ReportQualityBadge
+                issues={discQIssues}
+                onRegenerate={() => {
+                  setUrl(result?.brand_url || url)
+                  handleRetry()
                 }}
               />
               <UiVersionToggle className="print:hidden" />
@@ -987,52 +1001,6 @@ export default function Discovery() {
                 ))}
               </div>
             </div>
-            {discQFail && (() => {
-              const { blockers, warnings } = splitIssuesBySeverity(discQIssues)
-              return (
-                <>
-                  {/* Section D-1: Blocker banner (red) */}
-                  {blockers.length > 0 && (
-                    <div className="quality-warning-banner bg-red-50 dark:bg-error-container border border-red-300 dark:border-error/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
-                      <span className="material-symbols-outlined text-lg text-red-500 dark:text-error mt-0.5 shrink-0">error</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-red-800 dark:text-on-error-container japanese-text">実行プランが欠損しています</p>
-                        <ul className="text-xs mt-1 space-y-0.5 text-red-700 dark:text-on-error-container">
-                          {blockers.map((issue, i) => (
-                            <li key={i}>・{issue}</li>
-                          ))}
-                        </ul>
-                        {/* Section D-2: Regenerate CTA */}
-                        <button
-                          onClick={() => {
-                            setUrl(result?.brand_url || url)
-                            handleRetry()
-                          }}
-                          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-sm">refresh</span>
-                          対象を絞って再実行
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {/* Section D-1: Warning banner (amber) */}
-                  {warnings.length > 0 && (
-                    <div className="quality-warning-banner bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
-                      <span className="material-symbols-outlined text-lg text-amber-500 dark:text-warning mt-0.5 shrink-0">info</span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-amber-800 dark:text-on-warning-container japanese-text">品質チェックで注意事項があります</p>
-                        <ul className="text-xs mt-1 space-y-0.5 text-amber-700 dark:text-on-warning-container">
-                          {warnings.map((issue, i) => (
-                            <li key={i}>・{issue}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )
-            })()}
             <div className="mb-6">
               {isUiV2 ? (
                 <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} />

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
 from urllib.parse import urlparse
 
-from ...analyzer import analyze
+from ...analyzer import analyze, regenerate_execution_plan, section_5_looks_complete
 from ...extractor import extract
 from ...fetcher import fetch_html, take_screenshot
 from ...llm_client import PROVIDER_ANTHROPIC, normalize_provider, provider_label
@@ -214,6 +214,7 @@ class AnalysisAttempt:
     model: str | None
     timeout_sec: float
     progress_pct: int
+    compact: bool = False  # Phase Q0-4: intermediate compact degrade step
 
 
 def _log_stage(
@@ -253,7 +254,8 @@ def _resolve_timeouts() -> dict[str, float]:
         "competitor_fetch_timeout": float(os.getenv("DISCOVERY_COMPETITOR_FETCH_TIMEOUT_SEC", "12")),
         "classify_timeout": float(os.getenv("DISCOVERY_CLASSIFY_TIMEOUT_SEC", "6")),
         "search_timeout": float(os.getenv("DISCOVERY_SEARCH_TIMEOUT_SEC", "45")),
-        "analyze_timeout": float(os.getenv("DISCOVERY_ANALYZE_TIMEOUT_SEC", "210")),
+        # Phase Q0-2: raised from 210 → 300 to match increased token budget (more tokens = longer inference).
+        "analyze_timeout": float(os.getenv("DISCOVERY_ANALYZE_TIMEOUT_SEC", "300")),
     }
 
 
@@ -322,7 +324,16 @@ def _is_retryable_quality_issue(issues: list[str]) -> bool:
         "LP改善施策",
         "検索広告施策",
     )
-    return any(any(token in issue for token in retryable_tokens) for issue in issues)
+    # Phase Q1-3: issues already covered by deterministic stubs (phrased as
+    # "本分析対象外(自動補完済)") should never re-trigger a site-limit degrade.
+    def _is_actionable(issue: str) -> bool:
+        if "本分析対象外" in issue:
+            return False
+        if "任意セクション" in issue:
+            return False
+        return any(token in issue for token in retryable_tokens)
+
+    return any(_is_actionable(issue) for issue in issues)
 
 
 def _evaluate_discovery_report_quality(
@@ -365,25 +376,35 @@ def _analysis_attempts(
     base_timeout_sec: float,
     remaining_overall_sec: float,
 ) -> list[AnalysisAttempt]:
-    """Return a bounded fallback chain for discovery compare analysis."""
+    """Return a bounded fallback chain for discovery compare analysis.
+
+    Phase Q0-4: hard floor of site_limit >= 3 (brand + 2 competitors).
+    Reducing to 2 is only allowed when available_sites < 3 (zero competitor
+    candidates found). The new degrade ladder is:
+      1. initial_limit, primary_model  (full budget)
+      2. initial_limit, primary_model  (compact — same sites, fewer tokens)
+      3. 3 sites, primary_model        (only if initial > 3)
+      4. 3 sites, fallback_model       (lighter model, hard floor)
+      5. 2 sites                       (only if available_sites < 3)
+    """
     available_sites = 1 + max(0, competitor_count)
     initial_limit = max(2, min(requested_site_limit, available_sites))
 
-    site_limits: list[int] = [initial_limit]
-    if initial_limit > 3:
-        site_limits.append(3)
-    if initial_limit > 2:
-        site_limits.append(2)
+    # Phase Q0-4: minimum guaranteed sites = brand + 2 competitors unless
+    # the search literally found fewer candidates.
+    hard_floor = 2 if available_sites < 3 else 3
 
     # Budget proportional timeout_cap: reserve 20s for post-analyze stages
     budget = max(120.0, remaining_overall_sec - 20.0)
 
     attempts: list[AnalysisAttempt] = []
-    seen: set[tuple[int, str | None]] = set()
+    seen: set[tuple[int, str | None, bool]] = set()
     progress_values = [90, 93, 96, 98]
 
-    def _append_attempt(site_limit: int, model: str | None, label: str, timeout_cap: float):
-        key = (site_limit, model)
+    def _append_attempt(
+        site_limit: int, model: str | None, label: str, timeout_cap: float, compact: bool = False
+    ):
+        key = (site_limit, model, compact)
         if key in seen:
             return
         seen.add(key)
@@ -395,21 +416,35 @@ def _analysis_attempts(
                 model=model,
                 timeout_sec=timeout_sec,
                 progress_pct=progress_values[min(len(attempts), len(progress_values) - 1)],
+                compact=compact,
             )
         )
 
+    # Step 1: full attempt
     _append_attempt(
         initial_limit,
         primary_model,
         f"比較分析を実行中です（{initial_limit}サイト比較）",
-        max(180.0, budget * 0.45),
+        max(180.0, budget * 0.40),
     )
-    if 3 in site_limits and 3 != initial_limit:
-        _append_attempt(3, primary_model, "比較分析を軽量化して再試行中です（3サイト比較）", max(105.0, budget * 0.25))
+    # Step 2: same sites, compact mode — reduces token pressure before dropping sites
+    if initial_limit >= hard_floor:
+        _append_attempt(
+            initial_limit,
+            primary_model,
+            f"比較分析をコンパクトモードで再試行中です（{initial_limit}サイト比較）",
+            max(120.0, budget * 0.25),
+            compact=True,
+        )
+    # Step 3: drop to 3 sites (only if initial > 3)
+    if initial_limit > 3:
+        _append_attempt(3, primary_model, "比較分析を軽量化して再試行中です（3サイト比較）", max(105.0, budget * 0.20))
+    # Step 4: fallback model at hard_floor
     if fallback_model is not None:
-        target_limit = 3 if available_sites >= 3 else min(initial_limit, 2)
-        _append_attempt(target_limit, fallback_model, "軽量モデルで比較分析を再試行中です", max(90.0, budget * 0.20))
-    if 2 in site_limits:
+        target_limit = max(hard_floor, 3 if available_sites >= 3 else min(initial_limit, 2))
+        _append_attempt(target_limit, fallback_model, "軽量モデルで比較分析を再試行中です", max(90.0, budget * 0.15))
+    # Step 5: absolute minimum (only if available_sites < 3)
+    if hard_floor == 2:
         _append_attempt(2, fallback_model or primary_model, "最小構成で比較分析を再試行中です（2サイト比較）", max(75.0, budget * 0.10))
     return attempts
 
@@ -445,7 +480,8 @@ async def run_discovery_pipeline(
     search_timeout = timeouts["search_timeout"]
     analyze_timeout = timeouts["analyze_timeout"]
 
-    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
+    # Phase Q0-2: raised from 360 → 480 to account for larger token budgets.
+    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "480"))
     tracker = PipelineBudgetTracker(overall_budget=overall_budget_sec, job_id=request_id)
 
     # 1. URL validation
@@ -925,10 +961,9 @@ async def run_discovery_pipeline(
             attempt.timeout_sec,
             max(30.0, actual_remaining - retry_reserve),
         )
-        # Use compact prompt from the start when budget is tight or only 2 sites remain.
-        # 2-site non-compact uses 6144 tokens (vs 2560 compact) — force compact to
-        # avoid the hidden extra latency from larger token budgets.
-        use_compact = (attempt_index > 1) or (actual_remaining < 90.0) or (len(all_extracted) <= 2)
+        # Phase Q0-4: use attempt.compact flag (set by _analysis_attempts for the
+        # intermediate compact-same-sites step). Fall back to heuristic for legacy attempts.
+        use_compact = attempt.compact or (attempt_index > 2) or (actual_remaining < 90.0)
         try:
             candidate_report_md, candidate_token_usage = await asyncio.wait_for(
                 analyze_fn(
@@ -948,6 +983,44 @@ async def run_discovery_pipeline(
                 "discovery_analyze_attempt_success request_id=%s attempt=%d sites=%d model=%s elapsed_ms=%.1f",
                 request_id, attempt_index, len(all_extracted), attempt.model or discovery_analysis_model, elapsed,
             )
+            # Phase Q0-3: conditional two-phase Section 5 regeneration.
+            # Only on the first attempt and when enough budget remains to avoid
+            # the self-reinforcing degrade loop that was caused by always setting
+            # two_phase=False (commit 981dc1e).
+            budget_remaining_sec = max(0.0, overall_job_timeout - (time.monotonic() - pipeline_start))
+            needs_phase2 = (
+                attempt_index == 0
+                and len(all_extracted) > 1
+                and not section_5_looks_complete(candidate_report_md)
+                and budget_remaining_sec >= 60.0
+            )
+            if needs_phase2:
+                phase2_timeout = min(120.0, max(30.0, budget_remaining_sec - 15.0))
+                logger.info(
+                    "discovery_two_phase_section5 request_id=%s attempt=%d budget_remaining=%.1fs",
+                    request_id, attempt_index, budget_remaining_sec,
+                )
+                try:
+                    candidate_report_md, phase2_usage = await asyncio.wait_for(
+                        regenerate_execution_plan(
+                            candidate_report_md,
+                            all_extracted,
+                            discovery_metadata=discovery_metadata,
+                            provider=analysis_provider,
+                            model=attempt.model,
+                            api_key=analysis_api_key,
+                        ),
+                        timeout=phase2_timeout,
+                    )
+                    if phase2_usage is not None:
+                        from ...analyzer import _combine_usage  # local import to avoid circular at module level
+                        candidate_token_usage = _combine_usage(candidate_token_usage, phase2_usage)
+                except Exception as _phase2_exc:
+                    logger.warning(
+                        "discovery_two_phase_section5 failed request_id=%s: %s",
+                        request_id, _phase2_exc,
+                    )
+
             quality_bundle = _evaluate_discovery_report_quality(
                 search_id=search_id,
                 extracted_list=all_extracted,
@@ -1025,6 +1098,8 @@ async def run_discovery_pipeline(
             quality_status = quality_bundle.quality_status
             quality_issues = quality_bundle.quality_issues
             quality_is_critical = quality_bundle.quality_is_critical
+            # Phase Q0-6: include token usage ratio for degrade-pressure monitoring.
+            _out_tok = getattr(candidate_token_usage, "completion_tokens", None)
             attempt_timings.append({
                 "attempt_index": attempt_index,
                 "site_limit": attempt.site_limit,
@@ -1034,6 +1109,7 @@ async def run_discovery_pipeline(
                 "outcome": "quality_degrade" if (retryable_quality and attempt_index < len(attempts)) else "ok",
                 "compact": use_compact,
                 "quality_retry_used": retryable_quality and retry_remaining > 60.0 and attempt_index == 1,
+                "output_tokens": _out_tok,
             })
 
             if retryable_quality and attempt_index < len(attempts):

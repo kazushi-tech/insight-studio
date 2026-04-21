@@ -415,19 +415,19 @@ async def test_pipeline_metadata_updated_on_degrade_retry():
 
 
 def test_default_analyze_timeout_is_210():
-    """DISCOVERY_ANALYZE_TIMEOUT_SEC default must be 210 (matches routes.py / render.yaml)."""
+    """DISCOVERY_ANALYZE_TIMEOUT_SEC default must be 300 (Phase Q0-2: raised from 210 to match larger token budget)."""
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("DISCOVERY_ANALYZE_TIMEOUT_SEC", None)
         timeouts = _resolve_timeouts()
-    assert timeouts["analyze_timeout"] == 210.0
+    assert timeouts["analyze_timeout"] == 300.0
 
 
-def test_default_overall_timeout_is_360():
-    """DISCOVERY_OVERALL_JOB_TIMEOUT_SEC default must be 360 (matches render.yaml)."""
+def test_default_overall_timeout_is_480():
+    """DISCOVERY_OVERALL_JOB_TIMEOUT_SEC default must be 480 (Phase Q0-2: raised from 360)."""
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", None)
-        value = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
-    assert value == 360.0
+        value = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "480"))
+    assert value == 480.0
 
 
 # ---------- Regression: _analysis_attempts budget proportional ----------
@@ -626,10 +626,13 @@ async def test_analyze_fn_called_with_two_phase_false():
 
 
 @pytest.mark.asyncio
-async def test_two_site_analyze_uses_compact_mode():
-    """Regression: when only 2 sites available, compact_output must be True to avoid 6144-token budget."""
-    from web.app.services.discovery.search_client import SearchResult as SR
+async def test_two_site_analyze_first_attempt_not_compact():
+    """Phase Q0-4: with raised token budgets, 2-site first attempt should NOT force compact.
 
+    The old heuristic (compact when <= 2 sites) was tied to the 6144-token budget.
+    Phase Q0-1 raised 2-site budget to 10240 non-compact / 4096 compact, so the
+    first attempt should use the full budget for better Section 5 coverage.
+    """
     search_client = RecordingSearchClient([
         SearchResult(url="https://example.com", title="Brand", snippet="brand"),
         SearchResult(url="https://comp1.com", title="Comp 1", snippet="競合 1"),
@@ -657,8 +660,10 @@ async def test_two_site_analyze_uses_compact_mode():
         validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
     )
 
-    two_site_calls = [kw for kw in received_kwargs if kw.get("site_count", 0) <= 2]
-    for call_kwargs in two_site_calls:
-        assert call_kwargs.get("compact_output") is True, (
-            "2-site Discovery analyze must use compact_output=True to stay within latency budget"
-        )
+    assert received_kwargs, "analyze_fn should have been called"
+    first_call = received_kwargs[0]
+    # Phase Q0-4: first attempt uses full token budget (compact=False).
+    # The compact degrade step only fires on subsequent failed attempts.
+    assert first_call.get("compact_output") is False, (
+        "2-site first attempt should use compact_output=False (full token budget per Phase Q0-1)"
+    )

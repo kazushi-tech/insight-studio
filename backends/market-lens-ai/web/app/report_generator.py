@@ -12,6 +12,8 @@ from .budget_frame_synthesizer import synthesize_budget_frame_block
 from .deterministic_evaluator import VERDICT_DEFER, evaluate_all
 from .models import ExtractedData, ScanResult
 from .priority_action_synthesizer import synthesize_priority_action_block
+from .stubs.lp_improvement_stub import synthesize_lp_improvement_block
+from .stubs.search_ad_stub import synthesize_search_ad_block
 
 logger = logging.getLogger(__name__)
 
@@ -565,7 +567,82 @@ def _apply_deterministic_stubs(
             analysis_md = _inject_stub_block(analysis_md, stub)
             injected.append("5-0 予算フレーム")
 
+    # Phase Q1-1: 5-1 LP改善施策
+    subsection_presence = _detect_section5_subsections(analysis_md)
+    if not subsection_presence.get("5-1 LP改善施策", False):
+        try:
+            stub = synthesize_lp_improvement_block(result.extracted)
+        except Exception:
+            logger.warning("lp_improvement_stub failed", exc_info=True)
+            stub = None
+        if stub:
+            analysis_md = _inject_stub_block(analysis_md, stub)
+            injected.append("5-1 LP改善施策")
+
+    # Phase Q1-1: 5-2 検索広告施策
+    subsection_presence = _detect_section5_subsections(analysis_md)
+    if not subsection_presence.get("5-2 検索広告施策", False):
+        try:
+            stub = synthesize_search_ad_block(result.extracted)
+        except Exception:
+            logger.warning("search_ad_stub failed", exc_info=True)
+            stub = None
+        if stub:
+            analysis_md = _inject_stub_block(analysis_md, stub)
+            injected.append("5-2 検索広告施策")
+
     return analysis_md, injected
+
+
+_STUBBED_ISSUE_REWRITES: list[tuple[str, str]] = [
+    # Exact-match keywords that stub injection already handles → soften the language.
+    ("5-1 LP改善施策", "本分析対象外(自動補完済): 5-1 LP改善施策"),
+    ("5-2 検索広告施策", "本分析対象外(自動補完済): 5-2 検索広告施策"),
+    ("最優先3施策", "本分析対象外(自動補完済): 最優先3施策"),
+    ("5-0 予算フレーム", "本分析対象外(自動補完済): 5-0 予算フレーム"),
+]
+
+# Optional subsection patterns that should never surface as critical to clients.
+_OPTIONAL_ISSUE_SOFTENS: list[tuple[str, str]] = [
+    ("5-3 Meta/ディスプレイ施策", "本分析対象外(任意セクション): 5-3"),
+    ("5-4 KPI測定計画", "本分析対象外(任意セクション): 5-4"),
+]
+
+
+def _downgrade_stubbed_issues(
+    quality_issues: list[str],
+    is_critical: bool,
+    injected_stubs: list[str],
+) -> tuple[list[str], bool]:
+    """Phase Q1-2: rewrite issue messages for stub-covered subsections.
+
+    Replaces "セクション欠損" wording with "本分析対象外(自動補完済)" and
+    downgrades criticality when all remaining issues are covered by stubs.
+    """
+    rewritten: list[str] = []
+    for issue in quality_issues:
+        new_issue = issue
+        # Rewrite stub-covered subsection issues
+        for keyword, replacement in _STUBBED_ISSUE_REWRITES:
+            if keyword in injected_stubs and keyword in issue:
+                new_issue = replacement
+                break
+        # Soften optional section issues regardless of stub coverage
+        for keyword, replacement in _OPTIONAL_ISSUE_SOFTENS:
+            if keyword in issue:
+                new_issue = replacement
+                break
+        rewritten.append(new_issue)
+
+    # If every critical issue is now a "本分析対象外" note, downgrade criticality.
+    if is_critical:
+        still_critical = any(
+            "本分析対象外" not in issue and "任意セクション" not in issue
+            for issue in rewritten
+        )
+        is_critical = still_critical
+
+    return rewritten, is_critical
 
 
 def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle:
@@ -587,6 +664,10 @@ def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle
         if injected_stubs:
             # Re-run quality gate to reflect newly-injected sections.
             quality_issues, is_critical = _quality_gate_check(analysis_md, result)
+            # Phase Q1-2: soften issue wording for stub-covered subsections.
+            quality_issues, is_critical = _downgrade_stubbed_issues(
+                quality_issues, is_critical, injected_stubs
+            )
             logger.info(
                 "deterministic_stub_injected run_id=%s injected=%s remaining_issues=%d critical=%s",
                 result.run_id, injected_stubs, len(quality_issues), is_critical,
