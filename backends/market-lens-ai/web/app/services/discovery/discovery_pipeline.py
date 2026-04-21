@@ -480,8 +480,8 @@ async def run_discovery_pipeline(
     search_timeout = timeouts["search_timeout"]
     analyze_timeout = timeouts["analyze_timeout"]
 
-    # Phase Q0-2: raised from 360 → 480 to account for larger token budgets.
-    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "480"))
+    # Sonnet primary + MAX_COMPETITORS=3: overall budget 360s.
+    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
     tracker = PipelineBudgetTracker(overall_budget=overall_budget_sec, job_id=request_id)
 
     # 1. URL validation
