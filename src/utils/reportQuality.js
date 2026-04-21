@@ -12,7 +12,33 @@ export const ISSUE_SEVERITY = {
   INFO: 'info',
 }
 
-// Keyword tokens for severity classification
+// Section D-1: Blocker tokens → red banner + regenerate CTA
+const BLOCKER_TOKENS = [
+  '最優先3施策',
+  'LP改善施策',
+  '検索広告施策',
+  '末尾欠け',
+  'Section 5',
+  'Section 5-2',
+  '必須セクション',
+  '構造エラー',
+]
+
+// Warning tokens → amber banner (important but not report-breaking)
+const WARNING_TOKENS = [
+  'サブセクション欠損(任意)',
+  '5-3',
+  '5-4',
+  '評価保留密度',
+  '価格未取得',
+  '定量クレーム',
+  '市場規模ソース',
+  '競合セット矛盾',
+  '予算配分',
+  'L5転用',
+]
+
+// Legacy keyword tokens for severity classification
 const _CRITICAL_TOKENS = [
   'セクション欠損',
   '見出し欠損',
@@ -35,6 +61,31 @@ const _INFO_TOKENS = [
   '5-3',
   '5-4',
 ]
+
+/**
+ * Section D-1: Split issues into blockers (red) and warnings (amber).
+ * Blockers mean the report is unusable without regeneration.
+ */
+export function splitIssuesBySeverity(issues) {
+  if (!issues || !Array.isArray(issues)) return { blockers: [], warnings: [] }
+  const blockers = []
+  const warnings = []
+  for (const issue of issues) {
+    const isBlocker = BLOCKER_TOKENS.some((t) => issue.includes(t))
+    const isExplicitWarning = WARNING_TOKENS.some((t) => issue.includes(t))
+    if (isBlocker) {
+      blockers.push(issue)
+    } else if (isExplicitWarning) {
+      warnings.push(issue)
+    } else {
+      // Fallback: use classifyIssueSeverity
+      const sev = classifyIssueSeverity(issue)
+      if (sev === ISSUE_SEVERITY.CRITICAL) blockers.push(issue)
+      else warnings.push(issue)
+    }
+  }
+  return { blockers, warnings }
+}
 
 /**
  * Classify an issue string into a severity level (Phase P1-C).

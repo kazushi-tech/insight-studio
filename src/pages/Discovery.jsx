@@ -10,7 +10,7 @@ import { useBackendReadiness } from '../contexts/BackendReadinessContext'
 import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisProvider'
 import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
 import { recordScore } from '../utils/scoreHistory'
-import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables } from '../utils/reportQuality'
+import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables, splitIssuesBySeverity } from '../utils/reportQuality'
 import PrintButton from '../components/report/PrintButton'
 import PriorityActionHero from '../components/report/PriorityActionHero'
 import CompetitorMatrix from '../components/report/CompetitorMatrix'
@@ -259,8 +259,14 @@ function MetaBand({ run, now }) {
         {result?.industry && (
           <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
         )}
-        {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
-        {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
+        {result?.candidate_count != null && result?.analyzed_count != null ? (
+          <span>分析: {result.analyzed_count} サイト{result.candidate_count > result.analyzed_count ? ` / 候補: ${result.candidate_count} サイト中 ${result.candidate_count - result.analyzed_count} サイト未分析` : ''}</span>
+        ) : (
+          <>
+            {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
+            {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
+          </>
+        )}
         {run.meta?.providerLabel && (
           <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{run.meta.providerLabel}</span>
         )}
@@ -387,6 +393,7 @@ export default function Discovery() {
   const run = getRun('discovery')
   const [url, setUrl] = useState(() => getDraft('discovery')?.url || run?.input?.url || '')
   const [fontSize, setFontSize] = useState('normal')
+  const [copyToast, setCopyToast] = useState('')
   const [tickNow, setTickNow] = useState(() => Date.now())
   const pollTimerRef = useRef(null)
   const pollErrorCountRef = useRef(0)
@@ -929,13 +936,38 @@ export default function Discovery() {
                 <span className="text-sm font-bold">分析レポート</span>
               </div>
               <button
-                onClick={() => copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))}
+                onClick={async () => {
+                  try {
+                    await copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))
+                    setCopyToast('コピーしました')
+                    setTimeout(() => setCopyToast(''), 2000)
+                  } catch {
+                    setCopyToast('コピー失敗')
+                    setTimeout(() => setCopyToast(''), 2000)
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors print:hidden"
               >
                 <span className="material-symbols-outlined text-sm">content_copy</span>
                 レポートをコピー
               </button>
-              <PrintButton />
+              {copyToast && (
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg transition-opacity">
+                  <span className="material-symbols-outlined text-sm">check_circle</span>
+                  {copyToast}
+                </span>
+              )}
+              <PrintButton
+                onBeforePrint={() => {
+                  const { blockers } = splitIssuesBySeverity(discQIssues)
+                  if (blockers.length > 0) {
+                    return window.confirm(
+                      'このレポートには欠損セクションがあります。クライアント提出用PDFを作成しますか？\n（推奨: 先に「対象を絞って再実行」）'
+                    )
+                  }
+                  return true
+                }}
+              />
               <UiVersionToggle className="print:hidden" />
               <div className="flex items-center gap-1 bg-surface-container rounded-full p-1 print:hidden">
                 <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
@@ -954,19 +986,52 @@ export default function Discovery() {
                 ))}
               </div>
             </div>
-            {discQFail && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
-                <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-amber-800 japanese-text">品質チェックで注意事項があります</p>
-                  <ul className="text-xs mt-1 space-y-0.5 text-amber-700">
-                    {discQIssues.map((issue, i) => (
-                      <li key={i}>・{issue}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
+            {discQFail && (() => {
+              const { blockers, warnings } = splitIssuesBySeverity(discQIssues)
+              return (
+                <>
+                  {/* Section D-1: Blocker banner (red) */}
+                  {blockers.length > 0 && (
+                    <div className="quality-warning-banner bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-lg text-red-500 mt-0.5 shrink-0">error</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-red-800 japanese-text">実行プランが欠損しています</p>
+                        <ul className="text-xs mt-1 space-y-0.5 text-red-700">
+                          {blockers.map((issue, i) => (
+                            <li key={i}>・{issue}</li>
+                          ))}
+                        </ul>
+                        {/* Section D-2: Regenerate CTA */}
+                        <button
+                          onClick={() => {
+                            setUrl(result?.brand_url || url)
+                            handleRetry()
+                          }}
+                          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">refresh</span>
+                          対象を絞って再実行
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {/* Section D-1: Warning banner (amber) */}
+                  {warnings.length > 0 && (
+                    <div className="quality-warning-banner bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-amber-800 japanese-text">品質チェックで注意事項があります</p>
+                        <ul className="text-xs mt-1 space-y-0.5 text-amber-700">
+                          {warnings.map((issue, i) => (
+                            <li key={i}>・{issue}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
             <div className="mb-6">
               {isUiV2 ? (
                 <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} />

@@ -36,7 +36,7 @@ def extract(url: str, html: str) -> ExtractedData:
 
     hero_copy = _extract_hero_copy(soup)
     main_cta = _extract_main_cta(soup)
-    pricing_snippet = _extract_pricing(soup)
+    pricing_snippet, pricing_status = _extract_pricing(soup)
     feature_bullets = _extract_features(soup)
     body_text_snippet = _extract_body_snippet(soup)
     og_type = _extract_og_type(soup)
@@ -66,6 +66,7 @@ def extract(url: str, html: str) -> ExtractedData:
         hero_copy=hero_copy,
         main_cta=main_cta,
         pricing_snippet=pricing_snippet,
+        pricing_status=pricing_status,
         feature_bullets=feature_bullets,
         body_text_snippet=body_text_snippet,
         og_type=og_type,
@@ -141,10 +142,18 @@ _CTA_KEYWORDS = [
     "資料ダウンロード", "無料で見る", "購入する", "定期便を始める",
     "初回限定", "会員登録", "無料登録", "見積もりを取る",
     "相談する", "話を聞く",
+    # Section C-1: BtoB CTA 拡張
+    "お問合せ", "お問い合せ", "問い合わせ", "無料相談", "無料診断",
+    "資料DL", "資料を見る", "事例を見る", "導入事例を見る",
+    "見積依頼", "見積もり依頼", "お見積", "お見積り", "個別相談",
+    "オンライン相談", "オンライン面談", "ウェビナー申込", "セミナー申込",
+    "無料ウェビナー", "ホワイトペーパー",
     # English
     "Add to Cart", "Buy Now", "Get Started", "Contact Us",
     "Start Free Trial", "Try Free", "Get Your Quote", "Book a Call",
     "Schedule Demo", "See Plans", "Claim Offer",
+    "Request Demo", "Book a Demo", "Get a Quote", "Request a Quote",
+    "Download Whitepaper", "Download Report",
 ]
 
 _CTA_LEGAL_REJECT = re.compile(
@@ -162,8 +171,11 @@ _CTA_PURCHASE_BOOST = re.compile(
 )
 
 _CTA_CONSULT_BOOST = re.compile(
-    r"資料請求|資料ダウンロード|無料体験|無料トライアル|見積もり|相談|話を聞く|"
-    r"Get Started|Free Trial|Quote|Demo|Book a Call",
+    r"資料請求|資料ダウンロード|資料DL|資料を見る|無料体験|無料トライアル|"
+    r"見積|相談|話を聞く|問い?合わ?せ|お問合せ|無料診断|無料相談|"
+    r"導入事例|事例を見る|ウェビナー|セミナー|ホワイトペーパー|個別相談|"
+    r"Get Started|Free Trial|Quote|Demo|Book a Call|Book a Demo|"
+    r"Request Demo|Contact",
     re.IGNORECASE,
 )
 
@@ -204,6 +216,16 @@ def _extract_main_cta(soup: BeautifulSoup) -> str:
         "a[href*='contact']", "a[href*='inquiry']", "a[href*='toiawase']",
         "a[href*='order']", "a[href*='request']",
         "a[href*='download']", "a[href*='trial']", "a[href*='demo']",
+        # Section C-1: BtoB セレクタ拡張
+        "a[href*='consultation']", "a[href*='whitepaper']",
+        "a[href*='document']", "a[href*='shiryou']", "a[href*='shiryo']",
+        "a[href*='soudan']", "a[href*='mitsumori']",
+        "a[href*='seminar']", "a[href*='webinar']",
+        "a[href*='quote']", "a[href*='pricing']",
+        "[class*='contact'] a", "[class*='Contact'] a",
+        "[class*='inquiry'] a", "[class*='Inquiry'] a",
+        "[class*='request'] a[class*='btn']",
+        "[class*='downloadBtn']", "[class*='DownloadBtn']",
     ]:
         tag = soup.select_one(selector)
         if tag and tag.get_text(strip=True):
@@ -212,10 +234,16 @@ def _extract_main_cta(soup: BeautifulSoup) -> str:
                 continue
             if text.lower() not in seen_texts:
                 seen_texts.add(text.lower())
-                candidates.append((_cta_priority(text), text))
+                # Tiebreaker: prefer text that matches an earlier keyword in _CTA_KEYWORDS
+                kw_rank = len(_CTA_KEYWORDS)
+                for i, kw in enumerate(_CTA_KEYWORDS):
+                    if kw in text:
+                        kw_rank = i
+                        break
+                candidates.append((_cta_priority(text), -kw_rank, text))
     if candidates:
-        candidates.sort(key=lambda x: -x[0])
-        return candidates[0][1]
+        candidates.sort(key=lambda x: (-x[0], x[1]))
+        return candidates[0][2]
 
     # Phase 2: キーワードベースフォールバック（購入系>資料系>お問い合わせの優先度）
     best_candidate = ""
@@ -238,8 +266,36 @@ _PRICE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Section C-2: BtoB 価格ページ導線の検出
+_BTOB_PRICING_PAGE_SELECTORS = [
+    "a[href*='price']", "a[href*='pricing']", "a[href*='plan']",
+    "a[href*='fee']", "a[href*='ryoukin']", "a[href*='ryokin']",
+    "a[href*='kakaku']", "a[href*='service']",
+]
 
-def _extract_pricing(soup: BeautifulSoup) -> str:
+_BTOB_INQUIRY_SELECTORS = [
+    "a[href*='contact']", "a[href*='inquiry']", "a[href*='toiawase']",
+    "a[href*='quote']", "a[href*='mitsumori']", "a[href*='consultation']",
+    "a[href*='soudan']", "a[href*='request']",
+]
+
+# 「要問い合わせ」「個別見積」等のBtoB標準表現を本文から拾う
+_BTOB_INQUIRY_TEXT_PATTERN = re.compile(
+    r"要お?問(?:い|合)わ?せ|個別お?見積|別途お?見積|"
+    r"お見積(?:り)?(?:を)?(?:ご)?連絡|"
+    r"料金(?:は|に(?:つ|ついて))(?:お|ご)?(?:問|相談)|"
+    r"価格(?:は|に(?:つ|ついて))(?:お|ご)?(?:問|相談)",
+)
+
+
+def _extract_pricing(soup: BeautifulSoup) -> tuple[str, str]:
+    """Return (pricing_snippet, pricing_status).
+
+    pricing_status:
+      - "available"    — 通常の価格表記を抽出できた
+      - "inquiry_only" — BtoB標準の「要問い合わせ」導線のみ検出
+      - "not_found"    — いずれも検出できない
+    """
     # Phase 1: CSS セレクター（拡張版）
     for selector in [
         "[class*='pricing']",
@@ -257,19 +313,39 @@ def _extract_pricing(soup: BeautifulSoup) -> str:
         tag = soup.select_one(selector)
         if tag:
             text = tag.get_text(" ", strip=True)
-            return text[:500] if len(text) > 500 else text
+            if text:
+                snippet = text[:500] if len(text) > 500 else text
+                return snippet, "available"
 
     # Phase 2: 正規表現ベースの価格検出フォールバック
     body = soup.find("body")
-    if body:
-        text = body.get_text(" ", strip=True)
-        match = _PRICE_PATTERN.search(text)
-        if match:
-            # 前後のコンテキストを含めて返す
-            start = max(0, match.start() - 30)
-            end = min(len(text), match.end() + 70)
-            return text[start:end].strip()
-    return ""
+    body_text = body.get_text(" ", strip=True) if body else ""
+    match = _PRICE_PATTERN.search(body_text) if body_text else None
+    if match:
+        start = max(0, match.start() - 30)
+        end = min(len(body_text), match.end() + 70)
+        return body_text[start:end].strip(), "available"
+
+    # Section C-2: BtoB フォールバック — 価格ページリンク
+    for selector in _BTOB_PRICING_PAGE_SELECTORS:
+        link = soup.select_one(selector)
+        if link and link.get("href"):
+            href = link["href"].strip()
+            label = link.get_text(" ", strip=True) or "価格ページ"
+            return f"【価格ページあり】{label} ({href})", "inquiry_only"
+
+    # Section C-2: BtoB フォールバック — 見積・問い合わせ導線
+    for selector in _BTOB_INQUIRY_SELECTORS:
+        link = soup.select_one(selector)
+        if link:
+            label = link.get_text(" ", strip=True) or "お問い合わせ"
+            return f"【要問い合わせ】個別見積（BtoB標準導線: {label}）", "inquiry_only"
+
+    # Section C-2: 本文に「要問い合わせ」系の文字列があれば inquiry_only
+    if body_text and _BTOB_INQUIRY_TEXT_PATTERN.search(body_text):
+        return "【要問い合わせ】本文に個別見積の案内あり（BtoB標準）", "inquiry_only"
+
+    return "", "not_found"
 
 
 def _extract_features(soup: BeautifulSoup) -> list[str]:

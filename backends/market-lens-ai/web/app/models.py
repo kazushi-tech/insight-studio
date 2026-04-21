@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,11 @@ class ExtractedData(BaseModel):
     hero_copy: str = ""
     main_cta: str = ""
     pricing_snippet: str = ""
+    # BtoB pricing status (Section C-3):
+    #   "available"    — 価格情報が取得できた（通常の pricing_snippet）
+    #   "inquiry_only" — 「要問い合わせ」「個別見積」等のBtoB標準導線のみ
+    #   "not_found"    — 価格ページ・問い合わせ導線ともに検出できない
+    pricing_status: Literal["available", "inquiry_only", "not_found"] = "not_found"
     feature_bullets: list[str] = Field(default_factory=list)
     body_text_snippet: str = ""
     og_type: str = ""

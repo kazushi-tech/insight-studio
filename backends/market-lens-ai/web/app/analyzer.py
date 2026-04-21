@@ -37,7 +37,48 @@ def _build_shared_eval_context(
         return format_judgment_block(evaluations)
     judgment = format_judgment_block(evaluations)
     market_block = format_market_estimate_block(market)
-    return f"{judgment}\n{market_block}"
+    # Section B-4: inject industry-specific buying-behavior template so
+    # Section 3-3 (消費者インサイト) reflects real decision-making patterns.
+    behavior_block = ""
+    if market.buying_behavior_template:
+        behavior_block = (
+            "\n## 業界特性（必ずSection 3-3 消費者インサイトに反映）\n"
+            f"{market.buying_behavior_template.strip()}\n"
+        )
+    return f"{judgment}\n{market_block}{behavior_block}"
+
+
+def _resolve_industry_key(discovery_metadata: dict | None) -> str:
+    """Best-effort industry classification for compact-mode auto switch."""
+    try:
+        from .market_estimator import classify_industry as _classify
+    except Exception:
+        return ""
+    meta = discovery_metadata or {}
+    hint = meta.get("industry") or ""
+    keywords = meta.get("market_keywords") or []
+    try:
+        prior = _classify(hint, keywords)
+        return prior.key
+    except Exception as exc:
+        logger.warning("industry classify for compact-mode failed: %s", exc)
+        return ""
+
+
+def _should_auto_compact(
+    extracted_list: list[ExtractedData],
+    discovery_metadata: dict | None,
+) -> bool:
+    """Section B-3: auto-enable compact_output for dense industries / 3+ sites.
+
+    - 3+ sites: always compact because Section 4 expansion pushes Section 5 out.
+    - IT / 戦略 / BtoB マーケコンサル: compact even at 2 sites because the
+      buying-behavior template doubles prompt length and Section 5 is king.
+    """
+    if len(extracted_list) >= 3:
+        return True
+    industry_key = _resolve_industry_key(discovery_metadata)
+    return industry_key in _COMPACT_MODE_INDUSTRY_KEYS
 
 _FEATURE_LIMIT = 5
 _BODY_SNIPPET_LIMIT = 800
@@ -49,8 +90,19 @@ _COMPARISON_BODY_SNIPPET_LIMIT = 300
 _COMPARISON_LIST_LIMIT = 3
 _SINGLE_URL_MAX_OUTPUT_TOKENS = 2560
 _MULTI_URL_MAX_OUTPUT_TOKENS = 6144
-_MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 7168
+# Section B-1: bumped 7168 → 8192 so Section 5 (実行プラン) does not overflow
+# even when Section 4 (ブランド別評価) expands for 3-site comparisons.
+_MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 8192
 _MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 6144
+
+# Section B-2: two-phase generation budget (Section 5 只)
+_EXECUTION_PLAN_MAX_OUTPUT_TOKENS = 4096
+
+# Industries that benefit from compact_output even at 2 sites because
+# the business-context template + Section 5 execution plan are heavy.
+_COMPACT_MODE_INDUSTRY_KEYS = frozenset(
+    {"it_consulting", "strategy_consulting", "btob_marketing_consulting"}
+)
 
 _NAV_LABEL_CHECK = _re.compile(
     r"^(?:BRAND|CATEGORY|RANKING|SHOP|COLLECTION|MENU|NEWS|"
@@ -72,6 +124,22 @@ def _inline_list(items: list[str], *, limit: int, fallback: str = "取得不可"
     if not items:
         return fallback
     return " / ".join(item for item in items[:limit] if item) or fallback
+
+
+def _pricing_cell(data: ExtractedData) -> str:
+    """Section C-3: render pricing cell with BtoB-aware status tag.
+
+    inquiry_only / not_found を 単純な「取得不可」にまとめない。
+    「BtoB標準として妥当な inquiry_only」を「低評価」と混同させない。
+    """
+    status = getattr(data, "pricing_status", "not_found")
+    if status == "available" and data.pricing_snippet:
+        return data.pricing_snippet
+    if status == "inquiry_only":
+        return data.pricing_snippet or "【要問い合わせ】個別見積（BtoB標準）"
+    if data.pricing_snippet:
+        return data.pricing_snippet
+    return "取得不可"
 
 
 def _format_site_data(data: ExtractedData, *, compact: bool = False) -> str:
@@ -196,7 +264,7 @@ def _format_site_data(data: ExtractedData, *, compact: bool = False) -> str:
 - **タイトル/H1**: {data.title or '取得不可'} / {data.h1 or '取得不可'}
 - **Hero Copy**: {data.hero_copy or '取得不可'}{hero_note}
 - **Main CTA / Secondary CTA**: {data.main_cta or '取得不可'} / {compact_secondary}
-- **Pricing**: {data.pricing_snippet or '取得不可'}
+- **Pricing**: {_pricing_cell(data)}
 {compact_error_line}- **特徴**: {compact_features}
 - **FAQ / 顧客の声**: {compact_faqs} / {compact_reviews}
 - **本文抜粋**: {compact_snippet}
@@ -219,7 +287,7 @@ def _format_site_data(data: ExtractedData, *, compact: bool = False) -> str:
 - **Hero Copy**: {data.hero_copy or '取得不可'}{hero_note}
 - **Main CTA**: {data.main_cta or '取得不可'}
 - **Secondary CTAs**: {secondary}
-- **Pricing**: {data.pricing_snippet or '取得不可'}
+- **Pricing**: {_pricing_cell(data)}
 - **取得状態**: {data.error or 'ページ取得成功'}
 - **Features**:
 {features}
@@ -745,6 +813,8 @@ _EVIDENCE_RIGOR_RULES = """
 ### 共通ルール:
 - 全ブランドで特定フィールドが一律取得不可 → 「同条件比較不可」と明記
 - pricing_snippet が全ブランドで取得不可 → 価格比較は禁止（推定レンジのみ可）
+- Pricing が `【要問い合わせ】` 表記のブランドは BtoB 標準の inquiry_only 状態であり、
+  「価格・オファー」軸を **「弱」と判定してはならない**。`—（評価保留 / BtoB標準）` と記載する
 - main_cta が全ブランドで取得不可 → CTA比較は禁止
 
 ### 出力フォーマット:
@@ -1167,6 +1237,16 @@ _OUTPUT_SCHEMA_CONTRACT = """
 エグゼクティブサマリーに「**最優先施策**: ①...」とインライン列挙しても `### 最優先3施策` の代替にはならない。**両方必ず出力**。
 """
 
+# Section B-2: absolute enforcement for Section 5.
+_SECTION_5_ENFORCEMENT = """
+## 絶対ルール（違反時は再試行対象）
+- Section 5「### 最優先3施策」「### 5-1. LP改善施策」「### 5-2. 検索広告施策」が本文に存在しない場合、そのレスポンスは無効です。
+- Section 4（ブランド別評価）は必要最小限（各社 3〜5 行 + 評価テーブル）に抑え、Section 5 に最低 1,500 tokens を確保してください。
+- 各施策は必ず「施策名 / 期待効果 / 工数 / 優先度 (P0/P1/P2)」の 4 点を明記。
+- token が不足しそうになったら、5-3 / 5-4 を `（token制約により省略）` とした上で、5-1 / 5-2 を完結させること。
+- `5-2 検索広告施策` のテーブルは最終行を必ず `|` で閉じる。途中で切るくらいなら施策数を 2 件に減らしてでも完結を優先。
+"""
+
 
 def build_deep_comparison_prompt(
     extracted_list: list[ExtractedData],
@@ -1209,6 +1289,7 @@ def build_deep_comparison_prompt(
 以下のサイトを比較し、クライアントにそのまま提出できる代理店品質の競合分析レポートを作成してください。
 
 {_OUTPUT_SCHEMA_CONTRACT}
+{_SECTION_5_ENFORCEMENT}
 
 {discovery_context}
 {shared_eval_context}
@@ -1458,6 +1539,7 @@ def build_wide_comparison_prompt(
 4サイト以上の比較なので、出力は**高シグナル優先**で簡潔にまとめてください。
 
 {_OUTPUT_SCHEMA_CONTRACT}
+{_SECTION_5_ENFORCEMENT}
 
 {discovery_context}
 {shared_eval_context}
@@ -1745,6 +1827,100 @@ def _apply_numeric_sanity_validator(report_md: str) -> str:
     return outcome.rewritten_markdown
 
 
+_SECTION_5_HEADING_RE = _re.compile(r"(^|\n)##\s+実行プラン", _re.MULTILINE)
+_SECTION_5_REQUIRED_ANCHORS = ("最優先3施策", "5-1", "5-2")
+
+
+def _section_5_looks_complete(report_md: str) -> bool:
+    if not report_md:
+        return False
+    if not _SECTION_5_HEADING_RE.search(report_md):
+        return False
+    return all(anchor in report_md for anchor in _SECTION_5_REQUIRED_ANCHORS)
+
+
+def _build_execution_plan_followup_prompt(
+    prior_report: str,
+    extracted_list: list[ExtractedData],
+    discovery_metadata: dict | None,
+) -> str:
+    """Section B-2 two-phase: regenerate only Section 5 given the prior Sections 1-4.
+
+    The prior markdown (truncated if needed) is handed back so the model
+    knows the brand context without re-extracting.
+    """
+    shared_eval = _build_shared_eval_context(extracted_list, discovery_metadata)
+    # Trim prior report aggressively — we only need brand names + top-line
+    # judgments, not the full evaluation tables. Keep last 3,000 chars which
+    # typically spans Section 4 for 3-site reports.
+    trimmed_prior = prior_report[-3000:] if len(prior_report) > 3000 else prior_report
+    return f"""あなたは広告代理店のシニアストラテジストです。
+既存レポートの Section 1-4 は完了しています。**Section 5（実行プラン）のみ**を改めて詳細に記述してください。
+
+{_SECTION_5_ENFORCEMENT}
+
+## 既存レポートの抜粋（Section 1-4 の context として参照）
+{trimmed_prior}
+
+{shared_eval}
+
+## 出力ルール
+- 以下の 5 サブセクションだけを Markdown で出力。他のセクションは一切出さない:
+  - `## 実行プラン`
+  - `### 最優先3施策`
+  - `### 5-1. LP改善施策`
+  - `### 5-2. 検索広告施策`
+  - `### 5-3. Meta/ディスプレイ施策`
+  - `### 5-4. KPIフレーム・測定計画`
+- 最優先3施策 → 5-1 → 5-2 は絶対に省略しないこと。5-3 / 5-4 は token 逼迫時のみ `（token制約により省略）` で可。
+- テーブル最終行は必ず `|` で閉じる。途中で切るくらいなら施策数を減らす。
+- 既存 Section 1-4 のブランド名・評価語（強/同等/弱）と整合を取ること。
+"""
+
+
+async def _regenerate_execution_plan(
+    prior_report: str,
+    extracted_list: list[ExtractedData],
+    *,
+    discovery_metadata: dict | None,
+    provider: str | None,
+    model: str | None,
+    api_key: str | None,
+) -> tuple[str, TokenUsage | None]:
+    """Re-generate Section 5 only and merge back into prior_report.
+
+    Falls back to the original report if the follow-up call fails.
+    """
+    try:
+        followup_prompt = _build_execution_plan_followup_prompt(
+            prior_report, extracted_list, discovery_metadata
+        )
+        section_5_md, usage = await _call_text_model(
+            followup_prompt,
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            max_output_tokens=_EXECUTION_PLAN_MAX_OUTPUT_TOKENS,
+        )
+    except Exception as exc:
+        logger.warning("two_phase_section_5 regenerate failed: %s", exc)
+        return prior_report, None
+    if not _section_5_looks_complete(section_5_md):
+        logger.warning(
+            "two_phase_section_5 regenerate produced incomplete output; "
+            "keeping original report"
+        )
+        return prior_report, usage
+    # Replace any existing Section 5 block in the prior report with the new one.
+    section_5_start = _SECTION_5_HEADING_RE.search(prior_report)
+    if section_5_start:
+        merged = prior_report[: section_5_start.start()].rstrip() + "\n\n" + section_5_md.strip() + "\n"
+    else:
+        merged = prior_report.rstrip() + "\n\n" + section_5_md.strip() + "\n"
+    logger.info("two_phase_section_5 regenerate merged len=%d", len(merged))
+    return merged, usage
+
+
 async def analyze(
     extracted_list: list[ExtractedData],
     model: str | None = None,
@@ -1753,7 +1929,18 @@ async def analyze(
     *,
     discovery_metadata: dict | None = None,
     compact_output: bool = False,
+    two_phase: bool | None = None,
 ) -> tuple[str, TokenUsage]:
+    # Section B-3: auto-enable compact_output for 3+ sites or dense industries.
+    if not compact_output and len(extracted_list) > 1:
+        if _should_auto_compact(extracted_list, discovery_metadata):
+            logger.info(
+                "compact_output auto-enabled site_count=%d industry_hint=%r",
+                len(extracted_list),
+                (discovery_metadata or {}).get("industry"),
+            )
+            compact_output = True
+
     if len(extracted_list) == 1:
         prompt = build_competitive_lp_prompt(extracted_list[0])
     elif len(extracted_list) >= 3:
@@ -1825,6 +2012,56 @@ async def analyze(
             getattr(usage, "completion_tokens", None),
             getattr(usage, "model", None),
         )
+
+    # Section B-2: two-phase execution plan regeneration.
+    # Triggered explicitly (two_phase=True) or automatically when Section 5
+    # looks missing/incomplete on multi-site reports.
+    should_two_phase = False
+    if two_phase is True:
+        should_two_phase = len(extracted_list) > 1
+    elif two_phase is None and len(extracted_list) > 1:
+        if getattr(usage, "truncated", False) or not _section_5_looks_complete(report_md):
+            should_two_phase = True
+    if should_two_phase:
+        logger.info(
+            "two_phase_section_5 triggered site_count=%d truncated=%s",
+            len(extracted_list),
+            getattr(usage, "truncated", False),
+        )
+        report_md, followup_usage = await _regenerate_execution_plan(
+            report_md,
+            extracted_list,
+            discovery_metadata=discovery_metadata,
+            provider=provider,
+            model=model,
+            api_key=api_key,
+        )
+        if followup_usage is not None:
+            usage = _combine_usage(usage, followup_usage)
+
     report_md = _apply_confidence_tier_validator(report_md, extracted_list)
     report_md = _apply_numeric_sanity_validator(report_md)
     return report_md, usage
+
+
+def _combine_usage(primary: TokenUsage, extra: TokenUsage) -> TokenUsage:
+    """Sum two TokenUsage instances, preserving metadata from the primary call."""
+    try:
+        p_prompt = int(getattr(primary, "prompt_tokens", 0) or 0)
+        e_prompt = int(getattr(extra, "prompt_tokens", 0) or 0)
+        p_comp = int(getattr(primary, "completion_tokens", 0) or 0)
+        e_comp = int(getattr(extra, "completion_tokens", 0) or 0)
+        p_total = int(getattr(primary, "total_tokens", 0) or 0)
+        e_total = int(getattr(extra, "total_tokens", 0) or 0)
+    except Exception:
+        return primary
+    try:
+        return primary.model_copy(update={
+            "prompt_tokens": p_prompt + e_prompt,
+            "completion_tokens": p_comp + e_comp,
+            "total_tokens": (p_total + e_total) or (p_prompt + e_prompt + p_comp + e_comp),
+            # Two-phase succeeded → primary truncation no longer applies.
+            "truncated": False,
+        })
+    except Exception:
+        return primary

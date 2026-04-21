@@ -2,12 +2,14 @@ import { useCallback } from 'react'
 
 /**
  * Minimal PDF button — triggers the browser print dialog.
- * A dedicated print stylesheet (src/styles/print.css) handles page layout.
+ * Supports optional onBeforePrint callback (return false to cancel).
  */
-export default function PrintButton({ label = 'PDF印刷', className = '' }) {
+export default function PrintButton({ label = 'PDF印刷', className = '', onBeforePrint }) {
   const handleClick = useCallback(() => {
-    if (typeof window !== 'undefined') window.print()
-  }, [])
+    if (typeof window === 'undefined') return
+    if (onBeforePrint && onBeforePrint() === false) return
+    window.print()
+  }, [onBeforePrint])
 
   return (
     <button
