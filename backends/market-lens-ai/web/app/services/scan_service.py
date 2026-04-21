@@ -13,7 +13,6 @@ from ..llm_client import provider_label
 from ..extractor import extract
 from ..fetcher import fetch_html, take_screenshot
 from ..models import ExtractedData, ScanRequest, ScanResponse, ScanResult
-from ..policies import POLITE_DELAY_SEC
 from ..report_generator import generate_report_bundle
 from ..repositories.scan_repository import ScanRepository
 
@@ -69,6 +68,22 @@ def _humanize_llm_error(provider_name: str, detail: str) -> str:
     return f"LLM分析に失敗しました。{provider_name} の APIキーとモデル設定を確認してください。"
 
 
+async def _crawl_one(url: str, idx: int, run_dir: Path) -> ExtractedData:
+    """Fetch, extract, and screenshot a single URL."""
+    t0 = time.time()
+    html, err = await fetch_html(url)
+    if err:
+        logger.warning("Fetch failed for %s: %s", url, err)
+        return ExtractedData(url=url, error=err)
+    data = extract(url, html)
+    ss_path = str(run_dir / f"screenshot_{idx}.png")
+    ss_err = await take_screenshot(url, ss_path)
+    if not ss_err:
+        data.screenshot_path = ss_path
+    logger.info("crawl_done url=%s idx=%d elapsed=%.1fs", url, idx, time.time() - t0)
+    return data
+
+
 async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str | None, on_stage=None) -> ScanResponse:
     """Run a full scan pipeline and persist the result.
 
@@ -81,29 +96,19 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
     if on_stage:
         await on_stage("fetching_lps", {"progress_pct": 20})
 
+    run_dir = Path("data/scans") / result.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    crawl_results = await asyncio.gather(
+        *[_crawl_one(url, i, run_dir) for i, url in enumerate(req.urls)],
+        return_exceptions=True,
+    )
     extracted_list: list[ExtractedData] = []
-    for i, url in enumerate(req.urls):
-        if i > 0:
-            await asyncio.sleep(POLITE_DELAY_SEC)
-
-        html, err = await fetch_html(url)
-        if err:
-            logger.warning("Fetch failed for %s: %s", url, err)
-            extracted_list.append(ExtractedData(url=url, error=err))
-            continue
-
-        data = extract(url, html)
-
-        # Screenshot
-        run_dir = Path("data/scans") / result.run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
-        ss_path = str(run_dir / f"screenshot_{i}.png")
-        ss_err = await take_screenshot(url, ss_path)
-        if not ss_err:
-            data.screenshot_path = ss_path
-
-        extracted_list.append(data)
-
+    for url, r in zip(req.urls, crawl_results):
+        if isinstance(r, BaseException):
+            logger.error("Crawl exception for %s: %s", url, r)
+            extracted_list.append(ExtractedData(url=url, error=str(r)))
+        else:
+            extracted_list.append(r)
     result.extracted = extracted_list
 
     # LLM analysis
