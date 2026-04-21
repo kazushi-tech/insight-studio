@@ -14,325 +14,31 @@ import { recordScore } from '../utils/scoreHistory'
 import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables, splitIssuesBySeverity } from '../utils/reportQuality'
 import PrintButton from '../components/report/PrintButton'
 import ReportQualityBadge from '../components/report/ReportQualityBadge'
-import PriorityActionHero from '../components/report/PriorityActionHero'
-import CompetitorMatrix from '../components/report/CompetitorMatrix'
-import MarketRangeBar from '../components/report/MarketRangeBar'
-import BrandRadarChart from '../components/report/BrandRadarChart'
 import ReportViewV2 from '../components/report/v2/ReportViewV2'
-import UiVersionToggle from '../components/report/v2/UiVersionToggle'
-import { useUiVersion } from '../hooks/useUiVersion'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
-import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
+import ScoreDistributionChart from './discovery/ScoreDistributionChart'
+import MetaBand from './discovery/MetaBand'
+import PartialSuccessBanner from './discovery/PartialSuccessBanner'
+import DomainPlaceholder from './discovery/DomainPlaceholder'
+import DiscoveredLpGrid from './discovery/DiscoveredLpGrid'
+import {
+  POLL_INTERVAL_INITIAL_MS,
+  POLL_INTERVAL_SLOW_MS,
+  POLL_SLOWDOWN_AFTER_MS,
+  POLL_MAX_NETWORK_ERRORS,
+  POLL_SOFT_WARNING_MS,
+  POLL_HARD_CEILING_MS,
+  POLL_STALE_TIMEOUT_MS,
+  STAGE_TIMEOUT_MS,
+  DISCOVERY_AUTO_RESUBMIT_MAX,
+  STAGE_LABELS,
+  STAGE_TYPICAL_SEC,
+  STAGE_ORDER,
+  getPollIntervalMs,
+  isAutoResubmitEligible,
+} from './discovery/pollingConstants'
 
-Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
-
-/**
- * Score distribution bar chart: your site vs competitors.
- */
-function ScoreDistributionChart({ discoveries }) {
-  const canvasRef = useRef(null)
-  const chartRef = useRef(null)
-
-  useEffect(() => {
-    if (!canvasRef.current || !discoveries?.length) return
-
-    const scored = discoveries.filter((d) => d.score != null)
-    if (scored.length === 0) return
-
-    if (chartRef.current) {
-      chartRef.current.destroy()
-    }
-
-    const labels = scored.map((d) => {
-      const host = d.domain || (d.url ? new URL(d.url).hostname : '?')
-      return host.length > 20 ? host.slice(0, 18) + '…' : host
-    })
-    const data = scored.map((d) => d.score)
-    const colors = scored.map((_, i) => i === 0 ? 'rgba(45, 106, 79, 0.85)' : 'rgba(45, 106, 79, 0.35)')
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Score',
-          data,
-          backgroundColor: colors,
-          borderRadius: 6,
-          maxBarThickness: 48,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        indexAxis: 'y',
-        scales: {
-          x: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { font: { size: 11 } } },
-          y: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
-        },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `Score: ${ctx.raw}/100`,
-            },
-          },
-        },
-      },
-    })
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy()
-        chartRef.current = null
-      }
-    }
-  }, [discoveries])
-
-  if (!discoveries?.filter((d) => d.score != null).length) return null
-
-  return (
-    <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
-      <div className="flex items-center gap-2 text-on-surface-variant mb-4">
-        <span className="material-symbols-outlined text-secondary text-lg">bar_chart</span>
-        <span className="text-sm font-bold">スコア分布</span>
-      </div>
-      <div style={{ height: Math.max(120, discoveries.filter((d) => d.score != null).length * 40 + 40) }}>
-        <canvas ref={canvasRef} />
-      </div>
-    </div>
-  )
-}
-
-const POLL_INTERVAL_INITIAL_MS = 2000
-const POLL_INTERVAL_SLOW_MS = 5000
-const POLL_SLOWDOWN_AFTER_MS = 30000
-const POLL_MAX_NETWORK_ERRORS = 3
-const POLL_SOFT_WARNING_MS = 150_000   // ソフト警告のみ — キルしない（backend overall 360s に対して2.5分で警戒）
-const POLL_HARD_CEILING_MS = 380_000   // 安全弁 — backend overall(360s) + 20s 余裕（backend が先にエラー返せるように）
-const POLL_STALE_TIMEOUT_MS = 90_000   // ← PRIMARY キル判定（heartbeat 90秒無応答 — バックエンド10s間隔に対して余裕あり）
-const STAGE_TIMEOUT_MS = {
-  queued: 30_000,            // 30s — キュー停滞は異常
-  brand_fetch: 60_000,       // 60s — ブランド取得は高速であるべき
-  classify_industry: 30_000, // 30s — 分類は軽量
-  search: 90_000,            // 90s — 検索（並列化可能）
-  fetch_competitors: 60_000, // 60s — データ収集
-  analyze: 370_000,          // 370s — backend overall(360s) + 10s 余裕（analyze単体で先にキルしない設計）
-  warming: 60_000,           // 60s — warmupは既に別途60s timeoutあり
-}
-const DISCOVERY_AUTO_RESUBMIT_MAX = 2
-
-const STAGE_LABELS = {
-  warming: 'サーバー起動待ち…',
-  queued: 'ジョブ準備中…',
-  brand_fetch: 'ブランドURL取得中…',
-  classify_industry: '業種分類中…',
-  search: '競合検索中…',
-  fetch_competitors: '競合サイト取得中…',
-  analyze: '比較分析中…',
-  complete: '完了',
-}
-
-// Typical duration per stage (seconds) — used for estimated remaining time
-const STAGE_TYPICAL_SEC = {
-  queued: 3,
-  brand_fetch: 10,
-  classify_industry: 6,
-  search: 30,
-  fetch_competitors: 20,
-  analyze: 35,
-}
-const STAGE_ORDER = ['queued', 'brand_fetch', 'classify_industry', 'search', 'fetch_competitors', 'analyze']
-
-function getPollIntervalMs(retryAfterSec) {
-  return Number(retryAfterSec) > 0
-    ? Number(retryAfterSec) * 1000
-    : POLL_INTERVAL_INITIAL_MS
-}
-
-function isAnalyzeTimeoutFailure(detail, retryable, stage) {
-  if (!retryable) return false
-  const normalizedDetail = String(detail || '').toLowerCase()
-  const normalizedStage = String(stage || '').toLowerCase()
-  const mentionsTimeout = normalizedDetail.includes('タイムアウト') || normalizedDetail.includes('timeout')
-  const mentionsAnalyze = normalizedDetail.includes('analyze') || normalizedStage === 'analyze'
-  return mentionsTimeout && mentionsAnalyze
-}
-
-function isAutoResubmitEligible(detail, retryable, stage, errorInfo) {
-  if (!retryable) return false
-  const normalizedDetail = String(detail || '').toLowerCase()
-  const normalizedStage = String(stage || '').toLowerCase()
-
-  // A real timeout usually means the workload is too heavy; do not loop
-  // into another full job and turn one failure into 3-4 minutes of waiting.
-  if (normalizedDetail.includes('timeout') || normalizedDetail.includes('タイムアウト')) return false
-  if (isAnalyzeTimeoutFailure(detail, retryable, stage)) return false
-  if (normalizedDetail.includes('停止しています')) return false
-
-  // Server unresponsive / stale
-  if (errorInfo?.category === 'stale' || normalizedDetail.includes('応答しなくなりました')) return true
-
-  // Only auto-resubmit transient infrastructure failures.
-  if (normalizedDetail.includes('接続できませんでした') || normalizedDetail.includes('failed to fetch') || normalizedDetail.includes('cors')) return true
-  if (normalizedDetail.includes('サーバー') && normalizedDetail.includes('起動中')) return true
-  if (normalizedDetail.includes('job not found')) return true
-  if (normalizedStage === 'queued' && normalizedDetail.includes('internal server error')) return true
-
-  return false
-}
-
-function estimateRemaining(currentStage, elapsedMs) {
-  if (currentStage === 'warming') return null
-  const idx = STAGE_ORDER.indexOf(currentStage)
-  if (idx < 0) return null
-  const elapsedSec = (elapsedMs || 0) / 1000
-  const currentTypical = STAGE_TYPICAL_SEC[currentStage] || 10
-  const totalTypical = STAGE_ORDER.reduce((sum, s) => sum + (STAGE_TYPICAL_SEC[s] || 10), 0)
-  if (elapsedSec > totalTypical * 1.5) {
-    return '通常より時間がかかっていますが処理中です'
-  }
-  const currentRemaining = Math.max(0, currentTypical - elapsedSec * 0.3)
-  let total = currentRemaining
-  for (let i = idx + 1; i < STAGE_ORDER.length; i++) {
-    total += STAGE_TYPICAL_SEC[STAGE_ORDER[i]] || 10
-  }
-  const rounded = Math.ceil(total / 10) * 10
-  if (rounded < 10) return '残り約10秒'
-  if (rounded < 60) return `残り約${rounded}秒`
-  const min = Math.ceil(rounded / 60)
-  return `残り約${min}分`
-}
-
-function formatElapsed(ms) {
-  if (!ms) return null
-  const sec = Math.round(ms / 1000)
-  return sec < 60 ? `${sec}秒` : `${Math.floor(sec / 60)}分${sec % 60}秒`
-}
-
-function MetaBand({ run, now }) {
-  if (!run || run.status === 'idle') return null
-  const result = run.result
-  const warmEndedAt = run.meta?.warmEndedAt
-  const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
-  const runningElapsed = run.startedAt && run.status === 'running'
-    ? Math.max(0, now - run.startedAt)
-    : null
-  const fallbackCount = Array.isArray(result?.fetched_sites)
-    ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
-    : 0
-  const stage = run.meta?.stage
-  const isWarming = stage === 'warming'
-  const progressPct = run.meta?.progress_pct
-  const stageLabel = stage ? STAGE_LABELS[stage] || stage : null
-  const statusLabel = run.meta?.statusLabel
-  const remaining = run.status === 'running' && stage ? estimateRemaining(stage, runningElapsed) : null
-
-  // Split elapsed display: warm-up vs analysis
-  let elapsedDisplay = elapsed ? formatElapsed(elapsed) : null
-  if (elapsed && warmEndedAt && run.startedAt) {
-    const warmMs = warmEndedAt - run.startedAt
-    const analysisMs = elapsed - warmMs
-    if (warmMs > 1000) {
-      elapsedDisplay = `起動: ${formatElapsed(warmMs)} + 分析: ${formatElapsed(analysisMs)}`
-    }
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
-        {/* Status */}
-        <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
-          <span className={`w-1.5 h-1.5 rounded-full ${
-            run.status === 'running' ? 'bg-amber-400 animate-pulse' :
-            run.status === 'completed' ? 'bg-emerald-500' :
-            'bg-red-400'
-          }`} />
-          {run.status === 'running' ? (statusLabel || stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
-        </span>
-        {isWarming && (
-          <span className="px-3 py-1 rounded-full bg-orange-50 dark:bg-warning-container text-orange-700 dark:text-warning font-bold">サーバー起動中…</span>
-        )}
-        {remaining && (
-          <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-warning-container text-amber-700 dark:text-warning font-bold">{remaining}</span>
-        )}
-        {result?.search_id && <span className="text-outline font-mono">search: {result.search_id}</span>}
-        {result?.industry && (
-          <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{result.industry}</span>
-        )}
-        {result?.candidate_count != null && result?.analyzed_count != null ? (
-          <span>分析: {result.analyzed_count} サイト{result.candidate_count > result.analyzed_count ? ` / 候補: ${result.candidate_count} サイト中 ${result.candidate_count - result.analyzed_count} サイト未分析` : ''}</span>
-        ) : (
-          <>
-            {result?.candidate_count != null && <span>{result.candidate_count} 件候補</span>}
-            {result?.analyzed_count != null && <span>{result.analyzed_count} サイト分析</span>}
-          </>
-        )}
-        {run.meta?.providerLabel && (
-          <span className="px-3 py-1 rounded-full bg-surface-container font-bold">{run.meta.providerLabel}</span>
-        )}
-        {fallbackCount > 0 && <span>{fallbackCount} 件補完</span>}
-        {elapsedDisplay && <span>{elapsedDisplay}</span>}
-      </div>
-      {/* Progress bar — indeterminate pulse for warming, determinate for analysis */}
-      {run.status === 'running' && isWarming && (
-        <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
-          <div className="h-full bg-orange-400 rounded-full animate-pulse" style={{ width: '100%' }} />
-        </div>
-      )}
-      {run.status === 'running' && !isWarming && progressPct != null && (
-        <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
-          <div
-            className="h-full bg-secondary rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PartialSuccessBanner({ fetchedSites }) {
-  if (!fetchedSites || fetchedSites.length === 0) return null
-
-  const fallback = fetchedSites.filter((site) => site.analysis_source === 'search_result_fallback')
-  const failed = fetchedSites.filter((site) => {
-    if (site.analysis_source === 'search_result_fallback') return false
-    if (site.analysis_source === 'failed') return true
-    return Boolean(site.error)
-  })
-  const success = fetchedSites.filter((site) => !failed.includes(site) && !fallback.includes(site))
-
-  if (failed.length === 0 && fallback.length === 0) return null
-
-  return (
-    <div className="bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 space-y-2">
-      <p className="text-sm text-amber-800 dark:text-on-warning-container font-bold flex items-center gap-2">
-        <span className="material-symbols-outlined text-lg">warning</span>
-        {success.length} / {fetchedSites.length} 件をページ取得できました
-        {fallback.length > 0 && `、${fallback.length} 件は検索結果ベースで補完分析`}
-        {failed.length > 0 && `（${failed.length} 件未分析）`}
-      </p>
-      <div className="text-xs text-amber-700 dark:text-on-warning-container space-y-1">
-        {fallback.map((site, i) => (
-          <div key={`fallback-${i}`} className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm text-amber-500">info</span>
-            <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
-            <span className="text-amber-700 dark:text-on-warning-container">ページ取得に失敗したため検索結果から補完分析</span>
-          </div>
-        ))}
-        {failed.map((site, i) => (
-          <div key={`failed-${i}`} className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm text-red-400">close</span>
-            <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
-            <span className="text-amber-600 dark:text-warning">{site.error}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 const FONT_SIZES = [
   { key: 'normal', label: 'S' },
@@ -340,30 +46,6 @@ const FONT_SIZES = [
   { key: 'xlarge', label: 'L' },
 ]
 
-function domainColor(domain) {
-  let hash = 0
-  for (let i = 0; i < domain.length; i++) hash = domain.charCodeAt(i) + ((hash << 5) - hash)
-  const h = Math.abs(hash) % 360
-  return `hsl(${h}, 35%, 45%)`
-}
-
-function DomainPlaceholder({ domain }) {
-  const initial = (domain || '?').replace(/^www\./, '').charAt(0).toUpperCase()
-  const color = domainColor(domain || '')
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
-         style={{ background: `linear-gradient(135deg, ${color}18, ${color}30, ${color}18)` }}>
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-lg"
-           style={{ backgroundColor: color }}>
-        {initial}
-      </div>
-      <span className="text-xs font-bold text-on-surface-variant/60 tracking-wide truncate max-w-[200px]">
-        {(domain || '').replace(/^www\./, '')}
-      </span>
-      <span className="material-symbols-outlined text-on-surface-variant/15 absolute bottom-3 right-3 text-4xl">language</span>
-    </div>
-  )
-}
 
 const DISCOVERY_ACTIVE_JOB_KEY = 'is-discovery-active-job'
 
@@ -378,7 +60,7 @@ function getActiveJob() {
     const raw = sessionStorage.getItem(DISCOVERY_ACTIVE_JOB_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (Date.now() - parsed.startedAt > 180_000) { clearActiveJob(); return null }
+    if (Date.now() - parsed.startedAt > POLL_HARD_CEILING_MS) { clearActiveJob(); return null }
     return parsed
   } catch { return null }
 }
@@ -413,7 +95,6 @@ export default function Discovery() {
   const error = run?.status === 'failed' ? run.error : null
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
-  const { isV2: isUiV2 } = useUiVersion()
   const shouldFetchReportEnvelope = run?.meta?.jobId && run?.status === 'completed'
   const { envelope: discoveryEnvelope } = useReportEnvelope(
     shouldFetchReportEnvelope ? 'discovery' : null,
@@ -464,8 +145,11 @@ export default function Discovery() {
     void warmMarketLensBackend()
   }, [])
 
-  // Cleanup on unmount
-  useEffect(() => stopPolling, [stopPolling])
+  // Cleanup on unmount (imperative — avoids stale closure from stopPolling dependency)
+  useEffect(() => () => {
+    pollStoppedRef.current = true
+    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
+  }, [])
 
   const pollJob = useCallback(function pollJobCallback(jobId, options = {}) {
     const pollPath = options.pollPath || jobId
@@ -983,7 +667,6 @@ export default function Discovery() {
                   handleRetry()
                 }}
               />
-              <UiVersionToggle className="print:hidden" />
               <div className="flex items-center gap-1 bg-surface-container rounded-full p-1 print:hidden">
                 <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
                 {FONT_SIZES.map(({ key, label }) => (
@@ -1002,25 +685,32 @@ export default function Discovery() {
               </div>
             </div>
             <div className="mb-6">
-              {isUiV2 ? (
-                <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} />
-              ) : (
-                <div className="space-y-6">
-                  <PriorityActionHero reportMd={cleanBody} />
-                  <MarketRangeBar reportMd={result.report_md} />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <CompetitorMatrix reportMd={cleanBody} />
-                    <BrandRadarChart reportMd={cleanBody} />
-                  </div>
-                </div>
-              )}
+              <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} />
             </div>
             <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
             {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}
             {/* KPI Tracking Card */}
             {(() => {
               const kpis = extractKpis(cleanBody)
-              if (kpis.length === 0) return null
+              if (kpis.length === 0) {
+                return (
+                  <div className="mt-6 bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/8 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 text-on-surface-variant">
+                      <span className="material-symbols-outlined text-lg">tracking</span>
+                      <span className="text-sm">KPI目標値が見つかりませんでした。Section 5を含む再分析で抽出できます。</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-secondary/10 text-secondary text-xs font-bold rounded-lg hover:bg-secondary/20 transition-colors japanese-text"
+                      onClick={handleDiscover}
+                      disabled={loading || !url}
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      再分析
+                    </button>
+                  </div>
+                )
+              }
               return (
                 <div className="mt-6 bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/8">
                   <div className="flex items-center gap-2 mb-4">
@@ -1082,108 +772,7 @@ export default function Discovery() {
       {discoveries.length > 0 && <ScoreDistributionChart discoveries={discoveries} />}
 
       {/* Discovered LPs */}
-      {discoveries.length > 0 && (
-        <div className="space-y-10">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <h3 className="headline-lg text-on-surface flex items-center gap-3 japanese-text">
-                <span className="material-symbols-outlined text-primary-container">verified</span>
-                発見されたLP一覧
-              </h3>
-            </div>
-            <span className="inline-flex items-center justify-center px-4 py-2 bg-primary-container/10 text-primary-container label-md rounded-full">{discoveries.length}件</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-10">
-            {discoveries.map((item, i) => {
-              const isFallback = item.analysis_source === 'search_result_fallback'
-              const isFailed = item.analysis_source === 'failed' || (item.error && !isFallback)
-
-              return (
-                <div
-                  key={item.url ?? i}
-                  className={`surface-elevated rounded-xl overflow-hidden elevation-hover ${
-                    isFailed ? 'opacity-60 ghost-border-thin border-red-200/50' :
-                    isFallback ? 'ghost-border-thin border-amber-200/50' :
-                    'ghost-border-thin'
-                  }`}
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-t-[0.75rem] bg-surface-container">
-                    {/* Domain Placeholder (always rendered as base layer) */}
-                    <DomainPlaceholder domain={item.domain || new URL(item.url || 'https://unknown').hostname} />
-                    {/* OG Image (overlays placeholder on successful load) */}
-                    {item.og_image_url && (
-                      <img
-                        src={item.og_image_url}
-                        alt={item.title || item.url}
-                        className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 opacity-0"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        onLoad={(e) => e.target.classList.add('opacity-100')}
-                        onError={(e) => {
-                          const img = e.target
-                          if (!img.dataset.retried) {
-                            img.dataset.retried = 'true'
-                            img.removeAttribute('crossorigin')
-                            img.src = item.og_image_url + (item.og_image_url.includes('?') ? '&' : '?') + '_r=1'
-                          } else {
-                            img.style.display = 'none'
-                          }
-                        }}
-                      />
-                    )}
-                    {(item.score != null) && (
-                      <div className="absolute top-3 right-3 bg-surface-container-lowest/90 backdrop-blur px-3 py-2 rounded-lg text-center shadow-md">
-                        <span className="text-[10px] font-bold text-on-surface-variant block uppercase tracking-wider">SCORE</span>
-                        <span className="text-2xl font-black text-secondary tabular-nums leading-none">{item.score}</span>
-                      </div>
-                    )}
-                    {isFailed && (
-                      <div className="absolute bottom-3 left-3 right-3 bg-red-50/90 dark:bg-error-container backdrop-blur px-3 py-1.5 rounded-lg">
-                        <span className="text-xs text-red-700 dark:text-on-error-container font-bold">取得失敗: {item.error}</span>
-                      </div>
-                    )}
-                    {isFallback && (
-                      <div className="absolute bottom-3 left-3 right-3 bg-amber-50/90 dark:bg-warning-container backdrop-blur px-3 py-1.5 rounded-lg">
-                        <span className="text-xs text-amber-800 dark:text-on-warning-container font-bold">検索結果スニペットから補完分析</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <div className="flex items-start justify-between">
-                      <h4 className="font-bold text-on-surface japanese-text">{item.title || item.url}</h4>
-                      {item.url && (
-                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-on-surface-variant hover:text-primary transition-colors">
-                          <span className="material-symbols-outlined text-lg">open_in_new</span>
-                        </a>
-                      )}
-                    </div>
-                    {item.description && (
-                      <p className="text-xs text-on-surface-variant mt-2 leading-relaxed japanese-text line-clamp-3">{item.description}</p>
-                    )}
-                    {item.domain && !item.description && (
-                      <p className="text-xs text-on-surface-variant mt-2 font-mono">{item.domain}</p>
-                    )}
-                  </div>
-                  {item.url && !isFailed && (
-                    <div className="border-t border-outline-variant/8 px-5 py-3">
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center w-full gap-1.5 px-4 py-2 bg-secondary/10 text-secondary text-xs font-bold rounded-lg hover:bg-secondary/20 transition-colors japanese-text"
-                      >
-                        {isFallback ? 'サイトを開く' : '分析する'}
-                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {discoveries.length > 0 && <DiscoveredLpGrid discoveries={discoveries} />}
 
       {!loading && discoveries.length === 0 && !result && !error && (
         <div className="text-center py-20 text-on-surface-variant">

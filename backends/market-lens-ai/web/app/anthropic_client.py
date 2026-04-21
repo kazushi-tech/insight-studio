@@ -160,8 +160,10 @@ def _usage_from_message(message: anthropic.types.Message, model: str) -> TokenUs
 
 
 _TRUNCATION_NOTICE = (
+    "\n\n<!-- admin-only -->"
     "\n\n> ⚠️ **自動注記:** レスポンスが出力上限に達したため末尾が切り詰められた可能性があります。"
     "重要箇所が欠けている場合は対象を絞って再生成してください。"
+    "\n\n<!-- /admin-only -->"
 )
 
 

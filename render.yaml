@@ -35,6 +35,11 @@ services:
         value: "0.7"
       - key: GEMINI_MAX_OUTPUT_TOKENS
         value: "8192"
+      # Scan async job タイムアウト設定
+      - key: SCAN_OVERALL_JOB_TIMEOUT_SEC
+        value: "600"
+      - key: SCAN_STALE_THRESHOLD_SEC
+        value: "300"
       # Discovery Hub — タイムアウト設定（Sonnet primary + MAX_COMPETITORS=3）
       - key: ANTHROPIC_TIMEOUT_SEC
         value: "300"
@@ -45,16 +50,16 @@ services:
       - key: DISCOVERY_SEARCH_TIMEOUT_SEC
         value: "90"
       - key: DISCOVERY_ANALYZE_TIMEOUT_SEC
-        value: "240"
+        value: "300"
       - key: DISCOVERY_OVERALL_JOB_TIMEOUT_SEC
-        value: "360"
+        value: "450"
       - key: DISCOVERY_FETCH_COMPETITORS_STALL_TIMEOUT_SEC
-        value: "210"
-      # Phase 2C: 競合数3に削減（4→3）で analyze 負荷低減
+        value: "260"
+      # Phase B-03: 競合数4に拡張（ブランド+競合3）
       - key: DISCOVERY_MAX_COMPETITORS
-        value: "3"
+        value: "4"
       - key: DISCOVERY_ANALYZE_SITE_LIMIT
-        value: "3"
+        value: "4"
       # Sonnet をプライマリに維持、Haiku をフォールバックとして保持
       - key: ANTHROPIC_DISCOVERY_FALLBACK_MODEL
         value: "claude-haiku-4-5-20251001"

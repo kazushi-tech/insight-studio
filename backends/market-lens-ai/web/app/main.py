@@ -20,6 +20,7 @@ from fastapi.responses import RedirectResponse
 from .policies import allowed_domains
 from .repositories import create_asset_repository, create_review_repository
 from .repositories.file_scan_repository import FileScanRepository
+from .repositories.file_scan_job_repository import FileScanJobRepository
 from .routers.creative_asset_routes import create_asset_router
 from .repositories.file_discovery_job_repository import FileDiscoveryJobRepository
 from .routers.discovery_routes import create_discovery_router
@@ -186,6 +187,9 @@ async def _startup_checks():
     stale_count = _discovery_job_repo.mark_stale_running_as_failed()
     if stale_count:
         logger.info("Marked %d stale discovery job(s) as failed on startup", stale_count)
+    scan_stale_count = _scan_job_repo.mark_stale_running_as_failed()
+    if scan_stale_count:
+        logger.info("Marked %d stale scan job(s) as failed on startup", scan_stale_count)
     tls_snapshot = _runtime_tls_snapshot()
     logger.info(
         "Runtime TLS snapshot python=%s openssl=%s default_cafile=%s "
@@ -237,12 +241,13 @@ async def root():
 
 # ── Wire routers ─────────────────────────────────────────────
 _repo = FileScanRepository()
+_scan_job_repo = FileScanJobRepository()
 _asset_repo = create_asset_repository(os.getenv("REPOSITORY_BACKEND", "file"))
 _review_repo = create_review_repository(os.getenv("REPOSITORY_BACKEND", "file"))
 
 app.include_router(health_router)
 app.include_router(policy_router)
-app.include_router(create_scan_router(_repo))
+app.include_router(create_scan_router(_repo, job_repo=_scan_job_repo))
 app.include_router(create_history_router(_repo))
 app.include_router(create_asset_router(_asset_repo))
 app.include_router(create_review_router(_asset_repo, review_repo=_review_repo))

@@ -69,16 +69,19 @@ def _should_auto_compact(
     extracted_list: list[ExtractedData],
     discovery_metadata: dict | None,
 ) -> bool:
-    """Section B-3: auto-enable compact_output for dense industries / 3+ sites.
+    """Section B-3: auto-enable compact_output for dense industries / 4+ sites.
 
-    - 3+ sites: always compact because Section 4 expansion pushes Section 5 out.
-    - IT / 戦略 / BtoB マーケコンサル: compact even at 2 sites because the
-      buying-behavior template doubles prompt length and Section 5 is king.
+    - 4+ sites: always compact because Section 4 expansion pushes Section 5 out.
+    - IT / 戦略 / BtoB マーケコンサル: compact even at 3 sites (keep old threshold)
+      because the buying-behavior template doubles prompt length and Section 5 is king.
+    - Phase Q-02: raised threshold from >= 3 to >= 4 so 3-site deep-prompts get full
+      token budget without forcing compact mode.
     """
-    if len(extracted_list) >= 3:
-        return True
     industry_key = _resolve_industry_key(discovery_metadata)
-    return industry_key in _COMPACT_MODE_INDUSTRY_KEYS
+    if industry_key in _COMPACT_MODE_INDUSTRY_KEYS:
+        # Dense industries: compact at 3+ sites (original behaviour preserved)
+        return len(extracted_list) >= 3
+    return len(extracted_list) >= 4
 
 _FEATURE_LIMIT = 5
 _BODY_SNIPPET_LIMIT = 800
@@ -94,8 +97,10 @@ _SINGLE_URL_MAX_OUTPUT_TOKENS = 2560
 _MULTI_URL_MAX_OUTPUT_TOKENS = 10240
 # Phase Q0-1: raised from 8192 → 14336 for 3-site comparisons.
 _MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 14336
-# Phase Q0-1: raised from 6144 → 12288 for 4+ sites.
-_MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 12288
+# Phase B-05: raised from 12288 → 14336 for 4-site deep-prompt comparisons.
+_MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 14336
+# Phase B-05: 5+ sites use wide-prompt (less detailed) so 12288 is sufficient.
+_MULTI_URL_MAX_OUTPUT_TOKENS_5PLUS_SITES = 12288
 
 # Section B-2: two-phase generation budget (Section 5 只)
 # Phase Q0-1: raised from 4096 → 6144.
@@ -1761,7 +1766,10 @@ def _comparison_output_token_budget(site_count: int, *, compact: bool = False) -
         # Phase Q0-1: expanded compact ceiling (was 2560/3072) so Section 5 survives
         # even in compact fallback mode.
         return 5120 if site_count >= 3 else 4096
-    if site_count >= 4:
+    if site_count >= 5:
+        # Wide-prompt mode: less per-brand detail, so 12288 covers it
+        return _MULTI_URL_MAX_OUTPUT_TOKENS_5PLUS_SITES
+    if site_count == 4:
         return _MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES
     if site_count == 3:
         return _MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES
@@ -1947,7 +1955,8 @@ async def analyze(
 
     if len(extracted_list) == 1:
         prompt = build_competitive_lp_prompt(extracted_list[0])
-    elif len(extracted_list) >= 3:
+    elif len(extracted_list) >= 5:
+        # Wide prompt for 5+ sites; deep preserves Section 5 kill-logic for 3-4 sites
         prompt = build_wide_comparison_prompt(extracted_list, discovery_metadata=discovery_metadata)
     else:
         prompt = build_deep_comparison_prompt(extracted_list, discovery_metadata=discovery_metadata)

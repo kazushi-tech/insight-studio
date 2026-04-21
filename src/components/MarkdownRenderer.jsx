@@ -1,8 +1,9 @@
-import Markdown from 'react-markdown'
+﻿import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Children, isValidElement, cloneElement, Fragment } from 'react'
 import JudgmentBadge from './report/JudgmentBadge'
 import ChartGroupCard from './ads/ChartGroupCard'
+import { makeHeadingSlug } from '../utils/headingSlug'
 
 /* ── Badge Rendering for Report Quality ── */
 
@@ -325,9 +326,11 @@ function AxisMappingChart({ axes }) {
 
 /* ── End Axis Mapping Visual ── */
 
-function makeHeadingId(text) {
-  const base = 'toc-' + String(text).replace(/[^\w\u3000-\u9fff]/g, '-').toLowerCase()
-  return `${base}-${Math.random().toString(36).slice(2, 6)}`
+function makeHeadingId(text, seen) {
+  const slug = makeHeadingSlug(text)
+  const count = seen.get(slug) ?? 0
+  seen.set(slug, count + 1)
+  return count === 0 ? slug : slug + '-' + (count + 1)
 }
 
 const SIZE_PRESETS = {
@@ -422,14 +425,15 @@ function getComponents(size = 'normal', variant = null) {
   const isEP = variant === 'essential-pack'
   const isDiscovery = variant === 'discovery'
   const isAiInsight = variant === 'ai-insight'
+  const seenIds = new Map()
 
   return {
     h1: ({ children }) => {
-      const id = makeHeadingId(String(children))
+      const id = makeHeadingId(extractText(children), seenIds)
       return <h2 id={id} className={`${preset.h1} font-bold japanese-text text-on-surface scroll-mt-20`}>{children}</h2>
     },
     h2: ({ children }) => {
-      const id = makeHeadingId(String(children))
+      const id = makeHeadingId(extractText(children), seenIds)
       const headingText = String(children)
 
       if (isDiscovery) {
@@ -459,7 +463,7 @@ function getComponents(size = 'normal', variant = null) {
       return <h3 id={id} className={`${preset.h2} font-bold japanese-text text-on-surface scroll-mt-20`}>{children}</h3>
     },
     h3: ({ children }) => {
-      const id = makeHeadingId(String(children))
+      const id = makeHeadingId(extractText(children), seenIds)
       return <h4 id={id} className={`${preset.h3} font-bold japanese-text text-on-surface scroll-mt-20`}>{children}</h4>
     },
     p: ({ children }) => (
@@ -569,13 +573,26 @@ function getComponents(size = 'normal', variant = null) {
     },
     table: ({ children }) => {
       if (isDiscovery || isAiInsight) {
-        return (
+        const tableText = extractText(children)
+        const isLowMarketTable = tableText.includes('市場規模') && tableText.includes('CPC') && tableText.includes('月間検索')
+        const tableEl = (
           <div className="my-5 max-w-full overflow-x-auto rounded-[0.75rem] ghost-border-thin -mx-2">
             <table className={`min-w-full table-auto border-collapse ${preset.table}`}>
               {children}
             </table>
           </div>
         )
+        if (isLowMarketTable) {
+          return (
+            <details className="my-5">
+              <summary className="cursor-pointer select-none text-xs text-on-surface-variant px-3 py-2 rounded-lg bg-surface-container-low hover:bg-surface-container border border-outline-variant/20">
+                市場データは業界標準値（信頼度：low）。実運用データ取得後に更新推奨。参考値として表示する ∨
+              </summary>
+              {tableEl}
+            </details>
+          )
+        }
+        return tableEl
       }
       return (
         <div className={`my-5 max-w-full overflow-x-auto rounded-[0.75rem] ${isEP ? 'ghost-border' : ''}`}>

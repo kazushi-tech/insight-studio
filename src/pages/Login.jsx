@@ -80,45 +80,35 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      // Admin + all cases in parallel
-      const adminPromise = loginAds(password)
-        .then((r) => ({ type: 'admin', data: r }))
-        .catch(() => null)
+      // Admin を先に試す（hit すれば 401 ゼロ）
+      const adminResult = await loginAds(password).catch(() => null)
+      if (adminResult) {
+        // loginAds が成功 → AuthContext で処理済み
+        return
+      }
 
-      const casePromises = activeCases.map((c) => {
-        const caseId = c.case_id || c.id
-        return loginCase(caseId, password, { deviceTrustToken: getCaseTrustToken(caseId) })
-          .then((r) => ({ type: 'case', data: r, caseInfo: c }))
-          .catch(() => null)
+      // device trust token がある case を優先して直列試行
+      const sortedCases = [...activeCases].sort((a, b) => {
+        const aId = a.case_id || a.id
+        const bId = b.case_id || b.id
+        const aHas = getCaseTrustToken(aId) ? 1 : 0
+        const bHas = getCaseTrustToken(bId) ? 1 : 0
+        return bHas - aHas
       })
 
-      const results = await Promise.all([adminPromise, ...casePromises])
-
-      // Admin password matched
-      if (results[0]?.type === 'admin') {
-        // Already handled by loginWithEmail in AuthContext
-        return
+      for (const c of sortedCases) {
+        const caseId = c.case_id || c.id
+        const r = await loginCase(caseId, password, { deviceTrustToken: getCaseTrustToken(caseId) }).catch(() => null)
+        if (r?.ok) {
+          loginWithCase(r)
+          return
+        }
+        if (r?.totp_required) {
+          setPendingTotp({ caseId: r.case_id, caseName: r.name, password })
+          return
+        }
       }
 
-      // Case password matched AND no TOTP required
-      const fullMatch = results.find((r) => r?.type === 'case' && r.data?.ok)
-      if (fullMatch) {
-        loginWithCase(fullMatch.data)
-        return
-      }
-
-      // Case password matched but TOTP required
-      const totpMatch = results.find((r) => r?.type === 'case' && r.data?.totp_required)
-      if (totpMatch) {
-        setPendingTotp({
-          caseId: totpMatch.data.case_id,
-          caseName: totpMatch.data.name,
-          password,
-        })
-        return
-      }
-
-      // Nothing matched
       setError('パスワードが正しくありません')
     } catch {
       setError('ログインに失敗しました')

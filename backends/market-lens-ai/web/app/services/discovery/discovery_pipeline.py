@@ -612,7 +612,7 @@ async def run_discovery_pipeline(
     try:
         results = await asyncio.wait_for(
             search_client.search(
-                query, num=max(8, max_competitors + 4), brand_context=brand_context,
+                query, num=min(12, max(10, max_competitors + 6)), brand_context=brand_context,
                 deadline=search_deadline, request_id=request_id,
             ),
             timeout=search_timeout,
@@ -973,7 +973,7 @@ async def run_discovery_pipeline(
                     api_key=analysis_api_key,
                     discovery_metadata=discovery_metadata,
                     compact_output=use_compact,
-                    two_phase=False,  # Discovery has its own outer retry loop; two-phase doubles latency
+                    two_phase=(len(all_extracted) >= 4 and os.getenv("DISCOVERY_TWO_PHASE_FOR_4PLUS", "false").lower() == "true"),
                 ),
                 timeout=effective_timeout,
             )
@@ -984,18 +984,20 @@ async def run_discovery_pipeline(
                 request_id, attempt_index, len(all_extracted), attempt.model or discovery_analysis_model, elapsed,
             )
             # Phase Q0-3: conditional two-phase Section 5 regeneration.
-            # Only on the first attempt and when enough budget remains to avoid
-            # the self-reinforcing degrade loop that was caused by always setting
-            # two_phase=False (commit 981dc1e).
+            # Fix: attempt_index starts at 1 (enumerate(attempts, start=1)), so
+            # the old `== 0` condition was always False (commit b-01 fix).
+            # Also triggers when the LLM truncated output (stop_reason=max_tokens).
             budget_remaining_sec = max(0.0, overall_job_timeout - (time.monotonic() - pipeline_start))
+            _was_truncated = candidate_token_usage is not None and candidate_token_usage.truncated
             needs_phase2 = (
-                attempt_index == 0
+                attempt_index == 1
                 and len(all_extracted) > 1
-                and not section_5_looks_complete(candidate_report_md)
-                and budget_remaining_sec >= 60.0
+                and not use_compact
+                and (not section_5_looks_complete(candidate_report_md) or _was_truncated)
+                and budget_remaining_sec >= 45.0
             )
             if needs_phase2:
-                phase2_timeout = min(120.0, max(30.0, budget_remaining_sec - 15.0))
+                phase2_timeout = min(120.0, max(40.0, budget_remaining_sec - 15.0))
                 logger.info(
                     "discovery_two_phase_section5 request_id=%s attempt=%d budget_remaining=%.1fs",
                     request_id, attempt_index, budget_remaining_sec,

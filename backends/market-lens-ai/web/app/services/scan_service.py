@@ -69,11 +69,17 @@ def _humanize_llm_error(provider_name: str, detail: str) -> str:
     return f"LLM分析に失敗しました。{provider_name} の APIキーとモデル設定を確認してください。"
 
 
-async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str | None) -> ScanResponse:
-    """Run a full scan pipeline and persist the result."""
+async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str | None, on_stage=None) -> ScanResponse:
+    """Run a full scan pipeline and persist the result.
+
+    on_stage: optional async callable(stage: str, extra: dict) for async-job progress reporting.
+    """
     start = time.time()
     result = ScanResult(urls=req.urls, status="running", owner_id=owner_id)
     logger.info("Scan started: run_id=%s urls=%s", result.run_id, req.urls)
+
+    if on_stage:
+        await on_stage("fetching_lps", {"progress_pct": 20})
 
     extracted_list: list[ExtractedData] = []
     for i, url in enumerate(req.urls):
@@ -101,6 +107,8 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
     result.extracted = extracted_list
 
     # LLM analysis
+    if on_stage:
+        await on_stage("analyzing", {"progress_pct": 60})
     llm_failed = False
     current_provider_label = provider_label(req.provider, req.model)
     try:

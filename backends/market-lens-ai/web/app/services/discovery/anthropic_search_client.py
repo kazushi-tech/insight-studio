@@ -178,7 +178,7 @@ Rules:
                 "Claude API key is required. Please provide your API key."
             )
 
-        num = min(num, 12)
+        num = min(num, 15)
         remaining = self._remaining(deadline)
         if remaining is not None:
             primary_timeout = min(self._request_timeout_sec, max(3.0, remaining - 1.0))

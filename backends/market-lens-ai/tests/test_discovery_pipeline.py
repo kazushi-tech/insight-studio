@@ -124,7 +124,7 @@ async def test_pipeline_fetches_four_competitors_by_default():
 
     assert len(response.fetched_sites) == 4
     assert response.analyzed_count == 3  # brand + top 2 competitors (DISCOVERY_ANALYZE_SITE_LIMIT default = 3)
-    assert search_client.calls[0]["num"] == 8
+    assert search_client.calls[0]["num"] == 10
     analyzed_sites = analyze_mock.await_args.args[0]
     assert len(analyzed_sites) == 3
     assert "## 実行プラン" in response.report_md
