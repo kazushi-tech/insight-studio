@@ -94,3 +94,23 @@ def test_ad_spend_shrinks_with_more_brands():
 def test_waterworks_maps_correctly():
     est = estimate(None, brands=["A"], keywords=["水漏れ", "トイレ"])
     assert est.industry_key == "waterworks_repair"
+
+
+def test_it_consulting_maps_correctly():
+    est = estimate("ITコンサルティング", brands=["A"])
+    assert est.industry_key == "it_consulting"
+    assert est.confidence == "medium"
+    assert est.market_size_jpy.min >= 600_000_000_000
+    assert est.cpc_jpy.min >= 300
+    assert est.buying_behavior_template  # template must be non-empty
+
+
+def test_btob_marketing_consulting_via_keywords():
+    est = estimate(None, brands=["A"], keywords=["BtoBマーケティング", "リード獲得"])
+    assert est.industry_key == "btob_marketing_consulting"
+    assert est.buying_behavior_template
+
+
+def test_strategy_consulting_maps_correctly():
+    est = estimate("経営コンサル", brands=["A"])
+    assert est.industry_key == "strategy_consulting"

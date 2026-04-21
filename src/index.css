@@ -556,7 +556,11 @@
   /* Hide shell chrome so only the report prints */
   header, nav, aside, footer,
   .print-hide,
-  .print\:hidden {
+  .print\:hidden,
+  /* Section E-1: hide quality warnings, regenerate CTA, UI controls in print */
+  .quality-warning-banner,
+  .ui-version-toggle,
+  .font-size-controls {
     display: none !important;
   }
 

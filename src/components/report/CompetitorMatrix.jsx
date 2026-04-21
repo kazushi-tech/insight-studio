@@ -48,7 +48,14 @@ const VERDICT_SYMBOL = {
   強: '▲',
   同等: '＝',
   弱: '▼',
-  評価保留: '・',
+  評価保留: '—',
+}
+
+const VERDICT_LABEL = {
+  強: '強',
+  同等: '同等',
+  弱: '弱',
+  評価保留: '評価保留（データ不足）',
 }
 
 export default function CompetitorMatrix({ reportMd }) {
@@ -104,15 +111,15 @@ export default function CompetitorMatrix({ reportMd }) {
                           backgroundColor: cellColor(verdict),
                           color: cellTextColor(verdict),
                         }}
-                        aria-label={`${row.brand} の ${axis} は ${verdict ?? '-'}。詳細を開く`}
+                        aria-label={`${row.brand} の ${axis} は ${VERDICT_LABEL[verdict] ?? verdict ?? '評価保留（データ不足）'}。詳細を開く`}
                       >
                         <span className="inline-flex items-center gap-1 justify-center">
-                          {verdict && (
+                          {verdict && verdict !== '評価保留' && (
                             <span aria-hidden="true" className="text-[11px] leading-none font-bold">
                               {VERDICT_SYMBOL[verdict] ?? ''}
                             </span>
                           )}
-                          <span>{verdict ?? '-'}</span>
+                          <span>{verdict ?? '評価保留（データ不足）'}</span>
                         </span>
                       </button>
                       {isActive && cell && (

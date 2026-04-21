@@ -44,6 +44,7 @@ class IndustryPrior:
     avg_cvr_pct: NumericRange
     confidence: str
     source_note: str
+    buying_behavior_template: str = ""
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class MarketEstimate:
     # Per-brand ad spend derived from search volume × CPC × assumed impression share
     ad_spend_monthly_jpy: NumericRange
     brand_count: int
+    buying_behavior_template: str = ""
 
 
 def _range(entry: dict, unit: str = "") -> NumericRange:
@@ -84,6 +86,7 @@ def load_industry_priors() -> tuple[IndustryPrior, ...]:
                 avg_cvr_pct=_range(entry["avg_cvr_pct"], "%"),
                 confidence=entry.get("confidence", "low"),
                 source_note=entry.get("source_note", ""),
+                buying_behavior_template=entry.get("buying_behavior_template", "") or "",
             )
         )
     if not priors:
@@ -164,6 +167,7 @@ def estimate(
         avg_cvr_pct=prior.avg_cvr_pct,
         ad_spend_monthly_jpy=ad_spend,
         brand_count=len(brand_list),
+        buying_behavior_template=prior.buying_behavior_template,
     )
 
 

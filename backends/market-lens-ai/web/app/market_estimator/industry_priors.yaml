@@ -76,6 +76,49 @@ priors:
     confidence: medium
     source_note: "国内SaaS市場推計、BtoB検索広告CPC帯"
 
+  - key: it_consulting
+    label: ITコンサルティング・DX支援
+    match_keywords: [ITコンサル, ITコンサルティング, DXコンサル, DX支援, DX推進, システム導入, ITストラテジー]
+    market_size_jpy: {min: 600_000_000_000, max: 900_000_000_000}
+    annual_growth_pct: {min: 7, max: 12}
+    monthly_search_volume: {min: 80_000, max: 200_000}
+    cpc_jpy: {min: 300, max: 1200}
+    avg_cvr_pct: {min: 0.3, max: 1.5}
+    confidence: medium
+    source_note: "IDC Japan / 矢野経済研究所 ITコンサル・DX市場予測, BtoB検索広告CPC帯"
+    buying_behavior_template: |
+      検討期間: 6〜12ヶ月（RFP → 提案コンペ → PoC → 本番）。
+      意思決定者: CIO・情報システム部長 + 事業部長（最終承認は役員会）。
+      情報収集: 業界ウェビナー / 導入事例レポート DL / アナリストレビュー。
+
+  - key: btob_marketing_consulting
+    label: BtoBマーケティング支援・コンサルティング
+    match_keywords: [BtoBマーケティング, マーケティング支援, マーケティングコンサル, リード獲得, ABM, コンテンツマーケティング]
+    market_size_jpy: {min: 200_000_000_000, max: 350_000_000_000}
+    annual_growth_pct: {min: 8, max: 14}
+    monthly_search_volume: {min: 40_000, max: 100_000}
+    cpc_jpy: {min: 400, max: 1500}
+    avg_cvr_pct: {min: 0.5, max: 2.0}
+    confidence: medium
+    source_note: "MMRI BtoB支援サービス市場調査 / JMRA調査"
+    buying_behavior_template: |
+      検討期間: 3〜6ヶ月。意思決定者: マーケティング責任者 + 事業責任者。
+      情報収集: 事例集 DL / 無料診断 / セミナー。PoC 契約は半年単位が多い。
+
+  - key: strategy_consulting
+    label: 経営戦略コンサルティング
+    match_keywords: [経営コンサル, 戦略コンサル, 経営戦略, マネジメントコンサル, 中期経営計画]
+    market_size_jpy: {min: 800_000_000_000, max: 1_200_000_000_000}
+    annual_growth_pct: {min: 5, max: 9}
+    monthly_search_volume: {min: 60_000, max: 150_000}
+    cpc_jpy: {min: 500, max: 2000}
+    avg_cvr_pct: {min: 0.2, max: 1.0}
+    confidence: medium
+    source_note: "IT+経営コンサル統合市場推計 / JMRA"
+    buying_behavior_template: |
+      検討期間: 6〜12ヶ月（経営会議通過が必須）。意思決定者: 経営層（CxO）+ 役員会。
+      情報収集: アナリストレポート / エグゼクティブサミット / 紹介。契約は中期経営計画に紐づく。
+
   - key: real_estate
     label: 不動産（住宅系）
     match_keywords: [不動産, 賃貸, 物件, マンション, 戸建て, 注文住宅]
