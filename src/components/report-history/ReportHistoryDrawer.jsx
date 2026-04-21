@@ -57,7 +57,7 @@ export default function ReportHistoryDrawer({ open, onClose }) {
       <div
         aria-hidden="true"
         onClick={onClose}
-        className={`fixed inset-0 z-[99] bg-black/30 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-[99] bg-black/50 transition-opacity duration-200 ${
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
@@ -71,21 +71,21 @@ export default function ReportHistoryDrawer({ open, onClose }) {
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="bg-surface-container-lowest shadow-2xl h-full flex flex-col border-l border-outline-variant/20">
+        <div className="bg-surface-container-low shadow-2xl h-full flex flex-col border-l border-outline-variant/40">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/30">
             <div className="flex items-center gap-2">
               <h3 id="report-history-title" className="text-base font-bold japanese-text text-on-surface">
                 レポート履歴
               </h3>
-              <span className="text-[11px] font-bold text-on-surface-variant bg-surface-container rounded-full px-2 py-0.5 tabular-nums">
+              <span className="text-[11px] font-bold text-on-surface-variant bg-surface-container-high rounded-full px-2 py-0.5 tabular-nums">
                 {history.length}/{maxEntries}
               </span>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant"
               aria-label="レポート履歴を閉じる"
             >
               <span className="material-symbols-outlined">close</span>
@@ -122,7 +122,7 @@ export default function ReportHistoryDrawer({ open, onClose }) {
 
           {/* Footer */}
           {history.length > 0 && (
-            <div className="px-6 py-3 border-t border-outline-variant/20">
+            <div className="px-6 py-3 border-t border-outline-variant/30">
               <button
                 type="button"
                 onClick={handleClearAll}

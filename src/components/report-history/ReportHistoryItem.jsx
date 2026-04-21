@@ -23,7 +23,7 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
   const meta = entry?.metadata ?? {}
 
   return (
-    <li className="rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors p-4 space-y-2">
+    <li className="rounded-xl bg-surface-container hover:bg-surface-container-high transition-colors p-4 space-y-2">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-bold text-on-surface tabular-nums">
           {formatCreatedAt(entry.createdAt)}
@@ -59,7 +59,7 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
           <button
             type="button"
             onClick={() => setShowPreview((v) => !v)}
-            className="px-3 py-1 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-colors japanese-text"
+            className="px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors japanese-text"
           >
             {showPreview ? 'プレビューを閉じる' : 'プレビュー'}
           </button>
@@ -78,7 +78,7 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
               <button
                 type="button"
                 onClick={() => setConfirmRestore(false)}
-                className="px-2 py-1 rounded-full text-on-surface-variant hover:bg-surface-container transition-colors japanese-text"
+                className="px-2 py-1 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors japanese-text"
                 aria-label="キャンセル"
               >
                 ✕
