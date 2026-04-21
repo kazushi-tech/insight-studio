@@ -65,11 +65,10 @@ def _build_client(api_key: str | None = None) -> AsyncAnthropic:
     if not key:
         raise ValueError("API key is required. Please provide your Claude API key.")
     timeout = float(os.getenv("ANTHROPIC_TIMEOUT_SEC", "120"))
-    max_retries = int(os.getenv("ANTHROPIC_CONNECT_RETRIES", "2"))
     return AsyncAnthropic(
         api_key=key,
         timeout=timeout,
-        max_retries=max_retries,
+        max_retries=0,  # outer loop _MAX_CONNECT_RETRIES is the sole retry layer
     )
 
 

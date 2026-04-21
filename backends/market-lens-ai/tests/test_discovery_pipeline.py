@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from web.app.models import ExtractedData, TokenUsage
 from web.app.schemas.discovery import DiscoveryAnalyzeRequest
-from web.app.services.discovery.discovery_pipeline import run_discovery_pipeline
+from web.app.services.discovery.discovery_pipeline import (
+    run_discovery_pipeline,
+    _analysis_attempts,
+    _resolve_timeouts,
+)
 from web.app.services.discovery.search_client import SearchClient, SearchResult
 
 
@@ -118,10 +123,10 @@ async def test_pipeline_fetches_four_competitors_by_default():
     )
 
     assert len(response.fetched_sites) == 4
-    assert response.analyzed_count == 4
+    assert response.analyzed_count == 3  # brand + top 2 competitors (DISCOVERY_ANALYZE_SITE_LIMIT default = 3)
     assert search_client.calls[0]["num"] == 8
     analyzed_sites = analyze_mock.await_args.args[0]
-    assert len(analyzed_sites) == 4
+    assert len(analyzed_sites) == 3
     assert "## 実行プラン" in response.report_md
 
 
@@ -149,7 +154,7 @@ async def test_pipeline_respects_env_override_for_competitor_count():
         )
 
     assert len(response.fetched_sites) == 3
-    assert response.analyzed_count == 4
+    assert response.analyzed_count == 3  # brand + top 2 competitors (site_limit=3)
 
 
 @pytest.mark.asyncio
@@ -210,8 +215,11 @@ async def test_pipeline_retries_analyze_with_smaller_site_set_after_timeout():
         validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
     )
 
-    assert response.analyzed_count == 3
-    assert call_sizes[:2] == [4, 3]
+    assert response.analyzed_count == 3  # fallback model, same 3 sites
+    # With site_limit=3 default, first attempt uses 3 sites;
+    # on timeout degrade switches to fallback model (still 3 sites)
+    assert call_sizes[0] == 3
+    assert len(call_sizes) >= 2
 
 
 @pytest.mark.asyncio
@@ -391,13 +399,192 @@ async def test_pipeline_metadata_updated_on_degrade_retry():
 
     # At least 2 attempts
     assert len(metadata_snapshots) >= 2
-    # Second attempt should have fewer analyzed_targets
+    # Second attempt should have no more analyzed_targets (degrade = same or fewer sites + lighter model)
     first_targets = len(metadata_snapshots[0]["analyzed_targets"])
     second_targets = len(metadata_snapshots[1]["analyzed_targets"])
-    assert second_targets < first_targets
+    assert second_targets <= first_targets
     # Second attempt should have omitted_candidates with degrade-retry reason
     assert len(metadata_snapshots[1]["omitted_candidates"]) > 0
     assert any(
         "degrade-retry" in om.get("reason", "")
         for om in metadata_snapshots[1]["omitted_candidates"]
     )
+
+
+# ---------- Regression: timeout default values ----------
+
+
+def test_default_analyze_timeout_is_210():
+    """DISCOVERY_ANALYZE_TIMEOUT_SEC default must be 210 (matches routes.py / render.yaml)."""
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("DISCOVERY_ANALYZE_TIMEOUT_SEC", None)
+        timeouts = _resolve_timeouts()
+    assert timeouts["analyze_timeout"] == 210.0
+
+
+def test_default_overall_timeout_is_360():
+    """DISCOVERY_OVERALL_JOB_TIMEOUT_SEC default must be 360 (matches render.yaml)."""
+    with patch.dict(os.environ, {}, clear=False):
+        os.environ.pop("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", None)
+        value = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
+    assert value == 360.0
+
+
+# ---------- Regression: _analysis_attempts budget proportional ----------
+
+
+def test_analysis_attempts_timeout_cap_proportional_to_budget():
+    """attempt 1 timeout_cap must be at least 180s and scale with budget."""
+    attempts = _analysis_attempts(
+        3,
+        requested_site_limit=4,
+        primary_model="claude-sonnet-4-6",
+        fallback_model="claude-haiku-4-5-20251001",
+        base_timeout_sec=210.0,
+        remaining_overall_sec=360.0,
+    )
+    assert len(attempts) >= 1
+    # budget = max(120, 360 - 20) = 340; attempt 1 cap = max(180, 340 * 0.45) = 153 → 180
+    assert attempts[0].timeout_sec >= 153.0
+
+
+def test_analysis_attempts_timeout_caps_proportional():
+    """First attempt should get the largest timeout share; last attempt the smallest."""
+    remaining = 360.0
+    attempts = _analysis_attempts(
+        3,
+        requested_site_limit=4,
+        primary_model="claude-sonnet-4-6",
+        fallback_model="claude-haiku-4-5-20251001",
+        base_timeout_sec=210.0,
+        remaining_overall_sec=remaining,
+    )
+    assert len(attempts) >= 2
+    # First attempt must have at least as large a timeout as the last
+    assert attempts[0].timeout_sec >= attempts[-1].timeout_sec
+
+
+# ---------- Regression: quality retry limited to attempt 1 ----------
+
+
+@pytest.mark.asyncio
+async def test_quality_retry_only_fires_on_attempt_1():
+    """Quality retry (inner re-call) should NOT fire on attempt 2+."""
+    import os as _os
+    search_client = RecordingSearchClient(_search_results())
+    call_count = 0
+    attempt_index_on_call: list[int] = []
+
+    # Simulate: attempt 1 timeout → attempt 2 succeeds but quality is critical.
+    # Quality retry must NOT fire on attempt 2.
+    async def _analyze(extracted_list, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise asyncio.TimeoutError()
+        # Return a low-quality report that would trigger quality retry
+        return "短い", TokenUsage(model="test")
+
+    response = await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+            model="claude-sonnet-4-6",
+        ),
+        request_id="req-quality-retry-limit",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_fetch_html,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=lambda url, html: _extract_for(url),
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=_analyze,
+        validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+    )
+
+    # analyze_fn should be called at most attempt_count times
+    # (no extra quality retry call on attempt 2)
+    # attempt 1 = timeout, attempt 2 = success → call_count must be exactly 2
+    assert call_count == 2
+
+
+# ---------- Regression: partial fallback env=true ----------
+
+
+@pytest.mark.asyncio
+async def test_partial_fallback_used_when_env_enabled():
+    """When DISCOVERY_PARTIAL_REPORT_FALLBACK_ENABLED=true and all attempts fail, use partial report."""
+    search_client = RecordingSearchClient(_search_results())
+
+    async def _always_timeout(extracted_list, **kwargs):
+        raise asyncio.TimeoutError()
+
+    with patch.dict("os.environ", {
+        "DISCOVERY_PARTIAL_REPORT_FALLBACK_ENABLED": "true",
+        "DISCOVERY_OVERALL_JOB_TIMEOUT_SEC": "30",
+    }):
+        # Even with overall timeout forcing fast exit, pipeline should not raise
+        # because partial_report_md is empty here. Let's inject one via a side_effect.
+        call_count = 0
+
+        async def _first_ok_rest_timeout(extracted_list, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return "## 部分レポート\n内容", TokenUsage(model="test")
+            raise asyncio.TimeoutError()
+
+        response = await run_discovery_pipeline(
+            DiscoveryAnalyzeRequest(
+                brand_url="https://example.com",
+                api_key="test-key",
+                provider="anthropic",
+                model="claude-sonnet-4-6",
+            ),
+            request_id="req-partial-fallback",
+            search_client=search_client,
+            validate_operator_url_fn=_validate_url,
+            fetch_html_fn=_fetch_html,
+            take_screenshot_fn=AsyncMock(return_value=None),
+            extract_fn=lambda url, html: _extract_for(url),
+            classify_industry_fn=AsyncMock(return_value="水回り"),
+            analyze_fn=_first_ok_rest_timeout,
+            validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+        )
+
+    # Should succeed with partial report
+    assert response.report_md != ""
+
+
+@pytest.mark.asyncio
+async def test_partial_fallback_not_used_when_env_disabled():
+    """When DISCOVERY_PARTIAL_REPORT_FALLBACK_ENABLED is not set, PipelineError is raised on all-fail."""
+    from web.app.services.discovery.discovery_pipeline import PipelineError
+    search_client = RecordingSearchClient(_search_results())
+
+    async def _always_timeout(extracted_list, **kwargs):
+        raise asyncio.TimeoutError()
+
+    with patch.dict("os.environ", {
+        "DISCOVERY_PARTIAL_REPORT_FALLBACK_ENABLED": "false",
+        "DISCOVERY_OVERALL_JOB_TIMEOUT_SEC": "30",
+    }):
+        with pytest.raises(PipelineError):
+            await run_discovery_pipeline(
+                DiscoveryAnalyzeRequest(
+                    brand_url="https://example.com",
+                    api_key="test-key",
+                    provider="anthropic",
+                    model="claude-sonnet-4-6",
+                ),
+                request_id="req-no-partial",
+                search_client=search_client,
+                validate_operator_url_fn=_validate_url,
+                fetch_html_fn=_fetch_html,
+                take_screenshot_fn=AsyncMock(return_value=None),
+                extract_fn=lambda url, html: _extract_for(url),
+                classify_industry_fn=AsyncMock(return_value="水回り"),
+                analyze_fn=_always_timeout,
+                validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+            )

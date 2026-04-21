@@ -6,6 +6,7 @@ Runs the full one-click discovery pipeline with stage callbacks.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -252,7 +253,7 @@ def _resolve_timeouts() -> dict[str, float]:
         "competitor_fetch_timeout": float(os.getenv("DISCOVERY_COMPETITOR_FETCH_TIMEOUT_SEC", "12")),
         "classify_timeout": float(os.getenv("DISCOVERY_CLASSIFY_TIMEOUT_SEC", "6")),
         "search_timeout": float(os.getenv("DISCOVERY_SEARCH_TIMEOUT_SEC", "45")),
-        "analyze_timeout": float(os.getenv("DISCOVERY_ANALYZE_TIMEOUT_SEC", "120")),
+        "analyze_timeout": float(os.getenv("DISCOVERY_ANALYZE_TIMEOUT_SEC", "210")),
     }
 
 
@@ -374,6 +375,9 @@ def _analysis_attempts(
     if initial_limit > 2:
         site_limits.append(2)
 
+    # Budget proportional timeout_cap: reserve 20s for post-analyze stages
+    budget = max(120.0, remaining_overall_sec - 20.0)
+
     attempts: list[AnalysisAttempt] = []
     seen: set[tuple[int, str | None]] = set()
     progress_values = [90, 93, 96, 98]
@@ -398,15 +402,15 @@ def _analysis_attempts(
         initial_limit,
         primary_model,
         f"比較分析を実行中です（{initial_limit}サイト比較）",
-        150.0 if initial_limit >= 4 else 120.0,
+        max(180.0, budget * 0.45),
     )
     if 3 in site_limits and 3 != initial_limit:
-        _append_attempt(3, primary_model, "比較分析を軽量化して再試行中です（3サイト比較）", 105.0)
+        _append_attempt(3, primary_model, "比較分析を軽量化して再試行中です（3サイト比較）", max(105.0, budget * 0.25))
     if fallback_model is not None:
         target_limit = 3 if available_sites >= 3 else min(initial_limit, 2)
-        _append_attempt(target_limit, fallback_model, "軽量モデルで比較分析を再試行中です", 90.0)
+        _append_attempt(target_limit, fallback_model, "軽量モデルで比較分析を再試行中です", max(90.0, budget * 0.20))
     if 2 in site_limits:
-        _append_attempt(2, fallback_model or primary_model, "最小構成で比較分析を再試行中です（2サイト比較）", 75.0)
+        _append_attempt(2, fallback_model or primary_model, "最小構成で比較分析を再試行中です（2サイト比較）", max(75.0, budget * 0.10))
     return attempts
 
 
@@ -441,7 +445,7 @@ async def run_discovery_pipeline(
     search_timeout = timeouts["search_timeout"]
     analyze_timeout = timeouts["analyze_timeout"]
 
-    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "150"))
+    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
     tracker = PipelineBudgetTracker(overall_budget=overall_budget_sec, job_id=request_id)
 
     # 1. URL validation
@@ -857,7 +861,7 @@ async def run_discovery_pipeline(
     )
     fallback_analysis_model = _resolve_discovery_fallback_model(discovery_analysis_model)
     analysis_provider_label = provider_label(analysis_provider, discovery_analysis_model)
-    overall_job_timeout = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "150"))
+    overall_job_timeout = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
     remaining_overall_sec = max(60.0, overall_job_timeout - (time.monotonic() - pipeline_start))
     attempts = _analysis_attempts(
         len(competitor_extracted),
@@ -877,6 +881,9 @@ async def run_discovery_pipeline(
     last_exc: Exception | None = None
     last_status_code = 502
     last_human_detail = "比較分析に失敗しました。"
+    attempt_timings: list[dict] = []
+    partial_report_md: str | None = None
+    partial_sites_analyzed: int = 0
 
     for attempt_index, attempt in enumerate(attempts, start=1):
         analyzed_competitors = competitor_extracted[: max(1, attempt.site_limit - 1)]
@@ -949,7 +956,7 @@ async def run_discovery_pipeline(
             )
 
             retry_remaining = max(0.0, overall_job_timeout - (time.monotonic() - pipeline_start))
-            if retryable_quality and retry_remaining > 60.0:
+            if retryable_quality and retry_remaining > 60.0 and attempt_index == 1:
                 retry_timeout = min(90.0, max(30.0, retry_remaining - 15.0))
                 # Phase P1-C: first quality retry keeps the full token budget —
                 # compact mode reduces output tokens and can worsen truncation,
@@ -992,10 +999,21 @@ async def run_discovery_pipeline(
                         request_id, attempt_index, use_compact_retry, safe_msg,
                     )
             elif retryable_quality:
-                logger.warning(
-                    "discovery_quality_retry_skipped request_id=%s remaining=%.1f",
-                    request_id, retry_remaining,
-                )
+                if attempt_index > 1:
+                    logger.info(
+                        "discovery_quality_retry_skipped_after_first_attempt request_id=%s attempt=%d remaining=%.1f issues=%s",
+                        request_id, attempt_index, retry_remaining, quality_bundle.quality_issues,
+                    )
+                else:
+                    logger.warning(
+                        "discovery_quality_retry_skipped request_id=%s remaining=%.1f",
+                        request_id, retry_remaining,
+                    )
+
+            # Track best partial result for fallback (even if quality is critical, keep for emergency use)
+            if partial_report_md is None or len(candidate_report_md) > len(partial_report_md):
+                partial_report_md = candidate_report_md
+                partial_sites_analyzed = len(all_extracted)
 
             report_md = candidate_report_md
             token_usage = candidate_token_usage
@@ -1003,6 +1021,16 @@ async def run_discovery_pipeline(
             quality_status = quality_bundle.quality_status
             quality_issues = quality_bundle.quality_issues
             quality_is_critical = quality_bundle.quality_is_critical
+            attempt_timings.append({
+                "attempt_index": attempt_index,
+                "site_limit": attempt.site_limit,
+                "model": attempt.model or discovery_analysis_model,
+                "elapsed_sec": round(elapsed / 1000, 2),
+                "effective_timeout": round(effective_timeout, 1),
+                "outcome": "quality_degrade" if (retryable_quality and attempt_index < len(attempts)) else "ok",
+                "compact": use_compact,
+                "quality_retry_used": retryable_quality and retry_remaining > 60.0 and attempt_index == 1,
+            })
 
             if retryable_quality and attempt_index < len(attempts):
                 logger.warning(
@@ -1021,6 +1049,16 @@ async def run_discovery_pipeline(
             retryable = _is_retryable_analysis_exception(exc) and attempt_index < len(attempts)
             outcome = "timeout" if isinstance(exc, asyncio.TimeoutError) else "error"
             _log_stage(request_id, req.brand_url, "analyze", elapsed, outcome, type(exc).__name__)
+            attempt_timings.append({
+                "attempt_index": attempt_index,
+                "site_limit": attempt.site_limit,
+                "model": attempt.model or discovery_analysis_model,
+                "elapsed_sec": round(elapsed / 1000, 2),
+                "effective_timeout": round(effective_timeout, 1),
+                "outcome": outcome,
+                "compact": use_compact,
+                "quality_retry_used": False,
+            })
             if retryable:
                 logger.warning(
                     "Discovery analyze attempt failed; retrying with degraded plan: request_id=%s attempt=%d/%d sites=%d model=%s detail=%s",
@@ -1034,21 +1072,31 @@ async def run_discovery_pipeline(
             break
 
     if not report_md:
-        # Always record tracker summary on failure for diagnostics
-        tracker.end_stage("analyze")
         failed_summary = tracker.summary()
         logger.warning("PIPELINE_FAILED_SUMMARY %s", failed_summary)
-        if isinstance(last_exc, asyncio.TimeoutError):
+        logger.warning("discovery_analyze_attempt_trace %s", json.dumps(attempt_timings))
+
+        partial_fallback_enabled = os.getenv("DISCOVERY_PARTIAL_REPORT_FALLBACK_ENABLED", "false").lower() == "true"
+        if partial_fallback_enabled and partial_report_md:
+            banner = f"> ⚠️ タイムアウトにより部分レポート（分析済 {partial_sites_analyzed} サイト）\n\n"
+            report_md = banner + partial_report_md
+            tracker.record("analyze_partial_fallback_used", {"sites": partial_sites_analyzed})
+            logger.warning(
+                "discovery_partial_fallback_used request_id=%s sites=%d",
+                request_id, partial_sites_analyzed,
+            )
+        else:
+            if isinstance(last_exc, asyncio.TimeoutError):
+                raise PipelineError(
+                    502,
+                    "比較分析がタイムアウトしました。軽量化再試行も完了できませんでした (stage=analyze)",
+                    stage="analyze",
+                ) from last_exc
             raise PipelineError(
-                502,
-                "比較分析がタイムアウトしました。軽量化再試行も完了できませんでした (stage=analyze)",
+                last_status_code,
+                f"{last_human_detail} 軽量化再試行でも解消できませんでした。 (stage=analyze)",
                 stage="analyze",
             ) from last_exc
-        raise PipelineError(
-            last_status_code,
-            f"{last_human_detail} 軽量化再試行でも解消できませんでした。 (stage=analyze)",
-            stage="analyze",
-        ) from last_exc
 
     tracker.end_stage("analyze")
 
@@ -1059,6 +1107,7 @@ async def run_discovery_pipeline(
         request_id, brand_domain, provider_label(analysis_provider, req.model), total_elapsed,
     )
     logger.info("PIPELINE_SUMMARY %s", pipeline_summary)
+    logger.info("discovery_analyze_attempt_trace %s", json.dumps(attempt_timings))
 
     return DiscoveryAnalyzeResponse(
         search_id=search_id,

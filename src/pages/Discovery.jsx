@@ -108,7 +108,7 @@ const POLL_INTERVAL_SLOW_MS = 5000
 const POLL_SLOWDOWN_AFTER_MS = 30000
 const POLL_MAX_NETWORK_ERRORS = 3
 const POLL_SOFT_WARNING_MS = 150_000   // ソフト警告のみ — キルしない
-const POLL_HARD_CEILING_MS = 180_000   // 安全弁 — stale 検知の二重保険
+const POLL_HARD_CEILING_MS = 400_000   // 安全弁 — バックエンド overall 360s + 40s 余裕
 const POLL_STALE_TIMEOUT_MS = 90_000   // ← PRIMARY キル判定（heartbeat 90秒無応答 — バックエンド10s間隔に対して余裕あり）
 const STAGE_TIMEOUT_MS = {
   queued: 30_000,            // 30s — キュー停滞は異常
@@ -116,7 +116,7 @@ const STAGE_TIMEOUT_MS = {
   classify_industry: 30_000, // 30s — 分類は軽量
   search: 90_000,            // 90s — 検索（並列化可能）
   fetch_competitors: 60_000, // 60s — データ収集
-  analyze: 120_000,          // 120s — hard ceiling(180s)より60s余裕
+  analyze: 240_000,          // 240s — バックエンド analyze_timeout(210s) + 余裕
   warming: 60_000,           // 60s — warmupは既に別途60s timeoutあり
 }
 const DISCOVERY_AUTO_RESUBMIT_MAX = 2
@@ -411,9 +411,10 @@ export default function Discovery() {
   const errorInfo = run?.status === 'failed' ? run.errorInfo : null
   const result = run?.result || null
   const { isV2: isUiV2 } = useUiVersion()
+  const shouldFetchReportEnvelope = run?.meta?.jobId && run?.status === 'completed'
   const { envelope: discoveryEnvelope } = useReportEnvelope(
-    run?.meta?.jobId ? 'discovery' : null,
-    run?.meta?.jobId || null,
+    shouldFetchReportEnvelope ? 'discovery' : null,
+    shouldFetchReportEnvelope ? run.meta.jobId : null,
   )
   const compareRun = getRun('compare')
   const compareResult = compareRun?.status === 'completed' ? compareRun.result : null
