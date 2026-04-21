@@ -521,8 +521,8 @@ export default function EssentialPack() {
       <div className="px-8 py-8 max-w-[1680px] space-y-8">
 
         {!isAdsAuthenticated && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl px-6 py-4 text-sm text-amber-800 flex items-center gap-3">
-            <span className="material-symbols-outlined text-amber-600">warning</span>
+          <div className="bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl px-6 py-4 text-sm text-amber-800 dark:text-on-warning-container flex items-center gap-3">
+            <span className="material-symbols-outlined text-amber-600 dark:text-warning">warning</span>
             考察スタジオへのログインが必要です
           </div>
         )}

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { ThemeContext } from '../../../contexts/ThemeContext'
 import {
   Chart,
   RadarController,
@@ -13,7 +14,7 @@ import {
   applyChartDefaultsV2,
   restoreChartDefaultsV2,
   BRAND_PALETTE_V2,
-  REPORT_COLORS_V2,
+  getActiveColorsV2,
 } from './reportThemeV2'
 import {
   AXIS_KEYS,
@@ -71,6 +72,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
   const [mode, setMode] = useState('all')
+  const isDark = useContext(ThemeContext)?.isDark ?? false
 
   useEffect(() => {
     applyChartDefaultsV2(Chart)
@@ -78,7 +80,17 @@ export default function BrandRadarV2({ envelope, reportMd }) {
   }, [])
 
   useEffect(() => {
+    if (chartRef.current) {
+      chartRef.current.destroy()
+      chartRef.current = null
+    }
+    restoreChartDefaultsV2(Chart)
+    applyChartDefaultsV2(Chart)
+  }, [isDark])
+
+  useEffect(() => {
     if (!brands.length || !canvasRef.current) return
+    const c = getActiveColorsV2()
     const datasets = brands.map((b, i) => {
       const color = BRAND_PALETTE_V2[i % BRAND_PALETTE_V2.length]
       const isFocused = mode === 'all' || mode === b.brand
@@ -122,13 +134,13 @@ export default function BrandRadarV2({ envelope, reportMd }) {
               stepSize: 0.5,
               backdropColor: 'transparent',
               callback: (v) => (v === 1 ? '強' : v === 0.5 ? '同等' : v === 0 ? '弱' : ''),
-              color: REPORT_COLORS_V2.outline,
+              color: c.outline,
               font: { size: 10 },
             },
-            grid: { color: REPORT_COLORS_V2.outlineVariant },
-            angleLines: { color: REPORT_COLORS_V2.outlineVariant },
+            grid: { color: c.outlineVariant },
+            angleLines: { color: c.outlineVariant },
             pointLabels: {
-              color: REPORT_COLORS_V2.onSurface,
+              color: c.onSurface,
               font: (ctx) => {
                 const w = ctx.chart?.width ?? 0
                 return { size: w < 420 ? 10 : 12, weight: '600' }
@@ -156,7 +168,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
         },
       },
     })
-  }, [brands, mode])
+  }, [brands, mode, isDark])
 
   useEffect(() => {
     return () => {

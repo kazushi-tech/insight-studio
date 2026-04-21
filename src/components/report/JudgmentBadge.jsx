@@ -1,12 +1,10 @@
-import { JUDGMENT_COLORS } from './reportTheme'
+import { useContext } from 'react'
+import { getActiveJudgmentColors } from './reportTheme'
+import { ThemeContext } from '../../contexts/ThemeContext'
 
-/**
- * Visual badge for 強／同等／弱／評価保留 judgments.
- * Colored dot + Material icon + label, pill shape.
- * Used inline in evaluation tables and competitor matrices.
- */
 export default function JudgmentBadge({ verdict, showIcon = true, size = 'sm', className = '' }) {
-  const def = JUDGMENT_COLORS[verdict]
+  useContext(ThemeContext) // subscribe to theme changes so inline styles update on toggle
+  const def = getActiveJudgmentColors()[verdict]
   if (!def) return <span className={className}>{verdict}</span>
 
   const sizeClasses = size === 'xs'

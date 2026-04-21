@@ -51,15 +51,15 @@ export function SkeletonBlock({ variant = 'rect', width, height, lines = 3 }) {
 }
 
 const ERROR_CATEGORY_STYLES = {
-  timeout:       { icon: 'schedule',       bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-800',  btnText: 'text-amber-700' },
-  cold_start:    { icon: 'restart_alt',    bg: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-800',    btnText: 'text-sky-700' },
-  network:       { icon: 'wifi_off',       bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', btnText: 'text-orange-700' },
-  auth_error:    { icon: 'lock',           bg: 'bg-red-50',    border: 'border-red-200',    text: 'text-red-800',    btnText: 'text-red-700' },
-  invalid_input: { icon: 'edit_note',      bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-800',  btnText: 'text-amber-700' },
-  upstream:      { icon: 'cloud_off',      bg: 'bg-rose-50',   border: 'border-rose-200',   text: 'text-rose-800',   btnText: 'text-rose-700' },
-  not_found:     { icon: 'search_off',     bg: 'bg-slate-50',  border: 'border-slate-200',  text: 'text-slate-700',  btnText: 'text-slate-600' },
-  rate_limit:    { icon: 'hourglass_top',  bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-800',  btnText: 'text-amber-700' },
-  overloaded:    { icon: 'cloud_queue',    bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', btnText: 'text-violet-700' },
+  timeout:       { icon: 'schedule',       bg: 'bg-amber-50 dark:bg-warning-container',          border: 'border-amber-200 dark:border-warning/30',         text: 'text-amber-800 dark:text-on-warning-container',  btnText: 'text-amber-700 dark:text-warning' },
+  cold_start:    { icon: 'restart_alt',    bg: 'bg-sky-50 dark:bg-info-container',               border: 'border-sky-200 dark:border-info/30',              text: 'text-sky-800 dark:text-on-info-container',       btnText: 'text-sky-700 dark:text-info' },
+  network:       { icon: 'wifi_off',       bg: 'bg-orange-50 dark:bg-warning-container',         border: 'border-orange-200 dark:border-warning/30',        text: 'text-orange-800 dark:text-on-warning-container', btnText: 'text-orange-700 dark:text-warning' },
+  auth_error:    { icon: 'lock',           bg: 'bg-red-50 dark:bg-error-container',              border: 'border-red-200 dark:border-error/30',             text: 'text-red-800 dark:text-on-error-container',      btnText: 'text-red-700 dark:text-error' },
+  invalid_input: { icon: 'edit_note',      bg: 'bg-amber-50 dark:bg-warning-container',          border: 'border-amber-200 dark:border-warning/30',         text: 'text-amber-800 dark:text-on-warning-container',  btnText: 'text-amber-700 dark:text-warning' },
+  upstream:      { icon: 'cloud_off',      bg: 'bg-rose-50 dark:bg-error-container',             border: 'border-rose-200 dark:border-error/30',            text: 'text-rose-800 dark:text-on-error-container',     btnText: 'text-rose-700 dark:text-error' },
+  not_found:     { icon: 'search_off',     bg: 'bg-slate-50 dark:bg-surface-container-high',     border: 'border-slate-200 dark:border-outline-variant',    text: 'text-slate-700 dark:text-on-surface-variant',    btnText: 'text-slate-600 dark:text-on-surface' },
+  rate_limit:    { icon: 'hourglass_top',  bg: 'bg-amber-50 dark:bg-warning-container',          border: 'border-amber-200 dark:border-warning/30',         text: 'text-amber-800 dark:text-on-warning-container',  btnText: 'text-amber-700 dark:text-warning' },
+  overloaded:    { icon: 'cloud_queue',    bg: 'bg-violet-50 dark:bg-primary-container/30',      border: 'border-violet-200 dark:border-primary/20',        text: 'text-violet-800 dark:text-on-primary-container', btnText: 'text-violet-700 dark:text-primary' },
 }
 
 /**

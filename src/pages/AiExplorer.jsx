@@ -462,11 +462,11 @@ export default function AiExplorer() {
     : '未接続'
 
   const statusTone = status.startsWith('生成エラー') || status.startsWith('更新エラー')
-    ? 'bg-red-50 border-red-200 text-red-700'
+    ? 'bg-red-50 dark:bg-error-container border-red-200 dark:border-error/30 text-red-700 dark:text-on-error-container'
     : status.startsWith('⚠️')
-    ? 'bg-amber-50 border-amber-200 text-amber-800'
+    ? 'bg-amber-50 dark:bg-warning-container border-amber-200 dark:border-warning/30 text-amber-800 dark:text-on-warning-container'
     : status.startsWith('✓')
-    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+    ? 'bg-emerald-50 dark:bg-success-container border-emerald-200 dark:border-success/30 text-emerald-700 dark:text-on-success-container'
     : 'bg-surface-container border-outline-variant/30 text-on-surface-variant'
   const statusIcon = status.startsWith('生成エラー') || status.startsWith('更新エラー')
     ? 'error'
@@ -513,13 +513,13 @@ export default function AiExplorer() {
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="px-6 pt-5 pb-3 space-y-3">
         {!isAdsAuthenticated && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
+          <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
             <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
       {!hasAnalysisKey && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 mb-4">
+        <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
         </div>
@@ -624,17 +624,17 @@ export default function AiExplorer() {
         </div>
 
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
-          <p className="text-xs text-amber-700 japanese-text">
+          <p className="text-xs text-amber-700 dark:text-warning japanese-text">
             Market Lens の履歴 API が停止中のため、広告データのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'cold_start' && (
-          <p className="text-xs text-sky-700 japanese-text">
+          <p className="text-xs text-sky-700 dark:text-on-info-container japanese-text">
             Market Lens バックエンドが起動中です。1〜2分後にコンテキスト更新を試してください。広告データのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'error' && (
-          <p className="text-xs text-red-700 japanese-text">
+          <p className="text-xs text-red-700 dark:text-on-error-container japanese-text">
             Market Lens の履歴取得に失敗しました。広告データのみで回答します。
           </p>
         )}
@@ -678,7 +678,7 @@ export default function AiExplorer() {
               </div>
               <div>
                 <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
-                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-8 max-w-5xl ${message.isError ? 'border border-red-200' : ''}`}>
+                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-8 max-w-5xl ${message.isError ? 'border border-red-200 dark:border-error/30' : ''}`}>
                   <MarkdownRenderer content={message.text} className="text-sm" size={fontSize} />
                 </div>
               </div>

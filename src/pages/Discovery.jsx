@@ -250,10 +250,10 @@ function MetaBand({ run, now }) {
           {run.status === 'running' ? (statusLabel || stageLabel || '分析中…') : run.status === 'completed' ? '完了' : 'エラー'}
         </span>
         {isWarming && (
-          <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-700 font-bold">サーバー起動中…</span>
+          <span className="px-3 py-1 rounded-full bg-orange-50 dark:bg-warning-container text-orange-700 dark:text-warning font-bold">サーバー起動中…</span>
         )}
         {remaining && (
-          <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-700 font-bold">{remaining}</span>
+          <span className="px-3 py-1 rounded-full bg-amber-50 dark:bg-warning-container text-amber-700 dark:text-warning font-bold">{remaining}</span>
         )}
         {result?.search_id && <span className="text-outline font-mono">search: {result.search_id}</span>}
         {result?.industry && (
@@ -305,26 +305,26 @@ function PartialSuccessBanner({ fetchedSites }) {
   if (failed.length === 0 && fallback.length === 0) return null
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 space-y-2">
-      <p className="text-sm text-amber-800 font-bold flex items-center gap-2">
+    <div className="bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 space-y-2">
+      <p className="text-sm text-amber-800 dark:text-on-warning-container font-bold flex items-center gap-2">
         <span className="material-symbols-outlined text-lg">warning</span>
         {success.length} / {fetchedSites.length} 件をページ取得できました
         {fallback.length > 0 && `、${fallback.length} 件は検索結果ベースで補完分析`}
         {failed.length > 0 && `（${failed.length} 件未分析）`}
       </p>
-      <div className="text-xs text-amber-700 space-y-1">
+      <div className="text-xs text-amber-700 dark:text-on-warning-container space-y-1">
         {fallback.map((site, i) => (
           <div key={`fallback-${i}`} className="flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-amber-500">info</span>
             <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
-            <span className="text-amber-700">ページ取得に失敗したため検索結果から補完分析</span>
+            <span className="text-amber-700 dark:text-on-warning-container">ページ取得に失敗したため検索結果から補完分析</span>
           </div>
         ))}
         {failed.map((site, i) => (
           <div key={`failed-${i}`} className="flex items-center gap-2">
             <span className="material-symbols-outlined text-sm text-red-400">close</span>
             <span className="font-mono truncate max-w-[400px]">{site.url || site.domain}</span>
-            <span className="text-amber-600">{site.error}</span>
+            <span className="text-amber-600 dark:text-warning">{site.error}</span>
           </div>
         ))}
       </div>
@@ -849,7 +849,7 @@ export default function Discovery() {
       </div>
 
       {!hasAnalysisKey && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+        <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">競合発見には Claude API キーが必要です。設定画面から設定してください。</span>
         </div>
@@ -952,7 +952,7 @@ export default function Discovery() {
                 レポートをコピー
               </button>
               {copyToast && (
-                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg transition-opacity">
+                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-on-success-container bg-emerald-50 dark:bg-success-container rounded-lg transition-opacity">
                   <span className="material-symbols-outlined text-sm">check_circle</span>
                   {copyToast}
                 </span>
@@ -992,11 +992,11 @@ export default function Discovery() {
                 <>
                   {/* Section D-1: Blocker banner (red) */}
                   {blockers.length > 0 && (
-                    <div className="quality-warning-banner bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
-                      <span className="material-symbols-outlined text-lg text-red-500 mt-0.5 shrink-0">error</span>
+                    <div className="quality-warning-banner bg-red-50 dark:bg-error-container border border-red-300 dark:border-error/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-lg text-red-500 dark:text-error mt-0.5 shrink-0">error</span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-red-800 japanese-text">実行プランが欠損しています</p>
-                        <ul className="text-xs mt-1 space-y-0.5 text-red-700">
+                        <p className="text-xs font-bold text-red-800 dark:text-on-error-container japanese-text">実行プランが欠損しています</p>
+                        <ul className="text-xs mt-1 space-y-0.5 text-red-700 dark:text-on-error-container">
                           {blockers.map((issue, i) => (
                             <li key={i}>・{issue}</li>
                           ))}
@@ -1017,11 +1017,11 @@ export default function Discovery() {
                   )}
                   {/* Section D-1: Warning banner (amber) */}
                   {warnings.length > 0 && (
-                    <div className="quality-warning-banner bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
-                      <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>
+                    <div className="quality-warning-banner bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
+                      <span className="material-symbols-outlined text-lg text-amber-500 dark:text-warning mt-0.5 shrink-0">info</span>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-amber-800 japanese-text">品質チェックで注意事項があります</p>
-                        <ul className="text-xs mt-1 space-y-0.5 text-amber-700">
+                        <p className="text-xs font-bold text-amber-800 dark:text-on-warning-container japanese-text">品質チェックで注意事項があります</p>
+                        <ul className="text-xs mt-1 space-y-0.5 text-amber-700 dark:text-on-warning-container">
                           {warnings.map((issue, i) => (
                             <li key={i}>・{issue}</li>
                           ))}
@@ -1170,13 +1170,13 @@ export default function Discovery() {
                       </div>
                     )}
                     {isFailed && (
-                      <div className="absolute bottom-3 left-3 right-3 bg-red-50/90 backdrop-blur px-3 py-1.5 rounded-lg">
-                        <span className="text-xs text-red-700 font-bold">取得失敗: {item.error}</span>
+                      <div className="absolute bottom-3 left-3 right-3 bg-red-50/90 dark:bg-error-container backdrop-blur px-3 py-1.5 rounded-lg">
+                        <span className="text-xs text-red-700 dark:text-on-error-container font-bold">取得失敗: {item.error}</span>
                       </div>
                     )}
                     {isFallback && (
-                      <div className="absolute bottom-3 left-3 right-3 bg-amber-50/90 backdrop-blur px-3 py-1.5 rounded-lg">
-                        <span className="text-xs text-amber-800 font-bold">検索結果スニペットから補完分析</span>
+                      <div className="absolute bottom-3 left-3 right-3 bg-amber-50/90 dark:bg-warning-container backdrop-blur px-3 py-1.5 rounded-lg">
+                        <span className="text-xs text-amber-800 dark:text-on-warning-container font-bold">検索結果スニペットから補完分析</span>
                       </div>
                     )}
                   </div>

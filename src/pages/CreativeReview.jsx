@@ -102,9 +102,9 @@ function GoodPointsSection({ review, size }) {
       icon="thumb_up"
       title="良い点・維持すべき点"
       badge={`${items.length} 件`}
-      badgeColor="bg-emerald-100 text-emerald-700"
-      borderColor="border-emerald-200"
-      bgColor="bg-emerald-50/40"
+      badgeColor="bg-emerald-100 dark:bg-success-container text-emerald-700 dark:text-on-success-container"
+      borderColor="border-emerald-200 dark:border-success/30"
+      bgColor="bg-emerald-50/40 dark:bg-success-container"
     >
       <div className="text-emerald-900">
         <MarkdownRenderer content={md} size={size} />
@@ -127,9 +127,9 @@ function ImprovementsSection({ review, size }) {
       icon="build"
       title="改善提案"
       badge={`${items.length} 件`}
-      badgeColor="bg-amber-100 text-amber-700"
-      borderColor="border-amber-200"
-      bgColor="bg-amber-50/40"
+      badgeColor="bg-amber-100 dark:bg-warning-container/70 text-amber-700 dark:text-warning"
+      borderColor="border-amber-200 dark:border-warning/30"
+      bgColor="bg-amber-50/40 dark:bg-warning-container"
     >
       <div className="text-amber-900">
         <MarkdownRenderer content={md} size={size} />
@@ -155,9 +155,9 @@ function TestIdeasSection({ review, size }) {
       icon="science"
       title="テストアイデア"
       badge={`${items.length} 件`}
-      badgeColor="bg-rose-100 text-rose-700"
-      borderColor="border-rose-200"
-      bgColor="bg-rose-50/30"
+      badgeColor="bg-rose-100 dark:bg-error-container text-rose-700 dark:text-on-error-container"
+      borderColor="border-rose-200 dark:border-error/30"
+      bgColor="bg-rose-50/30 dark:bg-error-container"
     >
       <MarkdownRenderer content={md} size={size} />
     </SectionCard>
@@ -186,11 +186,11 @@ function EvidenceSection({ review, size }) {
 function RubricScoreGuide() {
   const [open, setOpen] = useState(false)
   const levels = [
-    { score: 5, label: '優秀', desc: '業界トップレベル。改善の余地はほぼない', color: 'bg-emerald-100 text-emerald-700' },
-    { score: 4, label: '良好', desc: '水準以上。微調整でさらに向上可能', color: 'bg-sky-100 text-sky-700' },
-    { score: 3, label: '平均', desc: '業界平均レベル。改善の余地がある', color: 'bg-amber-100 text-amber-700' },
-    { score: 2, label: '要改善', desc: '平均以下。優先的な改善が必要', color: 'bg-orange-100 text-orange-700' },
-    { score: 1, label: '問題あり', desc: '重大な問題。即時対応が望ましい', color: 'bg-rose-100 text-rose-700' },
+    { score: 5, label: '優秀', desc: '業界トップレベル。改善の余地はほぼない', color: 'bg-emerald-100 dark:bg-success-container text-emerald-700 dark:text-on-success-container' },
+    { score: 4, label: '良好', desc: '水準以上。微調整でさらに向上可能', color: 'bg-sky-100 dark:bg-info-container text-sky-700 dark:text-on-info-container' },
+    { score: 3, label: '平均', desc: '業界平均レベル。改善の余地がある', color: 'bg-amber-100 dark:bg-warning-container/70 text-amber-700 dark:text-warning' },
+    { score: 2, label: '要改善', desc: '平均以下。優先的な改善が必要', color: 'bg-orange-100 dark:bg-warning-container text-orange-700 dark:text-warning' },
+    { score: 1, label: '問題あり', desc: '重大な問題。即時対応が望ましい', color: 'bg-rose-100 dark:bg-error-container text-rose-700 dark:text-on-error-container' },
   ]
   return (
     <div className="mb-4">
@@ -280,8 +280,8 @@ function CategoryContextSection({ review, size }) {
     <SectionCard
       icon="category"
       title="業界コンテキスト"
-      borderColor="border-indigo-200"
-      bgColor="bg-indigo-50/30"
+      borderColor="border-indigo-200 dark:border-outline-variant"
+      bgColor="bg-indigo-50/30 dark:bg-primary-container/30"
     >
       <div className="text-indigo-900">
         <MarkdownRenderer content={md} size={size} />
@@ -307,8 +307,8 @@ function ValuePropositionSection({ review, size }) {
     <SectionCard
       icon="payments"
       title="価値提案分析"
-      borderColor="border-violet-200"
-      bgColor="bg-violet-50/30"
+      borderColor="border-violet-200 dark:border-outline-variant"
+      bgColor="bg-violet-50/30 dark:bg-primary-container/30"
     >
       <div className="text-violet-900">
         <MarkdownRenderer content={md} size={size} />
@@ -711,7 +711,7 @@ export default function CreativeReview() {
       {/* ─── API Key Status ─── */}
       {!hasAnalysisKey && (
         <div className="space-y-3">
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+          <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
             <span className="material-symbols-outlined text-lg">warning</span>
             <span className="japanese-text">クリエイティブレビューには Claude API キーが必要です。設定画面から設定してください。</span>
           </div>
@@ -855,7 +855,7 @@ export default function CreativeReview() {
               </button>
 
               {!analysisKey.trim() && (
-                <p className="text-xs text-amber-600">分析用 Claude API キーを設定してください。</p>
+                <p className="text-xs text-amber-600 dark:text-warning">分析用 Claude API キーを設定してください。</p>
               )}
             </div>
 

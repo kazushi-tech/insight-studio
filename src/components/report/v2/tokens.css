@@ -114,3 +114,47 @@
 :where(.ui-v2 .md-v2-enter) {
   animation: md-v2-fade-in var(--md-v2-duration-medium) var(--md-v2-easing-emphasized);
 }
+
+/* ── Dark mode override ── */
+:where([data-theme='dark'] .ui-v2) {
+  --md-sys-color-primary: #95d4b3;
+  --md-sys-color-on-primary: #0f1512;
+  --md-sys-color-primary-container: #1a3a28;
+  --md-sys-color-on-primary-container: #b5e8cc;
+  --md-sys-color-primary-fixed: #1e4430;
+  --md-sys-color-primary-fixed-dim: #2d5a42;
+  --md-sys-color-secondary: #95d4b3;
+  --md-sys-color-on-secondary: #0f1512;
+  --md-sys-color-secondary-container: #2a4a38;
+  --md-sys-color-on-secondary-container: #c4e8d4;
+  --md-sys-color-tertiary: #e8c46e;
+  --md-sys-color-on-tertiary: #0f1512;
+  --md-sys-color-tertiary-container: #3a3220;
+  --md-sys-color-on-tertiary-container: #f5ecd4;
+
+  --md-sys-color-surface: #0f1512;
+  --md-sys-color-on-surface: #e2ede6;
+  --md-sys-color-surface-container-lowest: #0b100d;
+  --md-sys-color-surface-container-low: #141f18;
+  --md-sys-color-surface-container: #1a261e;
+  --md-sys-color-surface-container-high: #243029;
+  --md-sys-color-surface-container-highest: #2e3a33;
+  --md-sys-color-on-surface-variant: #97a89d;
+  --md-sys-color-outline: #607068;
+  --md-sys-color-outline-variant: #2e3f38;
+
+  --md-sys-color-error: #ff8f8f;
+  --md-sys-color-on-error: #261010;
+  --md-sys-color-error-container: #5a2020;
+  --md-sys-color-success: #66bb6a;
+  --md-sys-color-warning: #ffb74d;
+
+  --md-v2-verdict-strong-bg: #1a3a28;
+  --md-v2-verdict-strong-fg: #95d4b3;
+  --md-v2-verdict-equal-bg: #2a4a38;
+  --md-v2-verdict-equal-fg: #95d4b3;
+  --md-v2-verdict-weak-bg: #5a2020;
+  --md-v2-verdict-weak-fg: #ff8f8f;
+  --md-v2-verdict-pending-bg: #243029;
+  --md-v2-verdict-pending-fg: #97a89d;
+}

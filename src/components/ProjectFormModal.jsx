@@ -210,18 +210,18 @@ export default function ProjectFormModal({ onClose, project }) {
           </button>
 
           {bqResult && (
-            <div className={`p-4 rounded-lg ${bqResult.connected ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+            <div className={`p-4 rounded-lg ${bqResult.connected ? 'bg-emerald-50 dark:bg-success-container border border-emerald-200 dark:border-success/30' : 'bg-red-50 dark:bg-error-container border border-red-200 dark:border-error/30'}`}>
               {bqResult.connected ? (
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                  <span className="text-sm font-bold text-emerald-700">
+                  <span className="material-symbols-outlined text-emerald-600 dark:text-success">check_circle</span>
+                  <span className="text-sm font-bold text-emerald-700 dark:text-on-success-container">
                     接続成功 — {bqResult.tables_found}テーブル検出
                   </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-red-600">error</span>
-                  <span className="text-sm font-bold text-red-700">
+                  <span className="material-symbols-outlined text-red-600 dark:text-error">error</span>
+                  <span className="text-sm font-bold text-red-700 dark:text-on-error-container">
                     {bqResult.error || '接続に失敗しました'}
                   </span>
                 </div>

@@ -783,8 +783,8 @@ export default function AnalysisGraphs() {
 
         {/* Data Quality Alert */}
         {qualityAlerts.length > 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200/50 text-on-surface rounded-xl">
-            <span className="material-symbols-outlined text-xl text-amber-600">info</span>
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-warning-container border border-amber-200/50 dark:border-warning/30 text-on-surface rounded-xl">
+            <span className="material-symbols-outlined text-xl text-amber-600 dark:text-warning">info</span>
             <p className="text-sm font-medium japanese-text">{qualityAlerts[0].message}</p>
           </div>
         )}

@@ -222,7 +222,7 @@ function MetaBand({ run, modelName }) {
         <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
       )}
       {recovering && (
-        <span className="px-3 py-1 bg-sky-50 text-sky-700 rounded-full font-bold">履歴確認中</span>
+        <span className="px-3 py-1 bg-sky-50 dark:bg-info-container text-sky-700 dark:text-on-info-container rounded-full font-bold">履歴確認中</span>
       )}
       {modelName && (
         <span className="px-3 py-1 bg-surface-container rounded-full font-mono">{modelName}</span>
@@ -514,7 +514,7 @@ export default function Compare() {
         <span className="japanese-text">LP比較分析は分析用 Claude API キーを Market Lens backend に送信して実行します。レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
       </div>
       {!hasAnalysisKey && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800">
+        <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
           <span className="japanese-text">LP比較分析には Claude API キーが必要です。設定画面から設定してください。</span>
         </div>
@@ -576,14 +576,14 @@ export default function Compare() {
       )}
 
       {recoveryMode && (
-        <div className="flex items-center gap-3 rounded-[0.75rem] border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-800">
+        <div className="flex items-center gap-3 rounded-[0.75rem] border border-sky-200 dark:border-info/30 bg-sky-50 dark:bg-info-container px-5 py-3 text-sm text-sky-800 dark:text-on-info-container">
           <span className="material-symbols-outlined text-lg">history</span>
           <span className="japanese-text">{recoveryMessage}</span>
         </div>
       )}
 
       {recoveredFromHistory && (
-        <div className="flex items-center gap-3 rounded-[0.75rem] border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+        <div className="flex items-center gap-3 rounded-[0.75rem] border border-emerald-200 dark:border-success/30 bg-emerald-50 dark:bg-success-container px-5 py-3 text-sm text-emerald-800 dark:text-on-success-container">
           <span className="material-symbols-outlined text-lg">task_alt</span>
           <span className="japanese-text">ブラウザ側ではタイムアウトしましたが、server 側で完了していた比較結果を履歴から復旧しました。</span>
         </div>
@@ -672,7 +672,7 @@ export default function Compare() {
                     if (!delta) return null
                     const isUp = delta.startsWith('+')
                     return (
-                      <span className={`mt-2 ml-2 inline-block px-2.5 py-1 rounded-full text-xs font-bold ${isUp ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                      <span className={`mt-2 ml-2 inline-block px-2.5 py-1 rounded-full text-xs font-bold ${isUp ? 'bg-emerald-100 dark:bg-success-container text-emerald-700 dark:text-on-success-container' : 'bg-rose-100 dark:bg-error-container text-rose-700 dark:text-on-error-container'}`}>
                         {delta} vs前回
                       </span>
                     )
@@ -736,11 +736,11 @@ export default function Compare() {
                   </>
                 )}
                 {isQualityFailure && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
+                  <div className="bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
                     <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-amber-800 japanese-text">品質チェックで注意事項があります</p>
-                      <ul className="text-xs mt-1 space-y-0.5 text-amber-700">
+                      <p className="text-xs font-bold text-amber-800 dark:text-on-warning-container japanese-text">品質チェックで注意事項があります</p>
+                      <ul className="text-xs mt-1 space-y-0.5 text-amber-700 dark:text-warning">
                         {qualityIssues.map((issue, i) => (
                           <li key={i}>・{issue}</li>
                         ))}

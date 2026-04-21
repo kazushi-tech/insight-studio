@@ -64,6 +64,8 @@
   --color-on-info-container: #0c4a6e;
   --color-accent-gold: #D4A843;
   --color-accent-gold-container: #f5ecd4;
+  --color-success-container: #e8f5e9;
+  --color-on-success-container: #1b5e20;
 }
 
 :root[data-theme='dark'] {
@@ -124,6 +126,8 @@
   --color-on-info-container: #bae6fd;
   --color-accent-gold: #e8c46e;
   --color-accent-gold-container: #3a3220;
+  --color-success-container: #1a3a28;
+  --color-on-success-container: #b5e8cc;
 }
 
 @layer base {

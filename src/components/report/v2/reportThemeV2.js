@@ -29,6 +29,29 @@ export const REPORT_COLORS_V2 = {
   error: '#ba1a1a',
 }
 
+export const REPORT_COLORS_V2_DARK = {
+  primary: '#95d4b3',
+  primaryContainer: '#1a3a28',
+  primaryFixed: '#1e4430',
+  primaryFixedDim: '#2d5a42',
+  secondary: '#95d4b3',
+  secondaryContainer: '#2a4a38',
+  tertiary: '#e8c46e',
+  tertiaryContainer: '#3a3220',
+  surface: '#0f1512',
+  surfaceContainerLowest: '#0b100d',
+  surfaceContainerLow: '#141f18',
+  surfaceContainer: '#1a261e',
+  surfaceContainerHigh: '#243029',
+  outline: '#607068',
+  outlineVariant: '#2e3f38',
+  onSurface: '#e2ede6',
+  onSurfaceVariant: '#97a89d',
+  success: '#66bb6a',
+  warning: '#ffb74d',
+  error: '#ff8f8f',
+}
+
 export const VERDICT_TOKENS_V2 = {
   強: {
     bg: REPORT_COLORS_V2.primaryContainer,
@@ -70,9 +93,24 @@ export const BRAND_PALETTE_V2 = [
  * Snapshots prior font/color/animation config so `restoreChartDefaultsV2`
  * can revert on unmount without stepping on v1.
  */
+function isDarkMode() {
+  if (typeof document === 'undefined') return false
+  return document.documentElement.dataset.theme === 'dark'
+}
+
+export function getActiveColorsV2() {
+  return isDarkMode() ? REPORT_COLORS_V2_DARK : REPORT_COLORS_V2
+}
+
 export function applyChartDefaultsV2(Chart) {
   if (!Chart?.defaults) return
-  if (Chart.defaults.__reportThemeV2Applied) return
+  const currentTheme = isDarkMode() ? 'dark' : 'light'
+  if (Chart.defaults.__reportThemeV2Applied && Chart.defaults.__reportThemeV2Snapshot?.theme === currentTheme) return
+  if (Chart.defaults.__reportThemeV2Applied) {
+    restoreChartDefaultsV2(Chart)
+  }
+
+  const c = getActiveColorsV2()
 
   Chart.defaults.__reportThemeV2Snapshot = {
     font: { ...Chart.defaults.font },
@@ -82,12 +120,13 @@ export function applyChartDefaultsV2(Chart) {
     tooltip: Chart.defaults.plugins?.tooltip ? { ...Chart.defaults.plugins.tooltip } : null,
     legend: Chart.defaults.plugins?.legend ? { ...Chart.defaults.plugins.legend } : null,
     reportThemeApplied: Chart.defaults.__reportThemeApplied,
+    theme: currentTheme,
   }
 
   Chart.defaults.font.family = 'Manrope, Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
   Chart.defaults.font.size = 12
-  Chart.defaults.color = REPORT_COLORS_V2.onSurface
-  Chart.defaults.borderColor = REPORT_COLORS_V2.outlineVariant
+  Chart.defaults.color = c.onSurface
+  Chart.defaults.borderColor = c.outlineVariant
   Chart.defaults.animation = {
     duration: 300,
     easing: 'easeOutCubic',
@@ -95,9 +134,9 @@ export function applyChartDefaultsV2(Chart) {
   Chart.defaults.plugins = Chart.defaults.plugins || {}
   Chart.defaults.plugins.tooltip = {
     ...Chart.defaults.plugins.tooltip,
-    backgroundColor: REPORT_COLORS_V2.primary,
-    titleColor: '#ffffff',
-    bodyColor: '#ffffff',
+    backgroundColor: c.primaryContainer,
+    titleColor: c.onSurface,
+    bodyColor: c.onSurface,
     cornerRadius: 12,
     padding: 12,
     titleFont: { family: 'Manrope', weight: '700' },
