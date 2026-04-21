@@ -89,14 +89,17 @@ _SIGNAL_LIMIT = 3
 _COMPARISON_BODY_SNIPPET_LIMIT = 300
 _COMPARISON_LIST_LIMIT = 3
 _SINGLE_URL_MAX_OUTPUT_TOKENS = 2560
-_MULTI_URL_MAX_OUTPUT_TOKENS = 6144
-# Section B-1: bumped 7168 → 8192 so Section 5 (実行プラン) does not overflow
-# even when Section 4 (ブランド別評価) expands for 3-site comparisons.
-_MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 8192
-_MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 6144
+# Phase Q0-1: raised from 6144 → 10240 so Section 5 can complete in a single pass.
+# Sonnet 4.6 output ceiling is 64k; prior limits used only 9-19% of budget.
+_MULTI_URL_MAX_OUTPUT_TOKENS = 10240
+# Phase Q0-1: raised from 8192 → 14336 for 3-site comparisons.
+_MULTI_URL_MAX_OUTPUT_TOKENS_3_SITES = 14336
+# Phase Q0-1: raised from 6144 → 12288 for 4+ sites.
+_MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES = 12288
 
 # Section B-2: two-phase generation budget (Section 5 只)
-_EXECUTION_PLAN_MAX_OUTPUT_TOKENS = 4096
+# Phase Q0-1: raised from 4096 → 6144.
+_EXECUTION_PLAN_MAX_OUTPUT_TOKENS = 6144
 
 # Industries that benefit from compact_output even at 2 sites because
 # the business-context template + Section 5 execution plan are heavy.
@@ -1755,8 +1758,9 @@ def _load_screenshot(path: str | None) -> bytes | None:
 def _comparison_output_token_budget(site_count: int, *, compact: bool = False) -> int:
     """Scale comparison output budget to avoid truncating later sections."""
     if compact:
-        # Compact mode: cap tokens to accelerate LLM response (40% reduction)
-        return 3072 if site_count >= 3 else 2560
+        # Phase Q0-1: expanded compact ceiling (was 2560/3072) so Section 5 survives
+        # even in compact fallback mode.
+        return 5120 if site_count >= 3 else 4096
     if site_count >= 4:
         return _MULTI_URL_MAX_OUTPUT_TOKENS_4PLUS_SITES
     if site_count == 3:
@@ -2065,3 +2069,8 @@ def _combine_usage(primary: TokenUsage, extra: TokenUsage) -> TokenUsage:
         })
     except Exception:
         return primary
+
+
+# Phase Q0-3: Public aliases so discovery_pipeline can call without importing private names.
+regenerate_execution_plan = _regenerate_execution_plan
+section_5_looks_complete = _section_5_looks_complete

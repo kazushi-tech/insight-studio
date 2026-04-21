@@ -12,6 +12,7 @@ import { copyReportToClipboard, buildCompareReportText } from '../utils/reportEx
 import { recordScore, getPreviousScore, formatScoreDelta } from '../utils/scoreHistory'
 import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables } from '../utils/reportQuality'
 import PrintButton from '../components/report/PrintButton'
+import ReportQualityBadge from '../components/report/ReportQualityBadge'
 import PriorityActionHero from '../components/report/PriorityActionHero'
 import CompetitorMatrix from '../components/report/CompetitorMatrix'
 import MarketRangeBar from '../components/report/MarketRangeBar'
@@ -480,7 +481,7 @@ export default function Compare() {
   }
   const { body: reportBody, appendix: reportAppendix } = splitReportSections(strippedReport)
   const report = stripTruncatedTables(stripModelDates(reportBody))
-  const { isQualityFailure, issues: qualityIssues } = checkReportQuality(strippedReport, backendQuality)
+  const { issues: qualityIssues } = checkReportQuality(strippedReport, backendQuality)
   const modelName = executionMeta?.model?.value || extractModelFromReport(rawReport)
   const executionMetaEntries = getExecutionMetaEntries(executionMeta, {
     providerLabel: run?.meta?.providerLabel,
@@ -712,6 +713,8 @@ export default function Compare() {
                     レポートをコピー
                   </button>
                   <PrintButton />
+                  {/* Phase Q2-4: quality badge (admin only, hidden in print) */}
+                  <ReportQualityBadge issues={qualityIssues} />
                   <UiVersionToggle className="print:hidden" />
                 </div>
               )}
@@ -734,19 +737,6 @@ export default function Compare() {
                       </div>
                     </div>
                   </>
-                )}
-                {isQualityFailure && (
-                  <div className="bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl px-4 py-3 mb-4 flex items-start gap-3">
-                    <span className="material-symbols-outlined text-lg text-amber-500 mt-0.5 shrink-0">info</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-amber-800 dark:text-on-warning-container japanese-text">品質チェックで注意事項があります</p>
-                      <ul className="text-xs mt-1 space-y-0.5 text-amber-700 dark:text-warning">
-                        {qualityIssues.map((issue, i) => (
-                          <li key={i}>・{issue}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
                 )}
                 <MarkdownRenderer content={report} variant="discovery" />
                 {extracted && <DataCoverageCard extracted={extracted} className="mt-8" />}

@@ -204,6 +204,15 @@ async def call_anthropic(
                         m, _in_tokens, _out_tokens,
                     )
                     text = f"{text}{_TRUNCATION_NOTICE}"
+                elif _stop_reason == "end_turn" and _out_tokens is not None and max_output_tokens:
+                    # Phase Q0-6: warn when output nearly saturates the budget even without
+                    # hard truncation — the next section may have been silently squeezed.
+                    ratio = _out_tokens / max_output_tokens
+                    if ratio >= 0.95:
+                        logger.warning(
+                            "llm_response near_budget model=%s stop_reason=end_turn output_tokens=%s budget=%s ratio=%.2f",
+                            m, _out_tokens, max_output_tokens, ratio,
+                        )
                 return text, _usage_from_message(message, m)
             except anthropic.NotFoundError as e:
                 logger.warning("Model %s not found (%.1fs), trying fallback: %s", m, time.monotonic() - _t0, e)
