@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
-const ThemeContext = createContext(null)
+// eslint-disable-next-line react-refresh/only-export-components
+export const ThemeContext = createContext(null)
 
 const STORAGE_KEY_THEME = 'insight-studio-theme'
 const DEFAULT_THEME = 'light'

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useTheme } from '../../../contexts/ThemeContext'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { ThemeContext } from '../../../contexts/ThemeContext'
 import {
   Chart,
   RadarController,
@@ -72,7 +72,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
   const [mode, setMode] = useState('all')
-  const { isDark } = useTheme()
+  const isDark = useContext(ThemeContext)?.isDark ?? false
 
   useEffect(() => {
     applyChartDefaultsV2(Chart)

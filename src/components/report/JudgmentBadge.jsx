@@ -1,8 +1,9 @@
+import { useContext } from 'react'
 import { getActiveJudgmentColors } from './reportTheme'
-import { useTheme } from '../../contexts/ThemeContext'
+import { ThemeContext } from '../../contexts/ThemeContext'
 
 export default function JudgmentBadge({ verdict, showIcon = true, size = 'sm', className = '' }) {
-  useTheme() // subscribe to theme changes so inline styles update on toggle
+  useContext(ThemeContext) // subscribe to theme changes so inline styles update on toggle
   const def = getActiveJudgmentColors()[verdict]
   if (!def) return <span className={className}>{verdict}</span>
 
