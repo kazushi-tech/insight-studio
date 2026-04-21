@@ -18,7 +18,8 @@ function extractHeadings(md) {
     if (m) {
       const level = m[1].length
       const title = m[2].replace(/\*\*/g, '').trim()
-      if (title && level <= 2) {
+      // Only include level-2 headings (##) — skip title-level (#) and sub-sections (###)
+      if (title && level === 2) {
         headings.push({ id: title.replace(/\s+/g, '-').toLowerCase(), title, level })
       }
     }
@@ -66,22 +67,22 @@ export default function ReportViewV2({ envelope, reportMd }) {
       <div className={styles.tocLayout}>
         {/* Section D-6: Sticky TOC sidebar (desktop only) */}
         {headings.length > 0 && (
-          <nav className={`${styles.toc} ${printStyles.hideInPrint}`} aria-label="目次" ref={tocRef}>
+          <nav className={`${styles.toc} ${printStyles.hideInPrint}`} aria-label="目次" ref={tocRef} aria-hidden="true">
             <div style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', color: 'var(--md-sys-color-on-surface-variant, #49454f)' }}>
               目次
             </div>
             {headings.map((h) => (
-              <a
+              <button
+                type="button"
                 key={h.id}
-                href={`#${h.id}`}
+                data-toc-link
                 className={`${styles.tocItem} ${activeId === h.id ? styles.tocItemActive : ''}`}
-                onClick={(e) => {
-                  e.preventDefault()
+                onClick={() => {
                   document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
                 }}
               >
                 {h.title}
-              </a>
+              </button>
             ))}
           </nav>
         )}
