@@ -925,8 +925,10 @@ async def run_discovery_pipeline(
             attempt.timeout_sec,
             max(30.0, actual_remaining - retry_reserve),
         )
-        # Use compact prompt from the start when budget is tight
-        use_compact = (attempt_index > 1) or (actual_remaining < 90.0)
+        # Use compact prompt from the start when budget is tight or only 2 sites remain.
+        # 2-site non-compact uses 6144 tokens (vs 2560 compact) — force compact to
+        # avoid the hidden extra latency from larger token budgets.
+        use_compact = (attempt_index > 1) or (actual_remaining < 90.0) or (len(all_extracted) <= 2)
         try:
             candidate_report_md, candidate_token_usage = await asyncio.wait_for(
                 analyze_fn(
@@ -936,6 +938,7 @@ async def run_discovery_pipeline(
                     api_key=analysis_api_key,
                     discovery_metadata=discovery_metadata,
                     compact_output=use_compact,
+                    two_phase=False,  # Discovery has its own outer retry loop; two-phase doubles latency
                 ),
                 timeout=effective_timeout,
             )
@@ -975,6 +978,7 @@ async def run_discovery_pipeline(
                             api_key=analysis_api_key,
                             discovery_metadata=discovery_metadata,
                             compact_output=use_compact_retry,
+                            two_phase=False,
                         ),
                         timeout=retry_timeout,
                     )

@@ -588,3 +588,77 @@ async def test_partial_fallback_not_used_when_env_disabled():
                 analyze_fn=_always_timeout,
                 validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
             )
+
+
+@pytest.mark.asyncio
+async def test_analyze_fn_called_with_two_phase_false():
+    """Regression: two_phase=False must always be passed to prevent hidden extra LLM calls."""
+    search_client = RecordingSearchClient(_search_results())
+    received_kwargs: list[dict] = []
+
+    async def _capture_analyze(extracted_list, **kwargs):
+        received_kwargs.append(dict(kwargs))
+        return (_valid_report_markdown(), TokenUsage(model="test"))
+
+    await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-two-phase-check",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_fetch_html,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=lambda url, html: _extract_for(url),
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=_capture_analyze,
+        validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+    )
+
+    assert received_kwargs, "analyze_fn should have been called"
+    for call_kwargs in received_kwargs:
+        assert call_kwargs.get("two_phase") is False, (
+            "two_phase=False must be passed to prevent hidden Section-5 re-generation "
+            "which doubles analyze latency in Discovery"
+        )
+
+
+@pytest.mark.asyncio
+async def test_two_site_analyze_uses_compact_mode():
+    """Regression: when only 2 sites available, compact_output must be True to avoid 6144-token budget."""
+    from web.app.services.discovery.search_client import SearchResult as SR
+
+    search_client = RecordingSearchClient([
+        SearchResult(url="https://example.com", title="Brand", snippet="brand"),
+        SearchResult(url="https://comp1.com", title="Comp 1", snippet="競合 1"),
+    ])
+    received_kwargs: list[dict] = []
+
+    async def _capture_analyze(extracted_list, **kwargs):
+        received_kwargs.append({"site_count": len(extracted_list), **kwargs})
+        return (_valid_report_markdown(), TokenUsage(model="test"))
+
+    await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-two-site-compact",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_fetch_html,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=lambda url, html: _extract_for(url),
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=_capture_analyze,
+        validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+    )
+
+    two_site_calls = [kw for kw in received_kwargs if kw.get("site_count", 0) <= 2]
+    for call_kwargs in two_site_calls:
+        assert call_kwargs.get("compact_output") is True, (
+            "2-site Discovery analyze must use compact_output=True to stay within latency budget"
+        )
