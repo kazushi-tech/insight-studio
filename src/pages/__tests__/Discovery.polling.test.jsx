@@ -218,8 +218,8 @@ describe('Discovery — polling core logic', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   }, 30000)
 
-  // ── 4. Hard Ceiling（180秒 → 強制タイムアウト）───────────────
-  it('triggers hard ceiling timeout after 180s', async () => {
+  // ── 4. Hard Ceiling（400秒 → 強制タイムアウト）───────────────
+  it('triggers hard ceiling timeout after 400s', async () => {
     getDiscoveryJob.mockImplementation(() => {
       return Promise.resolve({
         status: 'running',
@@ -232,9 +232,9 @@ describe('Discovery — polling core logic', () => {
 
     renderAndSubmit()
 
-    // Advance past 180s hard ceiling
+    // Advance past 400s hard ceiling (POLL_HARD_CEILING_MS = 400_000)
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(185000)
+      await vi.advanceTimersByTimeAsync(405000)
     })
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
