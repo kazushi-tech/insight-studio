@@ -218,8 +218,8 @@ describe('Discovery — polling core logic', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   }, 30000)
 
-  // ── 4. Hard Ceiling（400秒 → 強制タイムアウト）───────────────
-  it('triggers hard ceiling timeout after 400s', async () => {
+  // ── 4. Hard Ceiling（470秒 → 強制タイムアウト）───────────────
+  it('triggers hard ceiling timeout after 470s', async () => {
     getDiscoveryJob.mockImplementation(() => {
       return Promise.resolve({
         status: 'running',
@@ -232,9 +232,9 @@ describe('Discovery — polling core logic', () => {
 
     renderAndSubmit()
 
-    // Advance past 400s hard ceiling (POLL_HARD_CEILING_MS = 400_000)
+    // Advance past 470s hard ceiling (POLL_HARD_CEILING_MS = 470_000)
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(405000)
+      await vi.advanceTimersByTimeAsync(475000)
     })
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
@@ -441,8 +441,8 @@ describe('Discovery — polling core logic', () => {
     expect(getDiscoveryJob).toHaveBeenCalledWith('/discovery/jobs/job-recovered-1')
   }, 15000)
 
-  // ── 10. 期限切れセッションは無視（180秒超過）─────────────────
-  it('ignores expired sessions (older than 180s)', async () => {
+  // ── 10. 期限切れセッションは無視（POLL_HARD_CEILING_MS = 470秒超過）──
+  it('ignores expired sessions (older than 470s)', async () => {
     getDiscoveryJob.mockResolvedValue({
       status: 'completed',
       stage: 'complete',
@@ -454,14 +454,14 @@ describe('Discovery — polling core logic', () => {
       },
     })
 
-    // Set expired active job (startedAt more than 180s ago)
+    // Set expired active job (startedAt more than POLL_HARD_CEILING_MS = 470s ago)
     sessionStorage.setItem(
       'is-discovery-active-job',
       JSON.stringify({
         jobId: 'job-expired-1',
         pollUrl: '/discovery/jobs/job-expired-1',
         url: 'https://example.com',
-        startedAt: Date.now() - 181_000,
+        startedAt: Date.now() - 471_000,
       }),
     )
 

@@ -85,9 +85,9 @@ describe('Compare — happy path scan', () => {
   it('enters loading state when scan button is clicked (delayed response)', async () => {
     setClaudeKey()
 
-    // Delay the scan response indefinitely so the loading state persists
+    // Delay the scan job creation response indefinitely so the loading state persists
     server.use(
-      http.post('/api/ml/scan', async () => {
+      http.post('/api/ml/scan/jobs', async () => {
         await delay('infinite')
       }),
     )
@@ -146,7 +146,7 @@ describe('Compare — error display', () => {
     setClaudeKey()
 
     server.use(
-      http.post('/api/ml/scan', () =>
+      http.post('/api/ml/scan/jobs', () =>
         HttpResponse.json({ error: 'Unauthorized' }, { status: 401 }),
       ),
     )
@@ -173,7 +173,7 @@ describe('Compare — error display', () => {
     setClaudeKey()
 
     server.use(
-      http.post('/api/ml/scan', () =>
+      http.post('/api/ml/scan/jobs', () =>
         HttpResponse.json({ error: 'Rate limited' }, { status: 429 }),
       ),
     )
