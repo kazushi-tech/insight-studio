@@ -48,6 +48,13 @@ class IndustryPrior:
 
 
 @dataclass(frozen=True)
+class BudgetTier:
+    label: str
+    monthly_jpy: NumericRange
+    monthly_cv: NumericRange
+
+
+@dataclass(frozen=True)
 class MarketEstimate:
     industry_key: str
     industry_label: str
@@ -62,6 +69,8 @@ class MarketEstimate:
     ad_spend_monthly_jpy: NumericRange
     brand_count: int
     buying_behavior_template: str = ""
+    # 3-stage budget tiers (スモールスタート / 標準 / アグレッシブ)
+    budget_tiers: tuple[BudgetTier, ...] = field(default_factory=tuple)
 
 
 def _range(entry: dict, unit: str = "") -> NumericRange:
@@ -125,6 +134,40 @@ def classify_industry(industry_hint: str | None, keywords: Sequence[str] | None 
     return priors[-1]
 
 
+def _estimate_budget_tiers(prior: IndustryPrior, brand_count: int) -> tuple[BudgetTier, ...]:
+    """Return (スモールスタート, 標準, アグレッシブ) budget tiers.
+
+    Each tier's ad spend uses a different impression share assumption and
+    search volume / CPC anchor so the resulting ranges are narrow and actionable.
+    """
+    divisor = max(1, brand_count)
+    vol_lo = prior.monthly_search_volume.min
+    vol_hi = prior.monthly_search_volume.max
+    vol_mid = (vol_lo + vol_hi) / 2
+    cpc_lo = prior.cpc_jpy.min
+    cpc_hi = prior.cpc_jpy.max
+    cpc_mid = (cpc_lo + cpc_hi) / 2
+    cvr = max(prior.avg_cvr_pct.min, 0.1) / 100
+
+    def _tier(label: str, vol: float, cpc: float, share_lo: float, share_hi: float) -> BudgetTier:
+        b_lo = vol * cpc * share_lo / divisor
+        b_hi = vol * cpc * share_hi / divisor
+        # CV estimate: budget / CPA, CPA = CPC / CVR
+        cv_lo = max(1.0, b_lo * cvr / max(cpc, 1))
+        cv_hi = max(1.0, b_hi * cvr / max(cpc, 1))
+        return BudgetTier(
+            label=label,
+            monthly_jpy=NumericRange(min=b_lo, max=b_hi, unit="円/月"),
+            monthly_cv=NumericRange(min=cv_lo, max=cv_hi, unit="件/月"),
+        )
+
+    return (
+        _tier("スモールスタート", vol_lo, cpc_lo, 0.05, 0.10),
+        _tier("標準", vol_mid, cpc_mid, 0.10, 0.20),
+        _tier("アグレッシブ", vol_hi, cpc_hi, 0.25, 0.40),
+    )
+
+
 def _estimate_ad_spend(prior: IndustryPrior, brand_count: int) -> NumericRange:
     """Deterministic per-brand monthly ad spend range.
 
@@ -155,6 +198,7 @@ def estimate(
     brand_list = list(brands) if brands is not None else []
     prior = classify_industry(industry_hint, keywords)
     ad_spend = _estimate_ad_spend(prior, len(brand_list))
+    tiers = _estimate_budget_tiers(prior, len(brand_list))
     return MarketEstimate(
         industry_key=prior.key,
         industry_label=prior.label,
@@ -168,6 +212,7 @@ def estimate(
         ad_spend_monthly_jpy=ad_spend,
         brand_count=len(brand_list),
         buying_behavior_template=prior.buying_behavior_template,
+        budget_tiers=tiers,
     )
 
 
@@ -216,6 +261,23 @@ def format_market_estimate_block(est: MarketEstimate) -> str:
         f"| 推定月間広告費 (1ブランドあたり) | {ad_man.formatted(suffix='')} | 万円/月 |",
         "",
         "※ 上記はすべて **【市場推定】** ラベル対象。値を改変せず引用すること。",
+        "",
+        "### 予算フレーム（3段階）",
+        "",
+        "| 戦略フェーズ | 月間予算レンジ（1ブランドあたり） | 月間CV見込み |",
+        "| --- | --- | --- |",
+    ]
+    if est.budget_tiers:
+        for tier in est.budget_tiers:
+            b_man = NumericRange(min=tier.monthly_jpy.min / 1e4, max=tier.monthly_jpy.max / 1e4, unit="万円/月")
+            lines.append(
+                f"| {tier.label} | {b_man.formatted(suffix='')} 万円/月 | {tier.monthly_cv.formatted(suffix='')} 件 |"
+            )
+    else:
+        lines.append(f"| 標準 | {ad_man.formatted(suffix='')} 万円/月 | - |")
+    lines += [
+        "",
+        "※ 予算フレームはすべて **【市場推定】** ラベル対象。実績データ取得後に更新すること。",
         "",
     ]
     return "\n".join(lines)

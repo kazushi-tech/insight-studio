@@ -6,6 +6,7 @@ numbers across reports (plan 2026-04-18 section 1-A).
 """
 
 from .estimator import (
+    BudgetTier,
     IndustryPrior,
     MarketEstimate,
     NumericRange,
@@ -16,6 +17,7 @@ from .estimator import (
 )
 
 __all__ = [
+    "BudgetTier",
     "IndustryPrior",
     "MarketEstimate",
     "NumericRange",
