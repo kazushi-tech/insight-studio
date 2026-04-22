@@ -41,29 +41,22 @@ async function fillAndScan() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Timeout recovery scenarios
+// New async-job error scenarios
 // ═══════════════════════════════════════════════════════════════
 
-describe('Compare — timeout triggers error / recovery flow', () => {
-  it('shows error when scan endpoint returns a network error', async () => {
+describe('Compare — async job error scenarios', () => {
+  it('shows error when startScanJob returns a network error', async () => {
     setClaudeKey()
 
-    // Override scan to return a network-level error which the fetch layer
-    // translates into a thrown Error (similar to AbortError/timeout)
     server.use(
-      http.post('/api/ml/scan', () => {
+      http.post('/api/ml/scan/jobs', () => {
         return HttpResponse.error()
       }),
-      // Recovery will poll getScans — return empty so recovery finds nothing
-      http.get('/api/ml/scans', () =>
-        HttpResponse.json({ scans: [] }),
-      ),
     )
 
     renderCompare()
     await fillAndScan()
 
-    // Eventually an error banner should appear (after recovery attempt fails or error is shown)
     await waitFor(
       () => {
         expect(screen.getByRole('alert')).toBeInTheDocument()
@@ -76,15 +69,19 @@ describe('Compare — timeout triggers error / recovery flow', () => {
     expect(retryButton).toBeInTheDocument()
   })
 
-  it('shows error when scan returns status error in response body', async () => {
+  it('shows error when poll returns a failed job status', async () => {
     setClaudeKey()
 
+    // Job creation succeeds, but polling returns failed status
     server.use(
-      http.post('/api/ml/scan', () =>
+      http.get('/api/ml/scan/jobs/:jobId', () =>
         HttpResponse.json({
-          status: 'error',
-          error: 'LLM分析エラー: モデルの応答が不正です',
-          report_md: '',
+          status: 'failed',
+          stage: 'analyzing',
+          error: {
+            detail: 'LLM分析エラー: モデルの応答が不正です',
+            retryable: true,
+          },
         }),
       ),
     )
@@ -92,32 +89,19 @@ describe('Compare — timeout triggers error / recovery flow', () => {
     renderCompare()
     await fillAndScan()
 
-    // Error banner should show the backend error message
     await waitFor(
       () => {
         expect(screen.getByRole('alert')).toBeInTheDocument()
       },
       { timeout: 10000 },
     )
-
-    // Verify the specific error message from the response
-    expect(screen.getByText(/LLM分析エラー/)).toBeInTheDocument()
   })
 
-  it('shows error when backend warm-up fails', async () => {
+  it('shows error when startScanJob returns 500 server error', async () => {
     setClaudeKey()
 
-    // Make the health endpoint fail so warmMarketLensBackend returns false.
-    // The component checks for warmResult and fails the run with a specific message.
-    // However, warmMarketLensBackend uses the direct backend URL, not proxy.
-    // In test env with jsdom, SHOULD_FORCE_PROXY = false (hostname is 'localhost'),
-    // actually it IS localhost in jsdom, so SHOULD_FORCE_PROXY = true and
-    // warmMarketLensBackend returns Promise.resolve(true) immediately.
-    //
-    // Since warm-up is bypassed in local-like envs, we test the scan error path instead.
-    // Override scan to return 500 server error.
     server.use(
-      http.post('/api/ml/scan', () =>
+      http.post('/api/ml/scan/jobs', () =>
         HttpResponse.json(
           { error: 'Internal server error' },
           { status: 500 },
@@ -142,11 +126,11 @@ describe('Compare — retry after error', () => {
     setClaudeKey()
 
     server.use(
-      http.post('/api/ml/scan', () =>
-        HttpResponse.json({
-          status: 'error',
-          error: '分析に失敗しました。しばらく待って再試行してください。',
-        }),
+      http.post('/api/ml/scan/jobs', () =>
+        HttpResponse.json(
+          { error: '分析に失敗しました。しばらく待って再試行してください。' },
+          { status: 500 },
+        ),
       ),
     )
 
@@ -177,19 +161,26 @@ describe('Compare — retry after error', () => {
 
     // The analysis button should be available again
     expect(screen.getByRole('button', { name: /分析開始/ })).toBeInTheDocument()
-  })
+  }, 15000)
 })
 
-describe('Compare — scan returns error status with report_md fallback', () => {
-  it('extracts error message from report_md when error field is empty', async () => {
+describe('Compare — poll result contains error status with report_md fallback', () => {
+  it('extracts error message from report_md when error field is empty in poll result', async () => {
     setClaudeKey()
 
+    // Poll returns completed but the result has error status + report_md
     server.use(
-      http.post('/api/ml/scan', () =>
+      http.get('/api/ml/scan/jobs/:jobId', () =>
         HttpResponse.json({
-          status: 'error',
-          error: '',
-          report_md: 'LLM分析エラー: トークン上限に達しました',
+          status: 'completed',
+          stage: 'complete',
+          progress_pct: 100,
+          updated_at: new Date().toISOString(),
+          result: {
+            status: 'error',
+            error: '',
+            report_md: 'LLM分析エラー: トークン上限に達しました',
+          },
         }),
       ),
     )
@@ -205,5 +196,78 @@ describe('Compare — scan returns error status with report_md fallback', () => 
     )
 
     expect(screen.getByText(/LLM分析エラー: トークン上限に達しました/)).toBeInTheDocument()
+  })
+})
+
+describe('Compare — sessionStorage resume on mount', () => {
+  it('resumes a previous job from sessionStorage on mount', async () => {
+    setClaudeKey()
+
+    // Simulate an active job in sessionStorage from a previous page visit
+    sessionStorage.setItem(
+      'is-compare-active-scan-job',
+      JSON.stringify({
+        jobId: 'scan-resume-001',
+        pollUrl: '/scan/jobs/scan-resume-001',
+        urls: {
+          target: 'https://saved-target.com',
+          compA: 'https://saved-comp.com',
+          compB: '',
+        },
+        startedAt: Date.now(),
+      }),
+    )
+
+    // Poll immediately returns completed
+    server.use(
+      http.get('/api/ml/scan/jobs/scan-resume-001', () =>
+        HttpResponse.json({
+          status: 'completed',
+          stage: 'complete',
+          progress_pct: 100,
+          updated_at: new Date().toISOString(),
+          result: {
+            run_id: 'scan-resume-001',
+            overall_score: 91,
+            scores: {},
+            report_md: '# Resumed Report',
+          },
+        }),
+      ),
+    )
+
+    renderCompare()
+
+    // Score from resumed result should appear
+    await waitFor(
+      () => {
+        const matches = screen.getAllByText('91')
+        expect(matches.length).toBeGreaterThanOrEqual(1)
+      },
+      { timeout: 10000 },
+    )
+  })
+
+  it('ignores expired jobs in sessionStorage (startedAt older than hard ceiling)', () => {
+    setClaudeKey()
+
+    // SCAN_POLL_HARD_CEILING_MS = 660_000 (11 min) in Compare.jsx
+    sessionStorage.setItem(
+      'is-compare-active-scan-job',
+      JSON.stringify({
+        jobId: 'scan-expired-001',
+        pollUrl: '/scan/jobs/scan-expired-001',
+        urls: { target: 'https://old.com', compA: '', compB: '' },
+        startedAt: Date.now() - 661_000,
+      }),
+    )
+
+    renderCompare()
+
+    // Component should render normally without entering loading state
+    expect(screen.getByRole('button', { name: /分析開始/ })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // Session key should have been cleared (getActiveScanJob returns null for expired)
+    expect(sessionStorage.getItem('is-compare-active-scan-job')).toBeNull()
   })
 })

@@ -223,7 +223,7 @@ def create_discovery_router(
             extract_fn=extract,
             classify_industry_fn=classify_industry,
             analyze_fn=analyze,
-            validate_candidates_fn=None,  # disabled: +10s LLM call removed for latency
+            validate_candidates_fn=validate_candidates_with_llm,  # B-06: re-enabled for industry filtering
             daily_limit_reached=_daily_limit_reached,
             mark_search_consumed=_mark_search_consumed,
         )
@@ -397,7 +397,7 @@ def create_discovery_router(
                         extract_fn=extract,
                         classify_industry_fn=classify_industry,
                         analyze_fn=analyze,
-                        validate_candidates_fn=None,  # disabled: +10s LLM call removed for latency
+                        validate_candidates_fn=validate_candidates_with_llm,  # B-06: re-enabled for industry filtering
                         daily_limit_reached=_daily_limit_reached,
                         mark_search_consumed=_mark_search_consumed,
                     ),

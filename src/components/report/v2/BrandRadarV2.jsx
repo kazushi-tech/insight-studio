@@ -41,7 +41,9 @@ function fromEnvelope(evaluations) {
         if (!AXIS_KEYS.includes(a.axis)) continue
         scores[a.axis] = VERDICT_SCORE[a.verdict] ?? null
       }
-      return Object.keys(scores).length ? { brand: e.brand, scores } : null
+      return Object.keys(scores).length
+        ? { brand: e.brand, scores, isReference: e.role === 'reference' }
+        : null
     })
     .filter(Boolean)
 }
@@ -71,7 +73,9 @@ export default function BrandRadarV2({ envelope, reportMd }) {
 
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
-  const [mode, setMode] = useState('all')
+  const [mode] = useState('all')
+  // F-04: pill toggle — track hidden brands set
+  const [hiddenBrands, setHiddenBrands] = useState(new Set())
   const isDark = useContext(ThemeContext)?.isDark ?? false
 
   useEffect(() => {
@@ -94,23 +98,31 @@ export default function BrandRadarV2({ envelope, reportMd }) {
     const datasets = brands.map((b, i) => {
       const color = BRAND_PALETTE_V2[i % BRAND_PALETTE_V2.length]
       const isFocused = mode === 'all' || mode === b.brand
-      // Extract rgba fill alpha so we can dim unfocused brands cleanly.
+      const isHidden = hiddenBrands.has(b.brand)
+      // F-04: reference brands get dashed border + very low fill-opacity (0.12)
+      const refBg = color.bg.replace(
+        /rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/,
+        'rgba($1,$2,$3, 0.12)'
+      )
       const dimBg = color.bg.replace(
         /rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/,
         'rgba($1,$2,$3, 0.06)'
       )
+      const activeBg = b.isReference ? refBg : isFocused ? color.bg : dimBg
       const dimBorder = isFocused ? color.border : `${color.border}33`
       return {
         label: b.brand,
         data: AXIS_KEYS.map((k) => (b.scores[k] == null ? null : b.scores[k])),
         borderColor: dimBorder,
-        backgroundColor: isFocused ? color.bg : dimBg,
+        borderDash: b.isReference ? [5, 4] : [],
+        backgroundColor: activeBg,
         borderWidth: isFocused ? 2 : 1,
         pointBackgroundColor: dimBorder,
         pointRadius: isFocused ? 3 : 1,
         pointHoverRadius: isFocused ? 6 : 3,
         spanGaps: true,
         order: isFocused ? 1 : 2,
+        hidden: isHidden,
       }
     })
 
@@ -168,7 +180,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
         },
       },
     })
-  }, [brands, mode, isDark])
+  }, [brands, mode, isDark, hiddenBrands])
 
   useEffect(() => {
     return () => {
@@ -189,29 +201,30 @@ export default function BrandRadarV2({ envelope, reportMd }) {
     >
       <header className={styles.header}>
         <span className={styles.label}>Brand Radar — 6軸評価</span>
-        <div className={styles.toggleGroup} role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'all'}
-            onClick={() => setMode('all')}
-            className={`${styles.toggle} ${mode === 'all' ? styles.toggleActive : ''}`}
-          >
-            全て
-          </button>
-          {brands.map((b) => (
-            <button
-              key={b.brand}
-              type="button"
-              role="tab"
-              aria-selected={mode === b.brand}
-              onClick={() => setMode(b.brand)}
-              className={`${styles.toggle} ${mode === b.brand ? styles.toggleActive : ''}`}
-              title={b.brand}
-            >
-              {b.brand}
-            </button>
-          ))}
+        <div className={styles.toggleGroup} role="group" aria-label="ブランド表示切替">
+          {brands.map((b) => {
+            const isHidden = hiddenBrands.has(b.brand)
+            return (
+              <button
+                key={b.brand}
+                type="button"
+                aria-pressed={!isHidden}
+                onClick={() => {
+                  setHiddenBrands((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(b.brand)) next.delete(b.brand)
+                    else next.add(b.brand)
+                    return next
+                  })
+                }}
+                className={`${styles.toggle} ${isHidden ? styles.toggleHidden : styles.toggleActive} ${b.isReference ? styles.toggleReference : ''}`}
+                title={b.isReference ? `${b.brand}（参考観測）` : b.brand}
+              >
+                {b.brand}
+                {b.isReference && <span className={styles.refMark}>参考</span>}
+              </button>
+            )
+          })}
         </div>
       </header>
 

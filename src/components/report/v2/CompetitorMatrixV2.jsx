@@ -29,7 +29,11 @@ function fromEnvelope(evaluations) {
         }
       }
       if (Object.keys(map).length === 0) return null
-      return { brand: e.brand || '', verdicts: map }
+      return {
+        brand: e.brand || '',
+        verdicts: map,
+        isReference: e.role === 'reference',
+      }
     })
     .filter(Boolean)
 }
@@ -71,8 +75,15 @@ export default function CompetitorMatrixV2({ envelope, reportMd }) {
             <tr>
               <th className={styles.thBrand}>評価軸</th>
               {rows.map((row, ri) => (
-                <th key={ri} className={styles.th} title={row.brand}>
+                <th
+                  key={ri}
+                  className={`${styles.th} ${row.isReference ? styles.thReference : ''}`}
+                  title={row.isReference ? `${row.brand}（参考観測枠）` : row.brand}
+                >
                   <span className={styles.brandHead}>{row.brand}</span>
+                  {row.isReference && (
+                    <span className={styles.referencePill}>参考</span>
+                  )}
                 </th>
               ))}
             </tr>
@@ -87,24 +98,33 @@ export default function CompetitorMatrixV2({ envelope, reportMd }) {
                   const cell = row.verdicts[axis]
                   const verdict = cell?.verdict
                   const token = verdict ? VERDICT_TOKENS_V2[verdict] : null
+                  const isMissing = !cell || verdict == null
                   return (
-                    <td key={ci} className={styles.cellCell}>
-                      <button
-                        type="button"
-                        className={styles.cellButton}
-                        style={{
-                          backgroundColor: token?.bg ?? 'var(--md-v2-verdict-pending-bg)',
-                          color: token?.fg ?? 'var(--md-v2-verdict-pending-fg)',
-                        }}
-                        disabled={!cell}
-                        onClick={() => cell && setDetail({ brand: row.brand, axis, cell })}
-                        aria-label={`${row.brand} の ${axis} は ${verdict ?? '判定なし'}`}
-                      >
-                        <span aria-hidden="true" className={styles.symbol}>
-                          {token?.symbol ?? '・'}
-                        </span>
-                        <span className={styles.verdictText}>{token?.label ?? '-'}</span>
-                      </button>
+                    <td
+                      key={ci}
+                      className={`${styles.cellCell} ${row.isReference ? styles.colReference : ''}`}
+                    >
+                      {isMissing ? (
+                        <div className={styles.cellMissing} aria-label={`${row.brand} の ${axis} — データ不足`}>
+                          <span className={styles.missingBadge}>評価保留</span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.cellButton}
+                          style={{
+                            backgroundColor: token?.bg ?? 'var(--md-v2-verdict-pending-bg)',
+                            color: token?.fg ?? 'var(--md-v2-verdict-pending-fg)',
+                          }}
+                          onClick={() => cell && setDetail({ brand: row.brand, axis, cell })}
+                          aria-label={`${row.brand} の ${axis} は ${verdict ?? '判定なし'}`}
+                        >
+                          <span aria-hidden="true" className={styles.symbol}>
+                            {token?.symbol ?? '・'}
+                          </span>
+                          <span className={styles.verdictText}>{token?.label ?? '-'}</span>
+                        </button>
+                      )}
                     </td>
                   )
                 })}

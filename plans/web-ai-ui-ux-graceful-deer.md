@@ -597,3 +597,120 @@ useEffect(() => {
 - `src/contexts/ReportHistoryContext.jsx`（新規）
 - `src/components/report-history/ReportHistoryDrawer.jsx`（新規）
 - `src/utils/reportHistoryStorage.js`（新規）
+
+---
+
+## 14. Follow-up: ダークモード描画バグ調査プラン（2026-04-21 追記）
+
+### 14-1. Context
+
+PR #61（dec2bd1）マージ後、ユーザー報告:
+
+> ダークモードが全然ダークじゃないんだよなあ、、、履歴は反映されていました！
+
+履歴機能は正常動作。ただし `/ads/ai` でダークモード有効中に履歴ドロワーを開くと、**ドロワー本体だけ白く描画される**（他画面は正しくダーク）。スクリーンショット2枚で確認済み。
+
+### 14-2. 静的解析で判明した事実
+
+| 観点 | 結論 |
+|---|---|
+| `bg-surface-container-lowest` の定義 | `background-color: var(--color-surface-container-lowest)` — var()参照で正しい |
+| ダークモード override | `:root[data-theme=dark]{--color-surface-container-lowest:#0f1512;…}` がビルド済CSSに存在 (offset 163200) |
+| `.lp-page` 内の `#ffffff` override | `.lp-page` スコープ限定、`/ads/ai` 未適用 |
+| ハードコード色の混入 | `src/components/report-history/` 配下に `#fff`/`bg-white`/`rgb(255…)` **ゼロ** |
+| 他モーダル比較 | `KeySettingsModal` も同じ `bg-surface-container-lowest` 使用、ユーザー報告無し → 単体で壊れている可能性は低い |
+| ThemeContext 適用 | `document.documentElement.dataset.theme = 'dark'` で `:root` に付与、var() カスケード経路は健全 |
+
+### 14-3. 仮説
+
+静的には明確な破綻が見つからない。以下のいずれかが疑わしい:
+
+1. **スタッキングコンテキスト or `transform` の作用**: `aside` の `transform transition-transform` が var() 解決に影響している可能性（通常は影響しないが、実機確認必要）
+2. **ブラウザキャッシュ**: 古いビルドのCSSをユーザーが見ている可能性（PR #61 のバンドルハッシュ更新で解消するはず）
+3. **描画タイミング**: マウント直後は `data-theme` がまだ設定されていない瞬間があり、初期描画で light トークンが焼き付いている可能性
+4. **実は別要素が白く見えている**: shadow-2xl、ホバー状態の `bg-surface-container` などが視覚的に白く見えているだけで、実態は想定通りの `#0f1512` 付近（暗色）の可能性
+
+静的解析ではこれ以上特定不可。実機の `getComputedStyle` 値が必要じゃ。
+
+### 14-4. 調査手順（webapp-testing skill 使用）
+
+```python
+# scripts/with_server.py で dev server 起動後
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto('http://localhost:3002/ads/ai')
+    page.wait_for_load_state('networkidle')
+
+    # 1. ダークモード有効化
+    page.click('[aria-label*="ダークモード"]')
+    page.wait_for_timeout(300)
+
+    # 2. html の data-theme を確認
+    theme = page.evaluate('document.documentElement.dataset.theme')
+    print(f'theme attr: {theme}')
+
+    # 3. :root の var() 値を確認
+    root_lowest = page.evaluate('getComputedStyle(document.documentElement).getPropertyValue("--color-surface-container-lowest")')
+    print(f'root --color-surface-container-lowest: {root_lowest}')
+
+    # 4. 履歴アイコンクリック
+    page.click('[aria-label="レポート履歴を開く"]')
+    page.wait_for_timeout(400)
+
+    # 5. ドロワー内層 div の computed 値を取得
+    drawer_bg = page.evaluate('''() => {
+      const aside = document.querySelector('[aria-labelledby="report-history-title"]')
+      const inner = aside?.querySelector('.bg-surface-container-lowest')
+      if (!inner) return { error: 'inner div not found' }
+      const cs = getComputedStyle(inner)
+      return {
+        backgroundColor: cs.backgroundColor,
+        varValue: cs.getPropertyValue('--color-surface-container-lowest'),
+        dataThemeOnHtml: document.documentElement.dataset.theme,
+        boundingRect: inner.getBoundingClientRect(),
+      }
+    }''')
+    print(drawer_bg)
+
+    # 6. スクリーンショット
+    page.screenshot(path='/tmp/drawer-dark-mode.png', full_page=True)
+    browser.close()
+```
+
+想定される結果別の判断:
+
+| computed `backgroundColor` | 判定 |
+|---|---|
+| `rgb(15, 21, 18)` (= `#0f1512`) | バグは視覚的錯覚。他の要素が白く見えている。該当要素を特定して修正 |
+| `rgb(255, 255, 255)` | var() が light のまま。`data-theme` 伝播の問題。ThemeContext 初回 applyTheme 前のレース条件を疑う |
+| その他 | 新規仕様違反。個別調査 |
+
+### 14-5. 修正方針（結果別）
+
+**結果が `#0f1512` の場合**（視覚的錯覚）:
+
+- スクリーンショットと実測値をユーザーに提示
+- 必要ならトーンを一段濃く: `bg-surface-container-lowest` → `bg-surface` 等でコントラスト強化
+
+**結果が `#ffffff` の場合**（var() 未解決）:
+
+- ThemeContext の初期化タイミングを修正: `applyTheme` を `useLayoutEffect` または main.jsx の ThemeProvider マウント前にインライン `<script>` で実行
+- あるいは `index.html` に `<html data-theme="light">` を初期値として静的挿入、ThemeProvider 側で即座に更新
+- 参考: Next.js の `next-themes` パッケージが採用する no-flash スクリプトパターン
+
+### 14-6. 検証項目
+
+- [ ] Playwright で dark mode トグル → ドロワー open → computed backgroundColor が `rgb(15, 21, 18)` 付近
+- [ ] スクリーンショット比較で、他のモーダル（KeySettingsModal / GuideModal）と同等の暗さ
+- [ ] ハードリロード後も dark モードが即座に適用される（白フラッシュ無し）
+- [ ] localStorage を clear した状態で最初のロードが light、toggle で dark 即座に反映
+- [ ] 履歴アイテム hover 時の `bg-surface-container` も暗色のまま
+
+### 14-7. Out of Scope
+
+- 他画面のダークモード追加対応（既に PR #53 で v2 対応済み）
+- `prefers-color-scheme` 自動追従（現状は手動トグルのみの仕様）
+- テーマカラー自体の再設計

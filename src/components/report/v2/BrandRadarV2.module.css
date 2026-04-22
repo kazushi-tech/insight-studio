@@ -57,6 +57,32 @@
   color: var(--md-sys-color-on-primary);
 }
 
+/* F-04: hidden brand pill */
+.toggleHidden {
+  opacity: 0.38;
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface-variant);
+  text-decoration: line-through;
+}
+
+/* F-04: reference observer pill style */
+.toggleReference {
+  border: 1.5px dashed var(--md-sys-color-outline-variant);
+}
+
+.refMark {
+  display: inline-block;
+  margin-left: 0.25rem;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  vertical-align: middle;
+}
+
 .canvasWrap {
   position: relative;
   height: 360px;

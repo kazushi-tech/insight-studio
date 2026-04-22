@@ -69,15 +69,15 @@ describe('BrandRadarV2', () => {
 
   it('renders brand toggle buttons from ReportEnvelope', () => {
     render(<BrandRadarV2 envelope={ENVELOPE} reportMd="" />)
-    expect(screen.getByRole('tab', { name: 'カメラの大林' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'キタムラ' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'カメラの大林' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'キタムラ' })).toBeInTheDocument()
   })
 
   it('falls back to markdown when envelope empty (all 3 brands visible)', () => {
     render(<BrandRadarV2 envelope={null} reportMd={MD_FIXTURE} />)
-    expect(screen.getByRole('tab', { name: 'カメラの大林' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'キタムラ' })).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'ヨドバシ' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'カメラの大林' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'キタムラ' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ヨドバシ' })).toBeInTheDocument()
   })
 
   it('renders nothing when no data', () => {

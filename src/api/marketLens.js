@@ -18,7 +18,7 @@ const BASE = SHOULD_FORCE_PROXY || !DIRECT_MARKET_LENS_ORIGIN
 const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
   ? `${DIRECT_MARKET_LENS_ORIGIN}/api/ml`
   : 'https://market-lens-ai.onrender.com/api/ml'
-const LONG_ANALYSIS_TIMEOUT = 240000
+const LONG_ANALYSIS_TIMEOUT = 600000
 const CREATIVE_UPLOAD_TIMEOUT = 90000
 const DISCOVERY_AUTO_RETRY_COUNT = 2
 const DISCOVERY_AUTO_RETRY_DELAYS_MS = [1500, 4000]
@@ -853,6 +853,58 @@ export async function getDiscoveryJob(jobIdOrPollPath) {
     })
   } catch (error) {
     // Reset backend readiness on network/server errors so next attempt re-verifies
+    const status = Number(error?.status || 0)
+    if (!status || status >= 500) {
+      _directBackendReady = false
+    }
+    throw error
+  }
+}
+
+function normalizeScanJobPollPath(jobIdOrPollPath) {
+  if (!jobIdOrPollPath || typeof jobIdOrPollPath !== 'string') return null
+  if (jobIdOrPollPath.startsWith('http://') || jobIdOrPollPath.startsWith('https://')) {
+    const url = new URL(jobIdOrPollPath)
+    return `${url.pathname}${url.search}`
+  }
+  if (jobIdOrPollPath.startsWith('/scan/')) return jobIdOrPollPath
+  if (jobIdOrPollPath.startsWith('/api/scan/')) return jobIdOrPollPath.slice(4)
+  return `/scan/jobs/${jobIdOrPollPath}`
+}
+
+/** POST /api/scan/jobs — LP比較分析非同期ジョブ開始 (202 + poll_url) */
+export function startScanJob(urls, optionsOrApiKey) {
+  const { apiKey, provider, model } = resolveAiOptions(optionsOrApiKey)
+  return requestJson('/scan/jobs', {
+    method: 'POST',
+    body: JSON.stringify({
+      urls,
+      ...(apiKey ? { api_key: apiKey } : {}),
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+    }),
+    timeout: 30000,
+    direct: true,
+    directStrategy: 'optimistic',
+    allowProxyFallback: false,
+  }).then((data) => ({
+    ...data,
+    poll_url: normalizeScanJobPollPath(data?.poll_url || data?.job_id),
+    retry_after_sec: Number.isFinite(Number(data?.retry_after_sec)) && Number(data.retry_after_sec) > 0
+      ? Number(data.retry_after_sec)
+      : null,
+  }))
+}
+
+/** GET /api/scan/jobs/{jobId} — ジョブ状態ポーリング */
+export async function getScanJob(pollPath) {
+  try {
+    return await requestJson(normalizeScanJobPollPath(pollPath), {
+      timeout: 15000,
+      direct: true,
+      directStrategy: 'optimistic',
+    })
+  } catch (error) {
     const status = Number(error?.status || 0)
     if (!status || status >= 500) {
       _directBackendReady = false

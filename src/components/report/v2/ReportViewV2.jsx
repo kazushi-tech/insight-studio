@@ -6,34 +6,29 @@ import CompetitorMatrixV2 from './CompetitorMatrixV2'
 import BrandRadarV2 from './BrandRadarV2'
 import MarketRangeV2 from './MarketRangeV2'
 import styles from './ReportViewV2.module.css'
+import { makeHeadingSlug } from '../../../utils/headingSlug'
 
-/**
- * Extract ## headings from report markdown for TOC.
- */
 function extractHeadings(md) {
   if (!md) return []
   const headings = []
+  const seenIds = new Map()
   for (const line of md.split('\n')) {
     const m = line.match(/^(#{1,3})\s+(.+)/)
     if (m) {
       const level = m[1].length
       const title = m[2].replace(/\*\*/g, '').trim()
-      // Only include level-2 headings (##) — skip title-level (#) and sub-sections (###)
-      if (title && level === 2) {
-        headings.push({ id: title.replace(/\s+/g, '-').toLowerCase(), title, level })
+      if (!title) continue
+      const slug = makeHeadingSlug(title)
+      const count = seenIds.get(slug) ?? 0
+      seenIds.set(slug, count + 1)
+      const id = count === 0 ? slug : slug + '-' + (count + 1)
+      if (level === 2) {
+        headings.push({ id, title, level })
       }
     }
   }
   return headings
 }
-
-/**
- * Stitch 2.0 report view. Activated by `?ui=v2` (see `useUiVersion`).
- *
- * v1 is untouched — a page renders either <ReportViewV1 /> or this, never
- * both. Envelope is preferred, markdown fallback is always wired so the
- * component is safe even when the backend flag is off.
- */
 
 export default function ReportViewV2({ envelope, reportMd }) {
   const headings = useMemo(() => extractHeadings(reportMd), [reportMd])

@@ -42,12 +42,52 @@ export const handlers = [
     HttpResponse.json(discoveryFixture),
   ),
 
-  // Compare: scan
+  // Compare: scan (legacy sync endpoint kept for backward compat)
   http.post(`${ML_ORIGIN}/api/scan`, () =>
     HttpResponse.json(compareFixture),
   ),
   http.post('/api/ml/scan', () =>
     HttpResponse.json(compareFixture),
+  ),
+
+  // Compare: async scan job — create
+  http.post(`${ML_ORIGIN}/api/scan/jobs`, () =>
+    HttpResponse.json({
+      job_id: 'scan-job-001',
+      poll_url: '/scan/jobs/scan-job-001',
+      retry_after_sec: 3,
+      status: 'running',
+      stage: 'queued',
+    }),
+  ),
+  http.post('/api/ml/scan/jobs', () =>
+    HttpResponse.json({
+      job_id: 'scan-job-001',
+      poll_url: '/scan/jobs/scan-job-001',
+      retry_after_sec: 3,
+      status: 'running',
+      stage: 'queued',
+    }),
+  ),
+
+  // Compare: async scan job — poll (returns completed with fixture)
+  http.get(`${ML_ORIGIN}/api/scan/jobs/:jobId`, () =>
+    HttpResponse.json({
+      status: 'completed',
+      stage: 'complete',
+      progress_pct: 100,
+      updated_at: new Date().toISOString(),
+      result: compareFixture,
+    }),
+  ),
+  http.get('/api/ml/scan/jobs/:jobId', () =>
+    HttpResponse.json({
+      status: 'completed',
+      stage: 'complete',
+      progress_pct: 100,
+      updated_at: new Date().toISOString(),
+      result: compareFixture,
+    }),
   ),
 
   // Scan history

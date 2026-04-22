@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { scan, getScan, getScans, classifyError, warmMarketLensBackend } from '../api/marketLens'
+import { startScanJob, getScanJob, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import DataCoverageCard from '../components/DataCoverageCard'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -22,7 +22,56 @@ import UiVersionToggle from '../components/report/v2/UiVersionToggle'
 import { useUiVersion } from '../hooks/useUiVersion'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
+import { useAsyncJob } from '../hooks/useAsyncJob'
 
+// ─── Constants ───────────────────────────────────────────────
+
+const SCAN_POLL_HARD_CEILING_MS = 660_000  // 11 min — backend overall 600s + 60s 余裕
+const SCAN_POLL_STALE_TIMEOUT_MS = 90_000
+const SCAN_POLL_SOFT_WARNING_MS = 300_000
+
+const SCAN_STAGE_LABELS = {
+  queued: 'ジョブ準備中…',
+  fetching_lps: 'LP を取得中…',
+  analyzing: '比較分析中…',
+  complete: '完了',
+  failed: 'エラー',
+}
+
+// Pseudo-stage messages cycling based on elapsed time (fallback when no real stage)
+function getPseudoStageMessage(elapsedMs) {
+  if (!elapsedMs) return null
+  const sec = elapsedMs / 1000
+  if (sec < 20) return 'サーバー起動中…'
+  if (sec < 60) return 'AI がブランド情報を解析中…'
+  if (sec < 150) return '競合 LP を取得中…'
+  if (sec < 360) return '比較レポートを生成中…'
+  return 'AI 分析の最終仕上げ中…'
+}
+
+// ─── sessionStorage helpers ──────────────────────────────────
+
+const ACTIVE_SCAN_JOB_KEY = 'is-compare-active-scan-job'
+
+function persistActiveScanJob(jobId, pollUrl, urls) {
+  try {
+    sessionStorage.setItem(ACTIVE_SCAN_JOB_KEY, JSON.stringify({ jobId, pollUrl, urls, startedAt: Date.now() }))
+  } catch { /* intentionally empty */ }
+}
+function clearActiveScanJob() {
+  try { sessionStorage.removeItem(ACTIVE_SCAN_JOB_KEY) } catch { /* intentionally empty */ }
+}
+function getActiveScanJob() {
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_SCAN_JOB_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Date.now() - parsed.startedAt > SCAN_POLL_HARD_CEILING_MS) { clearActiveScanJob(); return null }
+    return parsed
+  } catch { return null }
+}
+
+// ─── Utility functions ───────────────────────────────────────
 
 function formatElapsed(ms) {
   if (!ms) return null
@@ -32,7 +81,6 @@ function formatElapsed(ms) {
 
 function getHostname(value) {
   if (!value) return ''
-
   try {
     return new URL(value).hostname
   } catch {
@@ -40,98 +88,11 @@ function getHostname(value) {
   }
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function normalizeComparableUrl(value) {
-  if (!value || typeof value !== 'string') return ''
-
-  try {
-    const parsed = new URL(value.trim())
-    parsed.hash = ''
-    const pathname = parsed.pathname.replace(/\/+$/, '') || '/'
-    const search = parsed.search || ''
-    const port = parsed.port ? `:${parsed.port}` : ''
-    return `${parsed.protocol}//${parsed.hostname.toLowerCase()}${port}${pathname}${search}`
-  } catch {
-    return value.trim().replace(/\/+$/, '').toLowerCase()
-  }
-}
-
-function normalizeUrlList(urls) {
-  return (Array.isArray(urls) ? urls : [])
-    .map((value) => normalizeComparableUrl(value))
-    .filter(Boolean)
-}
-
-function haveSameUrlList(left, right) {
-  const leftUrls = normalizeUrlList(left)
-  const rightUrls = normalizeUrlList(right)
-  return leftUrls.length === rightUrls.length
-    && leftUrls.every((value, index) => value === rightUrls[index])
-}
-
-function readHistoryItems(data) {
-  if (Array.isArray(data)) return data
-  if (Array.isArray(data?.scans)) return data.scans
-  if (Array.isArray(data?.history)) return data.history
-  if (Array.isArray(data?.results)) return data.results
-  return []
-}
-
-function parseHistoryTimestamp(value) {
-  const ts = Date.parse(value || '')
-  return Number.isFinite(ts) ? ts : 0
-}
-
-async function findMatchingCompletedScan(urlList, { startedAt, lookbackMs = 2 * 60 * 1000 } = {}) {
-  const history = await getScans({ includeUntracked: true })
-  const items = readHistoryItems(history)
-  const threshold = Math.max(0, (startedAt || Date.now()) - lookbackMs)
-
-  const candidate = items
-    .filter((item) => {
-      if (!item?.run_id || item.status !== 'completed') return false
-      if (!haveSameUrlList(item.urls, urlList)) return false
-      return parseHistoryTimestamp(item.created_at) >= threshold
-    })
-    .sort((left, right) => parseHistoryTimestamp(right.created_at) - parseHistoryTimestamp(left.created_at))[0]
-
-  if (!candidate?.run_id) return null
-  return getScan(candidate.run_id)
-}
-
-async function recoverTimedOutScan(urlList, { startedAt, timeoutMs = 90000, intervalMs = 5000, onProgress } = {}) {
-  const deadline = Date.now() + timeoutMs
-  let attempt = 0
-
-  while (Date.now() <= deadline) {
-    attempt += 1
-    const remainingMs = Math.max(0, deadline - Date.now())
-    onProgress?.({ attempt, remainingMs })
-
-    try {
-      const recovered = await findMatchingCompletedScan(urlList, { startedAt })
-      if (recovered) return recovered
-    } catch {
-      // History lookup failures should not mask the original timeout.
-    }
-
-    if (Date.now() >= deadline) break
-    await sleep(intervalMs)
-  }
-
-  return null
-}
-
 function getScanErrorMessage(data) {
   if (!data || data.status !== 'error') return ''
-
   if (typeof data.error === 'string' && data.error.trim()) {
     return data.error.trim()
   }
-
   const report = typeof data.report_md === 'string' ? data.report_md : ''
   const match = report.match(/LLM分析エラー:[^\r\n]+/)
   return match?.[0] || '分析に失敗しました。しばらく待って再試行してください。'
@@ -173,7 +134,6 @@ function parseExecutionMeta(reportMd) {
 function inferExecutionEngine(providerLabel, modelName) {
   const normalizedProvider = String(providerLabel || '').trim().toLowerCase()
   const normalizedModel = String(modelName || '').trim().toLowerCase()
-
   if (normalizedProvider.includes('claude') || normalizedModel.startsWith('claude')) {
     return 'Claude'
   }
@@ -182,7 +142,6 @@ function inferExecutionEngine(providerLabel, modelName) {
 
 function getExecutionMetaEntries(executionMeta, { providerLabel, modelName }) {
   if (!executionMeta) return []
-
   return [
     { key: 'route', label: '実行経路', value: 'Market Lens backend' },
     { key: 'engine', label: '実行エンジン', value: inferExecutionEngine(providerLabel, modelName) },
@@ -199,41 +158,81 @@ function stripExecutionMeta(reportMd) {
   return reportMd.replace(/\n*(?:#{1,4}\s*)?(?:実行メタデータ|Execution Metadata)[\s\S]*$/i, '').trimEnd()
 }
 
-function MetaBand({ run, modelName }) {
+// ─── MetaBand ────────────────────────────────────────────────
+
+function MetaBand({ run, modelName, now }) {
   if (!run || run.status === 'idle') return null
   const result = run.result
   const elapsed = run.startedAt && run.finishedAt ? run.finishedAt - run.startedAt : null
+  const runningElapsed = run.startedAt && run.status === 'running'
+    ? Math.max(0, now - run.startedAt)
+    : null
   const recovering = Boolean(run.meta?.recoveryMode)
 
+  const stage = run.meta?.stage
+  const progressPct = run.meta?.progress_pct
+  const stageLabel = stage ? SCAN_STAGE_LABELS[stage] || stage : null
+  const pseudoStageMsg = run.status === 'running' && !stageLabel
+    ? getPseudoStageMessage(runningElapsed)
+    : null
+  const statusLabel = run.meta?.statusLabel
+
   return (
-    <div className="flex items-center gap-4 text-xs text-on-surface-variant">
-      <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
-        <span className={`w-1.5 h-1.5 rounded-full ${
-          run.status === 'running' ? 'bg-amber-400 animate-pulse' :
-          run.status === 'completed' ? 'bg-emerald-500' :
-          'bg-red-400'
-        }`} />
-        {run.status === 'running' ? '分析中…' : run.status === 'completed' ? '完了' : 'エラー'}
-      </span>
-      {result?.run_id && <span className="text-outline font-mono">run: {result.run_id}</span>}
-      {result?.status && result.status !== run.status && (
-        <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{result.status}</span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-on-surface-variant">
+        <span className="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full font-bold">
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            run.status === 'running' ? 'bg-amber-400 animate-pulse' :
+            run.status === 'completed' ? 'bg-emerald-500' :
+            'bg-red-400'
+          }`} />
+          {run.status === 'running'
+            ? (statusLabel || stageLabel || pseudoStageMsg || '分析中…')
+            : run.status === 'completed' ? '完了' : 'エラー'}
+        </span>
+        {result?.run_id && <span className="text-outline font-mono">run: {result.run_id}</span>}
+        {result?.status && result.status !== run.status && (
+          <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{result.status}</span>
+        )}
+        {run.meta?.providerLabel && (
+          <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
+        )}
+        {recovering && (
+          <span className="px-3 py-1 bg-sky-50 dark:bg-info-container text-sky-700 dark:text-on-info-container rounded-full font-bold">履歴確認中</span>
+        )}
+        {modelName && (
+          <span className="px-3 py-1 bg-surface-container rounded-full font-mono">{modelName}</span>
+        )}
+        {runningElapsed != null && (
+          <span className="text-on-surface-variant">{formatElapsed(runningElapsed)} 経過</span>
+        )}
+        {elapsed != null && run.status !== 'running' && (
+          <span className="text-on-surface-variant">{formatElapsed(elapsed)}</span>
+        )}
+        {run.status === 'running' && runningElapsed == null && (
+          <span className="text-xs text-amber-600 dark:text-warning">通常 3〜10 分</span>
+        )}
+      </div>
+      {/* Progress bar */}
+      {run.status === 'running' && progressPct != null && (
+        <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+          <div
+            className="h-full bg-secondary rounded-full transition-all duration-700 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
       )}
-      {run.meta?.providerLabel && (
-        <span className="px-3 py-1 bg-surface-container rounded-full font-bold">{run.meta.providerLabel}</span>
+      {run.status === 'running' && progressPct == null && (
+        <div className="w-full bg-surface-container rounded-full h-1.5 overflow-hidden">
+          <div className="h-full bg-amber-400 rounded-full animate-pulse" style={{ width: '100%' }} />
+        </div>
       )}
-      {recovering && (
-        <span className="px-3 py-1 bg-sky-50 dark:bg-info-container text-sky-700 dark:text-on-info-container rounded-full font-bold">履歴確認中</span>
-      )}
-      {modelName && (
-        <span className="px-3 py-1 bg-surface-container rounded-full font-mono">{modelName}</span>
-      )}
-      {elapsed && <span>{formatElapsed(elapsed)}</span>}
     </div>
   )
 }
 
-// 抽出データの「取得不可」フィールドを除いて表示
+// ─── ExtractedDataPanel ──────────────────────────────────────
+
 const EXTRACTED_LABELS = {
   title: 'タイトル',
   meta_description: 'Meta Description',
@@ -307,9 +306,12 @@ function ExtractedDataPanel({ extracted }) {
   )
 }
 
+// ─── Main Component ──────────────────────────────────────────
+
 export default function Compare() {
   const { analysisKey, analysisProvider, hasAnalysisKey } = useAuth()
   const { getRun, startRun, updateRunMeta, completeRun, failRun, clearRun, getDraft, setDraft } = useAnalysisRuns()
+  const { pollJob, stopPolling } = useAsyncJob()
 
   // Warm up backend on mount (cold-start mitigation)
   useEffect(() => {
@@ -318,7 +320,16 @@ export default function Compare() {
 
   const run = getRun('compare')
   const defaults = { target: '', compA: '', compB: '' }
-  const [urls, setUrls] = useState(() => getDraft('compare')?.urls || run?.input?.urls || defaults)
+  const [urls, setUrls] = useState(() => getDraft('compare')?.urls || run?.input?.urls || getActiveScanJob()?.urls || defaults)
+
+  // Real-time elapsed ticker
+  const [tickNow, setTickNow] = useState(() => Date.now())
+  useEffect(() => {
+    const loading = run?.status === 'running'
+    if (!loading) return undefined
+    const id = window.setInterval(() => setTickNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [run?.status])
 
   const loading = run?.status === 'running'
   const error = run?.status === 'failed' ? run.error : null
@@ -337,6 +348,70 @@ export default function Compare() {
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = urls.target && (urls.compA || urls.compB) && hasAnalysisKey && !loading
 
+  // ─── Job handlers ─────────────────────────────────────────
+
+  const handleJobComplete = useCallback((result) => {
+    clearActiveScanJob()
+    const scanError = getScanErrorMessage(result)
+    if (scanError) {
+      failRun('compare', scanError, {
+        category: 'upstream', label: 'バックエンドエラー',
+        guidance: 'サーバー側の分析でエラーが発生しました。入力URLや条件を変えて再試行してください。',
+        retryable: true,
+      })
+      return
+    }
+    completeRun('compare', result, { run_id: result.run_id, providerLabel })
+    const finalScore = result.overall_score ?? result.score
+    if (finalScore != null) {
+      recordScore('compare', { score: finalScore, label: urls.target, timestamp: Date.now() })
+    }
+  }, [failRun, completeRun, providerLabel, urls.target])
+
+  const handleJobFail = useCallback((message, info) => {
+    clearActiveScanJob()
+    failRun('compare', message, info)
+  }, [failRun])
+
+  const handleJobProgress = useCallback(({ stage, progress_pct, message, statusLabel }) => {
+    updateRunMeta('compare', { stage, progress_pct, message, statusLabel })
+  }, [updateRunMeta])
+
+  // ─── Resume active job on mount ───────────────────────────
+
+  const resumeAttemptedRef = useRef(false)
+  useEffect(() => {
+    if (resumeAttemptedRef.current) return
+    resumeAttemptedRef.current = true
+
+    const activeJob = getActiveScanJob()
+    if (!activeJob) return
+
+    if (!run || run.status === 'idle') {
+      startRun('compare', { urls: activeJob.urls })
+    }
+
+    updateRunMeta('compare', {
+      stage: 'analyzing',
+      statusLabel: '前回のジョブを再開中…',
+      jobId: activeJob.jobId,
+    })
+
+    pollJob(activeJob.pollUrl, {
+      fetchJobStatus: getScanJob,
+      onComplete: handleJobComplete,
+      onFail: handleJobFail,
+      onProgress: handleJobProgress,
+      intervalMs: 3000,
+      hardCeilingMs: SCAN_POLL_HARD_CEILING_MS,
+      staleTimeoutMs: SCAN_POLL_STALE_TIMEOUT_MS,
+      softWarningMs: SCAN_POLL_SOFT_WARNING_MS,
+      resetStartTime: true,
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- mount only
+
+  // ─── handleScan ───────────────────────────────────────────
+
   const handleScan = useCallback(async () => {
     console.info('[Compare] handleScan called', { target: urls.target, compA: urls.compA, compB: urls.compB })
     if (!analysisKey || !analysisProvider) {
@@ -350,26 +425,13 @@ export default function Compare() {
     }
 
     const urlList = [urls.target, urls.compA, urls.compB].filter(Boolean)
-    const startedRun = startRun('compare', { urls })
+    stopPolling()
+    startRun('compare', { urls })
     updateRunMeta('compare', { providerLabel })
-
-    const finalizeRun = (data, meta = {}) => {
-      completeRun('compare', data, {
-        run_id: data.run_id,
-        providerLabel,
-        ...meta,
-      })
-
-      const finalScore = data.overall_score ?? data.score
-      if (finalScore != null) {
-        recordScore('compare', { score: finalScore, label: urls.target, timestamp: Date.now() })
-      }
-    }
 
     try {
       updateRunMeta('compare', { statusLabel: 'サーバー起動待ち…' })
 
-      // ── warmup を 45秒でタイムアウト ──
       let warmResult
       try {
         warmResult = await Promise.race([
@@ -377,7 +439,7 @@ export default function Compare() {
           new Promise((_, reject) =>
             setTimeout(() => reject(Object.assign(
               new Error('サーバーへの接続がタイムアウトしました。再試行してください。'),
-              { isWarmupTimeout: true }
+              { isWarmupTimeout: true },
             )), 45_000)
           ),
         ])
@@ -404,53 +466,36 @@ export default function Compare() {
         })
         return
       }
-      console.info('[Compare] Backend warm, submitting scan')
+      console.info('[Compare] Backend warm, submitting scan job')
 
-      const data = await scan(urlList, {
+      const jobData = await startScanJob(urlList, {
         apiKey: analysisKey,
         provider: analysisProvider,
         model: getAnalysisModel(analysisProvider),
       })
 
-      const scanError = getScanErrorMessage(data)
+      console.info('[Compare] Scan job started', { jobId: jobData.job_id, pollUrl: jobData.poll_url })
+      persistActiveScanJob(jobData.job_id, jobData.poll_url, urls)
+      updateRunMeta('compare', {
+        jobId: jobData.job_id,
+        stage: 'queued',
+        progress_pct: 0,
+        statusLabel: null,
+      })
 
-      if (scanError) {
-        failRun('compare', scanError, { category: 'upstream', label: 'バックエンドエラー', guidance: 'サーバー側の分析でエラーが発生しました。入力URLや条件を変えて再試行してください。', retryable: true })
-        return
-      }
-
-      console.info('[Compare] Scan completed', { hasReport: !!data.report_md, hasScore: data.overall_score != null })
-      finalizeRun(data)
+      pollJob(jobData.poll_url, {
+        fetchJobStatus: getScanJob,
+        onComplete: handleJobComplete,
+        onFail: handleJobFail,
+        onProgress: handleJobProgress,
+        intervalMs: Number(jobData.retry_after_sec) > 0 ? Number(jobData.retry_after_sec) * 1000 : 3000,
+        hardCeilingMs: SCAN_POLL_HARD_CEILING_MS,
+        staleTimeoutMs: SCAN_POLL_STALE_TIMEOUT_MS,
+        softWarningMs: SCAN_POLL_SOFT_WARNING_MS,
+        resetStartTime: true,
+      })
     } catch (e) {
       const info = classifyError(e)
-      if (info.category === 'timeout' || e?.isTimeout || e?.name === 'AbortError') {
-        console.warn('[Compare] Scan timed out, entering recovery mode')
-        updateRunMeta('compare', {
-          recoveryMode: true,
-          recoveryMessage: 'タイムアウト後の完了結果を確認しています…',
-        })
-
-        const recovered = await recoverTimedOutScan(urlList, {
-          startedAt: startedRun.startedAt,
-          onProgress: ({ remainingMs }) => {
-            updateRunMeta('compare', {
-              recoveryMode: true,
-              recoveryMessage: `タイムアウト後の完了結果を確認しています… 残り約${Math.max(1, Math.ceil(remainingMs / 1000))}秒`,
-            })
-          },
-        })
-
-        if (recovered) {
-          console.info('[Compare] Recovery succeeded', { runId: recovered.run_id })
-          finalizeRun(recovered, {
-            recoveredFromHistory: true,
-            recoveryMode: false,
-            recoveryMessage: '',
-          })
-          return
-        }
-        console.warn('[Compare] Recovery failed — no matching completed scan found')
-      }
       failRun('compare', e.message || '分析に失敗しました。しばらく待って再試行してください。', info)
     }
   }, [
@@ -460,13 +505,18 @@ export default function Compare() {
     providerLabel,
     startRun,
     updateRunMeta,
-    completeRun,
     failRun,
+    stopPolling,
+    pollJob,
+    handleJobComplete,
+    handleJobFail,
+    handleJobProgress,
   ])
 
   const handleRetry = useCallback(() => {
+    stopPolling()
     clearRun('compare')
-  }, [clearRun])
+  }, [clearRun, stopPolling])
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
@@ -568,7 +618,7 @@ export default function Compare() {
               </>
             )}
           </button>
-          <p className="text-xs text-on-surface-variant japanese-text">初回はサーバー起動で2〜4分、2回目以降は30〜90秒ほどかかることがあります。</p>
+          <p className="text-xs text-on-surface-variant japanese-text">AI 分析に 3〜10 分かかります。バックグラウンドで処理されるためタブを閉じても再開できます。</p>
         </div>
       </div>
 
@@ -591,7 +641,9 @@ export default function Compare() {
       )}
 
       {/* Meta Band */}
-      {run && run.status !== 'failed' && <MetaBand run={run} modelName={modelName} />}
+      {run && run.status !== 'failed' && (
+        <MetaBand run={run} modelName={modelName} now={tickNow} />
+      )}
 
       {/* Analysis Targets */}
       {siteCards.length > 0 && (
@@ -649,7 +701,7 @@ export default function Compare() {
       {/* Result Area */}
       {result && (
         <div className="space-y-8">
-          {/* Score Header — full-width prominent score display */}
+          {/* Score Header */}
           {hasScores && (
             <div className="bg-gradient-to-br from-primary-container to-primary p-10 rounded-xl text-white elevation-hover">
               <div className="flex items-center gap-10">
@@ -693,7 +745,7 @@ export default function Compare() {
             </div>
           )}
 
-          {/* Report — primary display with green left accent */}
+          {/* Report */}
           <div className={`bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[300px] ${hasScores ? 'border-l-4 border-primary-container' : ''}`}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2 text-on-surface-variant">
@@ -713,7 +765,6 @@ export default function Compare() {
                     レポートをコピー
                   </button>
                   <PrintButton />
-                  {/* Phase Q2-4: quality badge (admin only, hidden in print) */}
                   <ReportQualityBadge issues={qualityIssues} />
                   <UiVersionToggle className="print:hidden" />
                 </div>
@@ -807,7 +858,7 @@ export default function Compare() {
             )}
           </div>
 
-          {/* Execution Metadata — structured display */}
+          {/* Execution Metadata */}
           {executionMeta && (
             <div className="bg-surface-container-lowest rounded-[0.75rem] p-6">
               <div className="flex items-center gap-2 text-on-surface-variant mb-4">
@@ -832,7 +883,7 @@ export default function Compare() {
         </div>
       )}
 
-      {/* Empty State — before any scan */}
+      {/* Empty State */}
       {!result && !error && !loading && (
         <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8 min-h-[200px]">
           <div className="flex items-center gap-2 text-on-surface-variant mb-6">
