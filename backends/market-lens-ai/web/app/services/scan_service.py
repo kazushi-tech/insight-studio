@@ -44,6 +44,9 @@ def _sanitize_secret(text: str, *secrets: str | None) -> str:
 def _humanize_llm_error(provider_name: str, detail: str) -> str:
     normalized = detail.lower()
 
+    if "タイムアウトしました" in detail or "timed out" in normalized or "timeout" in normalized:
+        return f"LLM分析がタイムアウトしました。{provider_name} への応答に時間がかかりすぎています。しばらく待って再試行してください。"
+
     if provider_name == "Claude":
         if "x-api-key" in normalized or "api key" in normalized or "authentication" in normalized:
             return "LLM分析に失敗しました。Claude API キーが無効か、権限が不足しています。"
@@ -116,6 +119,10 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
         await on_stage("analyzing", {"progress_pct": 60})
     llm_failed = False
     current_provider_label = provider_label(req.provider, req.model)
+    logger.info(
+        "Scan LLM start run_id=%s provider=%s model=%s has_byok=%s",
+        result.run_id, req.provider, req.model, bool(req.api_key),
+    )
     try:
         analysis_md, usage = await analyze(
             extracted_list,

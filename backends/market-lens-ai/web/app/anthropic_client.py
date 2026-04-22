@@ -176,12 +176,13 @@ async def call_anthropic(
 ) -> tuple[str, TokenUsage]:
     """Call Anthropic Messages API and return (text, usage). Raises on failure."""
     models = candidate_anthropic_models(model)
-    client = _build_client(api_key)
     logger.info("call_anthropic requested_model=%s candidates=%s max_tokens=%s", model, models, max_output_tokens)
 
     last_error: Exception | None = None
     for m in models:
         for attempt in range(_MAX_CONNECT_RETRIES + 1):
+            # Fresh client per attempt — avoids reusing a broken connection pool.
+            client = _build_client(api_key)
             try:
                 _t0 = time.monotonic()
                 message = await client.messages.create(
@@ -236,23 +237,51 @@ async def call_anthropic(
                     await asyncio.sleep(wait)
                     continue
                 raise RuntimeError(detail) from e
-            except anthropic.APIConnectionError as e:
+            except anthropic.APITimeoutError as e:
                 last_error = e
+                elapsed = time.monotonic() - _t0
                 if attempt < _MAX_CONNECT_RETRIES:
                     wait = 2 ** (attempt + 1)
                     logger.warning(
-                        "Connection error on attempt %d/%d for %s, retrying in %ds: %s",
-                        attempt + 1, _MAX_CONNECT_RETRIES + 1, m, wait, e,
+                        "Timeout on attempt %d/%d for %s after %.1fs, retrying in %ds: %s",
+                        attempt + 1, _MAX_CONNECT_RETRIES + 1, m, elapsed, wait, e,
                     )
                     await asyncio.sleep(wait)
                     continue
-                logger.error("All connection retries exhausted for model %s", m)
+                logger.error(
+                    "All timeout retries exhausted for model %s after %.1fs: cause=%s",
+                    m, elapsed, type(e.__cause__).__name__ if e.__cause__ else "unknown",
+                )
+                break
+            except anthropic.APIConnectionError as e:
+                last_error = e
+                elapsed = time.monotonic() - _t0
+                cause_type = type(e.__cause__).__name__ if e.__cause__ else "unknown"
+                if attempt < _MAX_CONNECT_RETRIES:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning(
+                        "Connection error on attempt %d/%d for %s after %.1fs (cause=%s), retrying in %ds: %s",
+                        attempt + 1, _MAX_CONNECT_RETRIES + 1, m, elapsed, cause_type, wait, e,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                logger.error(
+                    "All connection retries exhausted for model %s after %.1fs: cause=%s msg=%s",
+                    m, elapsed, cause_type, str(e.__cause__),
+                )
                 break
 
     if last_error:
-        if isinstance(last_error, anthropic.APIConnectionError):
+        if isinstance(last_error, anthropic.APITimeoutError):
+            timeout_sec = float(os.getenv("ANTHROPIC_TIMEOUT_SEC", "120"))
             raise RuntimeError(
-                f"Anthropic API への接続に失敗しました（{_MAX_CONNECT_RETRIES + 1}回試行）。"
+                f"Anthropic API がタイムアウトしました（{_MAX_CONNECT_RETRIES + 1}回試行、タイムアウト{int(timeout_sec)}秒）。"
+                "サーバーが混み合っている可能性があります。しばらく待って再試行してください。"
+            ) from last_error
+        if isinstance(last_error, anthropic.APIConnectionError):
+            cause_type = type(last_error.__cause__).__name__ if last_error.__cause__ else "unknown"
+            raise RuntimeError(
+                f"Anthropic API への接続に失敗しました（{_MAX_CONNECT_RETRIES + 1}回試行、原因: {cause_type}）。"
                 "ネットワーク状況を確認してください。"
             ) from last_error
         raise RuntimeError(f"All models failed. Last error: {last_error}") from last_error
@@ -270,11 +299,11 @@ async def call_anthropic_multimodal(
 ) -> tuple[str, TokenUsage]:
     """Text + Image → Text response via Anthropic Messages API."""
     models = candidate_anthropic_models(model)
-    client = _build_client(api_key)
 
     last_error: Exception | None = None
     for m in models:
         for attempt in range(_MAX_CONNECT_RETRIES + 1):
+            client = _build_client(api_key)
             try:
                 message = await client.messages.create(
                     model=m,
@@ -331,23 +360,49 @@ async def call_anthropic_multimodal(
                     await asyncio.sleep(wait)
                     continue
                 raise RuntimeError(detail) from e
-            except anthropic.APIConnectionError as e:
+            except anthropic.APITimeoutError as e:
                 last_error = e
                 if attempt < _MAX_CONNECT_RETRIES:
                     wait = 2 ** (attempt + 1)
                     logger.warning(
-                        "Multimodal connection error on attempt %d/%d for %s, retrying in %ds: %s",
+                        "Multimodal timeout on attempt %d/%d for %s, retrying in %ds: %s",
                         attempt + 1, _MAX_CONNECT_RETRIES + 1, m, wait, e,
                     )
                     await asyncio.sleep(wait)
                     continue
-                logger.error("All connection retries exhausted for multimodal model %s", m)
+                logger.error(
+                    "All timeout retries exhausted for multimodal model %s: cause=%s",
+                    m, type(e.__cause__).__name__ if e.__cause__ else "unknown",
+                )
+                break
+            except anthropic.APIConnectionError as e:
+                last_error = e
+                cause_type = type(e.__cause__).__name__ if e.__cause__ else "unknown"
+                if attempt < _MAX_CONNECT_RETRIES:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning(
+                        "Multimodal connection error on attempt %d/%d for %s (cause=%s), retrying in %ds: %s",
+                        attempt + 1, _MAX_CONNECT_RETRIES + 1, m, cause_type, wait, e,
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                logger.error(
+                    "All connection retries exhausted for multimodal model %s: cause=%s msg=%s",
+                    m, cause_type, str(e.__cause__),
+                )
                 break
 
     if last_error:
-        if isinstance(last_error, anthropic.APIConnectionError):
+        if isinstance(last_error, anthropic.APITimeoutError):
+            timeout_sec = float(os.getenv("ANTHROPIC_TIMEOUT_SEC", "120"))
             raise RuntimeError(
-                f"Anthropic API への接続に失敗しました（{_MAX_CONNECT_RETRIES + 1}回試行）。"
+                f"Anthropic API がタイムアウトしました（{_MAX_CONNECT_RETRIES + 1}回試行、タイムアウト{int(timeout_sec)}秒）。"
+                "サーバーが混み合っている可能性があります。しばらく待って再試行してください。"
+            ) from last_error
+        if isinstance(last_error, anthropic.APIConnectionError):
+            cause_type = type(last_error.__cause__).__name__ if last_error.__cause__ else "unknown"
+            raise RuntimeError(
+                f"Anthropic API への接続に失敗しました（{_MAX_CONNECT_RETRIES + 1}回試行、原因: {cause_type}）。"
                 "ネットワーク状況を確認してください。"
             ) from last_error
         raise RuntimeError(f"All models failed. Last error: {last_error}") from last_error
