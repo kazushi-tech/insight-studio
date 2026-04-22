@@ -64,7 +64,7 @@ def _build_client(api_key: str | None = None) -> AsyncAnthropic:
     key = _resolve_api_key(api_key)
     if not key:
         raise ValueError("API key is required. Please provide your Claude API key.")
-    timeout = float(os.getenv("ANTHROPIC_TIMEOUT_SEC", "120"))
+    timeout = float(os.getenv("ANTHROPIC_TIMEOUT_SEC", "300"))
     return AsyncAnthropic(
         api_key=key,
         timeout=timeout,
