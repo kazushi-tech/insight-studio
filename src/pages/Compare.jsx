@@ -320,6 +320,17 @@ export default function Compare() {
 
   const run = getRun('compare')
   const defaults = { target: '', compA: '', compB: '' }
+
+  // Must run BEFORE the urls useState that calls getActiveScanJob() and clears expired entries
+  const [expiredJobNotice, setExpiredJobNotice] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem(ACTIVE_SCAN_JOB_KEY)
+      if (!raw) return false
+      const parsed = JSON.parse(raw)
+      return !!(parsed?.startedAt && Date.now() - parsed.startedAt > SCAN_POLL_HARD_CEILING_MS)
+    } catch { return false }
+  })
+
   const [urls, setUrls] = useState(() => getDraft('compare')?.urls || run?.input?.urls || getActiveScanJob()?.urls || defaults)
 
   // Real-time elapsed ticker
@@ -384,6 +395,7 @@ export default function Compare() {
     if (resumeAttemptedRef.current) return
     resumeAttemptedRef.current = true
 
+    // expiredJobNotice is already set via useState initializer (runs before getActiveScanJob clears it)
     const activeJob = getActiveScanJob()
     if (!activeJob) return
 
@@ -515,8 +527,16 @@ export default function Compare() {
 
   const handleRetry = useCallback(() => {
     stopPolling()
+    clearActiveScanJob()
     clearRun('compare')
   }, [clearRun, stopPolling])
+
+  const handleCancel = useCallback(() => {
+    stopPolling()
+    clearActiveScanJob()
+    clearRun('compare')
+    console.info('[Compare] Job cancelled by user')
+  }, [stopPolling, clearRun])
 
   const overallScore = result?.overall_score ?? result?.score ?? null
   const scores = result?.scores ?? {}
@@ -601,29 +621,54 @@ export default function Compare() {
 
       <div className="flex justify-end">
         <div className="flex flex-col items-end gap-2">
-          <button
-            className="button-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!canSubmit}
-            onClick={handleScan}
-          >
-            {loading ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>分析中…</span>
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">bolt</span>
-                分析開始
-              </>
+          <div className="flex items-center gap-3">
+            {loading && (
+              <button
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-[0.75rem] bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-sm font-bold transition-colors"
+                onClick={handleCancel}
+              >
+                <span className="material-symbols-outlined text-lg">cancel</span>
+                キャンセル
+              </button>
             )}
-          </button>
+            <button
+              className="button-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canSubmit}
+              onClick={handleScan}
+            >
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>分析中…</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-lg">bolt</span>
+                  分析開始
+                </>
+              )}
+            </button>
+          </div>
           <p className="text-xs text-on-surface-variant japanese-text">AI 分析に 3〜10 分かかります。バックグラウンドで処理されるためタブを閉じても再開できます。</p>
         </div>
       </div>
 
       {error && (
         <ErrorBanner message={error} onRetry={handleRetry} errorInfo={errorInfo} />
+      )}
+
+      {expiredJobNotice && (
+        <div className="flex items-center gap-3 rounded-[0.75rem] border border-amber-200 bg-amber-50 dark:bg-warning-container dark:border-warning/30 px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
+          <span className="material-symbols-outlined text-lg">timer_off</span>
+          <span className="japanese-text flex-1">前回のジョブはタイムアウト上限（11分）を超えました。URLを確認して再実行してください。</span>
+          <button
+            className="shrink-0 hover:opacity-70 transition-opacity"
+            onClick={() => setExpiredJobNotice(false)}
+            aria-label="閉じる"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        </div>
       )}
 
       {recoveryMode && (
