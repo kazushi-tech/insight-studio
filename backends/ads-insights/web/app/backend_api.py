@@ -5947,7 +5947,7 @@ app.add_middleware(
     allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "Accept", "Authorization"],
+    allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "X-Analysis-Provider", "Accept", "Authorization"],
 )
 
 
