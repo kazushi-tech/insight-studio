@@ -23,14 +23,9 @@ function formatAnalysisError(error) {
   if (error.isAuthError) return AUTH_EXPIRED_MESSAGE
 
   const info = classifyError(error)
-  if (info.category === 'network') {
-    return 'バックエンドへの接続に失敗しました。ネットワーク接続またはバックエンドの起動状態を確認し、再試行してください。'
-  }
-  if (info.category === 'cold_start') {
-    return 'バックエンドサーバーが起動中です。1〜2分後に再試行してください。'
-  }
-  if (info.category === 'timeout') {
-    return info.label + '。' + info.guidance
+  // 全カテゴリで label + guidance を使用する
+  if (info.category !== 'unknown') {
+    return `${info.label}。${info.guidance}`
   }
 
   const msg = error.message || ''
@@ -112,6 +107,7 @@ export default function AiExplorer() {
   const [mlStatus, setMlStatus] = useState('idle')
   const chatEndRef = useRef(null)
   const abortRef = useRef(null)
+  const submittingRef = useRef(false)
 
   // アンマウント時にリトライ中のリクエストをキャンセル
   useEffect(() => {
@@ -275,7 +271,9 @@ export default function AiExplorer() {
 
   async function handleSend(text) {
     const prompt = (text ?? input).trim()
-    if (!prompt || loading || !reportBundle?.reportMd) return
+    // 二重発火防止: submittingRef は同期的に set されるため React 状態の遅延を回避
+    if (!prompt || submittingRef.current || loading || !reportBundle?.reportMd) return
+    submittingRef.current = true
 
     setInput('')
 
@@ -344,12 +342,7 @@ export default function AiExplorer() {
         } catch (err) {
           if (err.name === 'AbortError') return
           _lastError = err
-          const retryable =
-            err.message?.includes('timeout') ||
-            err.message?.includes('タイムアウト') ||
-            [500, 502, 503].includes(err.status) ||
-            err.message?.includes('Failed to fetch') ||
-            (err instanceof TypeError && !err.status)
+          const { retryable } = classifyError(err)
           if (!retryable || attempt === MAX_RETRIES) {
             throw err
           }
@@ -393,6 +386,7 @@ export default function AiExplorer() {
       ])
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

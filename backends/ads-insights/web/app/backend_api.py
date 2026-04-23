@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+
+logger = logging.getLogger("ads-insights")
 
 
 
@@ -1238,15 +1241,6 @@ if _cors_extra:
 
 # Vercel preview deploys (insight-studio-*-*.vercel.app) を正規表現で許可
 _CORS_ORIGIN_REGEX = r"^https://insight-studio(-[a-z0-9-]+)?\.vercel\.app$"
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_CORS_DEFAULT_ORIGINS,
-    allow_origin_regex=_CORS_ORIGIN_REGEX,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "Accept", "Authorization"],
-)
 
 # ── 認証 (JWT 方式) ──────────────────────────────────────────
 import hashlib, secrets, time as _time_mod
@@ -5944,6 +5938,17 @@ async def _force_load_to_compat(request: Request, call_next):
 
 
 # === /COMPAT_BACKEND_FORCE_LOAD_TO_COMPAT_V1 ===
+
+# CORSMiddleware は全 @app.middleware("http") の後に add_middleware することで
+# 最外層になり、401/429 等の非 2xx 応答にも ACAO ヘッダが付与される。
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_CORS_DEFAULT_ORIGINS,
+    allow_origin_regex=_CORS_ORIGIN_REGEX,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "Accept", "Authorization"],
+)
 
 
 
@@ -12947,7 +12952,12 @@ def _anthropic_generate(model: str, prompt: str, temperature: float = 0.7, max_t
                 raise RuntimeError(f"No text in Anthropic response. raw={raw[:500]}")
             text = "\n".join(text_parts)
             usage = j.get("usage", {})
-            print(f"[anthropic] model={j.get('model')} input_tokens={usage.get('input_tokens','?')} output_tokens={usage.get('output_tokens','?')} stop_reason={j.get('stop_reason','?')}")
+            stop_reason = j.get("stop_reason", "?")
+            print(f"[anthropic] model={j.get('model')} input_tokens={usage.get('input_tokens','?')} output_tokens={usage.get('output_tokens','?')} stop_reason={stop_reason}")
+            # 出力が max_tokens で打ち切られた場合はユーザーに通知
+            if stop_reason == "max_tokens":
+                _TRUNCATION_NOTICE = "\n\n---\n*（出力がトークン上限に達したため、考察が途中で打ち切られた可能性があります。`NEON_MAX_OUTPUT_TOKENS` 環境変数を増やすか、より短いプロンプトを試してください。）*"
+                text = text + _TRUNCATION_NOTICE
             return text
         except urllib.error.HTTPError as e:
             status = getattr(e, "code", None)
@@ -13317,14 +13327,54 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
 - **各セクション見出しには絵文字を必ず付けること**
 """
 
+    import uuid as _uuid_mod
+    request_id = _uuid_mod.uuid4().hex[:8]
+    _neon_max_tokens = int(os.getenv("NEON_MAX_OUTPUT_TOKENS", "8192"))
     try:
         if is_anthropic:
-            text = _anthropic_generate(model=model, prompt=prompt, temperature=temperature, api_key=client_key)
+            text = await asyncio.to_thread(_anthropic_generate, model=model, prompt=prompt, temperature=temperature, max_tokens=_neon_max_tokens, api_key=client_key)
         else:
-            text = _gemini_generate(model=model, prompt=prompt, temperature=temperature, api_key=client_key)
+            text = _gemini_generate(model=model, prompt=prompt, temperature=temperature, max_tokens=_neon_max_tokens, api_key=client_key)
         return {"ok": True, "text": text, "model": model, "provider": provider, "tokens_used": len(text)}
+    except RuntimeError as e:
+        msg = str(e)
+        logger.exception("[neon/generate] RuntimeError request_id=%s model=%s", request_id, model)
+        # Anthropic HTTP エラーを status code に変換
+        if "Anthropic HTTPError 429" in msg or "rate_limit" in msg.lower():
+            return JSONResponse(
+                {"ok": False, "error_code": "rate_limit", "detail": "APIのレート制限に達しました。しばらく待ってから再試行してください。", "retryable": True, "request_id": request_id},
+                status_code=429,
+            )
+        if "Anthropic HTTPError 529" in msg or "overloaded" in msg.lower():
+            return JSONResponse(
+                {"ok": False, "error_code": "overloaded", "detail": "AIサービスが一時的に混み合っています。数分後に再試行してください。", "retryable": True, "request_id": request_id},
+                status_code=529,
+            )
+        if "Anthropic HTTPError 401" in msg or "unauthorized" in msg.lower() or "invalid api key" in msg.lower():
+            return JSONResponse(
+                {"ok": False, "error_code": "auth_error", "detail": "APIキーが無効です。設定を確認してください。", "retryable": False, "request_id": request_id},
+                status_code=401,
+            )
+        if "Anthropic HTTPError 402" in msg or "billing" in msg.lower() or "credit" in msg.lower():
+            return JSONResponse(
+                {"ok": False, "error_code": "billing", "detail": "APIクレジットが不足しています。支払い設定を確認してください。", "retryable": False, "request_id": request_id},
+                status_code=402,
+            )
+        if "Anthropic failed after retries" in msg or "Anthropic HTTPError 5" in msg:
+            return JSONResponse(
+                {"ok": False, "error_code": "upstream_error", "detail": msg[:300], "retryable": True, "request_id": request_id},
+                status_code=503,
+            )
+        return JSONResponse(
+            {"ok": False, "error_code": "server_error", "detail": msg[:300], "retryable": True, "request_id": request_id},
+            status_code=500,
+        )
     except Exception as e:
-        return {"ok": False, "error": str(e), "model": model, "provider": provider}
+        logger.exception("[neon/generate] Unexpected error request_id=%s model=%s", request_id, model)
+        return JSONResponse(
+            {"ok": False, "error_code": "server_error", "detail": str(e)[:300], "retryable": True, "request_id": request_id},
+            status_code=500,
+        )
 # ==============================================================================
 # REPORT GENERATION MODULE
 # ==============================================================================
