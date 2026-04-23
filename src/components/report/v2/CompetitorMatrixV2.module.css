@@ -270,3 +270,29 @@
   border-radius: 9999px;
   white-space: nowrap;
 }
+
+/* Phase 1: brand header click-to-focus */
+.brandHeadBtn {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: var(--md-v2-radius-button);
+  padding: 0.25rem 0.375rem;
+  transition: background 0.15s;
+}
+.brandHeadBtn:hover {
+  background: var(--md-sys-color-surface-container-high);
+}
+.brandHeadBtn:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+}
+
+.thFocused {
+  background: var(--md-sys-color-primary-container, #c8e6c9);
+}
+.thFocused .brandHead {
+  color: var(--md-sys-color-on-primary-container, #003920);
+}

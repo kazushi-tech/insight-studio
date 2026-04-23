@@ -49,7 +49,7 @@ function fromMd(reportMd) {
   return rows
 }
 
-export default function CompetitorMatrixV2({ envelope, reportMd }) {
+export default function CompetitorMatrixV2({ envelope, reportMd, focusedBrand, onBrandSelect }) {
   const rows = useMemo(() => {
     const fromEnv = fromEnvelope(envelope?.brand_evaluations)
     return fromEnv.length > 0 ? fromEnv : fromMd(reportMd)
@@ -74,18 +74,29 @@ export default function CompetitorMatrixV2({ envelope, reportMd }) {
           <thead>
             <tr>
               <th className={styles.thBrand}>評価軸</th>
-              {rows.map((row, ri) => (
-                <th
-                  key={ri}
-                  className={`${styles.th} ${row.isReference ? styles.thReference : ''}`}
-                  title={row.isReference ? `${row.brand}（参考観測枠）` : row.brand}
-                >
-                  <span className={styles.brandHead}>{row.brand}</span>
-                  {row.isReference && (
-                    <span className={styles.referencePill}>参考</span>
-                  )}
-                </th>
-              ))}
+              {rows.map((row, ri) => {
+                const isFocused = focusedBrand === row.brand
+                return (
+                  <th
+                    key={ri}
+                    className={`${styles.th} ${row.isReference ? styles.thReference : ''} ${isFocused ? styles.thFocused : ''}`}
+                    title={row.isReference ? `${row.brand}（参考観測枠）` : row.brand}
+                  >
+                    <button
+                      type="button"
+                      className={styles.brandHeadBtn}
+                      aria-pressed={isFocused}
+                      aria-controls="brand-radar-v2"
+                      onClick={() => onBrandSelect?.(row.brand)}
+                    >
+                      <span className={styles.brandHead}>{row.brand}</span>
+                    </button>
+                    {row.isReference && (
+                      <span className={styles.referencePill}>参考</span>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>

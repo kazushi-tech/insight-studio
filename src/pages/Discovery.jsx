@@ -12,6 +12,7 @@ import { getAnalysisModel, getAnalysisProviderLabel } from '../utils/analysisPro
 import { copyReportToClipboard, buildDiscoveryReportText } from '../utils/reportExport'
 import { recordScore } from '../utils/scoreHistory'
 import { checkReportQuality, splitReportSections, stripModelDates, stripTruncatedTables, splitIssuesBySeverity } from '../utils/reportQuality'
+import { stripV2CoveredSections } from '../utils/reportSections'
 import PrintButton from '../components/report/PrintButton'
 import ReportQualityBadge from '../components/report/ReportQualityBadge'
 import ReportViewV2 from '../components/report/v2/ReportViewV2'
@@ -608,7 +609,7 @@ export default function Discovery() {
       {/* Report */}
       {result?.report_md && (() => {
         const { body: discBody, appendix: discAppendix } = splitReportSections(result.report_md)
-        const cleanBody = stripTruncatedTables(stripModelDates(discBody))
+        const cleanBody = stripV2CoveredSections(stripTruncatedTables(stripModelDates(discBody)))
         const discBackendQuality = {
           qualityStatus: result?.quality_status,
           qualityIssues: result?.quality_issues,

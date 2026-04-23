@@ -290,6 +290,7 @@ export function neonGenerate(payload, apiKey) {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    direct: true,
     timeout: 120000,
   })
 }

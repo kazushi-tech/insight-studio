@@ -65,7 +65,7 @@ function fromMd(reportMd) {
   return brands
 }
 
-export default function BrandRadarV2({ envelope, reportMd }) {
+export default function BrandRadarV2({ envelope, reportMd, focusedBrand }) {
   const brands = useMemo(() => {
     const envBrands = fromEnvelope(envelope?.brand_evaluations)
     return envBrands.length > 0 ? envBrands : fromMd(reportMd)
@@ -77,6 +77,14 @@ export default function BrandRadarV2({ envelope, reportMd }) {
   // F-04: pill toggle — track hidden brands set
   const [hiddenBrands, setHiddenBrands] = useState(new Set())
   const isDark = useContext(ThemeContext)?.isDark ?? false
+
+  // Phase 1: when focusedBrand is set, override pill-based hiddenBrands
+  // Derived instead of setState-in-effect to avoid cascading renders
+  const effectiveHiddenBrands = useMemo(() => {
+    if (!focusedBrand) return hiddenBrands
+    const referenceBrands = new Set(brands.filter((b) => b.isReference).map((b) => b.brand))
+    return new Set(brands.map((b) => b.brand).filter((n) => n !== focusedBrand && !referenceBrands.has(n)))
+  }, [focusedBrand, brands, hiddenBrands])
 
   useEffect(() => {
     applyChartDefaultsV2(Chart)
@@ -98,7 +106,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
     const datasets = brands.map((b, i) => {
       const color = BRAND_PALETTE_V2[i % BRAND_PALETTE_V2.length]
       const isFocused = mode === 'all' || mode === b.brand
-      const isHidden = hiddenBrands.has(b.brand)
+      const isHidden = effectiveHiddenBrands.has(b.brand)
       // F-04: reference brands get dashed border + very low fill-opacity (0.12)
       const refBg = color.bg.replace(
         /rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/,
@@ -180,7 +188,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
         },
       },
     })
-  }, [brands, mode, isDark, hiddenBrands])
+  }, [brands, mode, isDark, effectiveHiddenBrands])
 
   useEffect(() => {
     return () => {
@@ -195,6 +203,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
 
   return (
     <section
+      id="brand-radar-v2"
       className={`${styles.panel} md-v2-enter`}
       aria-label="ブランド別レーダー"
       data-testid="brand-radar-v2"
@@ -203,7 +212,7 @@ export default function BrandRadarV2({ envelope, reportMd }) {
         <span className={styles.label}>Brand Radar — 6軸評価</span>
         <div className={styles.toggleGroup} role="group" aria-label="ブランド表示切替">
           {brands.map((b) => {
-            const isHidden = hiddenBrands.has(b.brand)
+            const isHidden = effectiveHiddenBrands.has(b.brand)
             return (
               <button
                 key={b.brand}

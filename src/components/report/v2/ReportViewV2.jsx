@@ -5,6 +5,9 @@ import PriorityActionHeroV2 from './PriorityActionHeroV2'
 import CompetitorMatrixV2 from './CompetitorMatrixV2'
 import BrandRadarV2 from './BrandRadarV2'
 import MarketRangeV2 from './MarketRangeV2'
+import AdSpendComparisonV2 from './AdSpendComparisonV2'
+import SeasonalityStripV2 from './SeasonalityStripV2'
+import CoverageDotsV2 from './CoverageDotsV2'
 import styles from './ReportViewV2.module.css'
 import { makeHeadingSlug } from '../../../utils/headingSlug'
 
@@ -34,6 +37,7 @@ export default function ReportViewV2({ envelope, reportMd }) {
   const headings = useMemo(() => extractHeadings(reportMd), [reportMd])
   const [activeId, setActiveId] = useState('')
   const tocRef = useRef(null)
+  const [focusedBrand, setFocusedBrand] = useState(null)
 
   // IntersectionObserver to highlight current section in TOC
   useEffect(() => {
@@ -59,6 +63,10 @@ export default function ReportViewV2({ envelope, reportMd }) {
     <div className={`ui-v2 ${printStyles.printRoot} ${styles.root}`}>
       <PriorityActionHeroV2 envelope={envelope} reportMd={reportMd} />
       <MarketRangeV2 envelope={envelope} reportMd={reportMd} />
+      <div className={styles.grid}>
+        <AdSpendComparisonV2 reportMd={reportMd} />
+        <SeasonalityStripV2 reportMd={reportMd} />
+      </div>
       <div className={styles.tocLayout}>
         {/* Section D-6: Sticky TOC sidebar (desktop only) */}
         {headings.length > 0 && (
@@ -83,9 +91,19 @@ export default function ReportViewV2({ envelope, reportMd }) {
         )}
         <div>
           <div className={styles.grid}>
-            <CompetitorMatrixV2 envelope={envelope} reportMd={reportMd} />
-            <BrandRadarV2 envelope={envelope} reportMd={reportMd} />
+            <CompetitorMatrixV2
+              envelope={envelope}
+              reportMd={reportMd}
+              focusedBrand={focusedBrand}
+              onBrandSelect={(brand) => setFocusedBrand((prev) => (prev === brand ? null : brand))}
+            />
+            <BrandRadarV2
+              envelope={envelope}
+              reportMd={reportMd}
+              focusedBrand={focusedBrand}
+            />
           </div>
+          <CoverageDotsV2 reportMd={reportMd} />
         </div>
       </div>
     </div>
