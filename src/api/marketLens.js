@@ -139,6 +139,16 @@ export function classifyError(error) {
     return { category: 'timeout', label: 'タイムアウト', guidance: 'サーバーが起動中だった場合、再試行すると高速に完了します。', retryable: true }
   }
 
+  // Request timeout (408)
+  if (status === 408) {
+    return { category: 'timeout', label: 'タイムアウト', guidance: 'リクエストがタイムアウトしました。再試行してください。', retryable: true }
+  }
+
+  // Gateway timeout (504)
+  if (status === 504) {
+    return { category: 'timeout', label: 'ゲートウェイタイムアウト', guidance: 'プロキシがタイムアウトしました。しばらく待って再試行してください。', retryable: true }
+  }
+
   // Cold start (503)
   if (status === 503 || msg.includes('起動中')) {
     return { category: 'cold_start', label: 'サーバー起動中', guidance: 'バックエンドが起動中です。1〜2分後に再試行してください。', retryable: true }
@@ -157,6 +167,16 @@ export function classifyError(error) {
   // Auth error
   if (status === 401 || status === 403) {
     return { category: 'auth_error', label: '認証エラー', guidance: 'API キーが無効または権限が不足しています。設定を確認してください。', retryable: false }
+  }
+
+  // Billing / payment required (402)
+  if (status === 402) {
+    return { category: 'billing', label: '課金エラー', guidance: 'APIクレジットが不足しています。支払い設定を確認してください。', retryable: false }
+  }
+
+  // Conflict (409)
+  if (status === 409) {
+    return { category: 'conflict', label: 'リソース競合', guidance: 'しばらく待ってから再試行してください。', retryable: true }
   }
 
   // Not found

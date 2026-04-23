@@ -68,7 +68,12 @@ function clientHeaders() {
 
 function authHeaders() {
   const headers = clientHeaders()
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
+  // authToken module 変数 → localStorage フォールバック（AuthProvider 前の race 防御）
+  const token = authToken || (() => { try { return localStorage.getItem('is_ads_token') } catch { return null } })()
+  if (token) {
+    if (!authToken) authToken = token  // モジュール変数を遅延初期化
+    headers['Authorization'] = `Bearer ${token}`
+  }
   return headers
 }
 
@@ -91,13 +96,6 @@ function toQueryString(params = {}) {
   return search.toString()
 }
 
-function isUnauthorizedErrorPayload(body) {
-  const markers = [body?.detail, body?.error, body?.message]
-    .filter((value) => typeof value === 'string')
-    .map((value) => value.trim().toLowerCase())
-
-  return markers.some((value) => value === 'unauthorized')
-}
 
 function isFetchNetworkError(error) {
   return error instanceof TypeError || /Failed to fetch/i.test(String(error?.message))
@@ -207,7 +205,8 @@ async function request(path, options = {}) {
     )
     error.status = res.status
     error.body = body
-    error.isAuthError = res.status === 401 && didSendAuth && isUnauthorizedErrorPayload(body)
+    // 401/403 は status コードだけで認証エラーと判定（body マーカーは参考情報のみ）
+    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth
 
     if (error.isAuthError && !suppressAuthErrorHandler) {
       onAuthError?.(error)
@@ -241,9 +240,21 @@ export function getToken() {
   return authToken
 }
 
-/** ログアウト */
+/** ログアウト — 全セッション状態を一括 purge */
 export function logout() {
   authToken = null
+  // case trust tokens を全て削除
+  try {
+    const keysToRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(CASE_TRUST_TOKEN_KEY_PREFIX)) keysToRemove.push(key)
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k))
+    localStorage.removeItem('insight-studio-market-lens-profile-id')
+  } catch { /* ignore storage failures */ }
+  // Discovery active job をクリア
+  try { sessionStorage.removeItem('is-discovery-active-job') } catch { /* ignore */ }
 }
 
 /** GET /api/folders — 案件フォルダ一覧 */
@@ -291,7 +302,7 @@ export function neonGenerate(payload, apiKey) {
     headers,
     body: JSON.stringify(body),
     direct: true,
-    timeout: 120000,
+    timeout: 300000,
   })
 }
 
@@ -350,14 +361,25 @@ export async function loginCase(caseId, password, { totpCode = null, deviceTrust
   const body = { case_id: caseId, password }
   if (totpCode) body.totp_code = String(totpCode).trim()
   if (deviceTrustToken) body.device_trust_token = deviceTrustToken
-  const data = await request('/cases/login', {
-    method: 'POST',
-    body: JSON.stringify(body),
-    skipAuth: true,
-    suppressAuthErrorHandler: true,
-  })
+  let data
+  try {
+    data = await request('/cases/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      skipAuth: true,
+      suppressAuthErrorHandler: true,
+    })
+  } catch (err) {
+    // 401 時は case trust token を削除して無限 auth ループを防ぐ
+    if (err.status === 401) {
+      setCaseTrustToken(caseId, null)
+    }
+    throw err
+  }
   if (data.ok && data.token) {
     authToken = data.token
+    // case 切替時に Discovery の古いジョブをクリア
+    try { sessionStorage.removeItem('is-discovery-active-job') } catch { /* ignore */ }
   }
   if (data.ok && data.case_id && data.device_trust_token) {
     setCaseTrustToken(data.case_id, data.device_trust_token)

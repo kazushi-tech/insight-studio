@@ -267,6 +267,15 @@ def create_discovery_router(
     # ── Async Job endpoints ─────────────────────────────────────
 
     # In-memory map of running asyncio tasks (job_id -> Task)
+    # WARNING: WEB_CONCURRENCY > 1 の場合、このインメモリ辞書は worker 間で共有されない。
+    # 必ず WEB_CONCURRENCY=1 (Render 既定) で運用すること。
+    _web_concurrency = os.getenv("WEB_CONCURRENCY", "1")
+    if _web_concurrency != "1":
+        logger.warning(
+            "WEB_CONCURRENCY=%s detected. Discovery async jobs use an in-memory task dict "
+            "that is NOT shared across workers. Set WEB_CONCURRENCY=1 to avoid job polling failures.",
+            _web_concurrency,
+        )
     _running_tasks: dict[str, asyncio.Task] = {}
     _overall_job_timeout = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
     _stale_threshold_sec = float(os.getenv("DISCOVERY_STALE_THRESHOLD_SEC", "300"))
@@ -514,7 +523,8 @@ def create_discovery_router(
             task = _running_tasks.get(job_id)
             task_gone = task is None or task.done()
             stalled_stage = stage_elapsed_sec > stage_timeout_sec
-            missing_heartbeat = heartbeat_elapsed_sec > _stale_threshold_sec or (task_gone and heartbeat_elapsed_sec > 10)
+            # deploy 直後の in-flight job が誤殺されないよう 10s → 30s に緩和
+            missing_heartbeat = heartbeat_elapsed_sec > _stale_threshold_sec or (task_gone and heartbeat_elapsed_sec > 30)
             if stalled_stage or missing_heartbeat:
                 last_stage = record.stage.value if record.stage else "unknown"
                 record.status = DiscoveryJobStatus.failed

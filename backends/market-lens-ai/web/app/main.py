@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import ssl
 import sys
 import time
@@ -112,9 +113,12 @@ _env_origins = [
     if origin.strip()
 ]
 _allowed_origins = list(dict.fromkeys([*_env_origins, *_default_origins]))
+# Vercel preview deploys を正規表現で許可
+_CORS_ORIGIN_REGEX = r"^https://insight-studio(-[a-z0-9-]+)?\.vercel\.app$"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
+    allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Insight-User"],
 )
@@ -162,7 +166,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     # instead of showing an opaque CORS failure.
     origin = request.headers.get("origin", "")
     headers = {}
-    if origin in _allowed_origins:
+    if origin and (origin in _allowed_origins or re.match(_CORS_ORIGIN_REGEX, origin)):
         headers["access-control-allow-origin"] = origin
         headers["access-control-allow-credentials"] = "true"
     return JSONResponse(
