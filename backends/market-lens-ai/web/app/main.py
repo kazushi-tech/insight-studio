@@ -120,7 +120,7 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Insight-User"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Insight-User", "X-Analysis-Provider", "X-Client-ID", "X-Gemini-API-Key", "Accept"],
 )
 
 # ── Rate Limit (simple in-memory) ────────────────────────────
