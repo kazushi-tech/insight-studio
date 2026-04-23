@@ -12931,7 +12931,8 @@ def _anthropic_generate(model: str, prompt: str, temperature: float = 0.7, max_t
     for i in range(4):
         try:
             req = urllib.request.Request(url, data=data, method="POST", headers=headers_dict)
-            with urllib.request.urlopen(req, timeout=120) as resp:
+            _anthropic_timeout = int(os.getenv("ANTHROPIC_TIMEOUT_SEC", "300"))
+            with urllib.request.urlopen(req, timeout=_anthropic_timeout) as resp:
                 raw = resp.read().decode("utf-8", errors="replace")
             j = json.loads(raw)
             content_blocks = j.get("content") or []

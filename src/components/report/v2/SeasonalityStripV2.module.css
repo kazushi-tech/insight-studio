@@ -1,0 +1,85 @@
+.panel {
+  background: var(--md-sys-color-surface-container-lowest);
+  border-radius: var(--md-v2-radius-card);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-family: var(--md-v2-font-display);
+  font-size: var(--md-v2-label-size);
+  font-weight: var(--md-v2-label-weight);
+  letter-spacing: var(--md-v2-label-tracking);
+  text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.peak { background: var(--md-sys-color-primary, #003925); }
+.off  { background: var(--md-sys-color-outline, #737373); }
+
+.legendText {
+  margin-right: 0.5rem;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+}
+
+.cell {
+  border-radius: var(--md-v2-radius-button);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0;
+  min-height: 2.5rem;
+}
+
+.monthLabel {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-family: var(--md-v2-font-display);
+  letter-spacing: 0.01em;
+}
+
+.cellNeutral {
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+.cellPeak {
+  background: var(--md-sys-color-primary, #003925);
+  color: var(--md-sys-color-on-primary, #ffffff);
+}
+
+.cellOff {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-outline);
+  opacity: 0.6;
+}
