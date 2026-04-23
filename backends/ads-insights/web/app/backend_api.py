@@ -1215,13 +1215,16 @@ _IS_PRODUCTION = bool(os.getenv("RENDER"))  # Render 上では自動的に設定
 
 _CORS_PRODUCTION_ORIGINS = [
     "https://ads-insights-eight.vercel.app",
+    "https://insight-studio-chi.vercel.app",
 ]
 _CORS_DEV_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://localhost:3002",
     "http://localhost:5173",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
     "http://127.0.0.1:8000",
 ]
 
@@ -1233,10 +1236,13 @@ _cors_extra = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if _cors_extra:
     _CORS_DEFAULT_ORIGINS.extend([o.strip() for o in _cors_extra.split(",") if o.strip()])
 
+# Vercel preview deploys (insight-studio-*-*.vercel.app) を正規表現で許可
+_CORS_ORIGIN_REGEX = r"^https://insight-studio(-[a-z0-9-]+)?\.vercel\.app$"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_DEFAULT_ORIGINS,
-    allow_origin_regex=None,
+    allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "Accept", "Authorization"],
