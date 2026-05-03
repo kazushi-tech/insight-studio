@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { login as adsLogin, setToken, getToken, logout as adsLogout, setOnAuthError, loginWithEmail as apiLoginWithEmail } from '../api/adsInsights'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
+  ANALYSIS_PROVIDER_GEMINI,
 } from '../utils/analysisProvider'
 import { isCompatibleApiKey, normalizeApiKey } from '../utils/apiKeys'
 
@@ -9,6 +10,7 @@ const AuthContext = createContext(null)
 
 const STORAGE_KEY_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLAUDE = 'is_claude_key'
+const STORAGE_KEY_GEMINI = 'is_gemini_key'
 
 export function AuthProvider({ children }) {
   const onLogoutCallbacksRef = useRef(new Set())
@@ -21,6 +23,11 @@ export function AuthProvider({ children }) {
   // Claude API key — 分析・類推系 (Compare, Discovery, CreativeReview review, AiExplorer)
   const [claudeKey, setClaudeKeyState] = useState(
     () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_CLAUDE) || '')
+  )
+
+  // Gemini API key — BYOK: ユーザーが自分のキーを使う (課金はユーザーのGCPアカウントへ)
+  const [geminiKey, setGeminiKeyState] = useState(
+    () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_GEMINI) || '')
   )
 
   // RBAC user object { user_id, email, role, display_name }
@@ -41,6 +48,16 @@ export function AuthProvider({ children }) {
       localStorage.setItem(STORAGE_KEY_CLAUDE, normalized)
     } else {
       localStorage.removeItem(STORAGE_KEY_CLAUDE)
+    }
+  }, [])
+
+  const setGeminiKey = useCallback((key) => {
+    const normalized = normalizeApiKey(key)
+    setGeminiKeyState(normalized)
+    if (normalized) {
+      localStorage.setItem(STORAGE_KEY_GEMINI, normalized)
+    } else {
+      localStorage.removeItem(STORAGE_KEY_GEMINI)
     }
   }, [])
 
@@ -147,8 +164,10 @@ export function AuthProvider({ children }) {
   }, [logoutAds])
 
   const hasClaudeKey = isCompatibleApiKey(claudeKey, ANALYSIS_PROVIDER_ANTHROPIC)
-  const analysisKey = hasClaudeKey ? claudeKey : ''
-  const analysisProvider = hasClaudeKey ? ANALYSIS_PROVIDER_ANTHROPIC : null
+  const hasGeminiKey = isCompatibleApiKey(geminiKey, ANALYSIS_PROVIDER_GEMINI)
+  // Gemini優先 (BYOK): Geminiキーがあればそちら、なければClaude
+  const analysisKey = hasGeminiKey ? geminiKey : hasClaudeKey ? claudeKey : ''
+  const analysisProvider = hasGeminiKey ? ANALYSIS_PROVIDER_GEMINI : hasClaudeKey ? ANALYSIS_PROVIDER_ANTHROPIC : null
 
   const value = {
     adsToken,
@@ -156,7 +175,11 @@ export function AuthProvider({ children }) {
     claudeKey,
     setClaudeKey,
     hasClaudeKey,
-    // 分析系は Claude のみを使用
+    // Gemini key — BYOK
+    geminiKey,
+    setGeminiKey,
+    hasGeminiKey,
+    // 分析キー (Gemini優先)
     analysisKey,
     analysisProvider,
     hasAnalysisKey: !!analysisKey,
