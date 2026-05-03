@@ -92,7 +92,7 @@ services:
       - key: ANALYSIS_MODEL
         value: gemini-flash
       - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.1-flash
       - key: GCP_PROJECT_ID
         value: analyzedataplatform
       - key: RATE_LIMIT_MAX

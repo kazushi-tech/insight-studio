@@ -291,11 +291,13 @@ export function generateInsights(payload) {
 
 /** POST /api/neon/generate — Point Pack ベース AI考察 */
 export function neonGenerate(payload, apiKey) {
+  const isGemini = payload.provider === 'google'
   const headers = {
     Accept: 'application/json',
     ...(payload.provider ? { 'X-Analysis-Provider': payload.provider } : {}),
+    ...(isGemini && apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
   }
-  const body = { ...payload, ...(apiKey ? { api_key: apiKey } : {}) }
+  const body = { ...payload, ...(!isGemini && apiKey ? { api_key: apiKey } : {}) }
 
   return request('/neon/generate', {
     method: 'POST',
