@@ -164,9 +164,15 @@ def _humanize_analysis_error(provider_name: str, detail: str) -> tuple[int, str]
 
 def _humanize_search_error(detail: str) -> tuple[int, str]:
     normalized = detail.lower()
+    is_gemini = detail.startswith("Gemini") or "gemini rest api" in normalized
+
     if "api key" in normalized or "x-api-key" in normalized or "authentication" in normalized or "unauthorized" in normalized:
+        if is_gemini:
+            return 401, "Discovery 検索で使用する Gemini API キーが無効か、権限が不足しています。"
         return 401, "Discovery 検索で使用する Claude API キーが無効か、権限が不足しています。"
-    if "rate limit" in normalized or "too_many_requests" in normalized or "try again later" in normalized:
+    if "rate limit" in normalized or "too_many_requests" in normalized or "try again later" in normalized or "resource_exhausted" in normalized:
+        if is_gemini:
+            return 502, "Gemini 検索がレート制限に達しました。少し待って再試行してください。"
         return 502, "Claude Web Search が混み合っています。少し待って再試行してください。"
     if "max_uses_exceeded" in normalized:
         return 502, "Claude Web Search の検索回数上限に達しました。設定を確認してください。"
@@ -175,14 +181,16 @@ def _humanize_search_error(detail: str) -> tuple[int, str]:
     if "web search" in normalized and "enabled" in normalized:
         return 502, "Claude Web Search が有効化されていません。Anthropic Console の設定を確認してください。"
     if "unavailable" in normalized:
-        return 502, "Claude Web Search が一時的に利用できません。少し待って再試行してください。"
+        search_name = "Gemini 検索" if is_gemini else "Claude Web Search"
+        return 502, f"{search_name} が一時的に利用できません。少し待って再試行してください。"
     if "timed out" in normalized or "deadline exceeded" in normalized:
         return 502, "競合検索がタイムアウトしました。少し待って再試行してください。"
     if detail:
         cleaned = detail
-        for prefix in ("Anthropic Search error:", "Anthropic Search error", "Anthropic web search error:"):
+        for prefix in ("Anthropic Search error:", "Anthropic Search error", "Anthropic web search error:",
+                       "Gemini search unexpected error:", "Gemini REST API error"):
             if cleaned.startswith(prefix):
-                cleaned = cleaned[len(prefix):].strip()
+                cleaned = cleaned[len(prefix):].strip().lstrip("0123456789: ")
                 break
         if cleaned:
             return 502, f"競合検索に失敗しました: {cleaned[:240]}"
