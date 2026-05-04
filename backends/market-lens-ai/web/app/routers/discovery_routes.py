@@ -40,7 +40,7 @@ from ..schemas.report_envelope import build_envelope_from_md, report_envelope_en
 from ..services.discovery.candidate_ranker import validate_candidates_with_llm
 from ..services.discovery.discovery_pipeline import PipelineError, run_discovery_pipeline
 from ..services.discovery.keyword_extractor import classify_industry
-from ..llm_client import PROVIDER_ANTHROPIC, normalize_provider, provider_label
+from ..llm_client import PROVIDER_ANTHROPIC, PROVIDER_GEMINI, normalize_provider, provider_label
 from ..services.discovery.anthropic_search_client import (
     SearchClient,
 )
@@ -170,16 +170,8 @@ def _ensure_discovery_provider_supported(
     provider: str | None,
     model: str | None,
 ) -> str:
-    normalized = normalize_provider(provider, model)
-    if normalized != PROVIDER_ANTHROPIC:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "Discovery では Gemini provider / model はサポートしていません。"
-                "Claude を使用してください。"
-            ),
-        )
-    return PROVIDER_ANTHROPIC
+    """Return the normalized provider. Both Claude and Gemini are supported."""
+    return normalize_provider(provider, model)
 
 
 def create_discovery_router(
