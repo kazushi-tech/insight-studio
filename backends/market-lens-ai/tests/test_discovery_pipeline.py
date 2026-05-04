@@ -667,3 +667,75 @@ async def test_two_site_analyze_first_attempt_not_compact():
     assert first_call.get("compact_output") is False, (
         "2-site first attempt should use compact_output=False (full token budget per Phase Q0-1)"
     )
+
+
+# ---------- Regression: Gemini rate limit → Anthropic fallback ----------
+
+
+@pytest.mark.asyncio
+async def test_gemini_rate_limit_falls_back_to_anthropic():
+    """When Gemini search hits 429 rate limit, pipeline silently falls back to AnthropicSearchClient."""
+    from web.app.services.discovery.search_client import SearchClientError
+
+    class GeminiRateLimitedClient(SearchClient):
+        async def search(self, query, *, num=10, brand_context="", deadline=None, request_id=None):
+            raise SearchClientError("Gemini REST API error 429: RESOURCE_EXHAUSTED rate limit exceeded")
+
+    fallback_recording = RecordingSearchClient(_search_results())
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
+
+    with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-anthropic-fallback-key"}), \
+         patch(
+             "web.app.services.discovery.discovery_pipeline.AnthropicSearchClient",
+             return_value=fallback_recording,
+         ):
+        response = await run_discovery_pipeline(
+            DiscoveryAnalyzeRequest(
+                brand_url="https://example.com",
+                api_key="AIzaSyFakeGeminiKey123",  # Gemini BYOK key format
+            ),
+            request_id="req-gemini-fallback",
+            search_client=GeminiRateLimitedClient(),
+            validate_operator_url_fn=_validate_url,
+            fetch_html_fn=_fetch_html,
+            take_screenshot_fn=AsyncMock(return_value=None),
+            extract_fn=lambda url, html: _extract_for(url),
+            classify_industry_fn=AsyncMock(return_value="水回り"),
+            analyze_fn=analyze_mock,
+            validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+        )
+
+    assert response is not None
+    assert len(fallback_recording.calls) == 1, "fallback AnthropicSearchClient should have been called once"
+
+
+@pytest.mark.asyncio
+async def test_gemini_rate_limit_raises_when_no_anthropic_key():
+    """When Gemini rate-limits and ANTHROPIC_API_KEY is absent, pipeline raises PipelineError."""
+    from web.app.services.discovery.search_client import SearchClientError
+    from web.app.services.discovery.discovery_pipeline import PipelineError
+
+    class GeminiRateLimitedClient(SearchClient):
+        async def search(self, query, *, num=10, brand_context="", deadline=None, request_id=None):
+            raise SearchClientError("Gemini REST API error 429: rate limit")
+
+    env_without_anthropic = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+    with patch.dict("os.environ", env_without_anthropic, clear=True):
+        with pytest.raises(PipelineError) as exc_info:
+            await run_discovery_pipeline(
+                DiscoveryAnalyzeRequest(
+                    brand_url="https://example.com",
+                    api_key="AIzaSyFakeGeminiKey123",
+                ),
+                request_id="req-gemini-no-fallback",
+                search_client=GeminiRateLimitedClient(),
+                validate_operator_url_fn=_validate_url,
+                fetch_html_fn=_fetch_html,
+                take_screenshot_fn=AsyncMock(return_value=None),
+                extract_fn=lambda url, html: _extract_for(url),
+                classify_industry_fn=AsyncMock(return_value="水回り"),
+                analyze_fn=AsyncMock(return_value=(_valid_report_markdown(), TokenUsage())),
+                validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+            )
+
+    assert exc_info.value.stage == "search"

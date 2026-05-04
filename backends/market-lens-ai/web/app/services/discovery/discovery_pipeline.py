@@ -622,6 +622,7 @@ async def run_discovery_pipeline(
 
     t0 = time.monotonic()
     search_deadline = time.monotonic() + search_timeout - 2.0
+    search_error: SearchClientError | None = None
     try:
         results = await asyncio.wait_for(
             search_client.search(
@@ -635,10 +636,30 @@ async def run_discovery_pipeline(
         _log_stage(request_id, req.brand_url, "search", elapsed, "timeout", "asyncio.TimeoutError")
         raise PipelineError(502, "競合検索がタイムアウト (stage=search)", stage="search")
     except SearchClientError as exc:
-        elapsed = (time.monotonic() - t0) * 1000
-        _log_stage(request_id, req.brand_url, "search", elapsed, "error", _search_error_type(exc))
-        status_code, human_detail = _humanize_search_error(str(exc))
-        raise PipelineError(status_code, f"{human_detail} (stage=search)", stage="search") from exc
+        search_error = exc
+        exc_str = str(exc)
+        is_rate_limit = "429" in exc_str or "rate limit" in exc_str.lower() or "resource_exhausted" in exc_str.lower()
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if analysis_provider == PROVIDER_GEMINI and is_rate_limit and anthropic_key:
+            logger.warning("Gemini rate limited, falling back to Anthropic search: request_id=%s", request_id)
+            fallback_client = AnthropicSearchClient(api_key=anthropic_key)
+            fallback_remaining = max(search_timeout - (time.monotonic() - t0) - 2.0, 30.0)
+            try:
+                results = await asyncio.wait_for(
+                    fallback_client.search(
+                        query, num=min(12, max(10, max_competitors + 6)), brand_context=brand_context,
+                        deadline=time.monotonic() + fallback_remaining - 2.0, request_id=request_id,
+                    ),
+                    timeout=fallback_remaining,
+                )
+                search_error = None
+            except (SearchClientError, asyncio.TimeoutError):
+                pass
+        if search_error is not None:
+            elapsed = (time.monotonic() - t0) * 1000
+            _log_stage(request_id, req.brand_url, "search", elapsed, "error", _search_error_type(search_error))
+            status_code, human_detail = _humanize_search_error(str(search_error))
+            raise PipelineError(status_code, f"{human_detail} (stage=search)", stage="search") from search_error
     except Exception as exc:
         elapsed = (time.monotonic() - t0) * 1000
         error_type = type(exc).__name__
