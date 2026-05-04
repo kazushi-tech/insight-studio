@@ -5,6 +5,7 @@ Uses the Gemini REST API directly (httpx) to avoid SDK version dependency.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -24,6 +25,9 @@ _URL_RE = re.compile(r'https?://[^\s<>"\'\)\]\}]+')
 _GEMINI_REST_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
+_RATE_LIMIT_RETRY_DELAYS = (5.0, 15.0)  # seconds between retries on 429
+
+
 async def _call_grounded_search_async(
     prompt: str,
     *,
@@ -34,6 +38,7 @@ async def _call_grounded_search_async(
     """Call Gemini REST API with google_search tool. Returns (text, grounding_chunks).
 
     grounding_chunks is a list of {"url": ..., "title": ...}.
+    Retries on 429 rate-limit with exponential backoff (5s, 15s).
     """
     url = f"{_GEMINI_REST_BASE}/{model}:generateContent?key={api_key}"
     payload = {
@@ -41,13 +46,31 @@ async def _call_grounded_search_async(
         "tools": [{"google_search": {}}],
         "generationConfig": {"temperature": 0},
     }
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        resp = await client.post(url, json=payload)
 
-    if resp.status_code != 200:
-        raise SearchClientError(
-            f"Gemini REST API error {resp.status_code}: {resp.text[:300]}"
-        )
+    last_error: str | None = None
+    attempts = len(_RATE_LIMIT_RETRY_DELAYS) + 1
+    for attempt in range(attempts):
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(url, json=payload)
+
+        if resp.status_code == 200:
+            break
+
+        error_msg = f"Gemini REST API error {resp.status_code}: {resp.text[:300]}"
+
+        if resp.status_code == 429 and attempt < len(_RATE_LIMIT_RETRY_DELAYS):
+            wait = _RATE_LIMIT_RETRY_DELAYS[attempt]
+            logger.warning(
+                "Gemini rate limit (attempt %d/%d), retrying in %.0fs",
+                attempt + 1, attempts, wait,
+            )
+            await asyncio.sleep(wait)
+            last_error = error_msg
+            continue
+
+        raise SearchClientError(error_msg)
+    else:
+        raise SearchClientError(last_error or "Gemini REST API failed after retries")
 
     data = resp.json()
     candidates = data.get("candidates") or []

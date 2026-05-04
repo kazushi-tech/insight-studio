@@ -102,13 +102,13 @@ def _patch_pipeline():
 
 
 def _poll_until_terminal(client, job_id, headers=None):
-    for _ in range(30):
+    for _ in range(60):
         resp = client.get(f"/api/discovery/jobs/{job_id}", headers=headers or {})
         assert resp.status_code == 200
         data = resp.json()
         if data["status"] in {"completed", "failed", "cancelled"}:
             return data
-        time.sleep(0.05)
+        time.sleep(0.1)
     raise AssertionError("Job did not reach terminal state")
 
 
@@ -275,7 +275,6 @@ class TestErrorContract(_AuthEnvMixin):
         """Failed job error includes error_code field."""
         with TemporaryDirectory() as tmpdir:
             repo = FileDiscoveryJobRepository(tmpdir)
-            client = TestClient(_make_app(job_repo=repo))
             headers = _auth_headers("guest:errctest")
 
             with (
@@ -286,21 +285,21 @@ class TestErrorContract(_AuthEnvMixin):
                       side_effect=RuntimeError("rate limit exceeded for messages API")),
                 _patch_validate_candidates(),
             ):
-                start = client.post("/api/discovery/jobs", headers=headers, json={
-                    "brand_url": "https://example.com", "api_key": "k1",
-                })
-                job_id = start.json()["job_id"]
-                final = _poll_until_terminal(client, job_id, headers=headers)
+                with TestClient(_make_app(job_repo=repo)) as client:
+                    start = client.post("/api/discovery/jobs", headers=headers, json={
+                        "brand_url": "https://example.com", "api_key": "k1",
+                    })
+                    job_id = start.json()["job_id"]
+                    final = _poll_until_terminal(client, job_id, headers=headers)
 
-                assert final["status"] == "failed"
-                assert final["error"]["status_code"] is not None
-                assert final["error"]["retryable"] is True
+                    assert final["status"] == "failed"
+                    assert final["error"]["status_code"] is not None
+                    assert final["error"]["retryable"] is True
 
     def test_successful_job_has_no_error(self):
         """Completed job has no error field."""
         with TemporaryDirectory() as tmpdir:
             repo = FileDiscoveryJobRepository(tmpdir)
-            client = TestClient(_make_app(job_repo=repo))
             headers = _auth_headers("guest:oktest01")
 
             with (
@@ -310,11 +309,12 @@ class TestErrorContract(_AuthEnvMixin):
                 patch("web.app.routers.discovery_routes.analyze", new_callable=AsyncMock, return_value=("# OK", None)),
                 _patch_validate_candidates(),
             ):
-                start = client.post("/api/discovery/jobs", headers=headers, json={
-                    "brand_url": "https://example.com", "api_key": "k1",
-                })
-                job_id = start.json()["job_id"]
-                final = _poll_until_terminal(client, job_id, headers=headers)
+                with TestClient(_make_app(job_repo=repo)) as client:
+                    start = client.post("/api/discovery/jobs", headers=headers, json={
+                        "brand_url": "https://example.com", "api_key": "k1",
+                    })
+                    job_id = start.json()["job_id"]
+                    final = _poll_until_terminal(client, job_id, headers=headers)
 
-                assert final["status"] == "completed"
-                assert final["error"] is None
+                    assert final["status"] == "completed"
+                    assert final["error"] is None

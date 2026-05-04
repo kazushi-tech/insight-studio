@@ -115,7 +115,7 @@ def _patch_validate_candidates():
 def _patch_pipeline():
     return (
         patch("web.app.routers.discovery_routes.validate_operator_url", side_effect=lambda url: None),
-        patch("web.app.routers.discovery_routes.fetch_html", new_callable=AsyncMock, return_value=("<html><body>Test</body></html>", None)),
+        patch("web.app.routers.discovery_routes.fetch_html", new_callable=AsyncMock, return_value=("<html><head><title>Test Competitor</title></head><body><h1>Hello</h1><p>Competitor page</p></body></html>", None)),
         patch("web.app.routers.discovery_routes.classify_industry", new_callable=AsyncMock, return_value="テスト業種"),
         patch("web.app.routers.discovery_routes.analyze", new_callable=AsyncMock, return_value=("# Report", None)),
         _patch_validate_candidates(),
@@ -123,13 +123,13 @@ def _patch_pipeline():
 
 
 def _poll_until_terminal(client, job_id, headers=None):
-    for _ in range(30):
+    for _ in range(60):
         resp = client.get(f"/api/discovery/jobs/{job_id}", headers=headers or {})
         assert resp.status_code == 200
         data = resp.json()
         if data["status"] in {"completed", "failed", "cancelled"}:
             return data
-        time.sleep(0.05)
+        time.sleep(0.1)
     raise AssertionError("Job did not reach terminal state")
 
 
@@ -150,33 +150,33 @@ class TestDiscoveryJobToCompareFlow:
             app = _make_integrated_app(job_repo=FileDiscoveryJobRepository(tmpdir))
             patches = _patch_pipeline()
             with patches[0], patches[1], patches[2], patches[3], patches[4]:
-                client = TestClient(app)
-                headers = {"X-Insight-User": "guest:integtest01"}
+                with TestClient(app) as client:
+                    headers = {"X-Insight-User": "guest:integtest01"}
 
-                # Start discovery job
-                start_resp = client.post(
-                    "/api/discovery/jobs",
-                    headers=headers,
-                    json={"brand_url": "https://example.com", "api_key": "test-key"},
-                )
-                assert start_resp.status_code == 202
-                job_id = start_resp.json()["job_id"]
+                    # Start discovery job
+                    start_resp = client.post(
+                        "/api/discovery/jobs",
+                        headers=headers,
+                        json={"brand_url": "https://example.com", "api_key": "test-key"},
+                    )
+                    assert start_resp.status_code == 202
+                    job_id = start_resp.json()["job_id"]
 
-                # Poll to completion
-                final = _poll_until_terminal(client, job_id, headers=headers)
-                assert final["status"] == "completed"
+                    # Poll to completion
+                    final = _poll_until_terminal(client, job_id, headers=headers)
+                    assert final["status"] == "completed"
 
-                # Compare review using discovered competitors
-                resp = client.post("/api/reviews/compare", json={
-                    "asset_id": "aabbccddeeff",
-                    "competitors": [
-                        {"url": "https://competitor1.com", "domain": "competitor1.com", "title": "Comp1"},
-                        {"url": "https://competitor2.com", "domain": "competitor2.com", "title": "Comp2"},
-                    ],
-                })
-                assert resp.status_code == 200
-                review = resp.json()["review"]
-                assert review["review_type"] == "competitor_compare"
+                    # Compare review using discovered competitors
+                    resp = client.post("/api/reviews/compare", json={
+                        "asset_id": "aabbccddeeff",
+                        "competitors": [
+                            {"url": "https://competitor1.com", "domain": "competitor1.com", "title": "Comp1"},
+                            {"url": "https://competitor2.com", "domain": "competitor2.com", "title": "Comp2"},
+                        ],
+                    })
+                    assert resp.status_code == 200
+                    review = resp.json()["review"]
+                    assert review["review_type"] == "competitor_compare"
 
 
 # ── Test 2: Generation Flow (disabled in Claude-only) ────

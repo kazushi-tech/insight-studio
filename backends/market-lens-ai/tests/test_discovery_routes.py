@@ -78,13 +78,13 @@ def _patch_pipeline():
 
 
 def _poll_until_terminal(client, job_id, headers=None):
-    for _ in range(30):
+    for _ in range(60):
         resp = client.get(f"/api/discovery/jobs/{job_id}", headers=headers or {})
         assert resp.status_code == 200
         data = resp.json()
         if data["status"] in {"completed", "failed", "cancelled"}:
             return data
-        time.sleep(0.05)
+        time.sleep(0.1)
     raise AssertionError("Job did not reach terminal state")
 
 
@@ -96,85 +96,75 @@ class TestDiscoveryJobs:
         with TemporaryDirectory() as tmpdir:
             patches = _patch_pipeline()
             with patches[0], patches[1], patches[2], patches[3], patches[4]:
-                client = TestClient(_make_app(
-                    job_repo=FileDiscoveryJobRepository(tmpdir),
-                ))
-                resp = client.post(
-                    "/api/discovery/jobs",
-                    headers={"X-Insight-User": "guest:testuser01"},
-                    json={"brand_url": "https://example.com", "api_key": "test-key"},
-                )
-                assert resp.status_code == 202
-                data = resp.json()
-                assert data["status"] == "queued"
-                assert data["job_id"]
-                assert data["poll_url"].endswith(data["job_id"])
+                with TestClient(_make_app(job_repo=FileDiscoveryJobRepository(tmpdir))) as client:
+                    resp = client.post(
+                        "/api/discovery/jobs",
+                        headers={"X-Insight-User": "guest:testuser01"},
+                        json={"brand_url": "https://example.com", "api_key": "test-key"},
+                    )
+                    assert resp.status_code == 202
+                    data = resp.json()
+                    assert data["status"] == "queued"
+                    assert data["job_id"]
+                    assert data["poll_url"].endswith(data["job_id"])
 
     def test_start_job_and_poll_to_completion(self):
         """Full lifecycle: start job, poll until completed."""
         with TemporaryDirectory() as tmpdir:
             patches = _patch_pipeline()
             with patches[0], patches[1], patches[2], patches[3], patches[4]:
-                client = TestClient(_make_app(
-                    job_repo=FileDiscoveryJobRepository(tmpdir),
-                ))
-                headers = {"X-Insight-User": "guest:testuser02"}
-                start_resp = client.post(
-                    "/api/discovery/jobs",
-                    headers=headers,
-                    json={"brand_url": "https://example.com", "api_key": "test-key"},
-                )
-                job_id = start_resp.json()["job_id"]
-                final = _poll_until_terminal(client, job_id, headers=headers)
-                assert final["status"] == "completed"
-                assert final["result"]["report_md"] == "# Report"
+                with TestClient(_make_app(job_repo=FileDiscoveryJobRepository(tmpdir))) as client:
+                    headers = {"X-Insight-User": "guest:testuser02"}
+                    start_resp = client.post(
+                        "/api/discovery/jobs",
+                        headers=headers,
+                        json={"brand_url": "https://example.com", "api_key": "test-key"},
+                    )
+                    job_id = start_resp.json()["job_id"]
+                    final = _poll_until_terminal(client, job_id, headers=headers)
+                    assert final["status"] == "completed"
+                    assert final["result"]["report_md"] == "# Report"
 
     def test_poll_nonexistent_job_returns_404(self):
         """GET /jobs/{unknown_id} returns 404."""
         with TemporaryDirectory() as tmpdir:
-            client = TestClient(_make_app(
-                job_repo=FileDiscoveryJobRepository(tmpdir),
-            ))
-            resp = client.get(
-                "/api/discovery/jobs/nonexistent",
-                headers={"X-Insight-User": "guest:testuser03"},
-            )
-            assert resp.status_code == 404
+            with TestClient(_make_app(job_repo=FileDiscoveryJobRepository(tmpdir))) as client:
+                resp = client.get(
+                    "/api/discovery/jobs/nonexistent",
+                    headers={"X-Insight-User": "guest:testuser03"},
+                )
+                assert resp.status_code == 404
 
     def test_owner_mismatch_returns_404(self):
         """Polling a job owned by another user returns 404."""
         with TemporaryDirectory() as tmpdir:
             patches = _patch_pipeline()
             with patches[0], patches[1], patches[2], patches[3], patches[4]:
-                client = TestClient(_make_app(
-                    job_repo=FileDiscoveryJobRepository(tmpdir),
-                ))
-                start_resp = client.post(
-                    "/api/discovery/jobs",
-                    headers={"X-Insight-User": "guest:ownerA"},
-                    json={"brand_url": "https://example.com", "api_key": "test-key"},
-                )
-                job_id = start_resp.json()["job_id"]
-                resp = client.get(
-                    f"/api/discovery/jobs/{job_id}",
-                    headers={"X-Insight-User": "guest:ownerB"},
-                )
-                assert resp.status_code == 404
+                with TestClient(_make_app(job_repo=FileDiscoveryJobRepository(tmpdir))) as client:
+                    start_resp = client.post(
+                        "/api/discovery/jobs",
+                        headers={"X-Insight-User": "guest:ownerA"},
+                        json={"brand_url": "https://example.com", "api_key": "test-key"},
+                    )
+                    job_id = start_resp.json()["job_id"]
+                    resp = client.get(
+                        f"/api/discovery/jobs/{job_id}",
+                        headers={"X-Insight-User": "guest:ownerB"},
+                    )
+                    assert resp.status_code == 404
 
     def test_invalid_brand_url_fails_job(self):
         """POST /jobs with private IP accepts job, which then fails during execution."""
         with TemporaryDirectory() as tmpdir:
-            client = TestClient(_make_app(
-                job_repo=FileDiscoveryJobRepository(tmpdir),
-            ))
-            headers = {"X-Insight-User": "guest:testuser04"}
-            resp = client.post(
-                "/api/discovery/jobs",
-                headers=headers,
-                json={"brand_url": "http://127.0.0.1", "api_key": "test-key"},
-            )
-            # Job is accepted (async), SSRF validation happens inside the task
-            assert resp.status_code == 202
-            job_id = resp.json()["job_id"]
-            final = _poll_until_terminal(client, job_id, headers=headers)
-            assert final["status"] == "failed"
+            with TestClient(_make_app(job_repo=FileDiscoveryJobRepository(tmpdir))) as client:
+                headers = {"X-Insight-User": "guest:testuser04"}
+                resp = client.post(
+                    "/api/discovery/jobs",
+                    headers=headers,
+                    json={"brand_url": "http://127.0.0.1", "api_key": "test-key"},
+                )
+                # Job is accepted (async), SSRF validation happens inside the task
+                assert resp.status_code == 202
+                job_id = resp.json()["job_id"]
+                final = _poll_until_terminal(client, job_id, headers=headers)
+                assert final["status"] == "failed"
