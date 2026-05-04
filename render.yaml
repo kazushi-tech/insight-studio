@@ -30,7 +30,7 @@ services:
       - key: DISCOVERY_DAILY_LIMIT
         value: "100"
       - key: REPOSITORY_BACKEND
-        value: db
+        value: file
       - key: GEMINI_TEMPERATURE
         value: "0.7"
       - key: GEMINI_MAX_OUTPUT_TOKENS
