@@ -8,15 +8,14 @@
 # Fix: if upgrade fails, stamp head to sync alembic state with the
 # existing schema, so future migrations apply cleanly.
 
-set -euo pipefail
+set -uo pipefail
 
 echo "=== Running alembic migrations ==="
 if alembic upgrade head 2>&1; then
     echo "=== Migrations applied successfully ==="
 else
-    echo "⚠ alembic upgrade failed — stamping head for existing schema"
-    alembic stamp head
-    echo "=== Stamped head successfully ==="
+    echo "⚠ alembic upgrade failed — attempting stamp..."
+    alembic stamp head 2>&1 || echo "⚠ DB not available — skipping migrations, starting without DB"
 fi
 
 echo "=== Starting unified uvicorn ==="
