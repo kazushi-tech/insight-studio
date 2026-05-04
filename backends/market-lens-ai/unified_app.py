@@ -126,18 +126,25 @@ class PrefixDispatcher:
         while True:
             message = await receive()
             if message["type"] == "lifespan.startup":
+                import traceback
                 try:
-                    await _run_handlers(ml_app.router.on_startup)
-                    await _run_handlers(ads_app.router.on_startup)
-                    await send({"type": "lifespan.startup.complete"})
+                    ml_startup = getattr(ml_app.router, "on_startup", [])
+                    await _run_handlers(ml_startup)
                 except Exception as exc:
-                    await send(
-                        {"type": "lifespan.startup.failed", "message": str(exc)}
-                    )
-                    return
+                    print(f"[unified_app] ml_app startup handler error (non-fatal): {exc}")
+                    traceback.print_exc()
+                try:
+                    ads_startup = getattr(ads_app.router, "on_startup", [])
+                    await _run_handlers(ads_startup)
+                except Exception as exc:
+                    print(f"[unified_app] ads_app startup handler error (non-fatal): {exc}")
+                    traceback.print_exc()
+                await send({"type": "lifespan.startup.complete"})
             elif message["type"] == "lifespan.shutdown":
-                await _run_handlers(ml_app.router.on_shutdown)
-                await _run_handlers(ads_app.router.on_shutdown)
+                ml_shutdown = getattr(ml_app.router, "on_shutdown", [])
+                ads_shutdown = getattr(ads_app.router, "on_shutdown", [])
+                await _run_handlers(ml_shutdown)
+                await _run_handlers(ads_shutdown)
                 await send({"type": "lifespan.shutdown.complete"})
                 return
 
