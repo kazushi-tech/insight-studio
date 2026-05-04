@@ -1,7 +1,7 @@
 export const ANALYSIS_PROVIDER_ANTHROPIC = 'anthropic'
 export const ANALYSIS_PROVIDER_GEMINI = 'google'
 export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6'
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash'
+export const DEFAULT_GEMINI_MODEL = 'gemini-3-flash-preview'
 export const CREATIVE_REVIEW_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
 
 export function normalizeAnalysisProvider(provider) {
