@@ -57,7 +57,28 @@ while _ads_skills_dir in sys.path:
 sys.path.append(ADS_DIR)
 
 # ── 3) Import market-lens-ai (loads its own web.app.*) ──
-from web.app.main import app as ml_app  # noqa: E402
+_ml_import_err = None
+try:
+    from web.app.main import app as ml_app  # noqa: E402
+except Exception as _ml_import_err:
+    import traceback as _tb
+    print(f"[unified_app] CRITICAL: market-lens-ai import FAILED: {_ml_import_err}")
+    _tb.print_exc()
+    from fastapi import FastAPI as _FastAPI2
+    from fastapi.responses import JSONResponse as _JSONResponse
+    _ml_err_str = str(_ml_import_err)
+    ml_app = _FastAPI2(title="market-lens-ai (unavailable)")
+
+    @ml_app.get("/api/health")
+    async def _ml_health():
+        return {"status": "degraded", "error": _ml_err_str}
+
+    @ml_app.api_route("/{path:path}", methods=["GET", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"])
+    async def _ml_unavailable(path: str = ""):
+        return _JSONResponse(
+            status_code=503,
+            content={"detail": f"market-lens-ai failed to start: {_ml_err_str}"},
+        )
 
 # ── 4) Stash ads modules under aliased keys AND rename them so that
 #      lazy relative imports inside ads handlers (e.g. `from .bq_chart_builder
