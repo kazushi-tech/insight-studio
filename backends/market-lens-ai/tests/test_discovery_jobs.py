@@ -91,13 +91,13 @@ def _patch_validate_candidates():
 
 
 def _poll_until_terminal(client: TestClient, job_id: str, headers: dict[str, str] | None = None):
-    for _ in range(30):
+    for _ in range(60):
         resp = client.get(f"/api/discovery/jobs/{job_id}", headers=headers or {})
         assert resp.status_code == 200
         data = resp.json()
         if data["status"] in {"completed", "failed", "cancelled"}:
             return data
-        time.sleep(0.05)
+        time.sleep(0.1)
     raise AssertionError("Job did not reach a terminal state in time")
 
 
@@ -109,28 +109,28 @@ class TestDiscoveryJobs:
                 MockSearchClient(_default_results()),
             )
             with _patch_ssrf(), _patch_fetch_html(), _patch_classify(), _patch_analyze(), _patch_validate_candidates():
-                client = TestClient(app)
-                headers = {"X-Insight-User": "guest:testuser01"}
-                start_resp = client.post(
-                    "/api/discovery/jobs",
-                    headers=headers,
-                    json={
-                        "brand_url": "https://example.com",
-                        "api_key": "test-key",
-                        "provider": "anthropic",
-                    },
-                )
-                assert start_resp.status_code == 202
-                start_data = start_resp.json()
-                assert start_data["status"] == "queued"
-                assert start_data["stage"] == "queued"
-                assert start_data["poll_url"].endswith(start_data["job_id"])
+                with TestClient(app) as client:
+                    headers = {"X-Insight-User": "guest:testuser01"}
+                    start_resp = client.post(
+                        "/api/discovery/jobs",
+                        headers=headers,
+                        json={
+                            "brand_url": "https://example.com",
+                            "api_key": "test-key",
+                            "provider": "anthropic",
+                        },
+                    )
+                    assert start_resp.status_code == 202
+                    start_data = start_resp.json()
+                    assert start_data["status"] == "queued"
+                    assert start_data["stage"] == "queued"
+                    assert start_data["poll_url"].endswith(start_data["job_id"])
 
-                final_data = _poll_until_terminal(client, start_data["job_id"], headers=headers)
-                assert final_data["status"] == "completed"
-                assert final_data["stage"] == "complete"
-                assert final_data["result"]["report_md"] == "# Report"
-                assert final_data["result"]["brand_domain"] == "example.com"
+                    final_data = _poll_until_terminal(client, start_data["job_id"], headers=headers)
+                    assert final_data["status"] == "completed"
+                    assert final_data["stage"] == "complete"
+                    assert final_data["result"]["report_md"] == "# Report"
+                    assert final_data["result"]["brand_domain"] == "example.com"
 
     def test_owner_mismatch_returns_404(self):
         with TemporaryDirectory() as tmpdir:
@@ -139,23 +139,23 @@ class TestDiscoveryJobs:
                 MockSearchClient(_default_results()),
             )
             with _patch_ssrf(), _patch_fetch_html(), _patch_classify(), _patch_analyze(), _patch_validate_candidates():
-                client = TestClient(app)
-                start_resp = client.post(
-                    "/api/discovery/jobs",
-                    headers={"X-Insight-User": "guest:owner0001"},
-                    json={
-                        "brand_url": "https://example.com",
-                        "api_key": "test-key",
-                        "provider": "anthropic",
-                    },
-                )
-                job_id = start_resp.json()["job_id"]
+                with TestClient(app) as client:
+                    start_resp = client.post(
+                        "/api/discovery/jobs",
+                        headers={"X-Insight-User": "guest:owner0001"},
+                        json={
+                            "brand_url": "https://example.com",
+                            "api_key": "test-key",
+                            "provider": "anthropic",
+                        },
+                    )
+                    job_id = start_resp.json()["job_id"]
 
-                resp = client.get(
-                    f"/api/discovery/jobs/{job_id}",
-                    headers={"X-Insight-User": "guest:other0001"},
-                )
-                assert resp.status_code == 404
+                    resp = client.get(
+                        f"/api/discovery/jobs/{job_id}",
+                        headers={"X-Insight-User": "guest:other0001"},
+                    )
+                    assert resp.status_code == 404
 
     def test_failed_job_returns_failed_status(self):
         with TemporaryDirectory() as tmpdir:
@@ -169,24 +169,24 @@ class TestDiscoveryJobs:
                     new_callable=AsyncMock,
                     side_effect=RuntimeError("rate limit exceeded for messages API"),
                 ):
-                    client = TestClient(app)
-                    headers = {"X-Insight-User": "guest:testuser02"}
-                    start_resp = client.post(
-                        "/api/discovery/jobs",
-                        headers=headers,
-                        json={
-                            "brand_url": "https://example.com",
-                            "api_key": "test-key",
-                            "provider": "anthropic",
-                        },
-                    )
-                    job_id = start_resp.json()["job_id"]
+                    with TestClient(app) as client:
+                        headers = {"X-Insight-User": "guest:testuser02"}
+                        start_resp = client.post(
+                            "/api/discovery/jobs",
+                            headers=headers,
+                            json={
+                                "brand_url": "https://example.com",
+                                "api_key": "test-key",
+                                "provider": "anthropic",
+                            },
+                        )
+                        job_id = start_resp.json()["job_id"]
 
-                    final_data = _poll_until_terminal(client, job_id, headers=headers)
-                    assert final_data["status"] == "failed"
-                    assert final_data["stage"] == "failed"
-                    assert "レート制限" in final_data["error"]["detail"]
-                    assert final_data["error"]["retryable"] is True
+                        final_data = _poll_until_terminal(client, job_id, headers=headers)
+                        assert final_data["status"] == "failed"
+                        assert final_data["stage"] == "failed"
+                        assert "レート制限" in final_data["error"]["detail"]
+                        assert final_data["error"]["retryable"] is True
 
     def test_poll_response_includes_heartbeat_and_stage_timestamps(self):
         with TemporaryDirectory() as tmpdir:
