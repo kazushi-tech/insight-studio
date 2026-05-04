@@ -514,14 +514,25 @@ async def run_discovery_pipeline(
         )
     analysis_provider = PROVIDER_ANTHROPIC
 
-    search_api_key = req.search_api_key or req.api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    def _pick_claude_key(*candidates: str | None) -> str:
+        """Return first non-Gemini key from candidates, falling back to server env.
+
+        Google/Gemini keys start with 'AIza'; anything else is treated as a
+        potential Anthropic key and passed through.
+        """
+        for key in candidates:
+            if key and not key.startswith("AIza"):
+                return key
+        return os.getenv("ANTHROPIC_API_KEY", "")
+
+    search_api_key = _pick_claude_key(req.search_api_key, req.api_key)
     if not search_api_key:
         raise PipelineError(
             400,
             "Claude API key is required for Discovery search unless the server has ANTHROPIC_API_KEY configured.",
             stage="queued", retryable=False,
         )
-    analysis_api_key = req.api_key or req.search_api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    analysis_api_key = _pick_claude_key(req.api_key, req.search_api_key) or None
 
     brand_domain = extract_domain(req.brand_url)
     search_id = _new_id()

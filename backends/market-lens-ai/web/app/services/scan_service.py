@@ -119,16 +119,19 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
         await on_stage("analyzing", {"progress_pct": 60})
     llm_failed = False
     current_provider_label = provider_label(req.provider, req.model)
+    # Gemini keys (AIzaSy...) must not be forwarded to the Claude API client; pass None
+    # so anthropic_client falls back to the server's ANTHROPIC_API_KEY env var.
+    effective_api_key = req.api_key if (req.api_key and not req.api_key.startswith("AIza")) else None
     logger.info(
         "Scan LLM start run_id=%s provider=%s model=%s has_byok=%s",
-        result.run_id, req.provider, req.model, bool(req.api_key),
+        result.run_id, req.provider, req.model, bool(effective_api_key),
     )
     try:
         analysis_md, usage = await analyze(
             extracted_list,
             model=req.model,
             provider=req.provider,
-            api_key=req.api_key,
+            api_key=effective_api_key,
             compact_output=False,
         )
         result.token_usage = usage
@@ -158,7 +161,7 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
                     extracted_list,
                     model=req.model,
                     provider=req.provider,
-                    api_key=req.api_key,
+                    api_key=effective_api_key,
                     compact_output=True,
                 )
                 result.token_usage = usage
