@@ -15,7 +15,16 @@ from pathlib import Path
 ADS_DIR = str(Path(__file__).resolve().parent.parent / "ads-insights")
 sys.path.insert(0, ADS_DIR)
 
-from web.app.backend_api import app as ads_app  # noqa: E402
+try:
+    from web.app.backend_api import app as ads_app  # noqa: E402
+except Exception as _ads_import_err:
+    import traceback
+    print(f"[unified_app] ads-insights import FAILED: {_ads_import_err}")
+    traceback.print_exc()
+    # Create a minimal stub app so market-lens-ai can still start
+    from fastapi import FastAPI as _FastAPI
+    ads_app = _FastAPI(title="ads-insights (unavailable)")
+    print("[unified_app] Running in degraded mode — /api/ads/* endpoints unavailable")
 
 # ── 1b) Pre-import bq modules while ADS_DIR is at sys.path[0] ──
 # This ensures bq.* is in sys.modules before the path is rearranged,

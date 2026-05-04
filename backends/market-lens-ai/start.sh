@@ -18,5 +18,16 @@ else
     alembic stamp head 2>&1 || echo "⚠ DB not available — skipping migrations, starting without DB"
 fi
 
+echo "=== Testing Python app import ==="
+python -c "
+try:
+    import unified_app
+    print('Import OK: unified_app loaded successfully')
+except Exception as e:
+    import traceback
+    print(f'Import FAILED: {e}')
+    traceback.print_exc()
+" || true
+
 echo "=== Starting unified uvicorn ==="
 exec uvicorn unified_app:app --host 0.0.0.0 --port "$PORT"
