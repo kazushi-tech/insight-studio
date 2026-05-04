@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 from ...analyzer import analyze, regenerate_execution_plan, section_5_looks_complete
 from ...extractor import extract
 from ...fetcher import fetch_html, take_screenshot
-from ...llm_client import PROVIDER_ANTHROPIC, normalize_provider, provider_label
+from ...llm_client import PROVIDER_ANTHROPIC, PROVIDER_GEMINI, normalize_provider, provider_label
 from ...models import ScanResult
 from ...policies import validate_operator_url
 from ...report_generator import ReportBundle, generate_report_bundle
@@ -504,35 +504,25 @@ async def run_discovery_pipeline(
     if daily_limit_reached is not None and daily_limit_reached():
         raise PipelineError(429, "Daily limit reached.", stage="queued", retryable=False)
 
-    # 3. BYOK: API key resolution
-    normalized_provider = normalize_provider(req.provider, req.model)
-    if normalized_provider != PROVIDER_ANTHROPIC:
-        raise PipelineError(
-            422,
-            "Discovery では Gemini provider / model はサポートしていません。Claude を使用してください。",
-            stage="queued", retryable=False,
-        )
-    analysis_provider = PROVIDER_ANTHROPIC
-
-    def _pick_claude_key(*candidates: str | None) -> str:
-        """Return first non-Gemini key from candidates, falling back to server env.
-
-        Google/Gemini keys start with 'AIza'; anything else is treated as a
-        potential Anthropic key and passed through.
-        """
-        for key in candidates:
-            if key and not key.startswith("AIza"):
-                return key
-        return os.getenv("ANTHROPIC_API_KEY", "")
-
-    search_api_key = _pick_claude_key(req.search_api_key, req.api_key)
-    if not search_api_key:
-        raise PipelineError(
-            400,
-            "Claude API key is required for Discovery search unless the server has ANTHROPIC_API_KEY configured.",
-            stage="queued", retryable=False,
-        )
-    analysis_api_key = _pick_claude_key(req.api_key, req.search_api_key) or None
+    # 3. BYOK: API key resolution.
+    # Gemini keys start with "AIza"; all others are treated as Claude keys.
+    byok_key = req.api_key or req.search_api_key
+    if byok_key and byok_key.startswith("AIza"):
+        # User provided a Gemini key — use it for both search and analysis.
+        analysis_provider = PROVIDER_GEMINI
+        search_api_key = byok_key
+        analysis_api_key: str | None = byok_key
+    else:
+        # Claude key or server fallback.
+        analysis_provider = PROVIDER_ANTHROPIC
+        search_api_key = byok_key or os.getenv("ANTHROPIC_API_KEY", "")
+        if not search_api_key:
+            raise PipelineError(
+                400,
+                "API key is required for Discovery. ANTHROPIC_API_KEY を設定するか BYOK キーを指定してください。",
+                stage="queued", retryable=False,
+            )
+        analysis_api_key = byok_key or None
 
     brand_domain = extract_domain(req.brand_url)
     search_id = _new_id()
@@ -615,8 +605,12 @@ async def run_discovery_pipeline(
     brand_context = " | ".join(part for part in brand_context_parts if part)
 
     if search_client is None:
-        resolved_key = search_api_key or os.getenv("ANTHROPIC_API_KEY", "")
-        search_client = AnthropicSearchClient(api_key=resolved_key)
+        if analysis_provider == PROVIDER_GEMINI:
+            from .gemini_search_client import GeminiSearchClient
+            search_client = GeminiSearchClient(api_key=search_api_key)
+        else:
+            resolved_key = search_api_key or os.getenv("ANTHROPIC_API_KEY", "")
+            search_client = AnthropicSearchClient(api_key=resolved_key)
 
     t0 = time.monotonic()
     search_deadline = time.monotonic() + search_timeout - 2.0
