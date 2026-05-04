@@ -1,12 +1,16 @@
-"""Gemini Search Client — grounded Google Search for competitor discovery."""
+"""Gemini Search Client — grounded Google Search for competitor discovery.
+
+Uses the Gemini REST API directly (httpx) to avoid SDK version dependency.
+"""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
 import re
+
+import httpx
 
 from .search_client import SearchClient, SearchClientError, SearchResult
 
@@ -17,84 +21,58 @@ _DEFAULT_SEARCH_MODEL = os.getenv(
     os.getenv("GEMINI_ANALYSIS_MODEL", "gemini-2.0-flash"),
 )
 _URL_RE = re.compile(r'https?://[^\s<>"\'\)\]\}]+')
+_GEMINI_REST_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
-def _call_grounded_search_sync(
+async def _call_grounded_search_async(
     prompt: str,
     *,
     model: str,
     api_key: str,
+    timeout: float = 60.0,
 ) -> tuple[str, list[dict]]:
-    """Sync Gemini grounded search. Returns (text, grounding_chunks).
+    """Call Gemini REST API with google_search tool. Returns (text, grounding_chunks).
 
-    grounding_chunks is a list of {"url": ..., "title": ...} from Google Search.
+    grounding_chunks is a list of {"url": ..., "title": ...}.
     """
-    last_err: Exception | None = None
+    url = f"{_GEMINI_REST_BASE}/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "tools": [{"google_search": {}}],
+        "generationConfig": {"temperature": 0},
+    }
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.post(url, json=payload)
 
-    # 1) google.genai (newer SDK — Gemini 2.0+)
-    try:
-        from google import genai  # type: ignore
-        from google.genai import types  # type: ignore
-
-        client = genai.Client(api_key=api_key)
-        try:
-            google_search_tool = types.Tool(google_search=types.GoogleSearch())
-        except Exception:
-            google_search_tool = types.Tool(google_search={})  # type: ignore
-
-        cfg = types.GenerateContentConfig(tools=[google_search_tool], temperature=0)
-        resp = client.models.generate_content(model=model, contents=prompt, config=cfg)
-        text = getattr(resp, "text", None) or ""
-        chunks: list[dict] = []
-        for candidate in getattr(resp, "candidates", None) or []:
-            gm = getattr(candidate, "grounding_metadata", None)
-            if not gm:
-                continue
-            for chunk in getattr(gm, "grounding_chunks", None) or []:
-                web = getattr(chunk, "web", None)
-                if not web:
-                    continue
-                url = getattr(web, "uri", "") or ""
-                title = getattr(web, "title", "") or ""
-                if url:
-                    chunks.append({"url": url, "title": title})
-        return text, chunks
-    except Exception as e:
-        last_err = e
-
-    # 2) google.generativeai (older SDK — Gemini 1.5)
-    try:
-        import google.generativeai as genai_old  # type: ignore
-
-        genai_old.configure(api_key=api_key)
-        tools = [genai_old.types.Tool(
-            google_search_retrieval=genai_old.types.GoogleSearchRetrieval()
-        )]
-        gm = genai_old.GenerativeModel(model_name=model, tools=tools)
-        resp = gm.generate_content(prompt, generation_config={"temperature": 0})
-        text = getattr(resp, "text", None) or ""
-        chunks = []
-        for candidate in getattr(resp, "candidates", None) or []:
-            meta = getattr(candidate, "grounding_metadata", None)
-            if not meta:
-                continue
-            for chunk in getattr(meta, "grounding_chunks", None) or []:
-                web = getattr(chunk, "web", None)
-                if not web:
-                    continue
-                url = getattr(web, "uri", "") or ""
-                title = getattr(web, "title", "") or ""
-                if url:
-                    chunks.append({"url": url, "title": title})
-        return text, chunks
-    except Exception as e:
+    if resp.status_code != 200:
         raise SearchClientError(
-            f"Gemini grounded search failed: {last_err} / {e}"
-        ) from e
+            f"Gemini REST API error {resp.status_code}: {resp.text[:300]}"
+        )
+
+    data = resp.json()
+    candidates = data.get("candidates") or []
+    text = ""
+    chunks: list[dict] = []
+
+    for candidate in candidates:
+        # Extract text
+        for part in (candidate.get("content") or {}).get("parts") or []:
+            text += part.get("text") or ""
+
+        # Extract grounding chunks
+        gm = candidate.get("groundingMetadata") or {}
+        for chunk in gm.get("groundingChunks") or []:
+            web = chunk.get("web") or {}
+            uri = web.get("uri") or ""
+            title = web.get("title") or ""
+            if uri:
+                chunks.append({"url": uri, "title": title})
+
+    return text, chunks
 
 
 def _parse_json_results(text: str) -> list[dict]:
-    """Try to parse {"results": [...]} JSON from Gemini response text."""
+    """Try to parse JSON array / {"results": [...]} from Gemini response text."""
     if not text:
         return []
     normalized = text.strip()
@@ -174,8 +152,7 @@ class GeminiSearchClient(SearchClient):
         prompt = self._build_prompt(query, brand_context, num)
 
         try:
-            text, grounding_chunks = await asyncio.to_thread(
-                _call_grounded_search_sync,
+            text, grounding_chunks = await _call_grounded_search_async(
                 prompt,
                 model=self._model,
                 api_key=self._api_key,
