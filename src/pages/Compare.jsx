@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { startScanJob, getScanJob, classifyError, warmMarketLensBackend } from '../api/marketLens'
+import { scan, startScanJob, getScanJob, classifyError, warmMarketLensBackend } from '../api/marketLens'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import DataCoverageCard from '../components/DataCoverageCard'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -96,6 +96,19 @@ function getScanErrorMessage(data) {
   const report = typeof data.report_md === 'string' ? data.report_md : ''
   const match = report.match(/LLM分析エラー:[^\r\n]+/)
   return match?.[0] || '分析に失敗しました。しばらく待って再試行してください。'
+}
+
+function isScanJobFallbackEligible(error) {
+  const status = Number(error?.status || 0)
+  const msg = String(error?.message || '').toLowerCase()
+  return error?.isTimeout ||
+    error?.name === 'AbortError' ||
+    status === 502 ||
+    status === 503 ||
+    status === 529 ||
+    msg.includes('timeout') ||
+    msg.includes('タイムアウト') ||
+    msg.includes('overloaded')
 }
 
 function extractModelFromReport(reportMd) {
@@ -431,7 +444,7 @@ export default function Compare() {
       startRun('compare', { urls })
       failRun('compare', 'APIキーまたはプロバイダーが設定されていません。設定画面を確認してください。', {
         category: 'auth_error', label: '設定不足',
-        guidance: '設定 → AI設定 から Claude API キーを入力してください。', retryable: false,
+        guidance: '設定 → AI設定 から Gemini または Claude の分析用 API キーを入力してください。', retryable: false,
       })
       return
     }
@@ -480,11 +493,37 @@ export default function Compare() {
       }
       console.info('[Compare] Backend warm, submitting scan job')
 
-      const jobData = await startScanJob(urlList, {
+      const requestOptions = {
         apiKey: analysisKey,
         provider: analysisProvider,
         model: getAnalysisModel(analysisProvider),
-      })
+      }
+
+      let jobData
+      try {
+        jobData = await startScanJob(urlList, requestOptions)
+      } catch (jobError) {
+        if (!isScanJobFallbackEligible(jobError)) throw jobError
+
+        console.warn('[Compare] scan job creation failed; falling back to sync scan', {
+          status: jobError.status,
+          message: jobError.message,
+        })
+        updateRunMeta('compare', {
+          stage: 'analyzing',
+          statusLabel: 'ジョブ開始に失敗したため、同期分析で復旧中…',
+          fallbackMode: true,
+        })
+
+        const fallbackResult = await scan(urlList, requestOptions)
+        handleJobComplete(fallbackResult)
+        updateRunMeta('compare', {
+          fallbackMode: true,
+          recoveredFromJobStartFailure: true,
+          providerLabel,
+        })
+        return
+      }
 
       console.info('[Compare] Scan job started', { jobId: jobData.job_id, pollUrl: jobData.poll_url })
       persistActiveScanJob(jobData.job_id, jobData.poll_url, urls)
@@ -582,12 +621,12 @@ export default function Compare() {
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">LP比較分析は分析用 Claude API キーを Market Lens backend に送信して実行します。レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
+        <span className="japanese-text">LP比較分析は分析用 API キー（現在: {providerLabel}）を Market Lens backend に送信して実行します。レポートのモデル名には backend が返した実行モデルをそのまま表示します。</span>
       </div>
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">LP比較分析には Claude API キーが必要です。設定画面から設定してください。</span>
+          <span className="japanese-text">LP比較分析には Gemini または Claude の分析用 API キーが必要です。設定画面から設定してください。</span>
         </div>
       )}
 
@@ -595,16 +634,21 @@ export default function Compare() {
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
         <div className="grid grid-cols-3 gap-6">
           {[
-            { key: 'target', label: '自社URL (Target)', placeholder: 'https://your-site.jp/lp01' },
-            { key: 'compA', label: '競合URL A (Competitor)', placeholder: 'https://competitor-a.com/landing' },
-            { key: 'compB', label: '競合URL B (Competitor)', placeholder: 'https://competitor-b.com/campaign' },
+            { key: 'target', label: '自社URL (Target)', placeholder: '例: https://your-site.jp/lp01…' },
+            { key: 'compA', label: '競合URL A (Competitor)', placeholder: '例: https://competitor-a.com/landing…' },
+            { key: 'compB', label: '競合URL B (Competitor)', placeholder: '例: https://competitor-b.com/campaign…' },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
-              <label className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
+              <label htmlFor={`compare-url-${key}`} className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">link</span>
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg" aria-hidden="true">link</span>
                 <input
-                  className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
+                  id={`compare-url-${key}`}
+                  name={`compare-url-${key}`}
+                  type="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-10 pr-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[box-shadow,background-color]"
                   placeholder={placeholder}
                   value={urls[key]}
                   onChange={(e) => {
@@ -821,7 +865,7 @@ export default function Compare() {
             {report ? (
               <>
                 {isUiV2 ? (
-                  <ReportViewV2 envelope={scanEnvelope} reportMd={rawReport || report} />
+                  <ReportViewV2 envelope={scanEnvelope} reportMd={rawReport || report} kind="compare" />
                 ) : (
                   <>
                     <PriorityActionHero reportMd={report} />

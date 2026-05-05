@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './tokens.css'
 import printStyles from './print.module.css'
 import PriorityActionHeroV2 from './PriorityActionHeroV2'
+import ActionBoardV2 from './ActionBoardV2'
+import ReportChapterStackV2 from './ReportChapterStackV2'
+import CompetitivePositionMapV2 from './CompetitivePositionMapV2'
 import CompetitorMatrixV2 from './CompetitorMatrixV2'
 import BrandRadarV2 from './BrandRadarV2'
 import MarketRangeV2 from './MarketRangeV2'
@@ -33,7 +36,7 @@ function extractHeadings(md) {
   return headings
 }
 
-export default function ReportViewV2({ envelope, reportMd }) {
+export default function ReportViewV2({ envelope, reportMd, kind = 'compare' }) {
   const headings = useMemo(() => extractHeadings(reportMd), [reportMd])
   const [activeId, setActiveId] = useState('')
   const tocRef = useRef(null)
@@ -61,6 +64,8 @@ export default function ReportViewV2({ envelope, reportMd }) {
 
   return (
     <div className={`ui-v2 ${printStyles.printRoot} ${styles.root}`}>
+      <ActionBoardV2 envelope={envelope} reportMd={reportMd} />
+      <ReportChapterStackV2 envelope={envelope} reportMd={reportMd} kind={kind} />
       <PriorityActionHeroV2 envelope={envelope} reportMd={reportMd} />
       <MarketRangeV2 envelope={envelope} reportMd={reportMd} />
       <div className={styles.grid}>
@@ -70,7 +75,7 @@ export default function ReportViewV2({ envelope, reportMd }) {
       <div className={styles.tocLayout}>
         {/* Section D-6: Sticky TOC sidebar (desktop only) */}
         {headings.length > 0 && (
-          <nav className={`${styles.toc} ${printStyles.hideInPrint}`} aria-label="目次" ref={tocRef} aria-hidden="true">
+          <nav className={`${styles.toc} ${printStyles.hideInPrint}`} aria-label="詳細レポート目次" ref={tocRef}>
             <div style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', color: 'var(--md-sys-color-on-surface-variant, #49454f)' }}>
               目次
             </div>
@@ -80,6 +85,7 @@ export default function ReportViewV2({ envelope, reportMd }) {
                 key={h.id}
                 data-toc-link
                 className={`${styles.tocItem} ${activeId === h.id ? styles.tocItemActive : ''}`}
+                aria-current={activeId === h.id ? 'location' : undefined}
                 onClick={() => {
                   document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth' })
                 }}
@@ -90,6 +96,12 @@ export default function ReportViewV2({ envelope, reportMd }) {
           </nav>
         )}
         <div>
+          <CompetitivePositionMapV2
+            envelope={envelope}
+            reportMd={reportMd}
+            focusedBrand={focusedBrand}
+            onBrandSelect={(brand) => setFocusedBrand((prev) => (prev === brand ? null : brand))}
+          />
           <div className={styles.grid}>
             <CompetitorMatrixV2
               envelope={envelope}

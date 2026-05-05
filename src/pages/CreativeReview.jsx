@@ -21,6 +21,26 @@ const REVIEW_TEXT_SIZE_OPTIONS = [
   { value: 'xlarge', label: '特大' },
 ]
 
+const DEMO_NOTICE = '架空の検証用クリエイティブです。実在ブランド・実在商品ではありません。'
+const DEMO_CREATIVES = [
+  {
+    id: 'interior',
+    title: '架空インテリアEC',
+    brandInfo: 'Mori & Vale Home（架空ブランド） / インテリアEC / 検証用デモ素材',
+    operatorMemo: DEMO_NOTICE,
+    src: '/demo-creatives/demo-creative-interior-300x250.png',
+    fileName: 'demo-creative-interior-300x250.png',
+  },
+  {
+    id: 'skincare',
+    title: '架空スキンケアEC',
+    brandInfo: 'Luma Neri Skin（架空ブランド） / スキンケアEC / 検証用デモ素材',
+    operatorMemo: DEMO_NOTICE,
+    src: '/demo-creatives/demo-creative-skincare-300x250.png',
+    fileName: 'demo-creative-skincare-300x250.png',
+  },
+]
+
 const RUBRIC_LABEL_MAP = {
   visual_impact: '視覚的インパクト',
   message_clarity: 'メッセージ明瞭性',
@@ -43,6 +63,81 @@ const RUBRIC_LABEL_MAP = {
   drop_off_risk: '離脱リスク',
   input_friction: '入力摩擦',
   story_consistency: 'ストーリー一貫性',
+}
+
+const BANNER_RUBRIC_IDS = [
+  'visual_impact',
+  'message_clarity',
+  'cta_effectiveness',
+  'brand_consistency',
+  'information_balance',
+  'hook_strength',
+  'target_clarity',
+  'offer_clarity',
+]
+
+function isFilledArray(value) {
+  return Array.isArray(value) && value.length > 0
+}
+
+function normalizeCreativeReview(review) {
+  if (!review || typeof review !== 'object') return review
+
+  const next = { ...review }
+  let complemented = false
+
+  if (!next.review_type) {
+    next.review_type = 'banner_review'
+    complemented = true
+  }
+  if (!next.summary) {
+    next.summary = 'AI出力に要約が含まれなかったため、運用者確認が必要です。'
+    complemented = true
+  }
+  if (!next.target_hypothesis) {
+    next.target_hypothesis = '評価保留: ターゲット仮説がAI出力に含まれませんでした。'
+    complemented = true
+  }
+  if (!next.message_angle) {
+    next.message_angle = '評価保留: メッセージ角度がAI出力に含まれませんでした。'
+    complemented = true
+  }
+  if (!isFilledArray(next.good_points)) {
+    next.good_points = [{
+      point: '評価保留',
+      reason: 'AI出力に良い点が含まれなかったため、運用者確認が必要です。',
+    }]
+    complemented = true
+  }
+  if (!isFilledArray(next.improvements)) {
+    next.improvements = [{
+      point: '評価保留',
+      reason: 'AI出力に改善提案が含まれませんでした。',
+      action: 'バナーの目的、CTA、訴求軸を運用者が確認してください。',
+    }]
+    complemented = true
+  }
+  if (!isFilledArray(next.evidence)) {
+    next.evidence = [{
+      evidence_type: 'evaluation_pending',
+      evidence_source: 'AI出力',
+      evidence_text: '根拠項目が欠落していたため、運用者確認が必要です。',
+    }]
+    complemented = true
+  }
+  if (!isFilledArray(next.rubric_scores)) {
+    next.rubric_scores = BANNER_RUBRIC_IDS.map((rubricId) => ({
+      rubric_id: rubricId,
+      score: null,
+      comment: '評価保留: AI出力に採点が含まれませんでした。',
+    }))
+    complemented = true
+  }
+  if (complemented) {
+    next.operator_review_notice = 'AI出力の欠落項目を自動補完しました。施策化前に運用者確認が必要です。'
+  }
+
+  return next
 }
 
 
@@ -266,6 +361,83 @@ function RubricSection({ review }) {
   )
 }
 
+function hasOperatorReviewNotice(review) {
+  const text = JSON.stringify(review || {})
+  return /運用者確認|評価保留|自動補完|欠落していたため|AI出力/.test(text)
+}
+
+function OperatorReviewNotice({ review }) {
+  if (!hasOperatorReviewNotice(review)) return null
+  return (
+    <div className="rounded-[0.75rem] border border-amber-200 dark:border-warning/30 bg-amber-50/70 dark:bg-warning-container px-4 py-3 text-sm text-amber-800 dark:text-on-warning-container flex items-start gap-2">
+      <span className="material-symbols-outlined text-lg" aria-hidden="true">pending</span>
+      <div>
+        <p className="font-bold japanese-text">評価保留・運用者確認を含みます</p>
+        <p className="text-xs mt-0.5 japanese-text">AI出力の欠落項目は安全補完されています。good_points / improvements / evidence / rubric_scores の該当コメントを確認してから施策化してください。</p>
+      </div>
+    </div>
+  )
+}
+
+function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, providerLabel }) {
+  const reviewMode = lpUrl.trim() ? '広告+LP統合レビュー' : 'バナーレビュー'
+  const checks = [
+    {
+      icon: 'image',
+      label: '画像',
+      value: fileName || '未選択',
+      ok: Boolean(fileName),
+    },
+    {
+      icon: 'vpn_key',
+      label: '分析キー',
+      value: hasAnalysisKey ? `${providerLabel} で実行可能` : '未設定',
+      ok: hasAnalysisKey,
+    },
+    {
+      icon: 'route',
+      label: 'レビュー方式',
+      value: reviewMode,
+      ok: true,
+    },
+    {
+      icon: 'verified',
+      label: '欠損補完',
+      value: '不足項目は評価保留で表示',
+      ok: true,
+    },
+  ]
+
+  return (
+    <section className="rounded-[0.75rem] bg-surface-container-lowest border border-outline-variant/10 p-5 space-y-4" aria-labelledby="creative-review-readiness-title">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-secondary">Review Readiness</p>
+          <h3 id="creative-review-readiness-title" className="text-lg font-bold text-on-surface japanese-text mt-1">レビュー実行前チェック</h3>
+        </div>
+        {assetMeta?.width && assetMeta?.height && (
+          <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant">
+            {assetMeta.width} × {assetMeta.height}px
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {checks.map((item) => (
+          <div key={item.label} className="rounded-xl bg-surface-container px-4 py-3 flex items-start gap-3 min-w-0">
+            <span className={`material-symbols-outlined text-lg ${item.ok ? 'text-emerald-600' : 'text-amber-600'}`} aria-hidden="true">
+              {item.ok ? item.icon : 'warning'}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-on-surface-variant">{item.label}</p>
+              <p className="text-sm font-bold text-on-surface japanese-text break-words">{item.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function CategoryContextSection({ review, size }) {
   const ctx = review?.category_context
   if (!ctx) return null
@@ -425,6 +597,16 @@ function ReviewResultDisplay({ review, size }) {
 
   return (
     <div className="space-y-5">
+      {review.demo_creative && (
+        <div className="rounded-[0.75rem] border border-secondary/20 bg-secondary/10 px-4 py-3 text-sm text-on-surface flex items-start gap-2">
+          <span className="material-symbols-outlined text-lg text-secondary" aria-hidden="true">experiment</span>
+          <div>
+            <p className="font-bold japanese-text">検証用の架空デモ素材</p>
+            <p className="text-xs mt-0.5 text-on-surface-variant japanese-text">{review.demo_notice || DEMO_NOTICE}</p>
+          </div>
+        </div>
+      )}
+      <OperatorReviewNotice review={review} />
       <SummarySection review={review} size={size} />
       <RubricCategoryHeatmap review={review} />
       <NeutralInfoSection review={review} size={size} />
@@ -509,6 +691,7 @@ export default function CreativeReview() {
   const [fileName, setFileName] = useState(() => reviewRun?.input?.fileName || '')
   const [assetId, setAssetId] = useState(() => reviewRun?.input?.assetId || null)
   const [assetMeta, setAssetMeta] = useState(() => reviewRun?.input?.assetMeta || null)
+  const [demoCreative, setDemoCreative] = useState(() => reviewRun?.input?.demoCreative || null)
 
   const [brandInfo, setBrandInfo] = useState(() => reviewRun?.input?.brandInfo || '')
   const [operatorMemo, setOperatorMemo] = useState(() => reviewRun?.input?.operatorMemo || '')
@@ -535,6 +718,7 @@ export default function CreativeReview() {
     setFileName('')
     setAssetId(null)
     setAssetMeta(null)
+    setDemoCreative(null)
     setBrandInfo('')
     setOperatorMemo('')
     setLpUrl('')
@@ -569,6 +753,7 @@ export default function CreativeReview() {
     setPhase('uploading')
     setErrorMessage('')
     setErrorInfo(null)
+    if (!file.demoCreative) setDemoCreative(null)
     try {
       const data = await uploadCreativeAsset(file)
       setAssetId(data.asset_id)
@@ -578,6 +763,23 @@ export default function CreativeReview() {
       goError(`アップロード失敗: ${err.message}`, classifyError(err))
     }
   }, [goError])
+
+  const handleDemoCreative = useCallback(async (demo) => {
+    try {
+      setDemoCreative(demo)
+      setBrandInfo(demo.brandInfo)
+      setOperatorMemo(demo.operatorMemo)
+      setLpUrl('')
+      const res = await fetch(demo.src)
+      if (!res.ok) throw new Error('デモ素材を読み込めませんでした。')
+      const blob = await res.blob()
+      const file = new File([blob], demo.fileName, { type: blob.type || 'image/png' })
+      file.demoCreative = demo
+      await handleFile(file)
+    } catch (err) {
+      goError(`Demo Creative 読み込み失敗: ${err.message}`, classifyError(err))
+    }
+  }, [goError, handleFile])
 
   const onFileChange = useCallback((e) => {
     handleFile(e.target.files[0])
@@ -598,6 +800,12 @@ export default function CreativeReview() {
     dropZoneRef.current?.classList.remove('ring-2', 'ring-secondary')
   }, [])
 
+  const onDropZoneKeyDown = useCallback((e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return
+    e.preventDefault()
+    fileInputRef.current?.click()
+  }, [])
+
   // ─── 2. Review ───
   const handleReview = useCallback(async () => {
     if (!assetId || !analysisKey.trim() || !analysisProvider) return
@@ -608,7 +816,7 @@ export default function CreativeReview() {
 
     startRun('creative-review', {
       assetId, brandInfo, operatorMemo, lpUrl,
-      previewUrl, fileName, assetMeta,
+      previewUrl, fileName, assetMeta, demoCreative,
     })
 
     try {
@@ -634,7 +842,11 @@ export default function CreativeReview() {
         })
       }
 
-      const review = envelope?.review || envelope
+      const review = normalizeCreativeReview(envelope?.review || envelope)
+      if (demoCreative && review && typeof review === 'object') {
+        review.demo_creative = true
+        review.demo_notice = DEMO_NOTICE
+      }
 
       // Empty response guard
       if (!review || (typeof review === 'object' && !review.summary && !review.good_points && !review.improvements && !review.rubric_scores && !review.markdown && Object.keys(review).length === 0)) {
@@ -663,7 +875,7 @@ export default function CreativeReview() {
       setErrorMessage(`レビュー失敗: ${err.message}`)
       setErrorInfo(info)
     }
-  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, providerLabel, reviewModel, startRun, completeRun, failRun])
+  }, [assetId, analysisKey, analysisProvider, brandInfo, operatorMemo, lpUrl, previewUrl, fileName, assetMeta, demoCreative, providerLabel, reviewModel, startRun, completeRun, failRun])
 
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed'].includes(phase)
@@ -682,10 +894,10 @@ export default function CreativeReview() {
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="display-md text-on-surface tracking-tight">Creative Review</h2>
             <span className="inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-secondary">
-              Claude First
+              {providerLabel} Review
             </span>
           </div>
-          <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして Claude でレビューします。</p>
+          <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして、現在の分析プロバイダー（{providerLabel}）でレビューします。</p>
         </div>
       </div>
 
@@ -713,13 +925,13 @@ export default function CreativeReview() {
         <div className="space-y-3">
           <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
             <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">クリエイティブレビューには Claude API キーが必要です。設定画面から設定してください。</span>
+            <span className="japanese-text">クリエイティブレビューには Gemini または Claude の分析用 API キーが必要です。設定画面から設定してください。</span>
           </div>
         </div>
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">クリエイティブレビューは Claude で実行します。</span>
+        <span className="japanese-text">クリエイティブレビューは現在 {providerLabel} で実行します。Gemini キーが設定されている場合は Gemini が優先されます。</span>
       </div>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
@@ -731,22 +943,53 @@ export default function CreativeReview() {
           </h3>
           <div
             ref={dropZoneRef}
+            role="button"
+            tabIndex={0}
+            aria-label="バナー画像をアップロード"
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={onDropZoneKeyDown}
             onDrop={onDrop}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
-            className="ghost-border-thick border-dashed rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-secondary hover:bg-secondary/5 transition-all"
+            className="ghost-border-thick border-dashed rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-secondary hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[border-color,background-color,box-shadow]"
           >
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-3">cloud_upload</span>
+            <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-3" aria-hidden="true">cloud_upload</span>
             <p className="text-sm text-on-surface-variant japanese-text">クリックまたはドラッグ＆ドロップで画像を選択</p>
             <p className="text-xs text-on-surface-variant/60 mt-1">PNG / JPG 対応</p>
             <input
               ref={fileInputRef}
+              aria-label="バナー画像ファイル"
+              name="creative-review-file"
               type="file"
               accept="image/png,image/jpeg,image/webp"
               onChange={onFileChange}
               className="hidden"
             />
+          </div>
+          <div className="mt-5 rounded-xl bg-surface-container px-5 py-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-secondary">Demo Creative</p>
+                <p className="text-sm font-bold text-on-surface japanese-text mt-1">検証用の架空デモ素材で試す</p>
+                <p className="text-xs text-on-surface-variant japanese-text mt-1">{DEMO_NOTICE}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              {DEMO_CREATIVES.map((demo) => (
+                <button
+                  key={demo.id}
+                  type="button"
+                  onClick={() => handleDemoCreative(demo)}
+                  className="flex items-center gap-3 rounded-[0.75rem] bg-surface-container-lowest px-3 py-3 text-left hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                >
+                  <img src={demo.src} alt="" className="h-12 w-[58px] rounded-md object-cover border border-outline-variant/20" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold text-on-surface japanese-text">{demo.title}</span>
+                    <span className="block text-[11px] text-on-surface-variant japanese-text">架空デモ素材</span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -778,6 +1021,12 @@ export default function CreativeReview() {
                   <span className="material-symbols-outlined text-green-600 text-lg">check_circle</span>
                   {fileName}
                 </p>
+                {demoCreative && (
+                  <p className="inline-flex items-center gap-1 rounded-full bg-secondary/10 px-3 py-1 text-xs font-bold text-secondary japanese-text">
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">experiment</span>
+                    検証用の架空デモ素材
+                  </p>
+                )}
                 {assetMeta && (
                   <div className="text-xs text-on-surface-variant space-y-0.5">
                     {assetMeta.width && assetMeta.height && <p>{assetMeta.width} × {assetMeta.height}px</p>}
@@ -798,6 +1047,14 @@ export default function CreativeReview() {
 
           {/* Right: review settings, results, generation */}
           <div className="col-span-7 space-y-8">
+            <ReviewReadinessPanel
+              fileName={fileName}
+              assetMeta={assetMeta}
+              lpUrl={lpUrl}
+              hasAnalysisKey={hasAnalysisKey}
+              providerLabel={providerLabel}
+            />
+
             {/* ─── Step 2: Review Input ─── */}
             <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">
               <h3 className="text-lg font-bold text-on-surface japanese-text mb-2 flex items-center gap-2">
@@ -807,33 +1064,43 @@ export default function CreativeReview() {
 
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1">ブランド情報（任意）</label>
+                  <label htmlFor="creative-review-brand-info" className="block text-xs font-bold text-on-surface-variant mb-1">ブランド情報（任意）</label>
                   <input
+                    id="creative-review-brand-info"
+                    name="creative-review-brand-info"
                     type="text"
+                    autoComplete="off"
                     value={brandInfo}
                     onChange={(e) => setBrandInfo(e.target.value)}
-                    placeholder="例: 化粧品ブランドA、ターゲット20代女性"
+                    placeholder="例: 化粧品ブランドA、ターゲット20代女性…"
                     className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-on-surface-variant mb-1">LP URL（任意 — 入力するとLP統合レビュー）</label>
+                  <label htmlFor="creative-review-lp-url" className="block text-xs font-bold text-on-surface-variant mb-1">LP URL（任意 — 入力するとLP統合レビュー）</label>
                   <input
+                    id="creative-review-lp-url"
+                    name="creative-review-lp-url"
                     type="url"
+                    autoComplete="off"
+                    spellCheck={false}
                     value={lpUrl}
                     onChange={(e) => setLpUrl(e.target.value)}
-                    placeholder="https://example.com/lp"
+                    placeholder="例: https://example.com/lp…"
                     className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-on-surface-variant mb-1">運用メモ（任意）</label>
+                <label htmlFor="creative-review-operator-memo" className="block text-xs font-bold text-on-surface-variant mb-1">運用メモ（任意）</label>
                 <textarea
+                  id="creative-review-operator-memo"
+                  name="creative-review-operator-memo"
+                  autoComplete="off"
                   value={operatorMemo}
                   onChange={(e) => setOperatorMemo(e.target.value)}
-                  placeholder="レビューで注目してほしいポイントなど"
+                  placeholder="レビューで注目してほしいポイントなど…"
                   rows={2}
                   className="w-full px-4 py-2.5 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary resize-none"
                 />
@@ -848,14 +1115,14 @@ export default function CreativeReview() {
                   <LoadingSpinner size="sm" label="レビュー中…" />
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-lg">rate_review</span>
+                    <span className="material-symbols-outlined text-lg" aria-hidden="true">rate_review</span>
                     {lpUrl.trim() ? '広告+LP統合レビューを実行' : 'バナーレビューを実行'}
                   </>
                 )}
               </button>
 
               {!analysisKey.trim() && (
-                <p className="text-xs text-amber-600 dark:text-warning">分析用 Claude API キーを設定してください。</p>
+                <p className="text-xs text-amber-600 dark:text-warning">Gemini または Claude の分析用 API キーを設定してください。</p>
               )}
             </div>
 
@@ -923,7 +1190,7 @@ export default function CreativeReview() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { icon: 'cloud_upload', title: '画像をアップロード', desc: 'バナー画像（PNG/JPG）を選択' },
-              { icon: 'rate_review', title: 'AIレビュー', desc: 'Claudeがバナーを分析・評価' },
+              { icon: 'rate_review', title: 'AIレビュー', desc: `${providerLabel}がバナーを分析・評価` },
             ].map((step, i) => (
               <div key={i} className="flex flex-col items-center text-center p-4">
                 <div className="w-12 h-12 bg-secondary/10 rounded-[0.75rem] flex items-center justify-center mb-3">

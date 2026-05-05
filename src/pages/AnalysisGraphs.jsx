@@ -450,6 +450,161 @@ function AnomalySection({ chartGroups }) {
   )
 }
 
+/* ── Reading board for Python/BigQuery generated chart bundles ── */
+function GraphReadingBoard({
+  themes,
+  filteredGroups,
+  topInsights,
+  activeScopeLabel,
+  setupState,
+  onThemeChange,
+  onScrollToGraphs,
+}) {
+  const themeSummaries = themes.map((theme) => ({
+    ...theme,
+    summary: computeThemeSummary(theme.groups),
+  }))
+  const featuredThemes = ['cv', 'traffic', 'lp', 'anomaly']
+    .map((id) => themeSummaries.find((theme) => theme.id === id))
+    .filter(Boolean)
+  const totalCritical = themeSummaries.reduce((sum, theme) => sum + theme.summary.criticalShifts, 0)
+
+  return (
+    <section className="rounded-[1.35rem] bg-surface-container-lowest border border-outline-variant/20 shadow-sm overflow-hidden">
+      <div className="p-7 border-b border-outline-variant/15 bg-primary/[0.035] flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+        <div className="space-y-3 max-w-3xl">
+          <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-[0.14em] uppercase text-primary">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">analytics</span>
+            Graph First Analysis Board
+          </span>
+          <div>
+            <h2 className="text-2xl font-extrabold text-primary japanese-text">Pythonで集計したグラフを先に読む</h2>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+              GA4/BigQuery連携済みの数値を、CV・流入・LP・異常検知の順に確認します。AI考察は右カラムで「このグラフから何が言えるか」を質問する位置づけです。
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 min-w-[360px]">
+          <div className="rounded-2xl bg-surface-container-low p-4">
+            <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Charts</p>
+            <strong className="text-2xl text-primary tabular-nums">{filteredGroups.length}</strong>
+          </div>
+          <div className="rounded-2xl bg-surface-container-low p-4">
+            <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Themes</p>
+            <strong className="text-2xl text-primary tabular-nums">{themes.length}</strong>
+          </div>
+          <div className="rounded-2xl bg-surface-container-low p-4">
+            <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Alerts</p>
+            <strong className="text-2xl text-primary tabular-nums">{totalCritical}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-7 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-7">
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {[
+              { id: 'cv', step: '01', title: 'KPIとCV推移', body: 'CVR / CPA / CV数の変化を最初に確認', icon: 'conversion_path' },
+              { id: 'traffic', step: '02', title: '流入チャネル', body: 'チャネル別の勝ち筋と悪化源を分ける', icon: 'swap_horiz' },
+              { id: 'lp', step: '03', title: 'LPの行動', body: 'ページ別の離脱・回遊・成果を確認', icon: 'web' },
+              { id: 'anomaly', step: '04', title: '生データと異常', body: '急変値はテーブルで根拠まで見る', icon: 'warning' },
+            ].map((step) => {
+              const theme = themeSummaries.find((item) => item.id === step.id)
+              const disabled = !theme
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (!theme) return
+                    onThemeChange(step.id)
+                    onScrollToGraphs()
+                  }}
+                  className={`text-left rounded-2xl p-5 border transition-all min-h-[172px] ${
+                    disabled
+                      ? 'border-outline-variant/15 bg-surface-container-low text-on-surface-variant/40 cursor-not-allowed'
+                      : 'border-primary/15 bg-surface-container-low hover:bg-primary/[0.055] hover:border-primary/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-black text-primary">{step.step}</span>
+                    <span className="material-symbols-outlined text-primary" aria-hidden="true">{step.icon}</span>
+                  </div>
+                  <h3 className="mt-5 text-base font-extrabold text-on-surface japanese-text">{step.title}</h3>
+                  <p className="mt-2 text-xs leading-6 text-on-surface-variant japanese-text">{step.body}</p>
+                  <p className="mt-4 text-[11px] font-black text-primary tabular-nums">
+                    {theme ? `${theme.groups.length} charts / ${theme.summary.criticalShifts} alerts` : 'データなし'}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+
+          {featuredThemes.length > 0 && (
+            <div className="rounded-2xl border border-outline-variant/15 bg-surface-container-low p-5">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <h3 className="text-sm font-extrabold text-primary japanese-text">グラフ量の見取り図</h3>
+                <span className="text-[11px] font-bold text-on-surface-variant">{activeScopeLabel}</span>
+              </div>
+              <div className="space-y-3">
+                {featuredThemes.map((theme) => {
+                  const width = Math.max(12, Math.round((theme.groups.length / Math.max(1, filteredGroups.length)) * 100))
+                  return (
+                    <div key={theme.id} className="grid grid-cols-[100px_minmax(0,1fr)_58px] gap-3 items-center">
+                      <span className="text-xs font-bold text-on-surface-variant japanese-text">{theme.label}</span>
+                      <span className="h-3 rounded-full bg-surface-container-high overflow-hidden">
+                        <i className="block h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
+                      </span>
+                      <strong className="text-xs text-primary text-right tabular-nums">{theme.groups.length}件</strong>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <aside className="rounded-2xl border border-primary/15 bg-primary/[0.04] p-5 space-y-5">
+          <div>
+            <h3 className="text-sm font-extrabold text-primary japanese-text">AIに聞く前の前提</h3>
+            <p className="mt-2 text-xs leading-6 text-on-surface-variant japanese-text">
+              期間とデータセットを固定してから質問すると、AI回答がグラフ根拠に寄りやすくなります。
+            </p>
+          </div>
+          <div className="space-y-2">
+            <span className="flex items-center justify-between rounded-xl bg-surface-container-lowest px-3 py-2 text-xs">
+              <b className="text-on-surface-variant">GA4保存先ID</b>
+              <strong className="text-primary truncate max-w-[150px]">{setupState?.datasetId || '設定確認'}</strong>
+            </span>
+            <span className="flex items-center justify-between rounded-xl bg-surface-container-lowest px-3 py-2 text-xs">
+              <b className="text-on-surface-variant">対象期間</b>
+              <strong className="text-primary">{activeScopeLabel}</strong>
+            </span>
+          </div>
+          {topInsights.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">質問候補</p>
+              {topInsights.slice(0, 3).map((insight) => (
+                <p key={insight.evidenceId} className="rounded-xl bg-surface-container-lowest px-3 py-2 text-xs leading-6 text-on-surface japanese-text">
+                  {insight.title} の変化は、どの施策に影響していますか？
+                </p>
+              ))}
+            </div>
+          )}
+          <a
+            href="/ads/ai"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-on-primary hover:opacity-90 transition-opacity"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">chat</span>
+            AI考察で質問する
+          </a>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
 /* ════════════════════════════════════════════════════════
    Main Component: 広告分析 (Unified Analysis Surface)
    ════════════════════════════════════════════════════════ */
@@ -787,6 +942,18 @@ export default function AnalysisGraphs() {
             <span className="material-symbols-outlined text-xl text-amber-600 dark:text-warning">info</span>
             <p className="text-sm font-medium japanese-text">{qualityAlerts[0].message}</p>
           </div>
+        )}
+
+        {hasGraphData && (
+          <GraphReadingBoard
+            themes={themes}
+            filteredGroups={filteredGroups}
+            topInsights={topInsights}
+            activeScopeLabel={activeScopeLabel}
+            setupState={setupState}
+            onThemeChange={setActiveTheme}
+            onScrollToGraphs={() => scrollToSection('graphs')}
+          />
         )}
 
         {/* Loading state */}
