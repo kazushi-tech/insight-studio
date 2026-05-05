@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import MarkdownRenderer from '../../MarkdownRenderer'
 import { buildReportDecisionInsights } from '../../../utils/reportDecisionInsights'
 import styles from './ReportChapterStackV2.module.css'
 
@@ -12,13 +11,13 @@ const TIER_LABELS = {
 
 const COMPARE_LABELS = {
   compare: {
-    eyebrow: 'Compare Report Flow',
+    eyebrow: 'Compare Flow',
     title: '比較レポートの読み順',
     lead: '入力した自社LPと競合URLを、文章レポートとグラフ根拠に分けて確認します。',
     chapters: ['比較対象', 'Markdownレポート', 'グラフ根拠', '次アクション'],
   },
   discovery: {
-    eyebrow: 'Discovery Report Flow',
+    eyebrow: 'Discovery Flow',
     title: '発見レポートの読み順',
     lead: '見つかった競合URLを分類し、自社LPと比較してどこを直すべきかまで確認します。',
     chapters: ['発見URL', '自社LP比較', 'ポジション', 'Markdownレポート'],
@@ -51,6 +50,7 @@ function getReportExcerpt(reportMd) {
     .filter((line) => {
       const text = line.trim()
       if (!text) return false
+      if (/^#{1,6}\s+/.test(text)) return false
       if (/^\|?[-:\s|]+\|?$/.test(text)) return false
       if (/^(実行メタデータ|Execution Metadata)/i.test(text)) return false
       return true
@@ -273,7 +273,7 @@ function MarkdownChapter({ reportMd, insights, kind }) {
         </div>
       </div>
       <div className={styles.markdownPanel}>
-        {excerpt ? <MarkdownRenderer content={excerpt} size="normal" variant="discovery" /> : (
+        {excerpt ? <div className={styles.markdownExcerpt}>{excerpt}</div> : (
           <p className={styles.emptyNote}>Markdown本文はレポート下部に表示されます。</p>
         )}
       </div>

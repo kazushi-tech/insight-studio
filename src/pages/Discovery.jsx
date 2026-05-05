@@ -561,7 +561,7 @@ export default function Discovery() {
               autoComplete="off"
               spellCheck={false}
               className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[box-shadow,background-color]"
-              placeholder="例: https://brand.example/lp…"
+              placeholder="競合他社のURLを入力"
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value)
