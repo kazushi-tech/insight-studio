@@ -540,7 +540,7 @@ export default function Discovery() {
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">競合発見には Gemini または Claude の分析用 API キーが必要です。設定画面から設定してください。</span>
+          <span className="japanese-text">競合発見には分析用 API キーが必要です（Gemini または Claude API キーが必要です）。設定画面から設定してください。</span>
         </div>
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
