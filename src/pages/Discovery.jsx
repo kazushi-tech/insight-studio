@@ -438,7 +438,7 @@ export default function Discovery() {
       startRun('discovery', { url })
       failRun('discovery', 'APIキーまたはプロバイダーが設定されていません。設定画面を確認してください。', {
         category: 'auth_error', label: '設定不足',
-        guidance: '設定 → AI設定 から Claude API キーを入力してください。', retryable: false,
+        guidance: '設定 → AI設定 から Gemini または Claude の分析用 API キーを入力してください。', retryable: false,
       })
       return
     }
@@ -540,21 +540,27 @@ export default function Discovery() {
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">競合発見には Claude API キーが必要です。設定画面から設定してください。</span>
+          <span className="japanese-text">競合発見には分析用 API キーが必要です（Gemini または Claude API キーが必要です）。設定画面から設定してください。</span>
         </div>
       )}
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">travel_explore</span>
-        <span className="japanese-text">競合発見の分析は Claude で実行します。必要な検索設定はサーバー側で処理します。</span>
+        <span className="japanese-text">競合発見の分析は現在 {providerLabel} で実行します。必要な検索設定はサーバー側で処理します。</span>
       </div>
 
       {/* URL Input */}
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
         <div className="flex gap-4">
           <div className="relative flex-1">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">link</span>
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden="true">link</span>
+            <label htmlFor="discovery-brand-url" className="sr-only">競合発見の対象URL</label>
             <input
-              className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-all"
+              id="discovery-brand-url"
+              name="discovery-brand-url"
+              type="url"
+              autoComplete="off"
+              spellCheck={false}
+              className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[box-shadow,background-color]"
               placeholder="競合他社のURLを入力"
               value={url}
               onChange={(e) => {
@@ -686,7 +692,7 @@ export default function Discovery() {
               </div>
             </div>
             <div className="mb-6">
-              <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} />
+              <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} kind="discovery" />
             </div>
             <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
             {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}

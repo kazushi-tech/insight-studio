@@ -20,6 +20,7 @@ import LpPerformance from './pages/landing/LpPerformance'
 import LpCreative from './pages/landing/LpCreative'
 import LpDiscovery from './pages/landing/LpDiscovery'
 import ReportV2Debug from './pages/debug/ReportV2Debug'
+import UiUxReview from './pages/debug/UiUxReview'
 import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 import { useRbac } from './contexts/RbacContext'
@@ -117,6 +118,7 @@ export default function App() {
           {import.meta.env.DEV && (
             <Route path="debug/report-v2" element={<ReportV2Debug />} />
           )}
+          <Route path="debug/ui-ux-review" element={<UiUxReview />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
