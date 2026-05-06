@@ -323,6 +323,38 @@ function AdsAiPreview() {
           <span>Pythonで集計済み</span>
           <span>グラフ確認</span>
         </div>
+        <section className={styles.adsGraphShell} aria-label="実装する分析グラフ画面の2カラム構成">
+          <div className={styles.adsGraphMain}>
+            <div className={styles.adsGraphHeader}>
+              <div>
+                <span>Python Generated Charts</span>
+                <strong>分析グラフ</strong>
+                <p>CV・CPA・流入・LP・生データを、下にスクロールしながら大きいグラフで確認します。</p>
+              </div>
+              <small>28 charts / 最新30日</small>
+            </div>
+            <div className={styles.adsGraphLarge}>
+              <span style={{ height: '42%' }} />
+              <span style={{ height: '64%' }} />
+              <span style={{ height: '52%' }} />
+              <span style={{ height: '78%' }} />
+              <span style={{ height: '46%' }} />
+              <span style={{ height: '70%' }} />
+            </div>
+            <div className={styles.adsGraphRows}>
+              <span>CVR推移</span>
+              <span>CPA推移</span>
+              <span>LP別CVR</span>
+            </div>
+          </div>
+          <aside className={styles.adsGraphRail}>
+            <strong>AI Graph Chat</strong>
+            <p>右カラムで、見ているグラフについて質問します。</p>
+            <button type="button">CVR低下の原因は？</button>
+            <button type="button">CPA悪化はLP由来？</button>
+            <button type="button">次に見るグラフは？</button>
+          </aside>
+        </section>
         <div className={styles.answerGrid}>
           {cards.map(([title, body]) => (
             <article key={title} className={styles.answerCard}>

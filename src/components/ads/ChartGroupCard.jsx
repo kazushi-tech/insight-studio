@@ -322,7 +322,7 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
   }
 }
 
-export default function ChartGroupCard({ group }) {
+export default function ChartGroupCard({ group, featured = false }) {
   const { theme } = useTheme()
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
@@ -490,7 +490,9 @@ export default function ChartGroupCard({ group }) {
   }, [group, effectiveChartType, doughnutUsePercent, hasRenderableData, theme])
 
   return (
-    <article className="bg-surface-container-lowest rounded-[0.75rem] border border-outline-variant/10 p-8 shadow-sm hover:shadow-[0_10px_30px_rgba(25,28,29,0.06)] transition-all flex flex-col">
+    <article className={`bg-surface-container-lowest rounded-[0.95rem] border p-8 shadow-sm hover:shadow-[0_10px_30px_rgba(25,28,29,0.06)] transition-all flex flex-col ${
+      featured ? 'border-primary/20' : 'border-outline-variant/10'
+    }`}>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div className="space-y-2 min-w-0">
           <h3 className="text-lg font-bold text-on-surface japanese-text break-words">
@@ -518,8 +520,8 @@ export default function ChartGroupCard({ group }) {
       {hasRenderableData ? (
         <div className="flex-1 flex flex-col">
           <div className={`mb-8 ${effectiveChartType === 'doughnut'
-            ? 'relative h-[300px] max-w-[380px] mx-auto'
-            : 'relative h-[280px] bg-surface-container-low/30 rounded-[0.75rem] p-4'
+            ? `${featured ? 'h-[340px]' : 'h-[300px]'} relative max-w-[420px] mx-auto`
+            : `${featured ? 'h-[340px]' : 'h-[280px]'} relative bg-surface-container-low/30 rounded-[0.75rem] p-4`
           }`}>
             <canvas ref={canvasRef} />
           </div>
