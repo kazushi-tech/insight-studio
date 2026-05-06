@@ -94,6 +94,46 @@ function formatAxisValue(value) {
   return numeric.toLocaleString('ja-JP')
 }
 
+function getChartAccent(group, effectiveChartType) {
+  const title = String(group?.title ?? '')
+  if (effectiveChartType === 'doughnut') {
+    return { icon: 'donut_large', label: '構成比', tone: 'from-emerald-50 to-teal-50' }
+  }
+  if (effectiveChartType === 'bar_horizontal') {
+    return { icon: 'leaderboard', label: '順位比較', tone: 'from-lime-50 to-emerald-50' }
+  }
+  if (/異常|alert|anomaly|急変|変化/i.test(title)) {
+    return { icon: 'emergency_home', label: '異常検知', tone: 'from-amber-50 to-orange-50' }
+  }
+  if (/流入|channel|source|referral/i.test(title)) {
+    return { icon: 'conversion_path', label: '流入経路', tone: 'from-cyan-50 to-emerald-50' }
+  }
+  if (/LP|ページ|page/i.test(title)) {
+    return { icon: 'web_asset', label: 'LP行動', tone: 'from-slate-50 to-emerald-50' }
+  }
+  return { icon: 'monitoring', label: '時系列', tone: 'from-emerald-50 to-white' }
+}
+
+function getChartScaleSummary(labels, datasets) {
+  const values = datasets
+    .flatMap((dataset) => (Array.isArray(dataset?.data) ? dataset.data : []))
+    .map(normalizeNumericValue)
+    .filter((value) => value != null)
+
+  if (values.length === 0) {
+    return { min: '-', max: '-', range: '-', count: labels.length }
+  }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  return {
+    min: formatAxisValue(min),
+    max: formatAxisValue(max),
+    range: formatAxisValue(max - min),
+    count: labels.length,
+  }
+}
+
 function buildKeyInsights(group, effectiveChartType, doughnutUsePercent) {
   const labels = Array.isArray(group?.labels) ? group.labels : []
   const datasets = Array.isArray(group?.datasets) ? group.datasets : []
@@ -247,15 +287,18 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
     datasets: datasets.map((dataset, index) => {
       const label = getDatasetLabel(dataset, index)
       const usePercent = datasetUsesPercent(dataset, index)
-      const color = dataset?.borderColor || dataset?.backgroundColor || PALETTE[index % PALETTE.length]
-      const data = (Array.isArray(dataset?.data) ? dataset.data : []).map(normalizeNumericValue)
-      const common = {
-        label,
-        data,
-        formatAsPercent: usePercent,
-        borderColor: color,
-        spanGaps: true,
-      }
+    const color = dataset?.borderColor || dataset?.backgroundColor || PALETTE[index % PALETTE.length]
+    const data = (Array.isArray(dataset?.data) ? dataset.data : []).map(normalizeNumericValue)
+    const common = {
+      label,
+      data,
+      formatAsPercent: usePercent,
+      borderColor: color,
+      pointBorderColor: '#ffffff',
+      pointBorderWidth: 2,
+      pointHitRadius: 10,
+      spanGaps: true,
+    }
 
       if (isHorizontal) {
         return {
@@ -263,8 +306,9 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
           type: 'bar',
           backgroundColor: dataset?.backgroundColor || withAlpha(color, '66'),
           borderWidth: dataset?.borderWidth ?? 1,
-          borderRadius: 8,
-          maxBarThickness: 28,
+          borderRadius: 12,
+          borderSkipped: false,
+          maxBarThickness: 34,
         }
       }
 
@@ -275,9 +319,9 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
           backgroundColor: withAlpha(color, '22'),
           tension: dataset?.tension ?? 0.3,
           fill: true,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5,
+          borderWidth: 3,
+          pointRadius: 4,
+          pointHoverRadius: 7,
           pointBackgroundColor: color,
         }
       }
@@ -287,8 +331,9 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
           ...common,
           type: 'bar',
           backgroundColor: dataset?.backgroundColor || withAlpha(color, '88'),
-          borderWidth: 2,
-          borderRadius: 8,
+          borderWidth: 0,
+          borderRadius: 14,
+          borderSkipped: false,
           maxBarThickness: 72,
         }
       }
@@ -299,10 +344,10 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
           type: 'line',
           backgroundColor: dataset?.backgroundColor || 'transparent',
           tension: dataset?.tension ?? 0.3,
-          fill: Boolean(dataset?.fill),
-          borderWidth: useSparseLineMode ? 3 : 2,
-          pointRadius: useSparseLineMode ? 4.5 : 3,
-          pointHoverRadius: useSparseLineMode ? 6 : 5,
+          fill: index === 0 || Boolean(dataset?.fill),
+          borderWidth: useSparseLineMode ? 4 : 3,
+          pointRadius: useSparseLineMode ? 5.5 : 4,
+          pointHoverRadius: useSparseLineMode ? 8 : 7,
           pointBackgroundColor: color,
         }
       }
@@ -310,13 +355,14 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
       return {
         ...common,
         type: usePercent ? 'bar' : 'line',
-        backgroundColor: usePercent ? dataset?.backgroundColor || withAlpha(color, '66') : 'transparent',
+        backgroundColor: usePercent ? dataset?.backgroundColor || withAlpha(color, '66') : withAlpha(color, '14'),
         tension: 0.3,
-        fill: false,
-        borderWidth: usePercent ? 1 : 2,
-        pointRadius: usePercent ? 0 : 3,
+        fill: !usePercent && index === 0,
+        borderWidth: usePercent ? 0 : 3,
+        pointRadius: usePercent ? 0 : 4,
         pointBackgroundColor: color,
-        borderRadius: usePercent ? 8 : 0,
+        borderRadius: usePercent ? 12 : 0,
+        borderSkipped: false,
       }
     }),
   }
@@ -326,12 +372,14 @@ export default function ChartGroupCard({ group, featured = false }) {
   const { theme } = useTheme()
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
-  const labels = Array.isArray(group?.labels) ? group.labels : []
-  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const labels = useMemo(() => (Array.isArray(group?.labels) ? group.labels : []), [group])
+  const datasets = useMemo(() => (Array.isArray(group?.datasets) ? group.datasets : []), [group])
   const presentation = useMemo(() => resolveChartPresentation(group), [group])
   const effectiveChartType = presentation.chartType
   const doughnutUsePercent = presentation.usePercent
   const keyInsights = useMemo(() => buildKeyInsights(group, effectiveChartType, doughnutUsePercent), [group, effectiveChartType, doughnutUsePercent])
+  const accent = useMemo(() => getChartAccent(group, effectiveChartType), [group, effectiveChartType])
+  const scaleSummary = useMemo(() => getChartScaleSummary(labels, datasets), [labels, datasets])
   const hasRenderableData = labels.length > 0 && datasets.some((dataset) => Array.isArray(dataset?.data))
 
   useEffect(() => {
@@ -344,10 +392,25 @@ export default function ChartGroupCard({ group, featured = false }) {
       muted: getThemeColor('--color-on-surface-variant', '#47464c'),
       grid: getThemeColor('--color-outline-variant', '#c8c5cd'),
       surface: getThemeColor('--color-surface-container-lowest', '#ffffff'),
+      primary: getThemeColor('--color-primary', '#003925'),
+      primarySoft: getThemeColor('--color-primary-container', '#d7f5df'),
     }
     const chartLabels = Array.isArray(group?.labels) ? group.labels : []
 
     const { isDoughnut, isHorizontal, useSinglePointMode, datasets: chartDatasets } = buildChartDatasets(group, effectiveChartType, doughnutUsePercent)
+    const ctx = canvasRef.current.getContext('2d')
+    const chartGradient = ctx.createLinearGradient(0, 0, 0, featured ? 340 : 280)
+    chartGradient.addColorStop(0, withAlpha(colors.primary, '28'))
+    chartGradient.addColorStop(1, withAlpha(colors.primary, '03'))
+    const styledDatasets = chartDatasets.map((dataset, index) => ({
+      ...dataset,
+      borderColor: index === 0 && !isDoughnut ? colors.primary : dataset.borderColor,
+      backgroundColor:
+        !isDoughnut && dataset.type === 'line' && dataset.fill
+          ? chartGradient
+          : dataset.backgroundColor,
+      borderDash: !isDoughnut && dataset.type === 'line' && index > 2 ? [6, 5] : dataset.borderDash,
+    }))
 
     const singlePointLabelPlugin = useSinglePointMode
       ? [
@@ -376,13 +439,74 @@ export default function ChartGroupCard({ group, featured = false }) {
         ]
       : []
 
-    chartRef.current = new Chart(canvasRef.current.getContext('2d'), {
+    const plotSurfacePlugin = {
+      id: 'plotSurface',
+      beforeDraw(chart) {
+        const { ctx: drawCtx, chartArea } = chart
+        if (!chartArea) return
+
+        drawCtx.save()
+        drawCtx.fillStyle = isDoughnut ? withAlpha(colors.primarySoft, '44') : '#f8fbf6'
+        drawCtx.strokeStyle = withAlpha(colors.primary, '22')
+        drawCtx.lineWidth = 1
+        const radius = 18
+        const x = chartArea.left - 10
+        const y = chartArea.top - 12
+        const w = chartArea.right - chartArea.left + 20
+        const h = chartArea.bottom - chartArea.top + 24
+        drawCtx.beginPath()
+        drawCtx.moveTo(x + radius, y)
+        drawCtx.lineTo(x + w - radius, y)
+        drawCtx.quadraticCurveTo(x + w, y, x + w, y + radius)
+        drawCtx.lineTo(x + w, y + h - radius)
+        drawCtx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h)
+        drawCtx.lineTo(x + radius, y + h)
+        drawCtx.quadraticCurveTo(x, y + h, x, y + h - radius)
+        drawCtx.lineTo(x, y + radius)
+        drawCtx.quadraticCurveTo(x, y, x + radius, y)
+        drawCtx.closePath()
+        drawCtx.fill()
+        drawCtx.stroke()
+        drawCtx.restore()
+      },
+      afterDatasetsDraw(chart) {
+        if (isDoughnut) return
+        const { ctx: drawCtx } = chart
+        drawCtx.save()
+        drawCtx.font = '800 10px Manrope, sans-serif'
+        drawCtx.textBaseline = 'middle'
+
+        chart.data.datasets.slice(0, 3).forEach((dataset, datasetIndex) => {
+          const meta = chart.getDatasetMeta(datasetIndex)
+          if (meta.hidden || !meta.data?.length) return
+
+          const lastIndex = [...dataset.data].map((value, index) => ({ value, index })).reverse().find((item) => item.value != null)?.index
+          if (lastIndex == null) return
+
+          const element = meta.data[lastIndex]
+          const value = dataset.data[lastIndex]
+          const label = formatAxisValue(value)
+          drawCtx.fillStyle = dataset.borderColor || colors.primary
+
+          if (isHorizontal) {
+            drawCtx.textAlign = 'left'
+            drawCtx.fillText(label, element.x + 8, element.y)
+          } else {
+            drawCtx.textAlign = 'left'
+            drawCtx.fillText(label, Math.min(element.x + 8, chart.chartArea.right - 34), element.y - 10)
+          }
+        })
+        drawCtx.restore()
+      },
+    }
+
+    chartRef.current = new Chart(ctx, {
       type: isDoughnut ? 'doughnut' : 'bar',
       data: {
         labels: chartLabels,
-        datasets: chartDatasets,
+        datasets: styledDatasets,
       },
-      plugins: singlePointLabelPlugin,
+      plugins: [plotSurfacePlugin, ...singlePointLabelPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -390,6 +514,7 @@ export default function ChartGroupCard({ group, featured = false }) {
         ...(isDoughnut
           ? {
               cutout: '60%',
+              layout: { padding: 14 },
               plugins: {
                 legend: {
                   display: true,
@@ -401,16 +526,17 @@ export default function ChartGroupCard({ group, featured = false }) {
                     usePointStyle: true,
                     boxWidth: 10,
                     boxHeight: 10,
+                    borderRadius: 999,
                   },
                 },
                 tooltip: {
-                  backgroundColor: colors.surface,
+                  backgroundColor: '#053c2a',
                   titleColor: colors.legend,
-                  bodyColor: colors.muted,
-                  borderColor: colors.grid,
+                  bodyColor: '#f8fff7',
+                  borderColor: withAlpha(colors.primary, '55'),
                   borderWidth: 1,
-                  cornerRadius: 12,
-                  padding: 12,
+                  cornerRadius: 14,
+                  padding: 14,
                   callbacks: {
                     label(context) {
                       const lbl = context.label || ''
@@ -428,27 +554,29 @@ export default function ChartGroupCard({ group, featured = false }) {
                 mode: 'index',
                 intersect: false,
               },
+              layout: { padding: { top: 18, right: 18, bottom: 6, left: 6 } },
               plugins: {
                 legend: {
                   display: true,
                   position: 'bottom',
                   labels: {
                     color: colors.legend,
-                    font: { size: 12, weight: '600' },
-                    padding: 14,
+                    font: { size: 12, weight: '800' },
+                    padding: 18,
                     usePointStyle: true,
-                    boxWidth: 10,
-                    boxHeight: 10,
+                    boxWidth: 12,
+                    boxHeight: 12,
+                    borderRadius: 999,
                   },
                 },
                 tooltip: {
-                  backgroundColor: colors.surface,
-                  titleColor: colors.legend,
-                  bodyColor: colors.muted,
-                  borderColor: colors.grid,
+                  backgroundColor: '#053c2a',
+                  titleColor: '#f8fff7',
+                  bodyColor: '#d7f5df',
+                  borderColor: withAlpha(colors.primary, '55'),
                   borderWidth: 1,
-                  cornerRadius: 12,
-                  padding: 12,
+                  cornerRadius: 14,
+                  padding: 14,
                   callbacks: {
                     label(context) {
                       const datasetLabel = context.dataset.label || ''
@@ -463,20 +591,22 @@ export default function ChartGroupCard({ group, featured = false }) {
                 x: {
                   ticks: {
                     color: colors.muted,
-                    font: { size: 10 },
-                    maxRotation: isHorizontal ? 0 : 40,
+                    font: { size: 10, weight: '700' },
+                    maxRotation: isHorizontal ? 0 : 45,
                     minRotation: 0,
                   },
-                  grid: { color: withAlpha(colors.grid, '44') },
+                  grid: { color: withAlpha(colors.grid, '35'), drawTicks: false },
+                  border: { color: withAlpha(colors.primary, '22') },
                 },
                 y: {
                   ticks: {
                     color: colors.muted,
-                    font: { size: 10 },
+                    font: { size: 10, weight: '700' },
                     callback: (value) =>
                       isHorizontal ? chartLabels[value] ?? value : formatAxisValue(value),
                   },
-                  grid: { color: withAlpha(colors.grid, '44') },
+                  grid: { color: withAlpha(colors.grid, '35'), drawTicks: false },
+                  border: { color: withAlpha(colors.primary, '22') },
                 },
               },
             }),
@@ -487,60 +617,86 @@ export default function ChartGroupCard({ group, featured = false }) {
       chartRef.current?.destroy()
       chartRef.current = null
     }
-  }, [group, effectiveChartType, doughnutUsePercent, hasRenderableData, theme])
+  }, [group, effectiveChartType, doughnutUsePercent, hasRenderableData, theme, featured])
 
   return (
-    <article className={`bg-surface-container-lowest rounded-[0.95rem] border p-8 shadow-sm hover:shadow-[0_10px_30px_rgba(25,28,29,0.06)] transition-all flex flex-col ${
-      featured ? 'border-primary/20' : 'border-outline-variant/10'
+    <article className={`group relative overflow-hidden rounded-[1.35rem] border shadow-[0_18px_45px_rgba(0,57,37,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_26px_60px_rgba(0,57,37,0.14)] flex flex-col bg-gradient-to-br ${accent.tone} ${
+      featured ? 'border-primary/30 ring-1 ring-primary/10' : 'border-primary/15'
     }`}>
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-emerald-500 to-accent-gold" />
+      <div className="p-6 pb-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 min-w-0">
-          <h3 className="text-lg font-bold text-on-surface japanese-text break-words">
+          <div className="flex items-center gap-2 text-[10px] font-black tracking-[0.16em] uppercase text-primary">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">{accent.icon}</span>
+            {accent.label} Graph
+          </div>
+          <h3 className={`${featured ? 'text-2xl' : 'text-xl'} font-black leading-tight text-primary japanese-text break-words`}>
             {group?.title || '無題グラフ'}
           </h3>
           <div className="flex flex-wrap gap-2">
-            <span className="bg-secondary-fixed text-on-secondary-fixed text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+            <span className="bg-primary text-on-primary text-[10px] px-2.5 py-1 rounded-full font-black uppercase">
               {CHART_TYPE_LABELS[effectiveChartType] ?? '推移'}
             </span>
             {group?._periodTag && (
-              <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
+              <span className="text-primary text-[10px] font-black bg-surface-container-lowest/80 border border-primary/15 px-2.5 py-1 rounded-full">
                 {group._periodTag}
               </span>
             )}
-            <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
+            <span className="text-on-surface-variant text-[10px] font-bold bg-surface-container-lowest/70 border border-outline-variant/15 px-2.5 py-1 rounded-full">
               {datasets.length} 系列
             </span>
-            <span className="text-on-surface-variant text-[10px] font-medium border border-outline-variant/20 px-2 py-0.5 rounded">
+            <span className="text-on-surface-variant text-[10px] font-bold bg-surface-container-lowest/70 border border-outline-variant/15 px-2.5 py-1 rounded-full">
               {labels.length} 点
             </span>
           </div>
         </div>
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-primary/10 bg-surface-container-lowest/80 p-2 text-center">
+          {[
+            ['MAX', scaleSummary.max],
+            ['MIN', scaleSummary.min],
+            ['RANGE', scaleSummary.range],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-14 rounded-xl bg-primary/[0.055] px-2 py-2">
+              <p className="text-[9px] font-black tracking-[0.12em] text-on-surface-variant">{label}</p>
+              <p className="mt-1 text-xs font-black tabular-nums text-primary">{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
       </div>
 
       {hasRenderableData ? (
-        <div className="flex-1 flex flex-col">
-          <div className={`mb-8 ${effectiveChartType === 'doughnut'
-            ? `${featured ? 'h-[340px]' : 'h-[300px]'} relative max-w-[420px] mx-auto`
-            : `${featured ? 'h-[340px]' : 'h-[280px]'} relative bg-surface-container-low/30 rounded-[0.75rem] p-4`
+        <div className="flex-1 flex flex-col px-6 pb-6">
+          <div className={`relative overflow-hidden border border-primary/15 bg-surface-container-lowest/85 shadow-inner ${effectiveChartType === 'doughnut'
+            ? `${featured ? 'h-[360px]' : 'h-[320px]'} rounded-[1.1rem] px-4 py-5`
+            : `${featured ? 'h-[380px]' : 'h-[320px]'} rounded-[1.1rem] p-5`
           }`}>
+            <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-black tracking-[0.14em] text-primary">
+              PYTHON PLOT CANVAS
+            </div>
             <canvas ref={canvasRef} />
           </div>
 
           {keyInsights.length > 0 && (
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-outline-variant/10">
+            <div className="mt-5 grid grid-cols-3 gap-3">
               {keyInsights.map((insight, index) => (
                 <div
                   key={`${group?.title ?? 'group'}-insight-${index}`}
-                  className="bg-surface-container-low p-3 rounded-lg"
+                  className={`rounded-2xl border p-4 ${
+                    index === 0
+                      ? 'border-primary/20 bg-primary text-on-primary'
+                      : 'border-primary/10 bg-surface-container-lowest/80 text-on-surface'
+                  }`}
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant mb-1">{insight.key}</p>
+                  <p className={`text-[10px] font-black uppercase tracking-wider mb-1 ${index === 0 ? 'text-on-primary/75' : 'text-on-surface-variant'}`}>{insight.key}</p>
                   <p className={`text-sm font-extrabold tabular-nums ${
-                    insight.tone === 'positive' ? 'text-success'
-                      : insight.tone === 'negative' ? 'text-error'
-                      : insight.tone === 'accent' ? 'text-on-surface'
-                      : 'text-on-surface'
+                    index === 0 ? 'text-on-primary'
+                      : insight.tone === 'positive' ? 'text-success'
+                        : insight.tone === 'negative' ? 'text-error'
+                          : 'text-primary'
                   }`}>{insight.value}</p>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5 truncate">{insight.label}</p>
+                  <p className={`text-[10px] mt-0.5 truncate ${index === 0 ? 'text-on-primary/70' : 'text-on-surface-variant'}`}>{insight.label}</p>
                 </div>
               ))}
             </div>
