@@ -605,6 +605,109 @@ function GraphReadingBoard({
   )
 }
 
+function GraphAiQuestionRail({
+  topInsights,
+  themes,
+  activeScopeLabel,
+  setupState,
+  onThemeChange,
+  onScrollToGraphs,
+}) {
+  const prompts = topInsights.length > 0
+    ? topInsights.slice(0, 4).map((insight) => `${insight.title} の変化を、広告運用ではどう読むべき？`)
+    : [
+        'CVRが下がった原因は、どのグラフから確認すべき？',
+        'CPA悪化がLP由来か流入由来か切り分けたい',
+        '今週優先して見るべき数値を3つに絞って',
+        '異常値が施策判断に影響するか確認したい',
+      ]
+
+  return (
+    <aside className="hidden 2xl:block sticky top-6 self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm overflow-hidden">
+      <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black tracking-[0.14em] uppercase text-primary">AI Graph Chat</p>
+            <h2 className="mt-1 text-lg font-extrabold text-primary japanese-text">グラフを見ながら質問</h2>
+          </div>
+          <span className="grid size-10 place-items-center rounded-full bg-primary text-on-primary">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">forum</span>
+          </span>
+        </div>
+        <p className="mt-3 text-xs leading-6 text-on-surface-variant japanese-text">
+          右カラムは考察専用です。期間とGA4保存先を固定したまま、気になったグラフの読み解きをAIに聞きます。
+        </p>
+      </div>
+
+      <div className="p-5 space-y-5">
+        <div className="grid gap-2 text-xs">
+          <span className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2">
+            <b className="text-on-surface-variant">対象期間</b>
+            <strong className="text-primary text-right">{activeScopeLabel}</strong>
+          </span>
+          <span className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2">
+            <b className="text-on-surface-variant">GA4保存先ID</b>
+            <strong className="text-primary truncate max-w-[170px]">{setupState?.datasetId || '未設定'}</strong>
+          </span>
+        </div>
+
+        {themes.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">見るグラフを切替</p>
+            <div className="grid grid-cols-2 gap-2">
+              {themes.slice(0, 6).map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => {
+                    onThemeChange(theme.id)
+                    onScrollToGraphs()
+                  }}
+                  className="rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-left text-xs font-bold text-on-surface hover:border-primary/30 hover:text-primary transition-colors japanese-text"
+                >
+                  <span className="material-symbols-outlined mr-1 align-[-3px] text-sm" aria-hidden="true">{theme.icon}</span>
+                  {theme.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">質問例</p>
+          {prompts.map((prompt) => (
+            <a
+              key={prompt}
+              href="/ads/ai"
+              className="block rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-xs leading-6 text-on-surface hover:border-primary/30 hover:bg-primary/[0.035] transition-colors japanese-text"
+            >
+              {prompt}
+            </a>
+          ))}
+        </div>
+
+        <div className="rounded-2xl bg-surface-container-low p-3">
+          <label htmlFor="graph-ai-draft" className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">
+            Draft Question
+          </label>
+          <textarea
+            id="graph-ai-draft"
+            className="mt-2 min-h-28 w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary japanese-text"
+            placeholder="例: CVR推移とLP別CVRを見て、CPA悪化の原因を切り分けたい"
+          />
+          <a
+            href="/ads/ai"
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-on-primary hover:opacity-90 transition-opacity"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">auto_awesome</span>
+            AI考察へ移動
+          </a>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
 /* ════════════════════════════════════════════════════════
    Main Component: 広告分析 (Unified Analysis Surface)
    ════════════════════════════════════════════════════════ */
@@ -964,81 +1067,107 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        {/* ═══ 4. GRAPH SECTION ═══ */}
-        <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
-          {hasGraphData ? (
-            <>
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <h2 className="text-xl font-extrabold text-primary japanese-text">グラフ分析</h2>
+        <div className={hasGraphData ? 'grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start' : ''}>
+          <div className="min-w-0 space-y-10">
+            {/* ═══ 4. GRAPH SECTION ═══ */}
+            <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
+              {hasGraphData ? (
+                <>
+                  <div className="rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                      <div className="max-w-3xl">
+                        <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-[0.14em] uppercase text-primary">
+                          <span className="material-symbols-outlined text-base" aria-hidden="true">stacked_line_chart</span>
+                          Python Generated Charts
+                        </span>
+                        <h2 className="mt-2 text-2xl font-extrabold text-primary japanese-text">分析グラフ</h2>
+                        <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+                          期間選択後にBigQueryから取得した数値をPythonで集計し、CV・CPA・流入・LP・生データの順で確認します。
+                          文章の考察は右カラムのAI質問へ分け、ここではグラフを大きく読みます。
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs min-w-[300px]">
+                        <span className="rounded-2xl bg-surface-container-low px-3 py-3">
+                          <b className="block text-on-surface-variant">表示グラフ</b>
+                          <strong className="text-xl text-primary tabular-nums">{filteredGroups.length}</strong>
+                        </span>
+                        <span className="rounded-2xl bg-surface-container-low px-3 py-3">
+                          <b className="block text-on-surface-variant">テーマ</b>
+                          <strong className="text-xl text-primary tabular-nums">{themes.length}</strong>
+                        </span>
+                        <span className="rounded-2xl bg-surface-container-low px-3 py-3">
+                          <b className="block text-on-surface-variant">モード</b>
+                          <strong className="text-sm text-primary">{viewMode === 'analyst' ? '詳細' : '要約'}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {keyCharts.length > 0 && (
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                      {keyCharts.map((group, idx) => (
+                        <ChartGroupCard key={`key-${group.title ?? idx}`} group={group} featured />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Inline insight for key charts */}
+                  {topInsights.length > 0 && topInsights[0].takeaway && (
+                    <div className="p-4 bg-primary/[0.04] rounded-xl">
+                      <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
+                    </div>
+                  )}
+
+                  <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
+
+                  <div className="flex items-center gap-2 bg-primary-fixed/30 p-3 rounded-lg border border-primary/10">
+                    <span className="material-symbols-outlined text-primary text-xl">info</span>
+                    <p className="text-sm font-semibold text-on-surface japanese-text">
+                      {activeTheme === 'all'
+                        ? `${themes.length}テーマ、合計${filteredGroups.length}グラフを表示中`
+                        : `${displayThemes[0]?.label ?? ''}: ${displayThemes[0]?.groups.length ?? 0}グラフ`}
+                    </p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {displayThemes.map((theme) => (
+                      <GraphSection
+                        key={theme.id}
+                        theme={theme}
+                        isOpen={openSections[theme.id] ?? true}
+                        onToggle={() => toggleSection(theme.id)}
+                        viewMode={viewMode}
+                      />
+                    ))}
+
+                    {(activeTheme === 'all' || activeTheme === 'anomaly') && (
+                      <AnomalySection chartGroups={filteredGroups} />
+                    )}
+                  </div>
+                </>
+              ) : !loading && (
+                <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
+                  <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
+                  <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
                   <p className="text-sm text-on-surface-variant japanese-text">
-                    {viewMode === 'analyst'
-                      ? `Analyst View: ${filteredGroups.length}件のグラフと生データテーブルを表示中`
-                      : `Exec View: ${filteredGroups.length}件のグラフから主要変化を抽出`}
+                    セットアップ完了後にグラフが表示されます。
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-bold">
-                    {filteredGroups.length} charts
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full bg-primary/5 text-primary font-bold">
-                    {activeScopeLabel}
-                  </span>
-                </div>
-              </div>
-
-              {keyCharts.length > 0 && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {keyCharts.map((group, idx) => (
-                    <ChartGroupCard key={`key-${group.title ?? idx}`} group={group} />
-                  ))}
-                </div>
               )}
+            </section>
+          </div>
 
-              {/* Inline insight for key charts */}
-              {topInsights.length > 0 && topInsights[0].takeaway && (
-                <div className="p-4 bg-primary/[0.04] rounded-xl">
-                  <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
-                </div>
-              )}
-
-              <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
-
-              <div className="flex items-center gap-2 bg-primary-fixed/30 p-3 rounded-lg border border-primary/10">
-                <span className="material-symbols-outlined text-primary text-xl">info</span>
-                <p className="text-sm font-semibold text-on-surface japanese-text">
-                  {activeTheme === 'all'
-                    ? `${themes.length}テーマ、合計${filteredGroups.length}グラフを表示中`
-                    : `${displayThemes[0]?.label ?? ''}: ${displayThemes[0]?.groups.length ?? 0}グラフ`}
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                {displayThemes.map((theme) => (
-                  <GraphSection
-                    key={theme.id}
-                    theme={theme}
-                    isOpen={openSections[theme.id] ?? true}
-                    onToggle={() => toggleSection(theme.id)}
-                    viewMode={viewMode}
-                  />
-                ))}
-
-                {(activeTheme === 'all' || activeTheme === 'anomaly') && (
-                  <AnomalySection chartGroups={filteredGroups} />
-                )}
-              </div>
-            </>
-          ) : !loading && (
-            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
-              <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
-              <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
-              <p className="text-sm text-on-surface-variant japanese-text">
-                セットアップ完了後にグラフが表示されます。
-              </p>
-            </div>
+          {hasGraphData && (
+            <GraphAiQuestionRail
+              topInsights={topInsights}
+              themes={themes}
+              activeScopeLabel={activeScopeLabel}
+              setupState={setupState}
+              onThemeChange={setActiveTheme}
+              onScrollToGraphs={() => scrollToSection('graphs')}
+            />
           )}
-        </section>
+        </div>
 
         {/* ═══ 6. CREATIVE SECTION ═══ */}
         <section id="section-creative" className="scroll-mt-24 mt-16 space-y-6">
