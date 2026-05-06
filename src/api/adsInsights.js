@@ -10,7 +10,12 @@ const isLocalOrigin = () => {
     return h === 'localhost' || h === '127.0.0.1' || h === '[::1]'
   } catch { return false }
 }
-const SHOULD_FORCE_PROXY = isLocalOrigin()
+const isRenderStaticOrigin = () => {
+  try {
+    return window.location.hostname === 'insight-studio-frontend.onrender.com'
+  } catch { return false }
+}
+const SHOULD_FORCE_PROXY = isLocalOrigin() || isRenderStaticOrigin()
 let _directReady = false
 let _directWarmPromise = null
 

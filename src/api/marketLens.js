@@ -9,7 +9,12 @@ function isLocalBrowserOrigin() {
   return host === 'localhost' || host === '127.0.0.1' || host === '[::1]'
 }
 
-const SHOULD_FORCE_PROXY = isLocalBrowserOrigin()
+function isRenderStaticOrigin() {
+  if (typeof window === 'undefined') return false
+  return window.location.hostname === 'insight-studio-frontend.onrender.com'
+}
+
+const SHOULD_FORCE_PROXY = isLocalBrowserOrigin() || isRenderStaticOrigin()
 const BASE = SHOULD_FORCE_PROXY || !DIRECT_MARKET_LENS_ORIGIN
   ? '/api/ml'
   : `${DIRECT_MARKET_LENS_ORIGIN}/api/ml`
