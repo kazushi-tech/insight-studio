@@ -1,0 +1,171 @@
+.ai-context-rail {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 4%, transparent), transparent 44%),
+    var(--color-surface-container-lowest);
+  padding: 1.25rem;
+  box-shadow: 0 18px 48px rgba(0, 57, 37, 0.08);
+}
+
+@media (min-width: 1280px) {
+  .ai-context-rail {
+    position: sticky;
+    top: 6rem;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+  }
+}
+
+.ai-context-rail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ai-context-rail__eyebrow,
+.ai-context-rail__section-title {
+  color: var(--color-primary);
+  font-size: 0.6875rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.ai-context-rail__title {
+  margin-top: 0.25rem;
+  color: var(--color-primary);
+  font-size: 1.125rem;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.ai-context-rail__icon {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 1.125rem;
+}
+
+.ai-context-rail__body {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest));
+  color: var(--color-on-surface);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.8;
+  padding: 0.875rem;
+}
+
+.ai-context-rail__section {
+  display: grid;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.ai-context-rail__stack,
+.ai-context-rail__evidence,
+.ai-context-rail__questions {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+@media (max-width: 1279px) {
+  .ai-context-rail__stack,
+  .ai-context-rail__evidence,
+  .ai-context-rail__questions {
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  }
+}
+
+.ai-context-rail__pill,
+.ai-context-rail__evidence-chip,
+.ai-context-rail__question {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border-radius: 0.875rem;
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  padding: 0.625rem 0.75rem;
+}
+
+.ai-context-rail__pill {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ai-context-rail__pill b {
+  flex: 0 0 auto;
+  color: var(--color-on-surface-variant);
+  font-size: 0.6875rem;
+}
+
+.ai-context-rail__pill span {
+  min-width: 0;
+  text-align: right;
+  font-weight: 800;
+}
+
+.ai-context-rail__pill--good {
+  background: var(--color-success-container);
+  color: var(--color-on-success-container);
+}
+
+.ai-context-rail__pill--warn {
+  background: var(--color-warning-container);
+  color: var(--color-on-warning-container);
+}
+
+.ai-context-rail__evidence-chip {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
+  background: var(--color-surface-container-lowest);
+  font-weight: 800;
+}
+
+.ai-context-rail__question {
+  display: block;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 70%, transparent);
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.ai-context-rail__question:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest));
+  color: var(--color-primary);
+}
+
+.ai-context-rail__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 0.875rem;
+  font-weight: 900;
+  text-decoration: none;
+}

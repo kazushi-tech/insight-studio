@@ -5,6 +5,7 @@ import SourceBadge from '../components/ads/SourceBadge'
 import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
+import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -494,14 +495,16 @@ function AdsImage2KpiBoard({
         minute: '2-digit',
       })
     : '更新待ち'
+  const isFallback = reportBundle?.dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
+  const hasTheme = (id) => themes.some((theme) => theme.id === id)
 
   const metrics = [
-    { icon: 'payments', label: 'コスト', value: 'GA4推定', delta: '媒体費はExcelで補完', tone: 'neutral' },
-    { icon: 'ads_click', label: 'クリック数', value: `${Math.max(0, filteredGroups.length * 2167).toLocaleString('ja-JP')}`, delta: 'Python集計済み', tone: 'up' },
-    { icon: 'shopping_cart', label: 'コンバージョン数 (CV)', value: `${Math.max(0, themes.length * 197).toLocaleString('ja-JP')}`, delta: 'グラフ根拠あり', tone: 'up' },
-    { icon: 'ads_click', label: 'CTR（クリック率）', value: '2.41%', delta: 'GA4推定', tone: 'up' },
-    { icon: 'track_changes', label: 'CVR（CVR）', value: '3.21%', delta: '期間比較で確認', tone: 'up' },
-    { icon: 'person_raised_hand', label: 'CPA（獲得単価）', value: '要媒体費', delta: 'Excel連携で確定', tone: 'neutral' },
+    { icon: 'stacked_line_chart', label: 'グラフ数', value: `${filteredGroups.length}件`, delta: isFallback ? '暫定' : '表示中', tone: filteredGroups.length > 0 ? 'up' : 'neutral' },
+    { icon: 'category', label: 'テーマ数', value: `${themes.length}分類`, delta: 'Python分類', tone: themes.length > 0 ? 'up' : 'neutral' },
+    { icon: 'shopping_cart', label: 'CVイベント', value: hasTheme('cv') ? '確認可' : '未取得', delta: 'GA4イベント', tone: hasTheme('cv') ? 'up' : 'neutral' },
+    { icon: 'travel_explore', label: '流入分析', value: hasTheme('traffic') ? '確認可' : '未取得', delta: 'source/medium', tone: hasTheme('traffic') ? 'up' : 'neutral' },
+    { icon: 'web_asset', label: 'LP分析', value: hasTheme('lp') ? '確認可' : '未取得', delta: 'landing page', tone: hasTheme('lp') ? 'up' : 'neutral' },
+    { icon: 'error', label: '異常検知', value: hasTheme('anomaly') ? '確認可' : '未取得', delta: '追加取得で補完', tone: hasTheme('anomaly') ? 'up' : 'neutral' },
   ]
 
   const periodOptions = [
@@ -580,11 +583,13 @@ function AdsImage2KpiBoard({
               <span className="material-symbols-outlined" aria-hidden="true">database</span>
             </span>
             <div>
-              <h3 className="text-lg font-extrabold text-on-surface japanese-text">BigQuery 連携済み</h3>
-              <p className="mt-1 text-sm text-on-surface-variant japanese-text">データソース: {setupState?.datasetId || '広告データセット'}</p>
+              <h3 className="text-lg font-extrabold text-on-surface japanese-text">{isFallback ? 'BigQuery 取得未確定' : 'BigQuery 取得済み'}</h3>
+              <p className="mt-1 text-sm text-on-surface-variant japanese-text">データソース: {setupState?.datasetId || 'GA4データセット未設定'}</p>
             </div>
           </div>
-          <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">接続正常</span>
+          <span className={`rounded-lg px-3 py-1 text-xs font-black ${isFallback ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+            {isFallback ? '暫定表示' : '取得確認済み'}
+          </span>
         </div>
         <div className="rounded-xl border border-primary/15 bg-primary/[0.045] p-5 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -593,7 +598,9 @@ function AdsImage2KpiBoard({
             </span>
             <div>
               <h3 className="text-lg font-extrabold text-on-surface japanese-text">Python集計済み</h3>
-              <p className="mt-1 text-sm text-on-surface-variant japanese-text">BigQueryからPythonで集計しています</p>
+              <p className="mt-1 text-sm text-on-surface-variant japanese-text">
+                {isFallback ? 'レポート本文またはグラフの再取得が必要です' : 'BigQueryからPythonで集計しています'}
+              </p>
             </div>
           </div>
           <span className="text-right text-xs font-bold text-on-surface-variant">最終更新:<br />{generatedAt}</span>
@@ -603,7 +610,7 @@ function AdsImage2KpiBoard({
       <div className="rounded-xl border border-primary/15 bg-primary/[0.055] px-4 py-3 flex items-center justify-between gap-4">
         <p className="flex items-center gap-2 text-sm font-bold text-primary japanese-text">
           <span className="material-symbols-outlined text-lg" aria-hidden="true">info</span>
-          BigQueryからPythonで集計した最新データを表示しています
+          {isFallback ? '未取得データを成功扱いせず、確認手順と追加取得候補を表示しています' : 'BigQueryからPythonで集計した最新データを表示しています'}
         </p>
         <button
           type="button"
@@ -873,6 +880,8 @@ function GraphAiQuestionRail({
         style_reference: '',
         style_preset: 'mixed',
         data_source: 'bq',
+        data_availability: reportBundle?.dataAvailability || (reportBundle?.source === 'bq_generate_fallback' ? 'fallback' : 'full'),
+        missing_reason: reportBundle?.missingReason || '',
         bq_query_types: setupState?.queryTypes ?? [],
         conversation_history: [],
         ai_chart_context: buildAiChartContext(reportBundle?.chartGroups ?? []),
@@ -911,7 +920,7 @@ function GraphAiQuestionRail({
         </p>
       </div>
 
-      <div className="p-5 space-y-5">
+      <div className="p-5 grid gap-5 lg:grid-cols-3 2xl:block 2xl:space-y-5">
         <div className="grid gap-2 text-xs">
           <span className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2">
             <b className="text-on-surface-variant">対象期間</b>
@@ -1083,6 +1092,7 @@ export default function AnalysisGraphs() {
 
   /* ── Summary data (from EssentialPack extractors) ── */
   const currentReport = useMemo(() => reportBundle?.reportMd ?? '', [reportBundle?.reportMd])
+  const isFallbackReport = reportBundle?.dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
   const executiveCards = useMemo(
     () => extractExecutiveCards(currentReport, chartGroups),
     [currentReport, chartGroups],
@@ -1134,6 +1144,7 @@ export default function AnalysisGraphs() {
   const hasGraphData = filteredGroups.length > 0
   const hasCreativeData = creativeRefs.length > 0
   const hasDetailReport = refinedInsights.length > 0
+  const adsRailStatus = loading ? '取得中' : isFallbackReport ? '暫定' : hasGraphData ? 'グラフ表示中' : 'データ待ち'
 
   /* ── Handlers ── */
   async function handleRefresh() {
@@ -1209,7 +1220,7 @@ export default function AnalysisGraphs() {
             <div className="flex items-center gap-3">
               {reportBundle?.source && (
                 <span className="px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-bold rounded uppercase tracking-wider">
-                  {reportBundle.source === 'bq_generate_batch' ? 'Campaign Active' : 'Live'}
+                  {reportBundle.source === 'bq_generate_batch' ? 'BQ取得済み' : '暫定'}
                 </span>
               )}
               <h1 className="text-3xl font-extrabold tracking-tight text-primary japanese-text">広告分析</h1>
@@ -1353,6 +1364,31 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
+        {isFallbackReport && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-warning-container border border-amber-200/50 dark:border-warning/30 text-on-surface rounded-xl">
+            <span className="material-symbols-outlined text-xl text-amber-600 dark:text-warning">pending</span>
+            <p className="text-sm font-medium japanese-text">
+              BigQueryレポート本文またはグラフが未取得のため、数値断定ではなく確認手順・追加取得候補を表示しています。
+            </p>
+          </div>
+        )}
+
+        {!hasGraphData && (
+          <AiContextRail
+            screenName="広告グラフAIレール"
+            status={adsRailStatus}
+            inputSummary={setupState?.datasetId || 'GA4データセット未設定'}
+            evidence={['GA4 BigQuery', '取得状態', '追加クエリ', '未取得理由']}
+            suggestedQuestions={[
+              '今の未取得状態で、次に確認すべきクエリタイプを教えて',
+              '数値断定せず、確認手順だけを整理して',
+              'グラフ取得後に見るべき指標を優先順で出して',
+            ]}
+            primaryAction="広告グラフの未取得状態をAI考察で確認する"
+            helperText="グラフが未取得の状態では、成功表示や数値断定を避け、取得条件と追加確認だけを整理します。"
+          />
+        )}
+
         {hasGraphData && (
           <AdsImage2KpiBoard
             filteredGroups={filteredGroups}
@@ -1404,7 +1440,7 @@ export default function AnalysisGraphs() {
                           Python集計グラフを先に確認してから、右カラムのAIグラフチャットへ渡します。
                         </p>
                         <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-                          期間選択後にBigQueryから取得した数値をPythonで集計し、CV・CPA・流入・LP・生データの順で確認します。
+                          期間選択後にBigQueryから取得したGA4数値をPythonで集計し、CVイベント・流入・LP・デバイス・生データの順で確認します。
                           文章の考察は右カラムのAI質問へ分け、ここではグラフを大きく読みます。
                         </p>
                       </div>

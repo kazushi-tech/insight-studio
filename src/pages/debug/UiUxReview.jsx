@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react'
 import styles from './UiUxReview.module.css'
 
 const MOCKUPS = {
+  professional: [
+    { title: '2026-05-06 Professional Flow Board', note: 'Compare / Discovery / Creative Review / Ads Graphs / Ads AI の右AIレール統一方向', src: '/ux-mockups/image2-professional-flow-board-2026-05-06.png' },
+  ],
   dashboard: [
     { title: '01 Overview', note: '今日使える機能と次の1クリック', src: '/ux-mockups/dashboard-01-overview.png' },
     { title: '02 Detail', note: 'GA4/BigQuery初心者向けの設定導線', src: '/ux-mockups/dashboard-02-detail.png' },
@@ -32,6 +35,12 @@ const MOCKUPS = {
 }
 
 const tabs = [
+  {
+    key: 'professional',
+    label: 'Image2再生成',
+    title: 'Professional Flow Board',
+    intent: '実画面5ルートを同じ右AIアシスタント文脈で見直すためのGPT Image2方向性ボード。',
+  },
   {
     key: 'dashboard',
     label: 'ダッシュボード',

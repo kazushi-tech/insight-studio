@@ -355,6 +355,8 @@ export default function AiExplorer() {
         style_reference: '',
         style_preset: 'mixed',
         data_source: 'bq',
+        data_availability: reportBundle?.dataAvailability || (reportBundle?.source === 'bq_generate_fallback' ? 'fallback' : 'full'),
+        missing_reason: reportBundle?.missingReason || '',
         bq_query_types: setupState?.queryTypes ?? [],
         conversation_history: toConversationHistory(nextMessages),
         ai_chart_context: chartContext,

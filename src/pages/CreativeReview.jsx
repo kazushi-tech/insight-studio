@@ -4,6 +4,7 @@ import PerformanceRadar, { AXIS_GROUPS_BY_TYPE } from '../components/Performance
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
+import AiContextRail from '../components/ai-assistant/AiContextRail'
 import {
   uploadCreativeAsset,
   reviewBanner,
@@ -435,35 +436,6 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
         ))}
       </div>
     </section>
-  )
-}
-
-function CreativeReviewAiGuide({ isReviewed }) {
-  const prompts = isReviewed
-    ? ['最初に直す場所は？', '改善案を広告文にする', 'A/Bテスト案を作る']
-    : ['見るべき評価軸は？', 'LPとのズレは？', 'レビュー後の確認項目は？']
-
-  return (
-    <aside
-      data-testid="creative-review-ai-guide"
-      className="rounded-[0.75rem] border border-primary/15 bg-primary/[0.045] p-5 shadow-sm"
-      aria-label="バナーレビューのAI質問ガイド"
-    >
-      <p className="text-[11px] font-black tracking-[0.16em] text-primary">AIに質問</p>
-      <h3 className="mt-2 text-lg font-extrabold text-primary japanese-text">
-        {isReviewed ? 'レビュー結果を施策へ変換' : 'レビュー前に観点を確認'}
-      </h3>
-      <p className="mt-3 rounded-xl border border-primary/10 bg-surface-container-lowest px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
-        バナーの良い点、改善点、LPとのズレ、A/Bテスト案を同じ文脈で確認できます。
-      </p>
-      <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
-        {prompts.map((prompt) => (
-          <span key={prompt} className="rounded-full border border-primary/25 bg-surface-container-lowest px-4 py-2 text-center text-xs font-bold text-primary japanese-text">
-            {prompt}
-          </span>
-        ))}
-      </div>
-    </aside>
   )
 }
 
@@ -1031,9 +1003,13 @@ export default function CreativeReview() {
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed'].includes(phase)
   const isReviewed = phase === 'reviewed'
+  const creativeRailStatus = phase === 'reviewing' ? 'レビュー中' : isReviewed ? '完了' : errorMessage ? 'エラー' : isUploaded ? '設定中' : '画像待ち'
+  const creativeRailInput = fileName
+    ? `${fileName}${lpUrl.trim() ? ' / LP統合' : ' / バナー単体'}`
+    : '画像未選択'
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-8">
+    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -1051,6 +1027,21 @@ export default function CreativeReview() {
           <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして、現在の分析プロバイダー（{providerLabel}）でレビューします。</p>
         </div>
       </div>
+
+      <AiContextRail
+        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
+        screenName="クリエイティブレビュー助手"
+        status={creativeRailStatus}
+        inputSummary={creativeRailInput}
+        evidence={['視覚インパクト', 'メッセージ明瞭性', 'CTA', 'ブランド適合', '欠損根拠']}
+        suggestedQuestions={[
+          '最初に直すべき要素を根拠つきで3つに絞って',
+          'A/Bテスト案を仮説・変更変数・期待指標で整理して',
+          '未観測の根拠を評価保留として分けて',
+        ]}
+        primaryAction="レビュー結果を広告改善案へ変換する"
+        helperText="スコアだけでなく、観測できた画像要素・推論・未取得情報を分けて施策化します。"
+      />
 
       {/* Error Banner — shown whenever there's an error, regardless of phase */}
       {errorMessage && (
@@ -1209,8 +1200,6 @@ export default function CreativeReview() {
               hasAnalysisKey={hasAnalysisKey}
               providerLabel={providerLabel}
             />
-
-            <CreativeReviewAiGuide isReviewed={isReviewed} />
 
             {/* ─── Step 2: Review Input ─── */}
             <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">

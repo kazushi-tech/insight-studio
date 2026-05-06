@@ -19,6 +19,7 @@ import MarketRangeBar from '../components/report/MarketRangeBar'
 import BrandRadarChart from '../components/report/BrandRadarChart'
 import ReportViewV2 from '../components/report/v2/ReportViewV2'
 import UiVersionToggle from '../components/report/v2/UiVersionToggle'
+import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { useUiVersion } from '../hooks/useUiVersion'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
@@ -699,9 +700,13 @@ export default function Compare() {
     { key: 'compA', label: '競合 A', subtitle: '競合候補 A', url: urls.compA },
     { key: 'compB', label: '競合 B', subtitle: '競合候補 B', url: urls.compB },
   ].filter((site) => site.url)
+  const compareRailStatus = loading ? '分析中' : error ? 'エラー' : result ? '完了' : '入力待ち'
+  const compareRailInput = siteCards.length > 0
+    ? siteCards.map((site) => getHostname(site.url) || site.label).join(' / ')
+    : 'URL未入力'
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-10">
+    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
       {/* Header */}
       <div className="grid grid-cols-12 gap-12 items-end">
         <div className="col-span-9">
@@ -715,6 +720,21 @@ export default function Compare() {
           </span>
         </div>
       </div>
+
+      <AiContextRail
+        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
+        screenName="LP比較アシスタント"
+        status={compareRailStatus}
+        inputSummary={compareRailInput}
+        evidence={['CTA差分', '信頼要素', 'オファー', 'ファネル段階']}
+        suggestedQuestions={[
+          '観測事実と推論を分けて、最初のLP改善を3つに絞って',
+          '競合セットが同業として妥当か確認して',
+          '広告文に落とせる訴求とCTA案を出して',
+        ]}
+        primaryAction="LP比較レポートを広告施策へ落とし込む"
+        helperText="比較結果を読みながら、競合妥当性・獲得影響・欠損根拠を確認します。無関係な業界は主比較に混ぜない前提で質問できます。"
+      />
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>

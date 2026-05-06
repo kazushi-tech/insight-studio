@@ -204,9 +204,9 @@ def _repair_required_review_fields(data: dict) -> tuple[dict, list[str]]:
 
     if "evidence" not in repaired:
         repaired["evidence"] = [{
-            "evidence_type": "client_material",
-            "evidence_source": "アップロード画像の観察",
-            "evidence_text": f"AI出力に evidence が欠落していたため、要約「{summary[:80]}」を暫定根拠として運用者確認対象にしました。",
+            "evidence_type": "auto_filled",
+            "evidence_source": "評価保留（自動補完）",
+            "evidence_text": f"AI出力に evidence が欠落していたため、要約「{summary[:80]}」を根拠候補として表示します。画像から観測された事実として扱わず、運用者確認が必要です。",
         }]
         warnings.append("Auto-filled missing evidence")
 

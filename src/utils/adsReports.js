@@ -357,6 +357,8 @@ export function buildAdsReportBundle({ setupState, results }) {
 
   return {
     source: 'bq_generate_batch',
+    dataAvailability: reportMd ? 'full' : 'fallback',
+    missingReason: reportMd ? '' : 'BigQueryからレポート本文が返っていません。',
     datasetId,
     reportMd: reportMd || fallbackReportMd,
     chartGroups: periodReports.flatMap((item) => item.chartGroups),
@@ -387,6 +389,8 @@ export function buildAdsFallbackReportBundle(setupState, reason = 'BQレポー�
   return {
     ...buildAdsReportBundle({ setupState, results }),
     source: 'bq_generate_fallback',
+    dataAvailability: 'fallback',
+    missingReason: reason,
   }
 }
 

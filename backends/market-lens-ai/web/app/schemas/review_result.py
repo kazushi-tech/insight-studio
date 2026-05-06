@@ -18,6 +18,7 @@ class EvidenceType(str, Enum):
     winning_creative = "winning_creative"
     competitor_public = "competitor_public"
     platform_guideline = "platform_guideline"
+    auto_filled = "auto_filled"
 
 
 class ReviewPoint(BaseModel):

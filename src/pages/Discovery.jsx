@@ -16,6 +16,7 @@ import { stripV2CoveredSections } from '../utils/reportSections'
 import PrintButton from '../components/report/PrintButton'
 import ReportQualityBadge from '../components/report/ReportQualityBadge'
 import ReportViewV2 from '../components/report/v2/ReportViewV2'
+import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
 import ScoreDistributionChart from './discovery/ScoreDistributionChart'
@@ -46,6 +47,15 @@ const FONT_SIZES = [
   { key: 'large', label: 'M' },
   { key: 'xlarge', label: 'L' },
 ]
+
+function getHostname(value) {
+  if (!value) return ''
+  try {
+    return new URL(value).hostname
+  } catch {
+    return ''
+  }
+}
 
 
 const DISCOVERY_ACTIVE_JOB_KEY = 'is-discovery-active-job'
@@ -219,6 +229,8 @@ export default function Discovery() {
   })
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const canSubmit = url && hasAnalysisKey && !loading
+  const discoveryRailStatus = loading ? '発見中' : error ? 'エラー' : result ? '完了' : 'URL待ち'
+  const discoveryRailInput = url ? getHostname(url) || url : 'URL未入力'
 
   useEffect(() => {
     if (!loading) return undefined
@@ -640,11 +652,26 @@ export default function Discovery() {
   }, [clearRun, stopPolling])
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-10">
+    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
       <div>
         <h2 className="display-lg text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
         <p className="body-lg text-on-surface-variant max-w-2xl mt-4">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
+
+      <AiContextRail
+        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
+        screenName="競合発見アシスタント"
+        status={discoveryRailStatus}
+        inputSummary={discoveryRailInput}
+        evidence={['直接競合', '隣接競合', '参考ブランド', '対象外']}
+        suggestedQuestions={[
+          'この候補を直接競合・隣接・参考・対象外に分け直して',
+          '対象外候補を主提案から外したうえで比較先を選んで',
+          'ターゲット市場を一文で定義してから施策を整理して',
+        ]}
+        primaryAction="競合発見レポートを次の比較に渡す"
+        helperText="発見候補を同列に扱わず、市場適合・除外理由・次に比較すべき順番を確認します。"
+      />
 
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
