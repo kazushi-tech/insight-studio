@@ -52,24 +52,21 @@ export default function ReportHistoryDrawer({ open, onClose }) {
     if (ok) clearAll()
   }
 
+  if (!open) return null
+
   return (
     <>
       <div
         aria-hidden="true"
         onClick={onClose}
-        className={`fixed inset-0 z-[99] bg-black/50 transition-opacity duration-200 ${
-          open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-        }`}
+        className="fixed inset-0 z-[99] bg-black/50"
       />
       <aside
         ref={asideRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-history-title"
-        aria-hidden={!open}
-        className={`fixed top-0 right-0 h-full z-[100] w-[460px] max-w-full transform transition-transform duration-200 ${
-          open ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className="fixed top-0 right-0 h-full z-[100] w-[460px] max-w-full"
       >
         <div className="bg-surface-container-low shadow-2xl h-full flex flex-col border-l border-outline-variant/40">
           {/* Header */}

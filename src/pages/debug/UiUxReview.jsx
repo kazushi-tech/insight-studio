@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react'
 import styles from './UiUxReview.module.css'
 
 const MOCKUPS = {
+  professional: [
+    { title: '2026-05-06 Professional Flow Board', note: 'Compare / Discovery / Creative Review / Ads Graphs / Ads AI の右AIレール統一方向', src: '/ux-mockups/image2-professional-flow-board-2026-05-06.png' },
+  ],
   dashboard: [
     { title: '01 Overview', note: '今日使える機能と次の1クリック', src: '/ux-mockups/dashboard-01-overview.png' },
     { title: '02 Detail', note: 'GA4/BigQuery初心者向けの設定導線', src: '/ux-mockups/dashboard-02-detail.png' },
@@ -14,7 +17,7 @@ const MOCKUPS = {
   ],
   discovery: [
     { title: '01 Found', note: '発見した競合URLだけを見る', src: '/ux-mockups/discovery-01-found.png' },
-    { title: '02 Compare', note: '自社LPと競合の状態差', src: '/ux-mockups/discovery-02-compare.png' },
+    { title: '02 比較', note: '自社LPと競合の状態差', src: '/ux-mockups/discovery-02-compare.png' },
     { title: '03 Map', note: 'Position Mapで直感理解', src: '/ux-mockups/discovery-03-map.png' },
     { title: '04 Report', note: 'Markdown結論と次アクション', src: '/ux-mockups/discovery-04-report.png' },
   ],
@@ -33,32 +36,38 @@ const MOCKUPS = {
 
 const tabs = [
   {
+    key: 'professional',
+    label: 'Image2再生成',
+    title: 'Professional Flow Board',
+    intent: '実画面5ルートを同じ右AIアシスタント文脈で見直すためのGPT Image2方向性ボード。',
+  },
+  {
     key: 'dashboard',
-    label: 'Dashboard',
+    label: 'ダッシュボード',
     title: '運用ホーム',
     intent: '初見で今日使える機能と次に押すボタンが分かる状態へ寄せる。',
   },
   {
     key: 'compare',
-    label: 'Compare Report',
+    label: '競合LP分析',
     title: '比較レポート',
     intent: '自社LPと競合LPのURL入力後、比較差分を読みやすいHTML/MarkdownレポートとAI質問欄で確認する。',
   },
   {
     key: 'discovery',
-    label: 'Discovery Report',
+    label: '競合発見',
     title: '発見レポート',
     intent: '競合分類の信頼性を最初に見せ、対象外を主比較から外したうえでAIに確認できるようにする。',
   },
   {
     key: 'ads',
-    label: 'Ads AI Report',
+    label: '広告グラフ / AI考察',
     title: 'AI考察',
     intent: '期間選択後にPython集計で作られた正確な数値と分析グラフを前提に、その読み解きをAIへ質問できるようにする。',
   },
   {
     key: 'banner',
-    label: 'Banner Review',
+    label: 'バナーレビュー',
     title: 'バナーレビュー',
     intent: '架空バナーのレビュー結果を、総合評価・最初の修正・根拠・検証案として迷わず読める形にする。',
   },
@@ -66,9 +75,9 @@ const tabs = [
 
 function DashboardPreview() {
   const features = [
-    ['Compare', '利用可', 'LP比較を始める'],
-    ['Discovery', '利用可', '競合探索を始める'],
-    ['Creative Review', 'デモのみ', '架空素材で確認'],
+    ['競合LP分析', '利用可', 'LP比較を始める'],
+    ['競合発見', '利用可', '競合探索を始める'],
+    ['バナーレビュー', 'デモのみ', '架空素材で確認'],
     ['GA4 BigQuery', '未接続', '保存先IDを設定'],
   ]
   const tasks = [
@@ -183,7 +192,7 @@ function ComparePreview() {
         }}
       >
         <section className={styles.simpleHero}>
-          <p className={styles.eyebrow}>Compare</p>
+          <p className={styles.eyebrow}>競合LP分析</p>
           <h2>比較レポート</h2>
           <p>自社LPと競合LPを入力すると、差分をHTML/Markdownで読みやすく整理します。</p>
           <button type="button">レポートを読む</button>
@@ -245,7 +254,7 @@ function DiscoveryPreview() {
         }}
       >
         <section className={styles.simpleHero}>
-          <p className={styles.eyebrow}>Discovery</p>
+          <p className={styles.eyebrow}>競合発見</p>
           <h2>競合発見レポート</h2>
           <p>発見した競合URLから、自社LPがどこで弱いかを確認します。</p>
         </section>
@@ -313,7 +322,7 @@ function AdsAiPreview() {
         }}
       >
         <section className={styles.simpleHero}>
-          <p className={styles.eyebrow}>Ads Graphs / Ads AI</p>
+          <p className={styles.eyebrow}>広告グラフ / AI考察</p>
           <h2>Python集計グラフを見ながらAIに聞く</h2>
           <p>BigQueryから取得した数値をPythonで集計し、複数グラフを根拠に質問します。</p>
         </section>
@@ -327,7 +336,7 @@ function AdsAiPreview() {
           <div className={styles.adsGraphMain}>
             <div className={styles.adsGraphHeader}>
               <div>
-                <span>Python Generated Charts</span>
+                <span>Python生成グラフ</span>
                 <strong>分析グラフ</strong>
                 <p>CV・CPA・流入・LP・生データを、下にスクロールしながら大きいグラフで確認します。</p>
               </div>
@@ -348,7 +357,7 @@ function AdsAiPreview() {
             </div>
           </div>
           <aside className={styles.adsGraphRail}>
-            <strong>AI Graph Chat</strong>
+            <strong>AIグラフチャット</strong>
             <p>右カラムで、見ているグラフについて質問します。</p>
             <button type="button">CVR低下の原因は？</button>
             <button type="button">CPA悪化はLP由来？</button>
@@ -408,7 +417,7 @@ function BannerReviewPreview() {
         }}
       >
         <section className={styles.simpleHero}>
-          <p className={styles.eyebrow}>Creative Review</p>
+          <p className={styles.eyebrow}>バナーレビュー</p>
           <h2>バナーレビュー</h2>
           <p>検証用の架空デモ素材を、広告運用の観点で読みやすいレポートにします。</p>
         </section>
@@ -419,7 +428,7 @@ function BannerReviewPreview() {
             <small>300x250 / demo_creative: true</small>
           </div>
           <div className={styles.scoreBand}>
-            <span>Overall Score</span>
+            <span>総合スコア</span>
             <strong>78</strong>
             <small>最初の修正: ターゲット訴求を1行追加</small>
           </div>
@@ -459,7 +468,7 @@ export default function UiUxReview() {
     <main className={styles.root}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>GPT Image2 Direction Review</p>
+          <p className={styles.eyebrow}>GPT Image2 方向性レビュー</p>
           <h1>Insight Studio UI/UX 再設計レビュー</h1>
           <p>左に生成モック、右にReact実装プレビューを並べ、5画面の判断ボード化を確認します。</p>
         </div>
@@ -485,7 +494,7 @@ export default function UiUxReview() {
         <article className={styles.mockPanel}>
           <div className={styles.panelHeader}>
             <div>
-              <p className={styles.eyebrow}>Image mock</p>
+              <p className={styles.eyebrow}>画像モック</p>
               <h2>{active.title} GPT Image2モック</h2>
               <p>情報量を分けるため、下へスクロールして複数枚構成で確認します。</p>
             </div>
@@ -506,7 +515,7 @@ export default function UiUxReview() {
         <article className={styles.previewPanel}>
           <div className={styles.panelHeader}>
             <div>
-              <p className={styles.eyebrow}>React preview</p>
+              <p className={styles.eyebrow}>React実装プレビュー</p>
               <h2>{active.title} 実装プレビュー</h2>
             </div>
           </div>

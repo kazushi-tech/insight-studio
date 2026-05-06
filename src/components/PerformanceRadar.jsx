@@ -168,20 +168,20 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
       {compact ? (
         <div className="flex items-center justify-center">
           <div className={`${totalBg} text-white px-3 py-2 rounded-[0.75rem] text-center min-w-[72px] shadow-sm`}>
-            <p className="text-[10px] font-medium opacity-80">Score</p>
+            <p className="text-[10px] font-medium opacity-80">点数</p>
             <p className="text-2xl font-black tabular-nums leading-none">{totalScore}</p>
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="font-black text-xl text-primary tracking-tight mb-1">Performance Radar</h3>
-            <p className="text-xs text-on-surface-variant font-medium">4-axis comparative scoring</p>
+            <h3 className="font-black text-xl text-primary tracking-tight mb-1 japanese-text">評価レーダー</h3>
+            <p className="text-xs text-on-surface-variant font-medium japanese-text">4軸の比較採点</p>
           </div>
           <div className={`${totalBg} text-white px-4 py-3 rounded-[0.75rem] text-center min-w-[92px] shadow-sm`}>
-            <p className="text-xs font-medium opacity-80">Total Score</p>
+            <p className="text-xs font-medium opacity-80">総合点</p>
             <p className="text-3xl font-black tabular-nums leading-none">{totalScore}</p>
-            <p className="text-xs font-bold opacity-70 mt-1">out of 100</p>
+            <p className="text-xs font-bold opacity-70 mt-1">100点満点</p>
           </div>
         </div>
       )}
@@ -318,7 +318,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
                 </p>
                 {isNA ? (
                   <p className={`${compact ? 'text-lg' : 'text-[1.75rem] md:text-4xl'} font-black tabular-nums leading-none whitespace-nowrap text-on-surface-variant/50`}>
-                    N/A
+                    未採点
                   </p>
                 ) : (
                   <p className={`${compact ? 'text-lg' : 'text-[1.75rem] md:text-4xl'} font-black tabular-nums leading-none whitespace-nowrap ${scoreColor(score)}`}>
@@ -343,7 +343,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
               <p className="text-xs font-bold text-on-surface japanese-text">{group.label}</p>
               <div className="mt-3 flex items-end justify-between gap-3">
                 {isNA ? (
-                  <p className="text-3xl font-black tabular-nums leading-none text-on-surface-variant/50">N/A</p>
+                  <p className="text-3xl font-black leading-none text-on-surface-variant/50">未採点</p>
                 ) : (
                   <p className={`text-3xl font-black tabular-nums leading-none ${scoreColor(score)}`}>
                     {score.toFixed(1)}
@@ -367,7 +367,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
       {/* Derived summary */}
       {!compact && <div className="grid gap-3 mt-3 sm:grid-cols-2">
         <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
-          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Strongest Axis</p>
+          <p className="text-xs font-bold text-on-surface-variant mb-2 tracking-[0.16em]">最も強い評価軸</p>
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-base font-black text-primary japanese-text">{strongestAxis.label}</p>
@@ -380,7 +380,7 @@ export default function PerformanceRadar({ rubricScores, reviewType, compact = f
           </div>
         </div>
         <div className="bg-surface-container/45 border border-outline-variant/10 rounded-[0.75rem] p-4">
-          <p className="text-xs font-bold text-on-surface-variant mb-2 uppercase tracking-[0.16em]">Needs Attention</p>
+          <p className="text-xs font-bold text-on-surface-variant mb-2 tracking-[0.16em]">改善優先の評価軸</p>
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-base font-black text-primary japanese-text">{weakestAxis.label}</p>

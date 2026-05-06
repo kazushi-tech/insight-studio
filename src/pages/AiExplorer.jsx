@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import { getScans, classifyError } from '../api/marketLens'
@@ -11,6 +12,7 @@ import { useReportHistory } from '../contexts/ReportHistoryContext'
 import {
   buildAiChartContext,
   buildAnalysisInstructions,
+  buildAdsFallbackReportBundle,
   extractMarkdownSummary,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
@@ -37,6 +39,29 @@ const QUICK_PROMPTS = [
   { icon: 'lightbulb', label: '最も効果的な流入チャネルとその理由', color: 'text-emerald-500' },
   { icon: 'compare_arrows', label: '期間比較で一番変化が大きい指標は？', color: 'text-purple-500' },
 ]
+
+const REPORT_REBUILD_FALLBACK_MS = 25000
+
+async function regenerateAdsReportBundleForAi(setupState) {
+  let timeoutId = null
+  const fallback = new Promise((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve(buildAdsFallbackReportBundle(
+        setupState,
+        '分析データの再構築に時間がかかっているため、暫定コンテキストで質問を受け付けています。',
+      ))
+    }, REPORT_REBUILD_FALLBACK_MS)
+  })
+
+  try {
+    return await Promise.race([
+      regenerateAdsReportBundle(setupState),
+      fallback,
+    ])
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId)
+  }
+}
 
 function summarizeHistory(items) {
   if (!Array.isArray(items) || items.length === 0) return null
@@ -67,6 +92,7 @@ function toConversationHistory(messages) {
 }
 
 export default function AiExplorer() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { isV2 } = useUiVersion()
   const {
     isAdsAuthenticated,
@@ -108,6 +134,18 @@ export default function AiExplorer() {
   const chatEndRef = useRef(null)
   const abortRef = useRef(null)
   const submittingRef = useRef(false)
+
+  useEffect(() => {
+    const question = searchParams.get('question')
+    if (!question) return
+    setInput(question)
+    setStatus('グラフ分析から質問を引き継ぎました。内容を確認して送信できます。')
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('question')
+      return next
+    }, { replace: true })
+  }, [searchParams, setSearchParams])
 
   // アンマウント時にリトライ中のリクエストをキャンセル
   useEffect(() => {
@@ -162,6 +200,7 @@ export default function AiExplorer() {
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
     if (reportBundle?.source === 'bq_generate_batch') return
+    if (reportBundle?.source === 'bq_generate_fallback') return
     if (reportBundle?.source === 'restored_from_history') return
 
     let cancelled = false
@@ -170,8 +209,13 @@ export default function AiExplorer() {
       setReportLoading(true)
       setReportError(null)
       try {
-        const nextBundle = await regenerateAdsReportBundle(setupState)
-        if (!cancelled) setReportBundle(nextBundle)
+        const nextBundle = await regenerateAdsReportBundleForAi(setupState)
+        if (!cancelled) {
+          setReportBundle(nextBundle)
+          if (nextBundle.source === 'bq_generate_fallback') {
+            setStatus('分析データ取得中: 暫定コンテキストで質問できます')
+          }
+        }
       } catch (e) {
         if (!cancelled) {
           setReportError(
@@ -267,7 +311,7 @@ export default function AiExplorer() {
   )
 
   const promptDisabled =
-    !isAdsAuthenticated || !hasAnalysisKey || !reportBundle?.reportMd || loading || reportLoading
+    !isAdsAuthenticated || !hasAnalysisKey || !reportBundle?.reportMd || loading || (reportLoading && !reportBundle?.reportMd)
 
   async function handleSend(text) {
     const prompt = (text ?? input).trim()
@@ -311,6 +355,8 @@ export default function AiExplorer() {
         style_reference: '',
         style_preset: 'mixed',
         data_source: 'bq',
+        data_availability: reportBundle?.dataAvailability || (reportBundle?.source === 'bq_generate_fallback' ? 'fallback' : 'full'),
+        missing_reason: reportBundle?.missingReason || '',
         bq_query_types: setupState?.queryTypes ?? [],
         conversation_history: toConversationHistory(nextMessages),
         ai_chart_context: chartContext,
@@ -360,7 +406,14 @@ export default function AiExplorer() {
       }
 
       const assistantMessage = { role: 'assistant', text: aiContent }
-      setMessages([...nextMessages, assistantMessage])
+      const completedMessages = [...nextMessages, assistantMessage]
+      setMessages(completedMessages)
+      addEntry({
+        setupState,
+        reportBundle,
+        messages: completedMessages,
+        contextMode,
+      })
 
       const hasTable = /\|.+\|/.test(aiContent)
       const hasBoldMetric = /\*\*[\d,.]+[%％]?(\s*(増|減|上昇|低下|改善|悪化))?(\*\*)?/.test(aiContent)
@@ -398,9 +451,11 @@ export default function AiExplorer() {
     setStatus('分析データを再取得中...')
 
     try {
-      const nextBundle = await regenerateAdsReportBundle(setupState)
+      const nextBundle = await regenerateAdsReportBundleForAi(setupState)
       setReportBundle(nextBundle)
-      setStatus('✓ 分析データを更新しました')
+      setStatus(nextBundle.source === 'bq_generate_fallback'
+        ? '分析データ取得中: 暫定コンテキストで質問できます'
+        : '✓ 分析データを更新しました')
     } catch (e) {
       const errorMsg = e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message
       setReportError(errorMsg)
@@ -531,7 +586,11 @@ export default function AiExplorer() {
         {!reportBundle?.reportMd && (
           <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant mb-4">
             <span className="material-symbols-outlined text-lg">info</span>
-            <span className="japanese-text">`ads-insights` repo 準拠では、分析データ生成後にそのコンテキストを使って考察を生成します。先にセットアップを完了してください。</span>
+            <span className="japanese-text">
+              {setupState
+                ? '分析データのコンテキストを準備しています。完了後、この画面でそのままAIへ質問できます。'
+                : '先に広告グラフのセットアップを完了してください。'}
+            </span>
           </div>
         )}
 
@@ -544,7 +603,7 @@ export default function AiExplorer() {
               </div>
             )}
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Context</p>
+              <p className="text-[11px] font-bold text-on-surface-variant tracking-[0.12em]">参照データ</p>
               <div className="flex bg-surface-container rounded-full p-0.5">
                 <button
                   onClick={() => setContextMode('ads-only')}
@@ -575,7 +634,7 @@ export default function AiExplorer() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Size</p>
+              <p className="text-[11px] font-bold text-on-surface-variant tracking-[0.12em]">文字サイズ</p>
               <div className="flex bg-surface-container rounded-full p-0.5">
                 {[
                   { key: 'normal', label: '小' },
@@ -635,7 +694,7 @@ export default function AiExplorer() {
 
         {messages.length === 0 && (
           <div className="space-y-2">
-            <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-[0.24em]">Quick Analysis</p>
+            <p className="text-[11px] font-bold text-on-surface-variant tracking-[0.12em]">クイック質問</p>
             <div className="grid grid-cols-3 gap-6">
               {QUICK_PROMPTS.map((prompt) => (
                 <button
@@ -659,7 +718,7 @@ export default function AiExplorer() {
             <div className="w-16 h-16 bg-primary-container/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-4xl text-primary-container">auto_awesome</span>
             </div>
-            <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI エクスプローラー</p>
+            <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI考察</p>
             <p className="text-sm mt-2">分析データとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
           </div>
         )}

@@ -4,6 +4,7 @@ import PerformanceRadar, { AXIS_GROUPS_BY_TYPE } from '../components/Performance
 import { useAuth } from '../contexts/AuthContext'
 import { useAnalysisRuns } from '../contexts/AnalysisRunsContext'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
+import AiContextRail from '../components/ai-assistant/AiContextRail'
 import {
   uploadCreativeAsset,
   reviewBanner,
@@ -412,7 +413,7 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
     <section className="rounded-[0.75rem] bg-surface-container-lowest border border-outline-variant/10 p-5 space-y-4" aria-labelledby="creative-review-readiness-title">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-secondary">Review Readiness</p>
+          <p className="text-[10px] font-black tracking-[0.16em] text-secondary">レビュー準備</p>
           <h3 id="creative-review-readiness-title" className="text-lg font-bold text-on-surface japanese-text mt-1">レビュー実行前チェック</h3>
         </div>
         {assetMeta?.width && assetMeta?.height && (
@@ -445,7 +446,7 @@ function BannerImage2Overview({ onDemoSelect }) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>Creative Review</span>
+              <span>バナーレビュー</span>
               <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
               <span className="font-bold text-primary">バナーレビュー</span>
             </div>
@@ -542,7 +543,7 @@ function BannerImage2Overview({ onDemoSelect }) {
         </div>
       </div>
 
-      <aside className="rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
+      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
         <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">レビュー結果を質問</h3>
         <p className="mt-4 rounded-xl border border-outline-variant/20 px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
@@ -899,7 +900,7 @@ export default function CreativeReview() {
       file.demoCreative = demo
       await handleFile(file)
     } catch (err) {
-      goError(`Demo Creative 読み込み失敗: ${err.message}`, classifyError(err))
+      goError(`デモ素材の読み込み失敗: ${err.message}`, classifyError(err))
     }
   }, [goError, handleFile])
 
@@ -1002,9 +1003,13 @@ export default function CreativeReview() {
   // ─── render helpers ───
   const isUploaded = ['uploaded', 'reviewing', 'reviewed'].includes(phase)
   const isReviewed = phase === 'reviewed'
+  const creativeRailStatus = phase === 'reviewing' ? 'レビュー中' : isReviewed ? '完了' : errorMessage ? 'エラー' : isUploaded ? '設定中' : '画像待ち'
+  const creativeRailInput = fileName
+    ? `${fileName}${lpUrl.trim() ? ' / LP統合' : ' / バナー単体'}`
+    : '画像未選択'
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-8">
+    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
@@ -1014,14 +1019,29 @@ export default function CreativeReview() {
             <span className="text-secondary font-bold">クリエイティブ・レビュー</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="display-md text-on-surface tracking-tight">Creative Review</h2>
+            <h2 className="display-md text-on-surface tracking-tight japanese-text">バナーレビュー</h2>
             <span className="inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-secondary">
-              {providerLabel} Review
+              {providerLabel} レビュー
             </span>
           </div>
           <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして、現在の分析プロバイダー（{providerLabel}）でレビューします。</p>
         </div>
       </div>
+
+      <AiContextRail
+        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
+        screenName="クリエイティブレビュー助手"
+        status={creativeRailStatus}
+        inputSummary={creativeRailInput}
+        evidence={['視覚インパクト', 'メッセージ明瞭性', 'CTA', 'ブランド適合', '欠損根拠']}
+        suggestedQuestions={[
+          '最初に直すべき要素を根拠つきで3つに絞って',
+          'A/Bテスト案を仮説・変更変数・期待指標で整理して',
+          '未観測の根拠を評価保留として分けて',
+        ]}
+        primaryAction="レビュー結果を広告改善案へ変換する"
+        helperText="スコアだけでなく、観測できた画像要素・推論・未取得情報を分けて施策化します。"
+      />
 
       {/* Error Banner — shown whenever there's an error, regardless of phase */}
       {errorMessage && (
@@ -1095,7 +1115,7 @@ export default function CreativeReview() {
           <div className="mt-5 rounded-xl bg-surface-container px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-secondary">Demo Creative</p>
+                <p className="text-xs font-black tracking-[0.16em] text-secondary">デモ素材</p>
                 <p className="text-sm font-bold text-on-surface japanese-text mt-1">検証用の架空デモ素材で試す</p>
                 <p className="text-xs text-on-surface-variant japanese-text mt-1">{DEMO_NOTICE}</p>
               </div>
@@ -1131,9 +1151,9 @@ export default function CreativeReview() {
 
       {/* ─── Two-column layout (Stitch 2): Left preview + Right analysis ─── */}
       {isUploaded && (
-        <div className="grid grid-cols-12 gap-10">
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-12 xl:gap-10">
           {/* Left: sticky preview */}
-          <div className="col-span-5 sticky top-24 self-start space-y-4">
+          <div className="space-y-4 xl:col-span-5 xl:sticky xl:top-24 xl:self-start">
             <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
               <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
                 <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
@@ -1172,7 +1192,7 @@ export default function CreativeReview() {
           </div>
 
           {/* Right: review settings, results, generation */}
-          <div className="col-span-7 space-y-8">
+          <div className="space-y-8 xl:col-span-7">
             <ReviewReadinessPanel
               fileName={fileName}
               assetMeta={assetMeta}

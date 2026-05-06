@@ -19,6 +19,7 @@ import MarketRangeBar from '../components/report/MarketRangeBar'
 import BrandRadarChart from '../components/report/BrandRadarChart'
 import ReportViewV2 from '../components/report/v2/ReportViewV2'
 import UiVersionToggle from '../components/report/v2/UiVersionToggle'
+import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { useUiVersion } from '../hooks/useUiVersion'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
@@ -326,7 +327,7 @@ function CompareImage2Guide({ providerLabel }) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>Compare Report</span>
+              <span>競合LP分析</span>
               <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
               <span className="font-bold text-primary">LP比較レポート</span>
             </div>
@@ -336,7 +337,7 @@ function CompareImage2Guide({ providerLabel }) {
             </p>
           </div>
           <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            {providerLabel} analysis
+            {providerLabel} 分析
           </span>
         </div>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -353,7 +354,7 @@ function CompareImage2Guide({ providerLabel }) {
           ))}
         </div>
       </div>
-      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
         <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">比較しながら質問</h3>
         <p className="mt-3 rounded-xl border border-primary/10 bg-surface-container-lowest px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
@@ -384,7 +385,7 @@ function CompareActionPreview() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-extrabold text-on-surface japanese-text">次のアクション</h2>
-            <span className="rounded-lg bg-primary/[0.08] px-3 py-1 text-xs font-bold text-primary">Compare GPT Image2 reflected</span>
+            <span className="rounded-lg bg-primary/[0.08] px-3 py-1 text-xs font-bold text-primary">Image2方向反映済み</span>
           </div>
           <p className="mt-2 text-sm text-on-surface-variant japanese-text">比較結果を、成果につながる施策へ優先順位順に整理します。</p>
         </div>
@@ -695,13 +696,17 @@ export default function Compare() {
   })
   const extracted = result?.extracted ?? null
   const siteCards = [
-    { key: 'target', label: '自社 LP', subtitle: 'Control', url: urls.target },
-    { key: 'compA', label: '競合 A', subtitle: 'Competitor Alpha', url: urls.compA },
-    { key: 'compB', label: '競合 B', subtitle: 'Competitor Beta', url: urls.compB },
+    { key: 'target', label: '自社 LP', subtitle: '比較基準', url: urls.target },
+    { key: 'compA', label: '競合 A', subtitle: '競合候補 A', url: urls.compA },
+    { key: 'compB', label: '競合 B', subtitle: '競合候補 B', url: urls.compB },
   ].filter((site) => site.url)
+  const compareRailStatus = loading ? '分析中' : error ? 'エラー' : result ? 'レポート生成済み' : '入力待ち'
+  const compareRailInput = siteCards.length > 0
+    ? siteCards.map((site) => getHostname(site.url) || site.label).join(' / ')
+    : 'URL未入力'
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-10">
+    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
       {/* Header */}
       <div className="grid grid-cols-12 gap-12 items-end">
         <div className="col-span-9">
@@ -711,10 +716,25 @@ export default function Compare() {
         <div className="col-span-3 flex justify-end">
           <span className="inline-flex items-center gap-2 px-5 py-3 surface-section rounded-full label-md text-primary-container">
             <span className="material-symbols-outlined text-base">auto_awesome</span>
-            AI POWERED
+            AI分析
           </span>
         </div>
       </div>
+
+      <AiContextRail
+        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
+        screenName="LP比較アシスタント"
+        status={compareRailStatus}
+        inputSummary={compareRailInput}
+        evidence={['CTA差分', '信頼要素', 'オファー', 'ファネル段階']}
+        suggestedQuestions={[
+          '観測事実と推論を分けて、最初のLP改善を3つに絞って',
+          '競合セットが同業として妥当か確認して',
+          '広告文に落とせる訴求とCTA案を出して',
+        ]}
+        primaryAction="LP比較レポートを広告施策へ落とし込む"
+        helperText="比較結果を読みながら、競合妥当性・獲得影響・欠損根拠を確認します。無関係な業界は主比較に混ぜない前提で質問できます。"
+      />
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
         <span className="material-symbols-outlined text-lg">info</span>
@@ -733,9 +753,9 @@ export default function Compare() {
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
         <div className="grid grid-cols-3 gap-6">
           {[
-            { key: 'target', label: '自社URL (Target)', placeholder: '例: https://your-site.jp/lp01…' },
-            { key: 'compA', label: '競合URL A (Competitor)', placeholder: '例: https://competitor-a.com/landing…' },
-            { key: 'compB', label: '競合URL B (Competitor)', placeholder: '例: https://competitor-b.com/campaign…' },
+            { key: 'target', label: '自社URL', placeholder: '例: https://your-site.jp/lp01…' },
+            { key: 'compA', label: '競合URL A', placeholder: '例: https://competitor-a.com/landing…' },
+            { key: 'compB', label: '競合URL B', placeholder: '例: https://competitor-b.com/campaign…' },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
               <label htmlFor={`compare-url-${key}`} className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
@@ -1015,14 +1035,14 @@ export default function Compare() {
                         <span className="text-sm font-bold text-primary">関連レポート</span>
                       </div>
                       <p className="text-xs text-on-surface-variant mb-3">
-                        以下のブランドがDiscoveryレポートでも分析されています: {overlap.join('、')}
+                        以下のブランドが競合発見レポートでも分析されています: {overlap.join('、')}
                       </p>
                       <Link
                         to="/discovery"
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">open_in_new</span>
-                        Discoveryレポートを表示
+                        競合発見レポートを表示
                       </Link>
                     </div>
                   )

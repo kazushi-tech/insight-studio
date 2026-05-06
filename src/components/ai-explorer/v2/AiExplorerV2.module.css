@@ -440,8 +440,7 @@
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.72rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .decisionTitle {

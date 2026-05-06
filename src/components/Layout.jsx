@@ -22,27 +22,14 @@ import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
 
 const NAV_ITEMS = [
-  { to: '/', icon: 'dashboard', label: 'ダッシュボード' },
-  {
-    label: '競合LP分析',
-    icon: 'analytics',
-    children: [
-      { to: '/compare', label: 'LP比較分析' },
-      { to: '/discovery', label: '競合発見' },
-      { to: '/creative-review', label: 'クリエイティブ診断' },
-    ],
-  },
-  {
-    label: '広告分析',
-    icon: 'insights',
-    children: [
-      { to: '/ads/wizard', label: 'セットアップ' },
-      { to: '/ads/graphs', label: '分析', requiresSetup: true },
-      { to: '/ads/ai', label: 'AIエクスプローラー', requiresSetup: true },
-    ],
-  },
-  { to: '/projects', icon: 'account_tree', label: 'プロジェクト管理', adminOnly: true },
+  { to: '/', icon: 'home', label: 'ダッシュボード' },
+  { to: '/compare', icon: 'balance', label: '競合LP分析' },
+  { to: '/discovery', icon: 'search', label: '競合発見' },
+  { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
+  { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
+  { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
   { to: '/settings', icon: 'settings', label: '設定' },
+  { to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true },
 ]
 
 function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
@@ -53,7 +40,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         aria-disabled="true"
         tabIndex={-1}
         onClick={(e) => e.preventDefault()}
-        className={`flex items-center gap-3 px-6 py-2.5 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed border-l-4 border-transparent ${
+        className={`mx-4 flex items-center gap-4 rounded-xl px-4 py-3 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed ${
           isChild ? 'pl-14' : ''
         }`}
         title="セットアップを完了してください"
@@ -76,12 +63,12 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-6 py-2.5 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-[#2d6a4f] focus-visible:outline-offset-[-2px] ${
+        `mx-4 flex items-center gap-4 rounded-xl px-4 py-3 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-[#a8e7c5] focus-visible:outline-offset-[-2px] ${
           isChild ? 'pl-14' : ''
         } ${
           isActive
-            ? 'text-white font-bold border-l-2 border-[#2d6a4f] bg-[#2d6a4f]'
-            : 'text-[#a8b5a0] hover:text-white/80 hover:bg-white/5 border-l-2 border-transparent'
+            ? 'text-white font-bold bg-white/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
+            : 'text-white/80 hover:text-white hover:bg-white/10'
         }`
       }
     >
@@ -247,7 +234,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（推奨・分析用）</label>
-          <p className="text-xs text-on-surface-variant">設定されている場合は Compare / Discovery / Creative Review で Gemini を優先します</p>
+          <p className="text-xs text-on-surface-variant">設定されている場合は競合LP分析・競合発見・バナーレビューで Gemini を優先します</p>
           <a
             href="https://aistudio.google.com/app/apikey"
             target="_blank"
@@ -387,7 +374,9 @@ function BackgroundIndicator() {
 
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
-  const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
+  const [showGuide, setShowGuide] = useState(() => (
+    window.location.pathname === '/' && localStorage.getItem('insight-studio-guide-seen') !== '1'
+  ))
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedCase, setSelectedCase] = useState(null)
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
@@ -504,31 +493,34 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth, background: 'linear-gradient(135deg, #0f5238 0%, #002114 100%)' }}>
         {/* Logo */}
-        <div className="px-6 mb-8 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(45,106,79,0.3)', color: '#a8e7c5' }}>
-            <span className="material-symbols-outlined text-2xl">insights</span>
+        <div className="px-6 mb-10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#f4fff8' }}>
+            <span className="material-symbols-outlined text-2xl">eco</span>
           </div>
           <div>
             <h1 className="text-xl font-bold text-white tracking-tighter leading-tight">
               Insight Studio
             </h1>
             <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-              Ad Ops &amp; Analysis
+              広告運用分析
             </p>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex flex-col gap-0.5 flex-1">
+        <nav className="flex flex-col gap-2 flex-1">
           {NAV_ITEMS
             .filter((item) => !item.adminOnly || canManageProjects)
-            .map((item) =>
-            item.children ? (
-              <SidebarGroup key={item.label} item={item} disabledPaths={disabledPaths} />
-            ) : (
-              <SidebarLink key={item.to} to={item.to} icon={item.icon} label={item.label} />
-            )
-          )}
+            .map((item) => (
+              <SidebarLink
+                key={item.to}
+                to={item.to}
+                icon={item.icon}
+                label={item.label}
+                disabled={disabledPaths?.includes(item.to)}
+                badge={disabledPaths?.includes(item.to) && item.requiresSetup ? '要設定' : item.badge}
+              />
+            ))}
         </nav>
 
         {/* Background Running Indicator */}
@@ -538,7 +530,7 @@ export default function Layout() {
         <div className="px-6 mb-3">
           <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-white/50">Compare / Discovery</span>
+              <span className="text-white/50">競合LP分析 / 競合発見</span>
               <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
                 {coreAnalysisStatusLabel}
@@ -566,7 +558,7 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">Ads AI</span>
+              <span className="text-white/50">AI考察</span>
               <span className={`flex items-center gap-1 font-bold ${adsAiTone}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${adsAiDot}`} />
                 {adsAiStatusLabel}
