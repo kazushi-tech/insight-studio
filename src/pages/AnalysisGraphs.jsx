@@ -267,23 +267,26 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
   const summary = useMemo(() => computeThemeSummary(theme.groups), [theme.groups])
 
   return (
-    <div id={`theme-section-${theme.id}`} className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/20 scroll-mt-24">
+    <div id={`theme-section-${theme.id}`} className="overflow-hidden rounded-[1.5rem] border border-primary/15 bg-gradient-to-br from-primary/[0.06] via-surface-container-lowest to-surface-container-low shadow-[0_22px_60px_rgba(0,57,37,0.08)] scroll-mt-24">
       <button
         onClick={onToggle}
-        className="w-full p-5 flex items-center justify-between cursor-pointer hover:bg-surface-container-low transition-colors border-b border-outline-variant/10 text-left"
+        className="w-full px-6 py-5 flex items-center justify-between cursor-pointer hover:bg-primary/[0.04] transition-colors border-b border-primary/10 text-left"
       >
-        <div className="flex items-center gap-6">
-          <span className={`material-symbols-outlined ${isOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
+        <div className="flex items-center gap-5">
+          <span className={`grid size-11 place-items-center rounded-2xl border border-primary/15 bg-surface-container-lowest material-symbols-outlined ${isOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
             {isOpen ? 'expand_more' : 'chevron_right'}
           </span>
           <div className="flex items-center gap-3">
-            <h3 className="font-bold text-lg japanese-text">{theme.label}</h3>
+            <div>
+              <p className="text-[10px] font-black tracking-[0.16em] uppercase text-primary">Graph Theme Board</p>
+              <h3 className="mt-1 font-black text-xl text-primary japanese-text">{theme.label}</h3>
+            </div>
             <div className="flex gap-2">
-              <span className="text-[10px] font-bold bg-surface-container-highest px-2 py-0.5 rounded uppercase">
+              <span className="text-[10px] font-black bg-surface-container-lowest px-3 py-1 rounded-full uppercase border border-primary/10">
                 {summary.chartCount} charts
               </span>
               {summary.criticalShifts > 0 && (
-                <span className="text-[10px] font-bold bg-primary-container text-on-primary px-2 py-0.5 rounded uppercase">
+                <span className="text-[10px] font-black bg-primary text-on-primary px-3 py-1 rounded-full uppercase">
                   {summary.criticalShifts} critical shift{summary.criticalShifts > 1 ? 's' : ''}
                 </span>
               )}
@@ -291,15 +294,15 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
           </div>
         </div>
         <div className="flex items-center gap-8 text-sm font-medium text-on-surface-variant">
-          <div className="flex items-center gap-1.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${summary.criticalShifts > 0 ? 'bg-accent-gold' : 'bg-primary'}`} />
+          <div className="flex items-center gap-2 rounded-full bg-surface-container-lowest px-4 py-2 border border-primary/10">
+            <span className={`size-2.5 rounded-full ${summary.criticalShifts > 0 ? 'bg-accent-gold' : 'bg-primary'}`} />
             品質: {summary.criticalShifts > 0 ? '注意' : '良好'}
           </div>
         </div>
       </button>
 
       {isOpen && (
-        <div className="p-8">
+        <div className="p-6 lg:p-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {theme.groups.map((group, groupIndex) => (
               <ChartGroupCard
