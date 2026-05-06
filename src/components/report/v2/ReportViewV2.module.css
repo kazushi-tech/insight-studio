@@ -2,6 +2,14 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.root * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Section D-6: TOC + content two-column layout */
@@ -9,6 +17,14 @@
   display: grid;
   gap: 1.5rem;
   grid-template-columns: 1fr;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tocLayout > div {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 @media (min-width: 1024px) {
@@ -69,6 +85,8 @@
   gap: 1.5rem;
   grid-template-columns: 1fr;
   margin-top: 1.5rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 @media (min-width: 1024px) {

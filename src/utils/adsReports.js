@@ -344,15 +344,49 @@ export function buildAdsReportBundle({ setupState, results }) {
       : reportSections
           .map((item) => `# ${item.label}\n\n${item.reportMd}`)
           .join('\n\n---\n\n')
+  const fallbackReportMd = [
+    '# 分析データの確認待ち',
+    '',
+    `対象データセット: ${datasetId}`,
+    `対象期間: ${periods.join('、') || '未指定'}`,
+    `分析項目: ${(setupState?.queryTypes ?? []).join('、') || '未指定'}`,
+    '',
+    'BigQueryからレポート本文が返っていないため、現時点では数値断定を避けて質問に回答します。',
+    '「どの指標を見るべきか」「不足データをどう確認するか」「次に取得すべきレポート」を中心にAI考察できます。',
+  ].join('\n')
 
   return {
     source: 'bq_generate_batch',
     datasetId,
-    reportMd,
+    reportMd: reportMd || fallbackReportMd,
     chartGroups: periodReports.flatMap((item) => item.chartGroups),
     periodReports,
     results,
     generatedAt: new Date().toISOString(),
+  }
+}
+
+export function buildAdsFallbackReportBundle(setupState, reason = 'BQレポート本文の取得待ち') {
+  const periods = setupState?.periods ?? []
+  const results = periods.map((period) => ({
+    ok: true,
+    report_md: [
+      '# 分析データの暫定コンテキスト',
+      '',
+      `対象期間: ${period}`,
+      `状態: ${reason}`,
+      '',
+      '数値断定は避け、確認すべき指標・仮説・追加取得データを中心に回答します。',
+    ].join('\n'),
+    chart_data: {},
+    results: {},
+    skipped: setupState?.queryTypes ?? [],
+    fallback_reason: reason,
+  }))
+
+  return {
+    ...buildAdsReportBundle({ setupState, results }),
+    source: 'bq_generate_fallback',
   }
 }
 

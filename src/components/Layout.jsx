@@ -374,7 +374,9 @@ function BackgroundIndicator() {
 
 export default function Layout() {
   const [showKeyModal, setShowKeyModal] = useState(false)
-  const [showGuide, setShowGuide] = useState(() => localStorage.getItem('insight-studio-guide-seen') !== '1')
+  const [showGuide, setShowGuide] = useState(() => (
+    window.location.pathname === '/' && localStorage.getItem('insight-studio-guide-seen') !== '1'
+  ))
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [selectedCase, setSelectedCase] = useState(null)
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)

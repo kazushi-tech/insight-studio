@@ -140,7 +140,7 @@ function InsightDecisionBoard({ reportBundle, messages }) {
   return (
     <section className={styles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
       <div className={styles.decisionBoardMain}>
-        <p className={styles.decisionEyebrow}>AI Graph Chat / Python集計済み</p>
+        <p className={styles.decisionEyebrow}>AIグラフチャット / Python集計済み</p>
         <h2 id="insight-decision-board-title" className={`${styles.decisionTitle} japanese-text`}>
           グラフを見ながらAIに質問
         </h2>
@@ -171,7 +171,7 @@ function InsightDecisionBoard({ reportBundle, messages }) {
         </div>
       </div>
       <aside className={styles.decisionBoardSide} aria-label="優先アクション">
-        <p className={styles.decisionEyebrow}>Priority Actions</p>
+        <p className={styles.decisionEyebrow}>優先アクション</p>
         <div className={styles.decisionActionList}>
           {state.actions.map((action, idx) => (
             <div key={`${action}-${idx}`} className={styles.decisionAction}>
@@ -327,7 +327,9 @@ export default function InsightTimeline({
           <div className={`${styles.banner} ${styles.bannerInfo}`}>
             <span className="material-symbols-outlined" aria-hidden="true">info</span>
             <span className="japanese-text">
-              `ads-insights` repo 準拠では、分析データ生成後にそのコンテキストを使って考察を生成します。先にセットアップを完了してください。
+              {setupState
+                ? '分析データのコンテキストを準備しています。完了後、この画面でそのままAIへ質問できます。'
+                : '先に広告グラフのセットアップを完了してください。'}
             </span>
           </div>
         )}
@@ -355,7 +357,7 @@ export default function InsightTimeline({
             {setContextMode && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <p style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
-                  Context
+                  参照データ
                 </p>
                 <div style={{ display: 'inline-flex', background: 'var(--color-surface-container-low)', borderRadius: 999, padding: '0.125rem' }}>
                   <button
@@ -404,7 +406,7 @@ export default function InsightTimeline({
             {handleFontSizeChange && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <p style={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'var(--color-outline)' }}>
-                  Size
+                  文字サイズ
                 </p>
                 <div style={{ display: 'inline-flex', background: 'var(--color-surface-container-low)', borderRadius: 999, padding: '0.125rem' }}>
                   {[
