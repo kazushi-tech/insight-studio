@@ -226,7 +226,7 @@ export default function Settings() {
     <div className="p-10 max-w-6xl mx-auto space-y-8">
       <div className="space-y-2">
         <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">設定・レポート管理</h2>
-        <p className="text-on-surface-variant text-sm japanese-text">Claude API キーで Compare / Discovery / Ads AI / Creative Review を始められます。</p>
+        <p className="text-on-surface-variant text-sm japanese-text">Gemini または Claude の分析用 API キーで Compare / Discovery / Creative Review を始められます。</p>
       </div>
 
       <div className="grid grid-cols-12 gap-8 items-start">
@@ -335,7 +335,7 @@ export default function Settings() {
       <SettingsCard
         icon="smart_toy"
         title="分析用 API設定（Claude）"
-        description="Gemini キー未設定の場合のフォールバックとして使われます。Compare / Discovery / クリエイティブレビューにも必要です。"
+        description="Gemini キー未設定の場合のフォールバックとして使われます。Compare / Discovery / クリエイティブレビューで利用できます。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (

@@ -318,6 +318,22 @@ def _quality_gate_check(analysis_md: str, result: ScanResult) -> tuple[list[str]
             else:
                 issues.append(f"サブセクション欠損(任意): 「{label}」")
 
+        exec_plan_match = _re.search(
+            r'(?:##\s*(?:\d+[.．]?\s*)?(?:実行プラン|広告運用アクションプラン|アクションプラン))([\s\S]*?)(?=\n##\s+|\Z)',
+            analysis_md,
+        )
+        exec_plan_text = exec_plan_match.group(1) if exec_plan_match else analysis_md
+        operational_requirements = [
+            ("期待KPI", r"期待KPI|初回KPI|主KPI|KPI測定|LP-CVR|CVR|CPA|CTR|ROAS"),
+            ("根拠", r"根拠|証拠強度|確認済み|推定|評価保留"),
+            ("実装難易度", r"工数|難易度|Effort|実装難易度|低|中|高"),
+            ("初回検証方法", r"初回|7日|今週|検証|テスト|A/B|測定方法|評価タイミング"),
+        ]
+        for label, pattern in operational_requirements:
+            if not _re.search(pattern, exec_plan_text, _re.IGNORECASE):
+                issues.append(f"品質ゲート欠損: 実行プランに「{label}」が見つかりません")
+                is_critical = True
+
     # ── 6. Section 5-2 completeness check (Task E) ──
     # For multi-URL reports, verify that 5-2 search ad section is complete
     if len(result.urls) > 1:

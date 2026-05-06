@@ -515,7 +515,7 @@ export default function AiExplorer() {
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">分析用 Claude API キーが未設定です。設定画面から設定してください。</span>
+          <span className="japanese-text">Gemini または Claude の分析用 API キーが未設定です。設定画面から設定してください。</span>
         </div>
       )}
         {reportError && (

@@ -90,6 +90,46 @@
   /* Prose children control their own spacing. */
 }
 
+.operationalCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.operationalCard {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--color-surface-container-low);
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 16%, transparent);
+}
+
+.operationalCard :global(.material-symbols-outlined) {
+  color: var(--color-primary);
+  font-size: 1.35rem;
+}
+
+.operationalCard h3 {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.operationalCard p {
+  margin: 0.35rem 0 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .aiAvatar {
   width: 2.5rem;
   height: 2.5rem;
@@ -178,7 +218,13 @@
 
 @media (min-width: 768px) {
   .quickPromptGrid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .quickPromptGrid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -367,6 +413,114 @@
   margin: 0 auto;
 }
 
+.decisionBoard {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(0, 57, 37, 0.95), rgba(20, 93, 64, 0.9)),
+    var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.decisionBoardMain,
+.decisionBoardSide {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.1rem;
+}
+
+.decisionEyebrow {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.decisionTitle {
+  margin: 0.55rem 0 0;
+  font-size: 1.55rem;
+  line-height: 1.18;
+  font-weight: 900;
+}
+
+.decisionMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.decisionMeta {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+}
+
+.decisionMeta span {
+  display: block;
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.decisionMeta strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: #fff;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.decisionActionList {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.decisionAction {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.7rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.decisionAction b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.75rem;
+}
+
+.decisionAction p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 1023px) {
+  .operationalCards,
+  .decisionBoard,
+  .decisionMetaGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ───────── Composer bar ───────── */
 
 .composerBar {
@@ -525,4 +679,57 @@
   background: var(--color-surface-container-low);
   border: 1px solid color-mix(in srgb, var(--color-outline-variant) 25%, transparent);
   color: var(--color-on-surface-variant);
+}
+
+.requirementPanel {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: var(--color-surface-container-lowest);
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
+}
+
+.requirementOk,
+.requirementTodo {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  min-width: 0;
+  padding: 0.75rem;
+  border-radius: 10px;
+}
+
+.requirementOk {
+  background: color-mix(in srgb, var(--color-success, #16a34a) 10%, transparent);
+  color: var(--color-on-surface);
+}
+
+.requirementTodo {
+  background: color-mix(in srgb, var(--color-warning, #b45309) 12%, transparent);
+  color: var(--color-on-surface);
+}
+
+.requirementOk > span {
+  color: var(--color-success, #16a34a);
+}
+
+.requirementTodo > span {
+  color: var(--color-warning, #b45309);
+}
+
+.requirementOk strong,
+.requirementTodo strong {
+  display: block;
+  font-size: 0.75rem;
+}
+
+.requirementOk p,
+.requirementTodo p {
+  margin: 0.125rem 0 0;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--color-on-surface-variant);
+  overflow-wrap: anywhere;
 }

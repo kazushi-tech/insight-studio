@@ -5,6 +5,7 @@ import {
   findBrandSectionBodies,
   parseBrandVerdicts,
 } from '../../../utils/brandEvalParser'
+import { getRoleMeta } from '../../../utils/reportDecisionInsights'
 import styles from './CompetitorMatrixV2.module.css'
 
 /**
@@ -19,6 +20,8 @@ function fromEnvelope(evaluations) {
   if (!Array.isArray(evaluations) || evaluations.length === 0) return []
   return evaluations
     .map((e) => {
+      const role = getRoleMeta(e.role || e.competitor_tier)
+      if (role.key === 'out_of_scope') return null
       const map = {}
       for (const a of e.axes || []) {
         if (!AXIS_KEYS.includes(a.axis)) continue
@@ -32,7 +35,8 @@ function fromEnvelope(evaluations) {
       return {
         brand: e.brand || '',
         verdicts: map,
-        isReference: e.role === 'reference',
+        role,
+        isReference: role.key === 'reference' || role.key === 'adjacent',
       }
     })
     .filter(Boolean)
@@ -91,8 +95,8 @@ export default function CompetitorMatrixV2({ envelope, reportMd, focusedBrand, o
                     >
                       <span className={styles.brandHead}>{row.brand}</span>
                     </button>
-                    {row.isReference && (
-                      <span className={styles.referencePill}>参考</span>
+                    {row.role && row.role.key !== 'direct' && (
+                      <span className={styles.referencePill}>{row.role.label}</span>
                     )}
                   </th>
                 )

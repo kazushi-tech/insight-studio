@@ -3,7 +3,7 @@ import UserPromptPill from './UserPromptPill'
 import InsightChartPanel from './InsightChartPanel'
 import InsightSummaryHero from './InsightSummaryHero'
 import { matchRelevantCharts } from '../../../utils/adsReports'
-import { extractInsightMeta } from '../../../utils/adsResponse'
+import { extractInsightMeta, extractOperationalInsightCards } from '../../../utils/adsResponse'
 import styles from './AiExplorerV2.module.css'
 
 /**
@@ -30,6 +30,7 @@ export default function InsightTurnCard({
   const relevantCharts = Array.isArray(chartGroups) && chartGroups.length > 0
     ? matchRelevantCharts(renderContent, chartGroups, { limit: 3 })
     : []
+  const operationalCards = extractOperationalInsightCards(renderContent)
 
   return (
     <article
@@ -53,6 +54,25 @@ export default function InsightTurnCard({
       <UserPromptPill content={userPrompt} timestamp={userTimestamp} />
 
       {derivedMeta && <InsightSummaryHero meta={derivedMeta} />}
+
+      {operationalCards.length > 0 && (
+        <div className={styles.operationalCards} data-testid="operational-insight-cards">
+          {operationalCards.map((card) => (
+            <section key={card.key} className={styles.operationalCard}>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                {card.key === 'cause' ? 'manage_search' :
+                  card.key === 'implication' ? 'tips_and_updates' :
+                  card.key === 'metric' ? 'monitoring' :
+                  card.key === 'expectedKpi' ? 'speed' : 'task_alt'}
+              </span>
+              <div>
+                <h3 className="japanese-text">{card.title}</h3>
+                <p className="japanese-text">{card.body}</p>
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
 
       <div className={styles.turnBody}>
         <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />

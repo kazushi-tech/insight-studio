@@ -8,8 +8,9 @@ const proxy = {
     changeOrigin: true,
   },
   '/api/ads': {
-    target: 'http://localhost:8002',
+    target: 'http://localhost:8001',
     changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/api\/ads/, '/api'),
   },
 }
 

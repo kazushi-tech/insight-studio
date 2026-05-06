@@ -261,11 +261,11 @@ function buildErrorMessage(path, status, body) {
       if (normalizedDetail.includes('claude api key is required for discovery search')) {
         return '競合発見の検索設定が不足しています。サーバー側の Claude 設定または分析用 API キーを確認してください。'
       }
-      return cleanedDetail || '競合発見の実行条件が不足しています。分析用 Claude API キーとサーバー側設定を確認してください。'
+      return cleanedDetail || '競合発見の実行条件が不足しています。Gemini または Claude の分析用 API キーとサーバー側設定を確認してください。'
     }
     if (status === 401) {
       if (normalizedDetail.includes('api key')) {
-        return '競合発見で使用する Claude API キーが無効です。分析用 Claude API キー、またはサーバー側設定を確認してください。'
+        return '競合発見で使用する分析用 API キーが無効です。Gemini / Claude キー、またはサーバー側設定を確認してください。'
       }
       return cleanedDetail || '競合発見の認証に失敗しました。API キー設定を確認してください。'
     }
@@ -302,10 +302,11 @@ function buildErrorMessage(path, status, body) {
   }
 
   if (status === 500) return detail || 'バックエンドでサーバーエラーが発生しました。しばらく待って再試行してください。'
+  if (status === 502) return detail || '分析バックエンドが一時的に応答できませんでした。自動再試行後も失敗した場合は、少し待って再実行してください。'
   if (status === 529) return 'AIサービスが一時的に混み合っています。数分後に再試行してください。'
   if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
 
-  return `Market Lens API error: ${status}`
+  return `Market Lens API が応答できませんでした（status ${status}）。しばらく待って再試行してください。`
 }
 
 function sleep(ms) {

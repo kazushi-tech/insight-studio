@@ -2,34 +2,64 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 const GUIDE_PAGES = [
   {
-    src: '/guide/page1-welcome.png',
+    src: null,
     title: 'Insight Studio へようこそ',
-    description: 'このガイドでは Claude First を前提に、比較・発見・レビュー・Ads AI を主要フローとして扱います。',
+    description: 'このガイドでは、設定済みの分析プロバイダーで比較・発見・レビュー・Ads AI を進める流れを扱います。',
+    items: [
+      { icon: 'compare_arrows', title: 'LP比較・競合分析', body: 'URLを入力して、自社LPと競合LPの差分、優先施策、期待KPIを確認します。' },
+      { icon: 'travel_explore', title: '競合発見', body: 'ブランドURLから候補を発見し、直接競合・隣接競合・参考サイトを分けて分析します。' },
+      { icon: 'rate_review', title: 'クリエイティブレビュー', body: 'バナーやLPの訴求、CTA、信頼要素、広告-LP一致をレビューします。' },
+    ],
   },
   {
-    src: '/guide/page2-api-setup.png',
+    src: null,
     title: 'APIキーの設定',
-    description: 'Claude API キーを設定すると Compare / Discovery / Ads AI / Creative Review を開始できます。',
+    description: 'Gemini または Claude の分析用 API キーを設定すると Compare / Discovery / Creative Review を開始できます。',
+    items: [
+      { icon: 'key', title: 'Gemini優先', body: 'Geminiキーが保存されている場合、分析系フローではGeminiを優先します。' },
+      { icon: 'swap_horiz', title: 'Claudeはフォールバック', body: 'Gemini未設定時はClaudeキーを分析用フォールバックとして使います。' },
+      { icon: 'lock', title: 'Ads AIは別条件', body: 'Ads AIは分析用APIキーに加えて、案件認証とセットアップ完了が必要です。' },
+    ],
   },
   {
-    src: '/guide/page3-lp-analysis.png',
+    src: null,
     title: 'LP比較 & 競合発見',
-    description: 'LP比較と競合発見は Claude で実行します。',
+    description: 'LP比較と競合発見は、設定済みの分析プロバイダーで実行します。Gemini キーがある場合は Gemini が優先されます。',
+    items: [
+      { icon: 'flag', title: 'Action Board', body: '生成後はまず最優先施策、期待KPI、信頼度、最初の一手を確認します。' },
+      { icon: 'scatter_plot', title: 'ポジションマップ', body: '競合を獲得導線と信頼訴求の2軸で見て、勝ち筋と保留点を把握します。' },
+      { icon: 'fact_check', title: '根拠トレース', body: '評価保留と確認済み根拠を分け、低評価とデータ不足を混同しない設計です。' },
+    ],
   },
   {
-    src: '/guide/page4-ads-insight.png',
+    src: null,
     title: '広告分析ワークフロー',
-    description: 'Ads AI は Claude API キーに加えて、案件認証と Ads セットアップ完了が前提です。',
+    description: 'Ads AI は分析用 API キーに加えて、案件認証と Ads セットアップ完了が前提です。',
+    items: [
+      { icon: 'admin_panel_settings', title: '案件認証', body: '未認証時は安全な案内を表示し、赤い障害表示で不安を煽らないようにしています。' },
+      { icon: 'query_stats', title: 'セットアップ', body: '期間、媒体、粒度をセットしてから、グラフとAI考察へ進みます。' },
+      { icon: 'chat', title: 'Ads AI', body: '数値、期間、変化要因、次アクションに紐づく回答を目指します。' },
+    ],
   },
   {
-    src: '/guide/page5-creative.png',
+    src: null,
     title: 'クリエイティブレビュー',
-    description: 'Creative Review は Claude でバナーを分析・評価します。',
+    description: 'Creative Review は設定済みの分析プロバイダーでバナーを分析・評価します。',
+    items: [
+      { icon: 'upload_file', title: '画像アップロード', body: 'PNG/JPG/WebPをアップロードし、必要に応じてブランド情報やLP URLを添えます。' },
+      { icon: 'radar', title: '評価レーダー', body: '視線誘導、訴求、CTA、信頼要素などをスコアと講評で確認します。' },
+      { icon: 'science', title: 'A/Bテスト案', body: '改善案は実務で試せる仮説として出し、効果断定を避けます。' },
+    ],
   },
   {
-    src: '/guide/page6-tips.png',
+    src: null,
     title: 'Tips & ショートカット',
     description: 'smoke 確認時は Compare → Discovery → Creative Review → Ads AI の順で見ると切り分けしやすくなります。',
+    items: [
+      { icon: 'content_copy', title: 'コピー', body: '生成レポートは上部のコピー導線から共有用テキストとして取り出せます。' },
+      { icon: 'print', title: '印刷', body: '詳細レポートは印刷/PDF化しやすいレイアウトで確認できます。' },
+      { icon: 'keyboard', title: 'キーボード操作', body: 'モーダル、目次、主要ボタンはフォーカス表示を保つようにしています。' },
+    ],
   },
 ]
 
@@ -117,12 +147,24 @@ export default function GuideModal({ onClose }) {
 
         {/* Image Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-4">
-          <img
-            src={current.src}
-            alt={current.title}
-            className="w-full rounded-[0.75rem] object-contain"
-            draggable={false}
-          />
+          {current.src ? (
+            <img
+              src={current.src}
+              alt={current.title}
+              className="w-full rounded-[0.75rem] object-contain"
+              draggable={false}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {current.items?.map((item) => (
+                <article key={item.title} className="rounded-[0.75rem] bg-surface-container-low p-5 min-h-[180px] flex flex-col gap-3">
+                  <span className="material-symbols-outlined text-secondary text-3xl" aria-hidden="true">{item.icon}</span>
+                  <h4 className="text-base font-bold text-on-surface japanese-text">{item.title}</h4>
+                  <p className="text-sm leading-6 text-on-surface-variant japanese-text">{item.body}</p>
+                </article>
+              ))}
+            </div>
+          )}
           {(current.description || current.callout) && (
             <div className="mt-4 rounded-[0.75rem] bg-surface-container p-4 space-y-2">
               {current.description && (

@@ -140,7 +140,11 @@ export function useAsyncJob() {
 
         if (data.status === 'failed') {
           stopPolling()
-          const detail = data.error?.detail || 'ジョブが失敗しました'
+          const detail =
+            (typeof data.error === 'string' && data.error.trim()) ||
+            data.error?.detail ||
+            data.message ||
+            'ジョブが失敗しました'
           const retryable = data.error?.retryable ?? true
           onFail?.(detail, { category: 'upstream', label: 'ジョブエラー', guidance: detail, retryable })
           return

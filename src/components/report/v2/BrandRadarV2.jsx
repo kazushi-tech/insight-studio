@@ -21,6 +21,7 @@ import {
   findBrandSectionBodies,
   parseBrandVerdicts,
 } from '../../../utils/brandEvalParser'
+import { getRoleMeta } from '../../../utils/reportDecisionInsights'
 import styles from './BrandRadarV2.module.css'
 
 Chart.register(RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
@@ -36,13 +37,15 @@ function fromEnvelope(evaluations) {
   if (!Array.isArray(evaluations) || evaluations.length === 0) return []
   return evaluations
     .map((e) => {
+      const role = getRoleMeta(e.role || e.competitor_tier)
+      if (role.key === 'out_of_scope') return null
       const scores = {}
       for (const a of e.axes || []) {
         if (!AXIS_KEYS.includes(a.axis)) continue
         scores[a.axis] = VERDICT_SCORE[a.verdict] ?? null
       }
       return Object.keys(scores).length
-        ? { brand: e.brand, scores, isReference: e.role === 'reference' }
+        ? { brand: e.brand, scores, isReference: role.key === 'reference' || role.key === 'adjacent' }
         : null
     })
     .filter(Boolean)

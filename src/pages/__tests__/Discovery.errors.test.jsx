@@ -189,7 +189,7 @@ describe('Discovery — error scenarios', () => {
     const input = screen.getByPlaceholderText('競合他社のURLを入力')
     await user.type(input, 'https://example.com')
 
-    expect(screen.getByText(/Claude API キーが必要です/)).toBeInTheDocument()
+    expect(screen.getByText(/分析用 API キーが必要です/)).toBeInTheDocument()
     const button = screen.getByRole('button', { name: /競合を発見/ })
     expect(button).toBeDisabled()
   })

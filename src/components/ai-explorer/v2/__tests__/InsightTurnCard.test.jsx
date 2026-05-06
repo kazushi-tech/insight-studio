@@ -192,4 +192,27 @@ describe('InsightTurnCard', () => {
     const md = screen.getByTestId('markdown-renderer')
     expect(md.textContent).toContain('## レポート')
   })
+
+  it('renders operational cards from sectioned AI markdown', () => {
+    const aiContent = [
+      '## 原因',
+      '- 指名キャンペーンのCVRが低下しています',
+      '## 広告運用上の示唆',
+      '- LPと広告文の訴求がずれています',
+      '## 次に見るべき数値',
+      '- CPAとLP-CVRを日次で確認',
+      '## 今週やる施策',
+      '- 広告文とFVコピーを揃える',
+      '## 期待KPI',
+      '- LP-CVRを5%改善',
+    ].join('\n')
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('operational-insight-cards')).toBeInTheDocument()
+    expect(screen.getByText('原因')).toBeInTheDocument()
+    expect(screen.getByText('広告運用上の示唆')).toBeInTheDocument()
+    expect(screen.getByText('次に見るべき数値')).toBeInTheDocument()
+    expect(screen.getByText('今週やる施策')).toBeInTheDocument()
+    expect(screen.getByText('期待KPI')).toBeInTheDocument()
+  })
 })
