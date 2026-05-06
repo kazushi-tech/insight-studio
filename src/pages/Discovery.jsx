@@ -657,7 +657,7 @@ export default function Discovery() {
         <span className="japanese-text">競合発見の分析は現在 {providerLabel} で実行します。必要な検索設定はサーバー側で処理します。</span>
       </div>
 
-      <DiscoveryImage2Guide providerLabel={providerLabel} />
+      {!result?.report_md && <DiscoveryImage2Guide providerLabel={providerLabel} />}
 
       {/* URL Input */}
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
