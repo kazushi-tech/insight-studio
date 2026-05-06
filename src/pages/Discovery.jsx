@@ -105,7 +105,7 @@ function DiscoveryImage2Guide({ providerLabel }) {
         </div>
       </div>
 
-      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
         <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">どの競合から比較するか</h3>
         <ol className="mt-4 space-y-4">

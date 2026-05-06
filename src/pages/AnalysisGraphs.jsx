@@ -233,6 +233,25 @@ function pickKeyCharts(chartGroups) {
   return scored.slice(0, 2).map((s) => s.group)
 }
 
+function filterChartGroupsByRecentPoints(chartGroups, pointCount) {
+  if (!Number.isFinite(pointCount) || pointCount <= 0) return chartGroups
+  return chartGroups.map((group) => {
+    const labels = Array.isArray(group?.labels) ? group.labels : []
+    const start = Math.max(0, labels.length - pointCount)
+    return {
+      ...group,
+      labels: labels.slice(start),
+      datasets: Array.isArray(group?.datasets)
+        ? group.datasets.map((dataset) => ({
+            ...dataset,
+            data: Array.isArray(dataset?.data) ? dataset.data.slice(start) : dataset?.data,
+          }))
+        : group?.datasets,
+      _image2RangePreset: `${pointCount}日間`,
+    }
+  })
+}
+
 /* ── Theme Tabs (analyst supplement) ── */
 function ThemeTabs({ activeTheme, onThemeChange, themes }) {
   const allTabs = [{ id: 'all', label: '全件', icon: 'select_all' }, ...THEME_DEFINITIONS]
@@ -453,7 +472,16 @@ function AnomalySection({ chartGroups }) {
   )
 }
 
-function AdsImage2KpiBoard({ filteredGroups, themes, activeScopeLabel, setupState, reportBundle, onScrollToGraphs }) {
+function AdsImage2KpiBoard({
+  filteredGroups,
+  themes,
+  setupState,
+  reportBundle,
+  periodFilter,
+  periodTags,
+  onPeriodFilterChange,
+  onScrollToGraphs,
+}) {
   const generatedAt = reportBundle?.generatedAt
     ? new Date(reportBundle.generatedAt).toLocaleString('ja-JP', {
         month: '2-digit',
@@ -471,6 +499,15 @@ function AdsImage2KpiBoard({ filteredGroups, themes, activeScopeLabel, setupStat
     { icon: 'track_changes', label: 'CVR（CVR）', value: '3.21%', delta: '期間比較で確認', tone: 'up' },
     { icon: 'person_raised_hand', label: 'CPA（獲得単価）', value: '要媒体費', delta: 'Excel連携で確定', tone: 'neutral' },
   ]
+
+  const periodOptions = [
+    { label: '7日間', value: 'recent:7' },
+    { label: '14日間', value: 'recent:14' },
+    { label: '30日間', value: 'recent:30' },
+    { label: '90日間', value: 'recent:90' },
+    { label: 'カスタム', value: 'all' },
+  ]
+  const latestPeriodLabel = periodTags.length > 0 ? periodTags[periodTags.length - 1] : '-'
 
   return (
     <section className="rounded-[1.35rem] border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm space-y-5">
@@ -501,23 +538,34 @@ function AdsImage2KpiBoard({ filteredGroups, themes, activeScopeLabel, setupStat
       <div className="rounded-xl border border-outline-variant/20 bg-surface p-5">
         <h3 className="text-base font-extrabold text-on-surface japanese-text">期間選択</h3>
         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-[repeat(5,minmax(0,1fr))_minmax(220px,1.4fr)]">
-          {['7日間', '14日間', '30日間', '90日間', 'カスタム'].map((label) => (
+          {periodOptions.map((option) => (
             <button
-              key={label}
+              key={option.value}
               type="button"
+              aria-pressed={periodFilter === option.value}
+              onClick={() => onPeriodFilterChange(option.value)}
               className={`rounded-lg border px-4 py-3 text-sm font-bold transition-colors ${
-                label === '30日間'
+                periodFilter === option.value
                   ? 'border-primary bg-primary text-on-primary'
                   : 'border-outline-variant/25 bg-surface-container-lowest text-on-surface hover:border-primary/30'
               }`}
             >
-              {label}
+              {option.label}
             </button>
           ))}
-          <div className="col-span-2 flex items-center gap-3 rounded-lg border border-outline-variant/25 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-on-surface md:col-span-1">
-            <span className="material-symbols-outlined text-primary text-base" aria-hidden="true">calendar_month</span>
-            {activeScopeLabel}
-          </div>
+          <button
+            type="button"
+            aria-pressed={periodFilter === 'latest'}
+            onClick={() => onPeriodFilterChange('latest')}
+            className={`col-span-2 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-bold md:col-span-1 ${
+              periodFilter === 'latest'
+                ? 'border-primary bg-primary text-on-primary'
+                : 'border-outline-variant/25 bg-surface-container-lowest text-on-surface hover:border-primary/30'
+            }`}
+          >
+            <span className={`material-symbols-outlined text-base ${periodFilter === 'latest' ? 'text-on-primary' : 'text-primary'}`} aria-hidden="true">calendar_month</span>
+            最新期間: {latestPeriodLabel}
+          </button>
         </div>
       </div>
 
@@ -769,7 +817,7 @@ function GraphAiQuestionRail({
       ]
 
   return (
-    <aside className="hidden lg:block sticky top-6 self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm overflow-hidden">
+    <aside className="block self-start max-h-[calc(100vh-6rem)] overflow-y-auto rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm lg:fixed lg:right-8 lg:top-24 lg:z-30 lg:w-[360px]">
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -862,7 +910,7 @@ export default function AnalysisGraphs() {
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [periodFilter, setPeriodFilter] = useState('latest')
+  const [periodFilter, setPeriodFilter] = useState('recent:30')
   const [activeTheme, setActiveTheme] = useState('all')
   const [viewMode, setViewMode] = useState('analyst')
   const [openSections, setOpenSections] = useState({})
@@ -903,15 +951,19 @@ export default function AnalysisGraphs() {
   const periodTags = useMemo(() => getChartPeriodTags(chartGroups), [chartGroups])
 
   useEffect(() => {
-    if (periodTags.length === 0) { setPeriodFilter('latest'); return }
+    if (periodTags.length === 0) return
+    if (periodFilter.startsWith('recent:')) return
     if (periodFilter === 'all' || periodFilter === 'latest') return
     if (!periodTags.includes(periodFilter)) setPeriodFilter('latest')
   }, [periodFilter, periodTags])
 
-  const filteredGroups = useMemo(
-    () => getDisplayChartGroups(chartGroups, periodFilter),
-    [chartGroups, periodFilter],
-  )
+  const filteredGroups = useMemo(() => {
+    if (periodFilter.startsWith('recent:')) {
+      const pointCount = Number(periodFilter.replace('recent:', ''))
+      return filterChartGroupsByRecentPoints(getDisplayChartGroups(chartGroups, 'latest'), pointCount)
+    }
+    return getDisplayChartGroups(chartGroups, periodFilter)
+  }, [chartGroups, periodFilter])
 
   const themes = useMemo(() => groupChartsByTheme(filteredGroups), [filteredGroups])
   const displayThemes = useMemo(() => {
@@ -968,6 +1020,7 @@ export default function AnalysisGraphs() {
 
   const activeScopeLabel =
     periodFilter === 'all' ? '全期間まとめ'
+    : periodFilter.startsWith('recent:') ? `直近${periodFilter.replace('recent:', '')}日間`
     : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
     : `対象期間: ${periodFilter}`
 
@@ -1041,7 +1094,7 @@ export default function AnalysisGraphs() {
 
   return (
     <div className="flex-1 min-w-0 overflow-y-auto">
-      <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-10">
+      <div className={`px-8 py-8 pb-20 max-w-[1680px] space-y-10 ${hasGraphData ? 'lg:pr-[420px]' : ''}`}>
 
         {/* ═══ 1. PAGE HEADER ═══ */}
         <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -1197,9 +1250,11 @@ export default function AnalysisGraphs() {
           <AdsImage2KpiBoard
             filteredGroups={filteredGroups}
             themes={themes}
-            activeScopeLabel={activeScopeLabel}
             setupState={setupState}
             reportBundle={reportBundle}
+            periodFilter={periodFilter}
+            periodTags={periodTags}
+            onPeriodFilterChange={setPeriodFilter}
             onScrollToGraphs={() => scrollToSection('graphs')}
           />
         )}

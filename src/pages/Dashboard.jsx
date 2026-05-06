@@ -408,76 +408,98 @@ function DashboardImage2StatusPanel({ setupState, reportBundle, isAdsAuthenticat
   const dataWindow = setupState?.periods?.length
     ? `${setupState.periods.length} 期間`
     : '過去 90 日間'
+  const statusRows = [
+    ['database', '広告データ', isAdsAuthenticated ? '利用可' : '認証待ち', isAdsAuthenticated],
+    ['bar_chart', 'Web解析', setupState?.datasetId ? '利用可' : '設定必要', Boolean(setupState?.datasetId)],
+    ['folder', 'データ連携', setupState?.datasetId ? '利用可' : '設定必要', Boolean(setupState?.datasetId)],
+    ['cloud', 'AI分析エンジン', '利用可', true],
+  ]
 
   return (
-    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-emerald-700" aria-hidden="true">check_circle</span>
-              <h2 className="text-xl font-extrabold text-on-surface japanese-text">GA4 / BigQuery 連携済み</h2>
-            </div>
-            <p className="mt-2 text-sm text-on-surface-variant japanese-text">
-              おかえりなさい。データ連携の状態と、今日すぐ使える分析を最初に見せます。
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-2 rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            <span className="material-symbols-outlined text-sm" aria-hidden="true">verified</span>
-            {isAdsAuthenticated ? 'Ads 認証済み' : 'Ads 認証待ち'}
-          </span>
-        </div>
-
-        <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1.1fr_0.9fr_0.9fr_1fr]">
-          {[
-            ['analytics', 'GA4', setupState?.propertyName || 'Hana Nest - GA4', isAdsAuthenticated ? '接続中' : '確認待ち'],
-            ['database', 'BigQuery', setupState?.datasetId || 'insight_studio', setupState?.datasetId ? '集計先' : '保存先ID待ち'],
-            ['folder_data', '保存先ID', setupState?.datasetId || '123456789', 'GA4保存先IDから集計'],
-            ['sync', '集計状況', latestLabel, 'Python集計'],
-            ['date_range', '取得データ期間', dataWindow, '最新データを反映'],
-          ].map(([icon, label, value, note]) => (
-            <div key={label} className="min-w-0 border-l border-outline-variant/20 pl-4 first:border-l-0 first:pl-0">
-              <div className="flex items-center gap-2 text-primary">
-                <span className="material-symbols-outlined text-lg" aria-hidden="true">{icon}</span>
-                <span className="text-xs font-black uppercase tracking-[0.14em]">{label}</span>
-              </div>
-              <p className="mt-2 text-base font-extrabold text-on-surface break-words japanese-text">{value}</p>
-              <p className="mt-1 text-xs text-on-surface-variant japanese-text">{note}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-6 flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.045] px-5 py-4 md:flex-row md:items-center md:justify-between">
-          <p className="flex items-center gap-2 text-sm font-bold text-primary japanese-text">
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">check_circle</span>
-            GA4保存先IDから集計済み
-          </p>
-          <button
-            type="button"
-            onClick={() => onNavigate('/ads/graphs')}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.06]"
-          >
-            Ads Graphs で詳細を見る
-            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
-          </button>
-        </div>
+    <section className="space-y-8">
+      <div>
+        <h1 className="text-[2.35rem] font-black leading-tight tracking-normal text-primary japanese-text">ようこそ、Insight Studioへ！</h1>
+        <p className="mt-2 text-base font-bold text-on-surface-variant japanese-text">まずは3つのステップから、かんたんに分析を始めましょう。</p>
       </div>
 
-      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-extrabold text-primary japanese-text">## 今日のおすすめ</h2>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-7 text-on-surface japanese-text">
-              <li>LP比較で競合との差分を把握しましょう</li>
-              <li>発見レポートで新しい競合を見つけましょう</li>
-              <li>バナーレビューで改善点を確認しましょう</li>
-            </ul>
+      <div className="grid grid-cols-1 gap-7 xl:grid-cols-3">
+        <article className="rounded-[1.15rem] border border-outline-variant/25 bg-surface-container-lowest p-8 shadow-sm">
+          <div className="mx-auto grid size-24 place-items-center rounded-full bg-primary/[0.10] text-primary">
+            <span className="material-symbols-outlined text-5xl" aria-hidden="true">fact_check</span>
           </div>
-          <span className="grid size-16 place-items-center rounded-full bg-primary/[0.08] text-primary">
-            <span className="material-symbols-outlined text-3xl" aria-hidden="true">lightbulb</span>
-          </span>
-        </div>
-      </aside>
+          <h2 className="mt-7 text-center text-3xl font-black text-primary japanese-text">今日やること</h2>
+          <p className="mt-3 text-center text-sm leading-7 text-on-surface japanese-text">まずはLP比較から始めて、気づきを得ましょう。</p>
+          <ol className="mt-8 space-y-4">
+            {['LPを選ぶ', '自動で比較・分析', '改善のヒントを確認'].map((item, index) => (
+              <li key={item} className="flex items-center gap-4 border-b border-dashed border-outline-variant/25 pb-4 last:border-b-0">
+                <span className="grid size-8 place-items-center rounded-full bg-primary-container text-sm font-black text-on-primary">{index + 1}</span>
+                <span className="font-bold text-on-surface japanese-text">{item}</span>
+              </li>
+            ))}
+          </ol>
+          <button type="button" onClick={() => onNavigate('/compare')} className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-4 text-base font-black text-on-primary">
+            LP比較を始める
+            <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </button>
+        </article>
+
+        <article className="rounded-[1.15rem] border border-accent-gold/35 bg-surface-container-lowest p-8 shadow-sm">
+          <div className="mx-auto grid size-24 place-items-center rounded-full bg-accent-gold/20 text-accent-gold">
+            <span className="material-symbols-outlined text-5xl" aria-hidden="true">star</span>
+          </div>
+          <h2 className="mt-7 text-center text-3xl font-black text-primary japanese-text">使える機能</h2>
+          <p className="mt-3 text-center text-sm leading-7 text-on-surface japanese-text">目的に合わせて、必要な機能を使い分けましょう。</p>
+          <div className="mt-6 overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest">
+            {[
+              ['search', '競合を探す', '自社と近い競合サイトを見つけます。', '/discovery'],
+              ['balance', 'LP比較をする', 'LPを並べて、強みや改善点を明確にします。', '/compare'],
+              ['auto_awesome', 'AIに聞く', '分析の疑問や次の打ち手をAIに相談できます。', '/ads/ai'],
+            ].map(([icon, title, body, path]) => (
+              <button key={title} type="button" onClick={() => onNavigate(path)} className="flex w-full items-center gap-4 border-b border-outline-variant/15 px-4 py-4 text-left last:border-b-0 hover:bg-primary/[0.04]">
+                <span className="grid size-11 place-items-center rounded-full bg-primary/[0.08] text-primary">
+                  <span className="material-symbols-outlined" aria-hidden="true">{icon}</span>
+                </span>
+                <span className="min-w-0 flex-1">
+                  <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
+                  <small className="block text-xs leading-5 text-on-surface-variant japanese-text">{body}</small>
+                </span>
+                <span className="material-symbols-outlined text-outline" aria-hidden="true">chevron_right</span>
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => onNavigate('/ads/graphs')} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-accent-gold px-5 py-4 text-base font-black text-white">
+            機能一覧を見る
+            <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </button>
+        </article>
+
+        <article className="rounded-[1.15rem] border border-outline-variant/25 bg-surface-container-lowest p-8 shadow-sm">
+          <div className="mx-auto grid size-24 place-items-center rounded-full bg-primary/[0.10] text-primary">
+            <span className="material-symbols-outlined text-5xl" aria-hidden="true">database</span>
+          </div>
+          <h2 className="mt-7 text-center text-3xl font-black text-primary japanese-text">接続状態</h2>
+          <p className="mt-3 text-center text-sm leading-7 text-on-surface japanese-text">データや各機能の接続状況を確認しましょう。</p>
+          <div className="mt-6 overflow-hidden rounded-xl border border-outline-variant/20">
+            {statusRows.map(([icon, label, value, ok]) => (
+              <div key={label} className="flex items-center gap-4 border-b border-outline-variant/15 px-4 py-4 last:border-b-0">
+                <span className="material-symbols-outlined text-2xl text-primary" aria-hidden="true">{icon}</span>
+                <strong className="flex-1 text-sm text-on-surface japanese-text">{label}</strong>
+                <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${ok ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">{ok ? 'check_circle' : 'error'}</span>
+                  {value}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 rounded-xl border border-primary/15 bg-primary/[0.045] px-4 py-3 text-xs leading-6 text-primary japanese-text">
+            最終更新: {latestLabel} / 取得データ期間: {dataWindow}
+          </div>
+          <button type="button" onClick={() => onNavigate('/settings')} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-primary px-5 py-4 text-base font-black text-primary">
+            接続設定を開く
+            <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+          </button>
+        </article>
+      </div>
     </section>
   )
 }

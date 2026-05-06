@@ -542,7 +542,7 @@ function BannerImage2Overview({ onDemoSelect }) {
         </div>
       </div>
 
-      <aside className="rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
+      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
         <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">レビュー結果を質問</h3>
         <p className="mt-4 rounded-xl border border-outline-variant/20 px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
