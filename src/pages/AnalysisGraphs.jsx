@@ -1080,7 +1080,10 @@ export default function AnalysisGraphs() {
                           <span className="material-symbols-outlined text-base" aria-hidden="true">stacked_line_chart</span>
                           Python Generated Charts
                         </span>
-                        <h2 className="mt-2 text-2xl font-extrabold text-primary japanese-text">分析グラフ</h2>
+                        <h2 className="mt-2 text-2xl font-extrabold text-primary japanese-text">Python Generated Charts</h2>
+                        <p className="mt-1 text-base font-bold text-on-surface japanese-text">
+                          Python集計グラフを先に確認してから、右カラムのAI Graph Chatへ渡します。
+                        </p>
                         <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
                           期間選択後にBigQueryから取得した数値をPythonで集計し、CV・CPA・流入・LP・生データの順で確認します。
                           文章の考察は右カラムのAI質問へ分け、ここではグラフを大きく読みます。
@@ -1088,15 +1091,15 @@ export default function AnalysisGraphs() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs min-w-[300px]">
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">表示グラフ</b>
+                          <b className="block text-on-surface-variant">Charts</b>
                           <strong className="text-xl text-primary tabular-nums">{filteredGroups.length}</strong>
                         </span>
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">テーマ</b>
+                          <b className="block text-on-surface-variant">Themes</b>
                           <strong className="text-xl text-primary tabular-nums">{themes.length}</strong>
                         </span>
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">モード</b>
+                          <b className="block text-on-surface-variant">Mode</b>
                           <strong className="text-sm text-primary">{viewMode === 'analyst' ? '詳細' : '要約'}</strong>
                         </span>
                       </div>
