@@ -623,7 +623,7 @@ function GraphAiQuestionRail({
       ]
 
   return (
-    <aside className="hidden 2xl:block sticky top-6 self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm overflow-hidden">
+    <aside className="hidden lg:block sticky top-6 self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm overflow-hidden">
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1067,7 +1067,7 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        <div className={hasGraphData ? 'grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start' : ''}>
+        <div className={hasGraphData ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start' : ''}>
           <div className="min-w-0 space-y-10">
             {/* ═══ 4. GRAPH SECTION ═══ */}
             <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
