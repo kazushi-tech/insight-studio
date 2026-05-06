@@ -406,7 +406,7 @@ class TestClassifyCompetitiveTiers:
         ]
         ranked = rank_candidates(results, "mybrand.com", industry_keywords=["プロテイン"])
         for c in ranked:
-            assert c.competitive_tier in ("direct", "indirect", "benchmark")
+            assert c.competitive_tier in ("direct", "indirect", "benchmark", "out_of_scope")
 
     def test_no_industry_keywords_graceful(self):
         """Works with empty industry keywords."""
@@ -414,7 +414,7 @@ class TestClassifyCompetitiveTiers:
             RankedCandidate("https://comp.com", "comp.com", "Title", "snippet", 60),
         ]
         classify_competitive_tiers(candidates, industry_keywords=None)
-        assert candidates[0].competitive_tier in ("direct", "indirect", "benchmark")
+        assert candidates[0].competitive_tier in ("direct", "indirect", "benchmark", "out_of_scope")
 
     # ---------- Regression: Fix 3 — LP signal alone must not produce direct ----------
 
@@ -449,3 +449,53 @@ class TestClassifyCompetitiveTiers:
         ]
         classify_competitive_tiers(candidates, industry_keywords=["プロテイン"])
         assert candidates[0].competitive_tier == "indirect"
+
+    def test_media_without_industry_match_is_out_of_scope(self):
+        """Media/research signals should not enter the main comparison set."""
+        candidates = [
+            RankedCandidate("https://research.com/report", "research.com", "市場調査レポート", "調査結果まとめ", 55),
+        ]
+        classify_competitive_tiers(candidates, industry_keywords=["プロテイン"])
+        assert candidates[0].competitive_tier == "out_of_scope"
+
+    def test_broad_marketplace_is_reference_not_main_competitor(self):
+        """Broad marketplaces like AliExpress are reference observations only."""
+        candidates = [
+            RankedCandidate(
+                "https://www.aliexpress.com/item/100500.html",
+                "www.aliexpress.com",
+                "プロテイン 通販",
+                "プロテイン商品を多数掲載する総合マーケットプレイス",
+                78,
+            ),
+        ]
+        classify_competitive_tiers(candidates, industry_keywords=["プロテイン"])
+        assert candidates[0].competitive_tier == "benchmark"
+
+    def test_search_and_cloud_tool_url_is_out_of_scope_even_with_score(self):
+        """Search/cloud/tool URLs should never enter comparison or position maps."""
+        candidates = [
+            RankedCandidate(
+                "https://cloud.google.com/retail/docs",
+                "cloud.google.com",
+                "Retail Search ドキュメント",
+                "検索とクラウドツールの説明",
+                82,
+            ),
+        ]
+        classify_competitive_tiers(candidates, industry_keywords=["プロテイン"])
+        assert candidates[0].competitive_tier == "out_of_scope"
+
+    def test_unrelated_industry_article_is_out_of_scope(self):
+        """High scoring article pages from unrelated industries stay out of scope."""
+        candidates = [
+            RankedCandidate(
+                "https://example-media.jp/article/cloud-crm",
+                "example-media.jp",
+                "CRMツール比較記事",
+                "クラウド営業支援ツールの選び方",
+                64,
+            ),
+        ]
+        classify_competitive_tiers(candidates, industry_keywords=["プロテイン"])
+        assert candidates[0].competitive_tier == "out_of_scope"

@@ -319,6 +319,103 @@ function ExtractedDataPanel({ extracted }) {
   )
 }
 
+function CompareImage2Guide({ providerLabel }) {
+  return (
+    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <span>Compare Report</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+              <span className="font-bold text-primary">LP比較レポート</span>
+            </div>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">比較結果を、次のアクションまで読む</h2>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+              URL入力後は、Markdown本文だけでなく「今すぐやる施策」「担当領域」「期待KPI」「AI質問」を同じ画面で確認します。
+            </p>
+          </div>
+          <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
+            {providerLabel} analysis
+          </span>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          {[
+            ['1', 'URLを入力', '自社LPと競合LPを最大2件まで指定'],
+            ['2', '差分を読む', 'CTA・信頼・訴求の差をレポート化'],
+            ['3', '施策化する', '優先順位つきタスクとAI質問へつなぐ'],
+          ].map(([step, title, body]) => (
+            <article key={step} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-5">
+              <span className="inline-grid size-8 place-items-center rounded-lg bg-primary text-on-primary text-sm font-black">{step}</span>
+              <h3 className="mt-4 text-base font-extrabold text-on-surface japanese-text">{title}</h3>
+              <p className="mt-2 text-xs leading-6 text-on-surface-variant japanese-text">{body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
+        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">比較しながら質問</h3>
+        <p className="mt-3 rounded-xl border border-primary/10 bg-surface-container-lowest px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
+          この比較結果をもとに、広告文・LP修正・検証順のどこから進めるかを質問できます。
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {['最初に直す場所は？', '広告文へ落とす', '根拠だけ確認'].map((prompt) => (
+            <span key={prompt} className="rounded-full border border-primary/25 bg-surface-container-lowest px-3 py-2 text-xs font-bold text-primary japanese-text">
+              {prompt}
+            </span>
+          ))}
+        </div>
+      </aside>
+    </section>
+  )
+}
+
+function CompareActionPreview() {
+  const actions = [
+    ['高優先', 'ファーストビューの訴求強化', 'ベネフィットを前面に出し、視線をCTAへ自然に誘導します。', 'green'],
+    ['中優先', 'CTAボタンのコピー改善', '「今すぐお試し」など行動を後押しする文言へ変更します。', 'amber'],
+    ['中優先', '信頼シグナルの追加', 'レビュー・実績・保証をFV近くに追加します。', 'blue'],
+  ]
+
+  return (
+    <section className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-extrabold text-on-surface japanese-text">次のアクション</h2>
+            <span className="rounded-lg bg-primary/[0.08] px-3 py-1 text-xs font-bold text-primary">Compare GPT Image2 reflected</span>
+          </div>
+          <p className="mt-2 text-sm text-on-surface-variant japanese-text">比較結果を、成果につながる施策へ優先順位順に整理します。</p>
+        </div>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {actions.map(([priority, title, body, tone], index) => (
+          <article key={title} className={`rounded-xl border p-5 ${
+            tone === 'green'
+              ? 'border-primary/25 bg-primary/[0.045]'
+              : tone === 'amber'
+              ? 'border-amber-300/60 bg-amber-50/55'
+              : 'border-blue-300/60 bg-blue-50/55'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 rounded-lg bg-surface-container-lowest px-3 py-1 text-xs font-black text-primary">
+                {index + 1} {priority}
+              </span>
+            </div>
+            <h3 className="mt-4 text-base font-extrabold text-on-surface japanese-text">{title}</h3>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">{body}</p>
+            <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary">
+              施策の詳細を見る
+              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ─── Main Component ──────────────────────────────────────────
 
 export default function Compare() {
@@ -630,6 +727,8 @@ export default function Compare() {
         </div>
       )}
 
+      <CompareImage2Guide providerLabel={providerLabel} />
+
       {/* URL Inputs */}
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
         <div className="grid grid-cols-3 gap-6">
@@ -790,6 +889,8 @@ export default function Compare() {
       {/* Result Area */}
       {result && (
         <div className="space-y-8">
+          <CompareActionPreview />
+
           {/* Score Header */}
           {hasScores && (
             <div className="bg-gradient-to-br from-primary-container to-primary p-10 rounded-xl text-white elevation-hover">

@@ -40,17 +40,24 @@ from pathlib import Path
 import bcrypt
 import pyotp
 
-# Load environment variables from .env.local
+# Load environment variables from local env files.
 try:
     from dotenv import load_dotenv
-    _env_path = Path(__file__).resolve().parents[2] / ".env.local"
-    if _env_path.exists():
-        load_dotenv(_env_path)
-        print(f"[backend_api] Loaded env from: {_env_path}")
+    _env_paths = [
+        Path(__file__).resolve().parents[2] / ".env.local",
+        Path(__file__).resolve().parents[4] / ".env",
+    ]
+    _loaded_env_paths = []
+    for _env_path in _env_paths:
+        if _env_path.exists():
+            load_dotenv(_env_path, override=False)
+            _loaded_env_paths.append(str(_env_path))
+    if _loaded_env_paths:
+        print(f"[backend_api] Loaded env from: {', '.join(_loaded_env_paths)}")
     else:
-        print(f"[backend_api] No .env.local found at: {_env_path}")
+        print(f"[backend_api] No local env file found at: {', '.join(map(str, _env_paths))}")
 except ImportError:
-    print("[backend_api] python-dotenv not available, skipping .env.local loading")
+    print("[backend_api] python-dotenv not available, skipping local env loading")
 
 # Import report generation modules
 from .kpi_extractor import extract_from_excel, extract_trend_data, extract_media_data
@@ -1247,11 +1254,11 @@ import hashlib, secrets, time as _time_mod
 import jwt
 time = _time_mod  # ensure 'time' is available for rate limiter below
 
-_AUTH_PASSWORD = (os.getenv("APP_PASSWORD") or "").strip()
+_AUTH_PASSWORD = (os.getenv("APP_PASSWORD") or os.getenv("管理者パスワード") or "").strip()
 if not _AUTH_PASSWORD:
     raise RuntimeError(
-        "APP_PASSWORD environment variable must be set. "
-        "Add it to .env.local for local dev or set it in the Render dashboard for production."
+        "APP_PASSWORD or 管理者パスワード environment variable must be set. "
+        "Add it to .env.local/.env for local dev or set it in the Render dashboard for production."
     )
 
 _JWT_SECRET = (os.getenv("JWT_SECRET") or "").strip()

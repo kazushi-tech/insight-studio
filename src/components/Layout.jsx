@@ -8,6 +8,7 @@ import { useUserProfile } from '../contexts/UserProfileContext'
 import { useRbac } from '../contexts/RbacContext'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
+  ANALYSIS_PROVIDER_GEMINI,
   getAnalysisProviderLabel,
 } from '../utils/analysisProvider'
 import { warmMarketLensBackend } from '../api/marketLens'
@@ -132,10 +133,13 @@ function SidebarGroup({ item, disabledPaths }) {
 }
 
 function KeySettingsModal({ onClose }) {
-  const { claudeKey, setClaudeKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
+  const { claudeKey, setClaudeKey, geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
   const [localClaudeKey, setLocalClaudeKey] = useState(claudeKey)
+  const [localGeminiKey, setLocalGeminiKey] = useState(geminiKey)
   const [claudeError, setClaudeError] = useState(null)
   const [claudeWarning, setClaudeWarning] = useState(null)
+  const [geminiError, setGeminiError] = useState(null)
+  const [geminiSaved, setGeminiSaved] = useState(false)
   const [adsPassword, setAdsPassword] = useState('')
   const [adsError, setAdsError] = useState(null)
   const [claudeValidating, setClaudeValidating] = useState(false)
@@ -201,6 +205,18 @@ function KeySettingsModal({ onClose }) {
     setClaudeKey(localClaudeKey)
   }
 
+  const handleSaveGemini = () => {
+    const validationError = getApiKeyValidationError(localGeminiKey, ANALYSIS_PROVIDER_GEMINI)
+    if (validationError) {
+      setGeminiError(validationError)
+      return
+    }
+    setGeminiError(null)
+    setGeminiKey(localGeminiKey)
+    setGeminiSaved(true)
+    window.setTimeout(() => setGeminiSaved(false), 2500)
+  }
+
   const handleAdsLogin = async () => {
     setAdsError(null)
     try {
@@ -218,7 +234,7 @@ function KeySettingsModal({ onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="key-settings-title"
-        className="bg-surface-container-lowest rounded-xl shadow-lg w-[480px] p-8 space-y-6"
+        className="bg-surface-container-lowest rounded-xl shadow-lg w-[520px] max-h-[90vh] overflow-y-auto p-8 space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -228,10 +244,46 @@ function KeySettingsModal({ onClose }) {
           </button>
         </div>
 
+        {/* Gemini Key */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（推奨・分析用）</label>
+          <p className="text-xs text-on-surface-variant">設定されている場合は Compare / Discovery / Creative Review で Gemini を優先します</p>
+          <a
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-secondary hover:text-secondary/80 underline underline-offset-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">open_in_new</span>
+            Google AI Studio で API キーを取得
+          </a>
+          <input
+            type="password"
+            className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+            placeholder="AIza..."
+            value={localGeminiKey}
+            onChange={(e) => {
+              setLocalGeminiKey(e.target.value)
+              setGeminiError(null)
+              setGeminiSaved(false)
+            }}
+          />
+          <button
+            onClick={handleSaveGemini}
+            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all"
+          >
+            保存
+          </button>
+          {geminiError && <p className="text-xs text-error">{geminiError}</p>}
+          {geminiSaved && <p className="text-xs text-emerald-700 dark:text-on-success-container">Gemini API キーを保存しました。</p>}
+        </div>
+
+        <hr className="border-surface-container" />
+
         {/* Claude Key */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（分析用）</label>
-          <p className="text-xs text-on-surface-variant">AIエクスプローラー・LP比較・競合発見・クリエイティブレビューに使用します</p>
+          <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（フォールバック）</label>
+          <p className="text-xs text-on-surface-variant">Gemini キー未設定時の分析用フォールバックとして使用します</p>
           <a
             href="https://console.anthropic.com/settings/keys"
             target="_blank"
@@ -340,7 +392,7 @@ export default function Layout() {
   const [selectedCase, setSelectedCase] = useState(null)
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
   const location = useLocation()
-  const { hasClaudeKey, hasAnalysisKey, analysisProvider, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
+  const { hasAnalysisKey, analysisProvider, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
   const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
@@ -428,10 +480,10 @@ export default function Layout() {
 
   const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
   const aiInsightProviderLabel = getAnalysisProviderLabel(analysisProvider)
-  const coreAnalysisStatusLabel = hasAnalysisKey ? `${aiInsightProviderLabel} で利用可` : 'Claude 未設定'
+  const coreAnalysisStatusLabel = hasAnalysisKey ? `${aiInsightProviderLabel} で利用可` : '分析キー未設定'
   const adsAiReady = hasAnalysisKey && isAdsAuthenticated && isSetupComplete
   const adsAiStatusLabel = !hasAnalysisKey
-    ? 'Claude 未設定'
+    ? '分析キー未設定'
     : !isAdsAuthenticated
       ? '要認証'
       : !isSetupComplete
@@ -500,10 +552,10 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">Claude API</span>
-              <span className={`flex items-center gap-1 font-bold ${hasClaudeKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${hasClaudeKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {hasClaudeKey ? '設定済' : '未設定'}
+              <span className="text-white/50">分析API</span>
+              <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                {hasAnalysisKey ? `${aiInsightProviderLabel} 設定済` : '未設定'}
               </span>
             </div>
             <div className="flex items-center justify-between">

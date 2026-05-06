@@ -184,3 +184,62 @@ export function extractInsightMeta(markdown) {
     .trim()
   return { tldr, key_metrics, recommended_charts, _strippedMarkdown: strippedMarkdown }
 }
+
+const OPERATIONAL_CARD_DEFS = [
+  { key: 'cause', title: '原因', patterns: [/原因/, /推定原因/, /なぜ/] },
+  { key: 'implication', title: '広告運用上の示唆', patterns: [/広告運用上の示唆/, /示唆/, /運用上/] },
+  { key: 'metric', title: '次に見るべき数値', patterns: [/次に見るべき数値/, /見るべき指標/, /次に見るべきKPI/, /指標/] },
+  { key: 'action', title: '今週やる施策', patterns: [/今週やる施策/, /次アクション/, /優先施策/, /施策/] },
+  { key: 'expectedKpi', title: '期待KPI', patterns: [/期待KPI/, /期待効果/, /改善目標/] },
+]
+
+function normalizeLine(line) {
+  return String(line || '')
+    .replace(/^\s*(?:[-*•]|\d+[.．)])\s*/, '')
+    .replace(/\*\*/g, '')
+    .trim()
+}
+
+function findHeadingSection(markdown, patterns) {
+  const lines = String(markdown || '').split(/\r?\n/)
+  for (let i = 0; i < lines.length; i += 1) {
+    const heading = lines[i].match(/^#{2,4}\s+(.+)$/)
+    if (!heading) continue
+    const title = heading[1].replace(/\*\*/g, '').trim()
+    if (!patterns.some((pattern) => pattern.test(title))) continue
+    const body = []
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (/^#{2,4}\s+/.test(lines[j])) break
+      const cleaned = normalizeLine(lines[j])
+      if (cleaned && !cleaned.startsWith('|')) body.push(cleaned)
+      if (body.length >= 3) break
+    }
+    if (body.length > 0) return body.join(' ')
+  }
+  return ''
+}
+
+function findInlineSection(markdown, patterns) {
+  const lines = String(markdown || '').split(/\r?\n/)
+  for (const rawLine of lines) {
+    const line = normalizeLine(rawLine)
+    if (!line) continue
+    for (const pattern of patterns) {
+      if (!pattern.test(line)) continue
+      const value = line.replace(pattern, '').replace(/^[:：\s]+/, '').trim()
+      if (value) return value
+    }
+  }
+  return ''
+}
+
+export function extractOperationalInsightCards(markdown) {
+  if (!markdown || typeof markdown !== 'string') return []
+  return OPERATIONAL_CARD_DEFS
+    .map((def) => ({
+      key: def.key,
+      title: def.title,
+      body: findHeadingSection(markdown, def.patterns) || findInlineSection(markdown, def.patterns),
+    }))
+    .filter((card) => card.body)
+}

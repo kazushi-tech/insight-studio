@@ -119,6 +119,45 @@ describe('Compare — async job error scenarios', () => {
       { timeout: 10000 },
     )
   })
+
+  it('falls back to sync scan when async job creation returns 502', async () => {
+    setClaudeKey()
+
+    let legacyScanCalled = false
+    server.use(
+      http.post('/api/ml/scan/jobs', () =>
+        HttpResponse.json(
+          { detail: 'temporary gateway failure' },
+          { status: 502 },
+        ),
+      ),
+      http.post('/api/ml/scan', () => {
+        legacyScanCalled = true
+        return HttpResponse.json({
+          run_id: 'scan-fallback-001',
+          status: 'completed',
+          overall_score: 88,
+          scores: {},
+          report_md: '# Fallback Report',
+          extracted: [],
+        })
+      }),
+    )
+
+    renderCompare()
+    await fillAndScan()
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('88')).toBeInTheDocument()
+      },
+      { timeout: 10000 },
+    )
+
+    expect(legacyScanCalled).toBe(true)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByTestId('markdown-renderer')).toHaveTextContent('Fallback Report')
+  })
 })
 
 describe('Compare — retry after error', () => {

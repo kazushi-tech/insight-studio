@@ -5,7 +5,7 @@ import { getScans } from '../api/marketLens'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAuth } from '../contexts/AuthContext'
 import { getChartPeriodTags, getDisplayChartGroups } from '../utils/adsReports'
-import { SkeletonBlock, ErrorBanner } from '../components/ui'
+import { SkeletonBlock } from '../components/ui'
 import { getAnalysisProviderLabel } from '../utils/analysisProvider'
 
 const SPARKLINE_HEIGHTS = ['40%', '65%', '45%', '80%', '55%', '70%']
@@ -308,12 +308,186 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
   )
 }
 
+function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, analysisProvider, onNavigate }) {
+  const providerLabel = getAnalysisProviderLabel(analysisProvider)
+  const items = [
+    {
+      icon: 'compare',
+      title: 'Compare',
+      status: hasAnalysisKey ? '利用可' : '設定必要',
+      tone: hasAnalysisKey ? 'ok' : 'need',
+      next: hasAnalysisKey ? 'LP比較を始める' : '分析APIキーを設定',
+      path: hasAnalysisKey ? '/compare' : '/settings',
+    },
+    {
+      icon: 'travel_explore',
+      title: 'Discovery',
+      status: hasAnalysisKey ? '利用可' : '設定必要',
+      tone: hasAnalysisKey ? 'ok' : 'need',
+      next: hasAnalysisKey ? '競合探索を始める' : '分析APIキーを設定',
+      path: hasAnalysisKey ? '/discovery' : '/settings',
+    },
+    {
+      icon: 'auto_fix_high',
+      title: 'Creative Review',
+      status: hasAnalysisKey ? '利用可' : 'デモのみ',
+      tone: hasAnalysisKey ? 'ok' : 'demo',
+      next: hasAnalysisKey ? 'Creativeをレビュー' : '架空デモ素材で確認',
+      path: '/creative-review',
+    },
+    {
+      icon: 'psychology',
+      title: 'Ads AI',
+      status: hasAnalysisKey && isAdsAuthenticated && setupState ? '利用可' : '設定必要',
+      tone: hasAnalysisKey && isAdsAuthenticated && setupState ? 'ok' : 'need',
+      next: !isAdsAuthenticated ? 'Ads認証を確認' : !setupState ? '期間と案件を設定' : 'AI考察へ',
+      path: !isAdsAuthenticated || !setupState ? '/ads/wizard' : '/ads/ai',
+    },
+    {
+      icon: 'database',
+      title: 'GA4 BigQuery',
+      status: setupState?.datasetId ? '利用可' : '未接続',
+      tone: setupState?.datasetId ? 'ok' : 'idle',
+      next: setupState?.datasetId ? 'GA4推定グラフを見る' : 'GA4の保存先IDを設定',
+      path: setupState?.datasetId ? '/ads/graphs' : '/projects',
+    },
+  ]
+
+  const toneClass = {
+    ok: 'bg-emerald-50 text-emerald-700',
+    need: 'bg-amber-50 text-amber-700',
+    demo: 'bg-sky-50 text-sky-700',
+    idle: 'bg-surface-container text-on-surface-variant',
+  }
+
+  return (
+    <section className="bg-surface-container-lowest rounded-[0.75rem] p-6 ghost-border" aria-labelledby="today-feature-board-title">
+      <div className="flex items-start justify-between gap-6 mb-5">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-secondary">Today</p>
+          <h3 id="today-feature-board-title" className="text-xl font-bold text-on-surface japanese-text mt-1">今日使える機能</h3>
+          <p className="text-sm text-on-surface-variant japanese-text mt-1">
+            未設定のものは壊れている状態ではありません。{providerLabel}で使える機能と、追加設定で増える機能を分けて表示しています。
+          </p>
+        </div>
+        <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant">PC専用SaaS</span>
+      </div>
+      <div className="grid grid-cols-5 gap-3">
+        {items.map((item) => (
+          <button
+            key={item.title}
+            type="button"
+            onClick={() => onNavigate(item.path)}
+            className="min-w-0 rounded-[0.75rem] bg-surface-container px-4 py-4 text-left hover:bg-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+          >
+            <span className="material-symbols-outlined text-lg text-primary-container" aria-hidden="true">{item.icon}</span>
+            <span className="mt-3 block text-sm font-bold text-on-surface japanese-text">{item.title}</span>
+            <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black ${toneClass[item.tone]}`}>
+              {item.status}
+            </span>
+            <span className="mt-2 block text-xs text-on-surface-variant japanese-text">{item.next}</span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-on-surface-variant japanese-text">
+        GA4 BigQuery は「GA4の保存先ID」を使う分析です。広告費・CPAなど媒体費が含まれない場合は、画面上ではGA4推定として扱います。
+      </p>
+    </section>
+  )
+}
+
+function DashboardImage2StatusPanel({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
+  const latestLabel = reportBundle?.generatedAt
+    ? new Date(reportBundle.generatedAt).toLocaleString('ja-JP', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '未更新'
+  const dataWindow = setupState?.periods?.length
+    ? `${setupState.periods.length} 期間`
+    : '過去 90 日間'
+
+  return (
+    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-emerald-700" aria-hidden="true">check_circle</span>
+              <h2 className="text-xl font-extrabold text-on-surface japanese-text">GA4 / BigQuery 連携済み</h2>
+            </div>
+            <p className="mt-2 text-sm text-on-surface-variant japanese-text">
+              おかえりなさい。データ連携の状態と、今日すぐ使える分析を最初に見せます。
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">verified</span>
+            {isAdsAuthenticated ? 'Ads 認証済み' : 'Ads 認証待ち'}
+          </span>
+        </div>
+
+        <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1.1fr_0.9fr_0.9fr_1fr]">
+          {[
+            ['analytics', 'GA4', setupState?.propertyName || 'Hana Nest - GA4', isAdsAuthenticated ? '接続中' : '確認待ち'],
+            ['database', 'BigQuery', setupState?.datasetId || 'insight_studio', setupState?.datasetId ? '集計先' : '保存先ID待ち'],
+            ['folder_data', '保存先ID', setupState?.datasetId || '123456789', 'GA4保存先IDから集計'],
+            ['sync', '集計状況', latestLabel, 'Python集計'],
+            ['date_range', '取得データ期間', dataWindow, '最新データを反映'],
+          ].map(([icon, label, value, note]) => (
+            <div key={label} className="min-w-0 border-l border-outline-variant/20 pl-4 first:border-l-0 first:pl-0">
+              <div className="flex items-center gap-2 text-primary">
+                <span className="material-symbols-outlined text-lg" aria-hidden="true">{icon}</span>
+                <span className="text-xs font-black uppercase tracking-[0.14em]">{label}</span>
+              </div>
+              <p className="mt-2 text-base font-extrabold text-on-surface break-words japanese-text">{value}</p>
+              <p className="mt-1 text-xs text-on-surface-variant japanese-text">{note}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.045] px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <p className="flex items-center gap-2 text-sm font-bold text-primary japanese-text">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">check_circle</span>
+            GA4保存先IDから集計済み
+          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate('/ads/graphs')}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.06]"
+          >
+            Ads Graphs で詳細を見る
+            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+
+      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-primary japanese-text">## 今日のおすすめ</h2>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-7 text-on-surface japanese-text">
+              <li>LP比較で競合との差分を把握しましょう</li>
+              <li>発見レポートで新しい競合を見つけましょう</li>
+              <li>バナーレビューで改善点を確認しましょう</li>
+            </ul>
+          </div>
+          <span className="grid size-16 place-items-center rounded-full bg-primary/[0.08] text-primary">
+            <span className="material-symbols-outlined text-3xl" aria-hidden="true">lightbulb</span>
+          </span>
+        </div>
+      </aside>
+    </section>
+  )
+}
+
 export default function Dashboard() {
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState(null)
   const { setupState, reportBundle } = useAdsSetup()
-  const { isAdsAuthenticated, hasClaudeKey, hasAnalysisKey, analysisProvider } = useAuth()
+  const { isAdsAuthenticated, hasAnalysisKey, analysisProvider } = useAuth()
   const navigate = useNavigate()
 
   const fetchHistory = useCallback(() => {
@@ -357,7 +531,7 @@ export default function Dashboard() {
   const latestDate = latestScan?.date ?? latestScan?.created_at ?? null
   const coreConnectionCount = [hasAnalysisKey, isAdsAuthenticated].filter(Boolean).length
   const adsAiStatusLabel = !hasAnalysisKey
-    ? '要 Claude API'
+    ? '要分析API'
     : !isAdsAuthenticated
       ? '要認証'
       : !setupState
@@ -368,9 +542,24 @@ export default function Dashboard() {
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       {/* Page Header — title + subtitle only */}
       <div>
-        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">ダッシュボード</h2>
-        <p className="text-on-surface-variant mt-2 text-lg">現在の分析状況の概要です</p>
+        <h2 className="text-4xl font-extrabold text-on-surface tracking-tight">Dashboard</h2>
+        <p className="text-on-surface-variant mt-2 text-lg japanese-text">すぐに分析を始められる状態を、接続・機能・次の順番で確認します。</p>
       </div>
+
+      <DashboardImage2StatusPanel
+        setupState={setupState}
+        reportBundle={reportBundle}
+        isAdsAuthenticated={isAdsAuthenticated}
+        onNavigate={navigate}
+      />
+
+      <TodayFeatureBoard
+        hasAnalysisKey={hasAnalysisKey}
+        isAdsAuthenticated={isAdsAuthenticated}
+        setupState={setupState}
+        analysisProvider={analysisProvider}
+        onNavigate={navigate}
+      />
 
       {/* Asymmetric two-column layout */}
       <div className="flex gap-8">
@@ -423,7 +612,7 @@ export default function Dashboard() {
                   label="Core 接続状況"
                   value={coreConnectionCount}
                   unit={`/ 2`}
-                  subtitle={`Compare / Discovery / Review: ${hasClaudeKey ? `${getAnalysisProviderLabel(analysisProvider)} で利用可` : '要 Claude API'} / Ads AI: ${adsAiStatusLabel}`}
+                  subtitle={`Compare / Discovery / Review: ${hasAnalysisKey ? `${getAnalysisProviderLabel(analysisProvider)} で利用可` : '要分析API'} / Ads AI: ${adsAiStatusLabel}`}
                 />
               </>
             )}
@@ -449,8 +638,22 @@ export default function Dashboard() {
                 <SkeletonBlock variant="text" lines={5} />
               </div>
             ) : historyError ? (
-              <div className="px-8 py-6">
-                <ErrorBanner message={historyError} onRetry={fetchHistory} />
+              <div className="px-8 py-8">
+                <div className="rounded-[0.75rem] bg-amber-50 border border-amber-200 px-5 py-4 text-amber-800 flex items-start gap-3">
+                  <span className="material-symbols-outlined text-lg" aria-hidden="true">history_toggle_off</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold japanese-text">履歴取得だけ失敗。分析機能は利用可能です</p>
+                    <p className="text-xs mt-1 japanese-text break-words">{historyError}</p>
+                    <button
+                      type="button"
+                      onClick={fetchHistory}
+                      className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-amber-900 hover:underline"
+                    >
+                      履歴を再取得
+                      <span className="material-symbols-outlined text-sm">sync</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : history.length === 0 ? (
               <div className="text-center py-16 text-on-surface-variant">
@@ -573,7 +776,10 @@ export default function Dashboard() {
 
           {/* Activity Feed */}
           <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border">
-            <h4 className="text-sm font-bold text-on-surface-variant mb-5 japanese-text">最近のアクティビティ</h4>
+            <div className="flex items-center justify-between mb-5">
+              <h4 className="text-sm font-bold text-on-surface-variant japanese-text">最近のアクティビティ</h4>
+              <span className="rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">デモ表示</span>
+            </div>
             <div className="relative pl-5">
               {/* Vertical timeline line */}
               <div className="absolute left-[7px] top-1 bottom-1 w-0.5 bg-outline-variant/30" />
@@ -581,7 +787,7 @@ export default function Dashboard() {
                 {[
                   { icon: 'compare', text: 'LP比較分析を実行', sub: '新規案件の比較結果を生成', time: '2時間前' },
                   { icon: 'bar_chart', text: '広告レポート更新', sub: '月次データを自動取得', time: '5時間前' },
-                  { icon: 'auto_fix_high', text: 'クリエイティブ診断', sub: 'Claude レビュー結果を確認', time: '1日前' },
+                  { icon: 'auto_fix_high', text: 'クリエイティブ診断', sub: `${getAnalysisProviderLabel(analysisProvider)} レビュー結果を確認`, time: '1日前' },
                   { icon: 'settings', text: 'セットアップ完了', sub: 'クエリ種別を追加設定', time: '3日前' },
                 ].map((item, i) => (
                   <div key={i} className="relative flex gap-3">

@@ -187,6 +187,23 @@ function checkCompetitiveSetOverlap(reportMd, issues) {
   }
 }
 
+function checkOperationalActionPlan(reportMd, issues) {
+  const execMatch = reportMd.match(/(?:##\s*(?:\d+[.．]?\s*)?(?:実行プラン|広告運用アクションプラン|アクションプラン))([\s\S]*?)(?=\n##\s+|$)/)
+  if (!execMatch) return
+  const execPlan = execMatch[1]
+  const requirements = [
+    ['期待KPI', /期待KPI|初回KPI|主KPI|KPI測定|LP-CVR|CVR|CPA|CTR|ROAS/i],
+    ['根拠', /根拠|証拠強度|確認済み|推定|評価保留/],
+    ['実装難易度', /工数|難易度|Effort|実装難易度|低|中|高/i],
+    ['初回検証方法', /初回|7日|今週|検証|テスト|A\/B|測定方法|評価タイミング/i],
+  ]
+  for (const [label, pattern] of requirements) {
+    if (!pattern.test(execPlan)) {
+      issues.push(`品質ゲート欠損: 実行プランに「${label}」が見つかりません`)
+    }
+  }
+}
+
 function extractAppendixQualityIssues(reportMd) {
   if (!reportMd || typeof reportMd !== 'string') return []
 
@@ -297,6 +314,7 @@ export function checkReportQuality(reportMd, backendQuality = null) {
   checkMarketGrowthSource(reportMd, issues)
   checkDeferredDensity(reportMd, issues)
   checkCompetitiveSetOverlap(reportMd, issues)
+  checkOperationalActionPlan(reportMd, issues)
 
   return {
     isQualityFailure: issues.length > 0,

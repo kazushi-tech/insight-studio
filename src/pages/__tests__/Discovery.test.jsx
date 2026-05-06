@@ -73,7 +73,7 @@ describe('Discovery — happy path & basic rendering', () => {
     render(<Discovery />, { wrapper: TestProviders })
 
     expect(
-      screen.getByText(/Claude API キーが必要です/)
+      screen.getByText(/分析用 API キーが必要です/)
     ).toBeInTheDocument()
   })
 
@@ -107,7 +107,7 @@ describe('Discovery — happy path & basic rendering', () => {
     localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
     render(<Discovery />, { wrapper: TestProviders })
 
-    expect(screen.queryByText(/Claude API キーが必要です/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/分析用 API キーが必要です/)).not.toBeInTheDocument()
   })
 
   // ── 7. Shows loading state after clicking discover button ─

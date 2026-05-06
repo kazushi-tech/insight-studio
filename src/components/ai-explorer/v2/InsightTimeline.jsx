@@ -15,21 +15,27 @@ import styles from './AiExplorerV2.module.css'
 const DEFAULT_QUICK_PROMPTS = [
   {
     icon: 'warning',
-    title: 'コンバージョン流出ポイントを特定して',
+    title: 'CV悪化の原因を特定',
     description:
-      '直近期間のファネル全体を分析し、離脱率が高いステップと改善優先順位を提示します。',
+      '直近期間のファネル変化から、CV悪化の主因と最初に潰すべき箇所を出します。',
   },
   {
     icon: 'lightbulb',
-    title: '最も効果的な流入チャネルとその理由',
+    title: 'CPA改善の優先施策',
     description:
-      'CVR・CPAの観点から最も効率的なチャネルを特定し、その背景を考察します。',
+      'CPAへの影響が大きい順に、配信・LP・訴求の修正タスクへ分解します。',
   },
   {
     icon: 'compare_arrows',
-    title: '期間比較で一番変化が大きい指標は？',
+    title: '流入チャネル別の勝ち筋',
     description:
-      '前期と比較して最も変動した指標をピックアップし、要因仮説を提示します。',
+      'チャネル別に伸ばすべき導線、止めるべき配信、追加で見るKPIを整理します。',
+  },
+  {
+    icon: 'construction',
+    title: 'LP/広告/配信設定のどこを直すべきか',
+    description:
+      'LP改善、広告文、入札・ターゲティングを混ぜずに担当別タスクへ落とします。',
   },
 ]
 
@@ -71,6 +77,159 @@ function groupMessagesIntoTurns(messages) {
   }
 
   return turns
+}
+
+function latestAssistantText(messages) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i]
+    const role = msg?.role === 'ai' ? 'assistant' : msg?.role
+    if (role === 'assistant' && typeof msg.text === 'string') return msg.text
+  }
+  return ''
+}
+
+function compactText(value, fallback) {
+  const text = String(value || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim()
+  return text || fallback
+}
+
+function extractMetricFromMarkdown(markdown) {
+  const match = String(markdown || '').match(/(CVR|CPA|CTR|CPC|ROAS|CV|売上|セッション)[^。\n]{0,28}(?:悪化|改善|上昇|低下|増加|減少|削減)?/i)
+  return match?.[0] || ''
+}
+
+function buildDecisionBoardState({ reportBundle, messages }) {
+  const latest = latestAssistantText(messages)
+  const sourceMd = latest || reportBundle?.reportMd || ''
+  const actions = Array.isArray(reportBundle?.actions)
+    ? reportBundle.actions
+    : []
+  const periods = Array.isArray(reportBundle?.periods)
+    ? reportBundle.periods.map((p) => p.label || p.name || p).filter(Boolean).join(' / ')
+    : ''
+  const topAction = compactText(
+    actions[0]?.title || latest.match(/(?:最優先|今週やる施策|次アクション)[:：]\s*([^\n]+)/)?.[1],
+    latest ? '回答内の最優先タスクを確認' : '分析データを生成して最優先施策を確認',
+  )
+
+  return {
+    topMetric: compactText(
+      reportBundle?.decision_summary?.top_metric || extractMetricFromMarkdown(sourceMd),
+      'CV / CPA / CVR の変化',
+    ),
+    cause: compactText(
+      reportBundle?.decision_summary?.cause || latest.match(/(?:原因|推定原因)[:：]\s*([^\n]+)/)?.[1],
+      latest ? '回答本文の原因セクションを確認' : '分析データ生成後に推定原因を表示',
+    ),
+    topAction,
+    expectedKpi: compactText(
+      reportBundle?.decision_summary?.expected_kpi || latest.match(/(?:期待KPI|KPI)[:：]\s*([^\n]+)/)?.[1],
+      '初回は CVR / CPA の方向性で判定',
+    ),
+    period: compactText(periods || reportBundle?.periodLabel || reportBundle?.period, '現在の分析データ期間'),
+    confidence: compactText(reportBundle?.decision_summary?.confidence, latest ? '中' : '評価保留'),
+    actions: [
+      topAction,
+      ...actions.slice(1, 3).map((item) => compactText(item.title || item.action, '次タスク')),
+    ].slice(0, 3),
+  }
+}
+
+function InsightDecisionBoard({ reportBundle, messages }) {
+  const state = buildDecisionBoardState({ reportBundle, messages })
+  return (
+    <section className={styles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
+      <div className={styles.decisionBoardMain}>
+        <p className={styles.decisionEyebrow}>AI Graph Chat / Python集計済み</p>
+        <h2 id="insight-decision-board-title" className={`${styles.decisionTitle} japanese-text`}>
+          グラフを見ながらAIに質問
+        </h2>
+        <p className="japanese-text" style={{ marginTop: '0.5rem', color: 'var(--color-on-surface-variant)', fontWeight: 700 }}>
+          {state.topAction}
+        </p>
+        <div className={styles.decisionMetaGrid}>
+          <div className={styles.decisionMeta}>
+            <span>最重要変化指標</span>
+            <strong>{state.topMetric}</strong>
+          </div>
+          <div className={styles.decisionMeta}>
+            <span>推定原因</span>
+            <strong>{state.cause}</strong>
+          </div>
+          <div className={styles.decisionMeta}>
+            <span>期待KPI</span>
+            <strong>{state.expectedKpi}</strong>
+          </div>
+          <div className={styles.decisionMeta}>
+            <span>データ期間</span>
+            <strong>{state.period}</strong>
+          </div>
+          <div className={styles.decisionMeta}>
+            <span>信頼度</span>
+            <strong>{state.confidence}</strong>
+          </div>
+        </div>
+      </div>
+      <aside className={styles.decisionBoardSide} aria-label="優先アクション">
+        <p className={styles.decisionEyebrow}>Priority Actions</p>
+        <div className={styles.decisionActionList}>
+          {state.actions.map((action, idx) => (
+            <div key={`${action}-${idx}`} className={styles.decisionAction}>
+              <b>{idx + 1}</b>
+              <p className="japanese-text">{action}</p>
+            </div>
+          ))}
+        </div>
+      </aside>
+    </section>
+  )
+}
+
+function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle }) {
+  const requirements = [
+    {
+      key: 'auth',
+      label: '認証',
+      ok: Boolean(isAdsAuthenticated),
+      action: isAdsAuthenticated ? '完了' : 'ヘッダーの鍵アイコンからログイン',
+    },
+    {
+      key: 'case',
+      label: '案件',
+      ok: Boolean(setupState?.datasetId),
+      action: setupState?.datasetId ? setupState.datasetId : '案件にGA4の保存先IDを設定',
+    },
+    {
+      key: 'period',
+      label: '期間',
+      ok: Array.isArray(setupState?.periods) && setupState.periods.length > 0,
+      action: setupState?.periods?.length ? `${setupState.periods.length}期間` : '分析期間を選択',
+    },
+    {
+      key: 'report',
+      label: 'レポート生成',
+      ok: Boolean(reportBundle?.reportMd),
+      action: reportBundle?.reportMd ? '生成済み' : 'セットアップ後にコンテキスト更新',
+    },
+  ]
+
+  if (requirements.every((item) => item.ok)) return null
+
+  return (
+    <section className={styles.requirementPanel} aria-label="Ads AI 利用条件">
+      {requirements.map((item) => (
+        <div key={item.key} className={item.ok ? styles.requirementOk : styles.requirementTodo}>
+          <span className="material-symbols-outlined" aria-hidden="true">
+            {item.ok ? 'check_circle' : 'radio_button_unchecked'}
+          </span>
+          <div>
+            <strong className="japanese-text">{item.label}</strong>
+            <p className="japanese-text">{item.action}</p>
+          </div>
+        </div>
+      ))}
+    </section>
+  )
 }
 
 export default function InsightTimeline({
@@ -152,7 +311,7 @@ export default function InsightTimeline({
           <div className={`${styles.banner} ${styles.bannerWarning}`}>
             <span className="material-symbols-outlined" aria-hidden="true">warning</span>
             <span className="japanese-text">
-              分析用 Claude API キーが未設定です。設定画面から設定してください。
+              Gemini または Claude の分析用 API キーが未設定です。設定画面から設定してください。
             </span>
           </div>
         )}
@@ -172,7 +331,14 @@ export default function InsightTimeline({
             </span>
           </div>
         )}
+        <SetupRequirementPanel
+          setupState={setupState}
+          isAdsAuthenticated={isAdsAuthenticated}
+          reportBundle={reportBundle}
+        />
       </div>
+
+      <InsightDecisionBoard reportBundle={reportBundle} messages={messages} />
 
       {/* ───────── Header controls ───────── */}
       <header className={styles.header}>

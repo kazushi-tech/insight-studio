@@ -66,6 +66,115 @@ function getActiveJob() {
   } catch { return null }
 }
 
+function DiscoveryImage2Guide({ providerLabel }) {
+  return (
+    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <span>Discovery</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+              <span>Discovery Report</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+              <span className="font-bold text-primary">レポート</span>
+            </div>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface">Discovery Report</h2>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+              発見したURLを分類し、直接競合・隣接競合・参考ブランド・対象外を混ぜずに判断します。
+            </p>
+          </div>
+          <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
+            {providerLabel} discovery
+          </span>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[
+            ['直接競合', '主比較', 'shopping_cart'],
+            ['隣接競合', '補助', 'hub'],
+            ['参考ブランド', '観測', 'visibility'],
+            ['対象外', '除外', 'block'],
+          ].map(([label, note, icon]) => (
+            <article key={label} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-5">
+              <span className="material-symbols-outlined text-primary" aria-hidden="true">{icon}</span>
+              <h3 className="mt-4 text-base font-extrabold text-on-surface japanese-text">{label}</h3>
+              <p className="mt-1 text-xs font-bold text-on-surface-variant japanese-text">{note}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
+        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">どの競合から比較するか</h3>
+        <ol className="mt-4 space-y-4">
+          {[
+            ['オファーの明確さが高い', '初回特典・送料無料など、具体的で強いオファーを確認します。'],
+            ['CTAの強さで優位', '主要ボタンが目立つ競合を優先します。'],
+            ['差分が明確で改善しやすい', '自社LPとの差が大きい候補を次に送ります。'],
+          ].map(([title, body], index) => (
+            <li key={title} className="flex gap-3">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-on-primary text-xs font-black">{index + 1}</span>
+              <span>
+                <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
+                <small className="mt-1 block text-xs leading-6 text-on-surface-variant japanese-text">{body}</small>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </aside>
+    </section>
+  )
+}
+
+function DiscoveryActionPreview() {
+  return (
+    <section className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+      <div className="rounded-xl border border-outline-variant/15 bg-surface p-6">
+        <h2 className="text-2xl font-extrabold text-on-surface japanese-text">## 次に比較する競合</h2>
+        <p className="mt-3 text-sm leading-7 text-on-surface japanese-text">
+          まずは直接競合から比較します。対象外URLは主比較に混ぜず、参考情報として扱います。
+        </p>
+        <div className="mt-5 max-w-xl rounded-xl border border-primary/20 bg-primary/[0.045] px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 place-items-center rounded-full bg-primary/[0.08] text-primary">
+              <span className="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
+            </span>
+            <div>
+              <strong className="block text-on-surface japanese-text">直接競合で比較</strong>
+              <small className="text-on-surface-variant">Discovery結果をCompareに送って比較を開始します。</small>
+            </div>
+          </div>
+          <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">最優先で比較</span>
+        </div>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+        {[
+          ['直接競合で比較', '最初に詳細比較します', 'primary'],
+          ['LP弱点を確認', '自社LPの弱点をチェックリスト化', 'amber'],
+          ['Compareへ送る', '比較レポートへつなぎます', 'blue'],
+        ].map(([title, body, tone]) => (
+          <article key={title} className={`rounded-xl border p-5 ${
+            tone === 'primary'
+              ? 'border-primary/25 bg-primary/[0.045]'
+              : tone === 'amber'
+              ? 'border-amber-300/60 bg-amber-50/55'
+              : 'border-blue-300/60 bg-blue-50/55'
+          }`}>
+            <h3 className="text-base font-extrabold text-on-surface japanese-text">{title}</h3>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">{body}</p>
+            <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary">
+              {title}
+              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export default function Discovery() {
   const {
     analysisKey,
@@ -548,6 +657,8 @@ export default function Discovery() {
         <span className="japanese-text">競合発見の分析は現在 {providerLabel} で実行します。必要な検索設定はサーバー側で処理します。</span>
       </div>
 
+      {!result?.report_md && <DiscoveryImage2Guide providerLabel={providerLabel} />}
+
       {/* URL Input */}
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
         <div className="flex gap-4">
@@ -625,6 +736,7 @@ export default function Discovery() {
 
         return (
           <>
+            <DiscoveryActionPreview />
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-on-surface-variant">
                 <span className="material-symbols-outlined">description</span>

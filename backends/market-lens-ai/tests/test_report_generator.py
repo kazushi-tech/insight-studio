@@ -338,3 +338,46 @@ class TestStructuredQualityBundle:
         assert bundle.quality_is_critical is True
         assert "品質基準未達" not in bundle.report_md.split("<!-- appendix-start -->")[0]
         assert "## Appendix A. 品質監査" in bundle.report_md
+
+    def test_quality_gate_detects_missing_operational_kpi(self):
+        analysis = (
+            "## エグゼクティブサマリー\n"
+            "要約\n\n"
+            "## 分析対象と比較前提\n"
+            "前提\n\n"
+            "## 実行プラン\n"
+            "### 最優先3施策\n"
+            "- LP改善を行う\n\n"
+            "### 5-0 予算フレーム\n"
+            "予算\n\n"
+            "### 5-1. LP改善施策\n"
+            "施策\n\n"
+            "### 5-2. 検索広告施策\n"
+            "施策\n"
+        )
+        bundle = generate_report_bundle(self._make_result(), analysis)
+        assert bundle.quality_is_critical is True
+        assert any("期待KPI" in issue for issue in bundle.quality_issues)
+
+    def test_quality_gate_passes_operational_action_plan(self):
+        analysis = (
+            "## エグゼクティブサマリー\n"
+            "要約\n\n"
+            "## 分析対象と比較前提\n"
+            "前提\n\n"
+            "## 実行プラン\n"
+            "### 最優先3施策\n"
+            "- 施策名: FV CTA改善 / 期待KPI: LP-CVR +5% / 工数: 低 / 根拠: CTA分散が確認済み / 初回検証: 今週A/Bテスト\n\n"
+            "### 5-0 予算フレーム\n"
+            "初期目安\n\n"
+            "### 5-1. LP改善施策\n"
+            "| ブランド | 優先度 | 改善内容 | 根拠フィールド | 証拠強度 |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| example | S | CTA一本化 | main_cta | 確認済み |\n\n"
+            "### 5-2. 検索広告施策\n"
+            "| ブランド | 獲得タイプ | 優先度 | アクション | 初回KPI |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| example | 非指名 | A | 比較検討KW追加 | CPA |\n"
+        )
+        bundle = generate_report_bundle(self._make_result(), analysis)
+        assert not any("品質ゲート欠損" in issue for issue in bundle.quality_issues)

@@ -700,8 +700,17 @@ async def run_discovery_pipeline(
     if not ranked:
         raise PipelineError(404, "競合サイトが見つかりませんでした。", stage="search", retryable=False)
 
-    # Keep comparison breadth configurable while avoiding unbounded fan-out.
-    top_candidates = ranked[:max_competitors]
+    # Keep comparison breadth configurable while excluding sites that are known
+    # to be directories, media, research, or otherwise outside the buying set.
+    comparable_ranked = [c for c in ranked if c.competitive_tier != "out_of_scope"]
+    if not comparable_ranked:
+        raise PipelineError(
+            404,
+            "直接比較できる競合サイトが見つかりませんでした。対象URLまたは業界を確認してください。",
+            stage="search",
+            retryable=False,
+        )
+    top_candidates = comparable_ranked[:max_competitors]
 
     # --- Stage: fetch_competitors ---
     await _notify_stage(on_stage, DiscoveryJobStage.fetch_competitors, {
@@ -786,7 +795,7 @@ async def run_discovery_pipeline(
 
     # Phase 2: backfill from remaining candidates (parallel batch)
     needed = max_competitors - len(competitor_extracted)
-    backfill_candidates = ranked[max_competitors:max_competitors + needed + 2]
+    backfill_candidates = comparable_ranked[max_competitors:max_competitors + needed + 2]
     if needed > 0 and backfill_candidates:
         backfill_results = await asyncio.gather(*[_fetch_one(c) for c in backfill_candidates])
         for site, data in backfill_results:
@@ -864,7 +873,7 @@ async def run_discovery_pipeline(
 
     # Backfill if we lost competitors
     backfill_start = max_competitors + fail_count  # past already-fetched candidates
-    for cand in ranked[backfill_start:]:
+    for cand in comparable_ranked[backfill_start:]:
         if len(competitor_extracted) >= max_competitors:
             break
         site, data = await _fetch_one(cand)
@@ -897,23 +906,49 @@ async def run_discovery_pipeline(
     tracker.end_stage("fetch")
 
     # ── Build discovery metadata for report context ──
-    _tier_label = {"direct": "直競合", "indirect": "準競合", "benchmark": "ベンチマーク"}
+    _tier_label = {
+        "direct": "直接競合",
+        "indirect": "隣接競合",
+        "benchmark": "参考サイト",
+        "out_of_scope": "対象外",
+    }
     discovery_metadata = {
         "input_brand": brand_domain,
         "input_brand_url": req.brand_url,
         "industry": industry,
+        "competitive_tiers": {
+            "直接競合": [c.domain for c in ranked if c.competitive_tier == "direct"],
+            "隣接競合": [c.domain for c in ranked if c.competitive_tier == "indirect"],
+            "参考サイト": [c.domain for c in ranked if c.competitive_tier == "benchmark"],
+            "対象外": [c.domain for c in ranked if c.competitive_tier == "out_of_scope"],
+            "reason": "総合EC・メディア・市場調査・記事ページは対象外、業界一致度とLP信号で直接/隣接/参考を分類",
+        },
         "discovered_candidates": [
             {
                 "domain": c.domain,
                 "title": c.title,
                 "score": c.score,
                 "tier": _tier_label.get(c.competitive_tier, c.competitive_tier),
+                "competitor_tier": c.competitive_tier,
+                "evidence_level": "pending" if c.competitive_tier in ("benchmark", "out_of_scope") else "medium",
+                "classification_reason": (
+                    "除外シグナルがあるため主比較から除外"
+                    if c.competitive_tier == "out_of_scope"
+                    else "業界一致度・LP信号・検索結果スコアに基づく分類"
+                ),
             }
             for c in ranked
         ],
         "excluded_candidates": [
             {"domain": desc.split(" (")[0], "reason": desc}
             for desc in quality_excluded
+        ] + [
+            {
+                "domain": c.domain,
+                "reason": "対象外分類: 総合EC・メディア・調査/記事ページ等の可能性が高いため主比較から除外",
+            }
+            for c in ranked
+            if c.competitive_tier == "out_of_scope"
         ],
     }
 

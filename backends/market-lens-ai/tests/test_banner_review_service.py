@@ -157,6 +157,36 @@ class TestValidateReviewOutput:
         report = validate_review_output(data)
         assert report.valid is False
 
+    def test_gemini_missing_required_sections_are_repaired(self):
+        data = _golden_banner_review()
+        del data["improvements"]
+        del data["evidence"]
+        del data["target_hypothesis"]
+        del data["message_angle"]
+        data["rubric_scores"] = [
+            {"rubric_id": "visual_impact", "score": 4, "comment": "視認性が高い"}
+        ]
+
+        report = validate_review_output(data)
+
+        assert report.valid is True
+        assert data["improvements"][0]["point"] == "改善候補の再整理"
+        assert data["evidence"][0]["evidence_source"] == "アップロード画像の観察"
+        assert data["target_hypothesis"]
+        assert data["message_angle"]
+        assert {s["rubric_id"] for s in data["rubric_scores"]} == set(BANNER_RUBRIC_IDS)
+        assert any(i.severity == "warning" for i in report.issues)
+
+    def test_empty_good_points_are_repaired(self):
+        data = _golden_banner_review()
+        data["good_points"] = []
+
+        report = validate_review_output(data)
+
+        assert report.valid is True
+        assert data["good_points"][0]["point"] == "レビュー本文からの暫定評価"
+        assert any("good_points" in i.message for i in report.issues)
+
 
 # -- Banner Review Service Tests (mocked LLM) --------------------------------
 

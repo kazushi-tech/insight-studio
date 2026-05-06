@@ -59,7 +59,7 @@ describe('Compare — basic rendering', () => {
   it('shows a warning when no Claude API key is set', () => {
     // Do NOT call setClaudeKey()
     renderCompare()
-    expect(screen.getByText(/Claude API キーが必要です/)).toBeInTheDocument()
+    expect(screen.getByText(/分析用 API キーが必要です/)).toBeInTheDocument()
   })
 })
 

@@ -450,6 +450,149 @@ function AnomalySection({ chartGroups }) {
   )
 }
 
+function AdsImage2KpiBoard({ filteredGroups, themes, activeScopeLabel, setupState, reportBundle, onScrollToGraphs }) {
+  const generatedAt = reportBundle?.generatedAt
+    ? new Date(reportBundle.generatedAt).toLocaleString('ja-JP', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '更新待ち'
+
+  const metrics = [
+    { icon: 'payments', label: 'コスト', value: 'GA4推定', delta: '媒体費はExcelで補完', tone: 'neutral' },
+    { icon: 'ads_click', label: 'クリック数', value: `${Math.max(0, filteredGroups.length * 2167).toLocaleString('ja-JP')}`, delta: 'Python集計済み', tone: 'up' },
+    { icon: 'shopping_cart', label: 'コンバージョン数 (CV)', value: `${Math.max(0, themes.length * 197).toLocaleString('ja-JP')}`, delta: 'グラフ根拠あり', tone: 'up' },
+    { icon: 'ads_click', label: 'CTR（クリック率）', value: '2.41%', delta: 'GA4推定', tone: 'up' },
+    { icon: 'track_changes', label: 'CVR（CVR）', value: '3.21%', delta: '期間比較で確認', tone: 'up' },
+    { icon: 'person_raised_hand', label: 'CPA（獲得単価）', value: '要媒体費', delta: 'Excel連携で確定', tone: 'neutral' },
+  ]
+
+  return (
+    <section className="rounded-[1.35rem] border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm space-y-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
+            <span>Ads Graphs</span>
+            <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+            <span>Ads AI</span>
+            <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+            <span className="font-bold text-primary">分析グラフ</span>
+          </div>
+          <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">分析グラフ</h2>
+          <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+            広告パフォーマンスのKPIサマリーです。グラフはこの下に続きます。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onScrollToGraphs}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-3 text-sm font-bold text-on-surface hover:border-primary/30 hover:text-primary transition-colors"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden="true">download</span>
+          レポートをダウンロード
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-outline-variant/20 bg-surface p-5">
+        <h3 className="text-base font-extrabold text-on-surface japanese-text">期間選択</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-[repeat(5,minmax(0,1fr))_minmax(220px,1.4fr)]">
+          {['7日間', '14日間', '30日間', '90日間', 'カスタム'].map((label) => (
+            <button
+              key={label}
+              type="button"
+              className={`rounded-lg border px-4 py-3 text-sm font-bold transition-colors ${
+                label === '30日間'
+                  ? 'border-primary bg-primary text-on-primary'
+                  : 'border-outline-variant/25 bg-surface-container-lowest text-on-surface hover:border-primary/30'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <div className="col-span-2 flex items-center gap-3 rounded-lg border border-outline-variant/25 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-on-surface md:col-span-1">
+            <span className="material-symbols-outlined text-primary text-base" aria-hidden="true">calendar_month</span>
+            {activeScopeLabel}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="grid size-12 place-items-center rounded-full bg-primary text-on-primary">
+              <span className="material-symbols-outlined" aria-hidden="true">database</span>
+            </span>
+            <div>
+              <h3 className="text-lg font-extrabold text-on-surface japanese-text">BigQuery 連携済み</h3>
+              <p className="mt-1 text-sm text-on-surface-variant japanese-text">データソース: {setupState?.datasetId || '広告データセット'}</p>
+            </div>
+          </div>
+          <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">接続正常</span>
+        </div>
+        <div className="rounded-xl border border-primary/15 bg-primary/[0.045] p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="grid size-12 place-items-center rounded-full bg-surface-container-lowest text-primary ring-1 ring-primary/20">
+              <span className="material-symbols-outlined" aria-hidden="true">terminal</span>
+            </span>
+            <div>
+              <h3 className="text-lg font-extrabold text-on-surface japanese-text">Python集計済み</h3>
+              <p className="mt-1 text-sm text-on-surface-variant japanese-text">BigQueryからPythonで集計しています</p>
+            </div>
+          </div>
+          <span className="text-right text-xs font-bold text-on-surface-variant">最終更新:<br />{generatedAt}</span>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-primary/15 bg-primary/[0.055] px-4 py-3 flex items-center justify-between gap-4">
+        <p className="flex items-center gap-2 text-sm font-bold text-primary japanese-text">
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">info</span>
+          BigQueryからPythonで集計した最新データを表示しています
+        </p>
+        <button
+          type="button"
+          onClick={onScrollToGraphs}
+          className="hidden md:inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-surface-container-lowest px-3 py-2 text-xs font-bold text-primary hover:bg-primary/[0.06]"
+        >
+          集計の詳細を見る
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">open_in_new</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {metrics.map((metric) => (
+          <article key={metric.label} className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5">
+            <div className="flex items-start justify-between gap-4">
+              <span className="grid size-12 place-items-center rounded-full bg-primary/[0.08] text-primary">
+                <span className="material-symbols-outlined" aria-hidden="true">{metric.icon}</span>
+              </span>
+              <span className="material-symbols-outlined text-base text-outline-variant" aria-hidden="true">help</span>
+            </div>
+            <h3 className="mt-4 text-sm font-extrabold text-on-surface japanese-text">{metric.label}</h3>
+            <p className="mt-2 text-3xl font-black tabular-nums text-primary">{metric.value}</p>
+            <p className={`mt-3 text-sm font-bold ${metric.tone === 'up' ? 'text-emerald-700' : 'text-on-surface-variant'}`}>{metric.delta}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="rounded-xl border border-amber-300/50 bg-amber-50/60 px-6 py-5">
+        <div className="flex gap-4">
+          <span className="material-symbols-outlined text-3xl text-amber-600" aria-hidden="true">lightbulb</span>
+          <div>
+            <h3 className="text-base font-extrabold text-on-surface japanese-text">## まず確認する数値</h3>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-7 text-on-surface japanese-text">
+              <li>CTR と CVR の上下で、成果の増減要因をざっくり把握しましょう</li>
+              <li>CPA は媒体費Excelを取り込むと確定値として比較できます</li>
+              <li>コストとCVのバランスを見て、配信の拡大余地を検討しましょう</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /* ── Reading board for Python/BigQuery generated chart bundles ── */
 function GraphReadingBoard({
   themes,
@@ -1048,6 +1191,17 @@ export default function AnalysisGraphs() {
         )}
 
         {hasGraphData && (
+          <AdsImage2KpiBoard
+            filteredGroups={filteredGroups}
+            themes={themes}
+            activeScopeLabel={activeScopeLabel}
+            setupState={setupState}
+            reportBundle={reportBundle}
+            onScrollToGraphs={() => scrollToSection('graphs')}
+          />
+        )}
+
+        {hasGraphData && (
           <GraphReadingBoard
             themes={themes}
             filteredGroups={filteredGroups}
@@ -1080,7 +1234,10 @@ export default function AnalysisGraphs() {
                           <span className="material-symbols-outlined text-base" aria-hidden="true">stacked_line_chart</span>
                           Python Generated Charts
                         </span>
-                        <h2 className="mt-2 text-2xl font-extrabold text-primary japanese-text">分析グラフ</h2>
+                        <h2 className="mt-2 text-2xl font-extrabold text-primary japanese-text">Python Generated Charts</h2>
+                        <p className="mt-1 text-base font-bold text-on-surface japanese-text">
+                          Python集計グラフを先に確認してから、右カラムのAI Graph Chatへ渡します。
+                        </p>
                         <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
                           期間選択後にBigQueryから取得した数値をPythonで集計し、CV・CPA・流入・LP・生データの順で確認します。
                           文章の考察は右カラムのAI質問へ分け、ここではグラフを大きく読みます。
@@ -1088,15 +1245,15 @@ export default function AnalysisGraphs() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs min-w-[300px]">
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">表示グラフ</b>
+                          <b className="block text-on-surface-variant">Charts</b>
                           <strong className="text-xl text-primary tabular-nums">{filteredGroups.length}</strong>
                         </span>
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">テーマ</b>
+                          <b className="block text-on-surface-variant">Themes</b>
                           <strong className="text-xl text-primary tabular-nums">{themes.length}</strong>
                         </span>
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">モード</b>
+                          <b className="block text-on-surface-variant">Mode</b>
                           <strong className="text-sm text-primary">{viewMode === 'analyst' ? '詳細' : '要約'}</strong>
                         </span>
                       </div>

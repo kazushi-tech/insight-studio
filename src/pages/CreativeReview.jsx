@@ -438,6 +438,128 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
   )
 }
 
+function BannerImage2Overview({ onDemoSelect }) {
+  return (
+    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
+              <span>Creative Review</span>
+              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
+              <span className="font-bold text-primary">バナーレビュー</span>
+            </div>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">バナーレビュー</h2>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+              アップロードしたバナーの成果改善ポイントを、総合スコア・最初の修正・良い点・根拠に分けて表示します。
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-outline-variant/25 bg-surface-container-lowest px-4 py-2 text-xs font-bold text-on-surface">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">download</span>
+              レポートをダウンロード
+            </button>
+            <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-700">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">bookmark</span>
+              レポートを保存
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-primary/15 bg-primary/[0.045] px-4 py-3 text-sm font-bold text-primary japanese-text">
+          <span className="material-symbols-outlined mr-2 align-[-4px] text-lg" aria-hidden="true">info</span>
+          実在ブランドではない検証用素材（架空デモ素材）です
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <article className="rounded-xl border border-outline-variant/20 bg-surface p-5">
+            <h3 className="text-lg font-extrabold text-on-surface japanese-text">架空デモ素材</h3>
+            <div className="mt-4 overflow-hidden rounded-xl border border-outline-variant/20 bg-[#f8f3df]">
+              <img
+                src="/demo-creatives/demo-creative-interior-300x250.png"
+                alt="架空デモバナー Kiri Sofa Fair"
+                className="h-auto w-full object-cover"
+              />
+            </div>
+            <p className="mt-3 text-xs text-on-surface-variant">ファイル名: demo-creative-interior-300x250.png</p>
+          </article>
+          <article className="rounded-xl border border-outline-variant/20 bg-surface p-5">
+            <h3 className="text-lg font-extrabold text-on-surface japanese-text">総合スコア <span className="font-normal text-on-surface-variant">（100点満点）</span></h3>
+            <div className="mt-8 grid place-items-center">
+              <div className="relative grid size-52 place-items-center rounded-full border-[18px] border-primary/20 border-t-primary">
+                <strong className="text-6xl font-black text-primary tabular-nums">74</strong>
+                <span className="absolute bottom-8 text-xl font-bold text-on-surface-variant">/100</span>
+              </div>
+              <span className="mt-5 rounded-lg bg-primary/[0.08] px-5 py-2 text-lg font-extrabold text-primary">良好</span>
+              <p className="mt-5 text-sm leading-7 text-on-surface-variant japanese-text">
+                訴求は明確で魅力的です。CTAと情報設計を最適化すると、さらに高い成果が期待できます。
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
+          <article className="rounded-xl border border-amber-300/60 bg-amber-50/60 p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-extrabold text-on-surface japanese-text">
+                <span className="material-symbols-outlined mr-2 align-[-4px] text-amber-600" aria-hidden="true">lightbulb</span>
+                最初の修正
+              </h3>
+              <span className="rounded-lg border border-amber-300 bg-surface-container-lowest px-3 py-1 text-xs font-black text-amber-700">重要度: 高</span>
+            </div>
+            <ol className="mt-4 space-y-3">
+              {['CTAボタンの視認性を上げる', 'オファーを強調', 'コピー量の最適化'].map((item, index) => (
+                <li key={item} className="flex gap-3 rounded-lg bg-surface-container-lowest px-3 py-3">
+                  <span className="grid size-7 place-items-center rounded-lg bg-primary/[0.1] text-sm font-black text-primary">{index + 1}</span>
+                  <span className="text-sm font-bold text-on-surface japanese-text">{item}</span>
+                </li>
+              ))}
+            </ol>
+            <button
+              type="button"
+              onClick={onDemoSelect}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-primary"
+            >
+              この架空デモ素材でレビューする
+              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+            </button>
+          </article>
+          <article className="rounded-xl border border-primary/15 bg-primary/[0.045] p-5">
+            <h3 className="text-lg font-extrabold text-on-surface japanese-text">
+              <span className="material-symbols-outlined mr-2 align-[-4px] text-primary" aria-hidden="true">thumb_up</span>
+              良い点
+            </h3>
+            <ul className="mt-4 space-y-3 text-sm leading-7 text-on-surface japanese-text">
+              <li>メインコピーがシンプルで伝わりやすい</li>
+              <li>期間の表示が明確</li>
+              <li>トーンと配色が統一されている</li>
+            </ul>
+            <button type="button" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-primary">
+              良い点をさらに詳しく見る
+              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+            </button>
+          </article>
+        </div>
+      </div>
+
+      <aside className="rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
+        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
+        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">レビュー結果を質問</h3>
+        <p className="mt-4 rounded-xl border border-outline-variant/20 px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
+          このバナーレビューについて、改善コピー・LPとのズレ・A/Bテスト案を質問できます。
+        </p>
+        <div className="mt-6 space-y-3">
+          {['最初に直す場所は？', 'CTRを上げるには？', 'LPとのズレは？'].map((prompt) => (
+            <span key={prompt} className="block rounded-full border border-primary/25 px-4 py-2 text-center text-sm font-bold text-primary japanese-text">
+              {prompt}
+            </span>
+          ))}
+        </div>
+      </aside>
+    </section>
+  )
+}
+
 function CategoryContextSection({ review, size }) {
   const ctx = review?.category_context
   if (!ctx) return null
@@ -933,6 +1055,10 @@ export default function CreativeReview() {
         <span className="material-symbols-outlined text-lg">info</span>
         <span className="japanese-text">クリエイティブレビューは現在 {providerLabel} で実行します。Gemini キーが設定されている場合は Gemini が優先されます。</span>
       </div>
+
+      {!isUploaded && phase !== 'uploading' && (
+        <BannerImage2Overview onDemoSelect={() => handleDemoCreative(DEMO_CREATIVES[0])} />
+      )}
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
       {(!isUploaded && phase !== 'uploading') && (

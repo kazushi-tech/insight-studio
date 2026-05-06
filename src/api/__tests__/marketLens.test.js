@@ -6,6 +6,7 @@ import {
   warmMarketLensBackend,
   startDiscoveryJob,
   getDiscoveryJob,
+  startScanJob,
   scan,
   getScans,
   getScan,
@@ -417,6 +418,17 @@ describe('scan', () => {
     )
 
     await expect(scan(['https://example.com'])).rejects.toThrow()
+  })
+
+  it('uses a user-facing message for 502 responses', async () => {
+    server.use(
+      http.post('/api/ml/scan/jobs', () =>
+        HttpResponse.json({}, { status: 502 }),
+      ),
+    )
+
+    await expect(startScanJob(['https://example.com'])).rejects.toThrow(/分析バックエンドが一時的に応答できませんでした/)
+    await expect(startScanJob(['https://example.com'])).rejects.not.toThrow(/Market Lens API error: 502/)
   })
 })
 

@@ -102,6 +102,24 @@ _NON_COMPETITOR_DOMAINS = {
     "mercari.com", "zozotown.com",
 }
 
+_BROAD_MARKETPLACE_REFERENCE_DOMAINS = {
+    "aliexpress.com",
+    "amazon.co.jp",
+    "amazon.com",
+    "rakuten.co.jp",
+    "shopping.yahoo.co.jp",
+    "yahoo.co.jp",
+}
+
+_SEARCH_OR_TOOL_DOMAINS = {
+    "google.com",
+    "www.google.com",
+    "cloud.google.com",
+    "vertexaisearch.cloud.google.com",
+    "bing.com",
+    "search.yahoo.co.jp",
+}
+
 _LP_SIGNAL_KEYWORDS = [
     "公式", "official", "通販", "ショップ", "shop", "store",
     "定期", "初回", "お試し", "送料無料",
@@ -127,6 +145,11 @@ _ARTICLE_PATH_PATTERNS = [
 ]
 
 
+def _domain_matches(domain: str, targets: set[str]) -> bool:
+    d = domain.lower().strip(".")
+    return any(d == target or d.endswith(f".{target}") for target in targets)
+
+
 @dataclass
 class RankedCandidate:
     """A search result with computed relevance score."""
@@ -136,7 +159,7 @@ class RankedCandidate:
     title: str
     snippet: str
     score: int
-    competitive_tier: str = "benchmark"  # direct / indirect / benchmark
+    competitive_tier: str = "benchmark"  # direct / indirect / benchmark / out_of_scope
 
 
 def rank_candidates(
@@ -274,8 +297,23 @@ def classify_competitive_tiers(
         text_lower = f"{c.title} {c.snippet}".lower()
         has_industry_match = any(kw in text_lower for kw in kw_lower) if kw_lower else False
         has_lp_signal = any(kw in text_lower for kw in _LP_SIGNAL_KEYWORDS)
+        domain_lower = c.domain.lower()
+        is_broad_marketplace = _domain_matches(domain_lower, _BROAD_MARKETPLACE_REFERENCE_DOMAINS)
+        is_search_or_tool = _domain_matches(domain_lower, _SEARCH_OR_TOOL_DOMAINS)
+        has_exclusion_signal = (
+            is_search_or_tool
+            or _domain_matches(domain_lower, _NON_COMPETITOR_DOMAINS)
+            or any(kw in text_lower for kw in _NON_COMPETITOR_SIGNAL_KEYWORDS)
+            or any(pattern in urlparse(c.url).path.lower() for pattern in _ARTICLE_PATH_PATTERNS)
+        )
 
-        if c.score >= 60 and has_industry_match:
+        if is_search_or_tool:
+            c.competitive_tier = "out_of_scope"
+        elif is_broad_marketplace:
+            c.competitive_tier = "benchmark"
+        elif has_exclusion_signal and not has_industry_match:
+            c.competitive_tier = "out_of_scope"
+        elif c.score >= 60 and has_industry_match:
             c.competitive_tier = "direct"
         elif c.score >= 40 or has_lp_signal or has_industry_match:
             c.competitive_tier = "indirect"

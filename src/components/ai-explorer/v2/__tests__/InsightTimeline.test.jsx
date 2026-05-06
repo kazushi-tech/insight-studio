@@ -43,13 +43,15 @@ const baseProps = {
 }
 
 describe('InsightTimeline', () => {
-  it('renders empty state with the three default quick prompts when no messages', () => {
+  it('renders empty state with decision board and default workflow prompts when no messages', () => {
     render(<InsightTimeline {...baseProps} />)
+    expect(screen.getByTestId('insight-decision-board')).toBeInTheDocument()
     expect(screen.getByTestId('ai-explorer-v2-empty')).toBeInTheDocument()
     expect(screen.getByText('AI考察を始めましょう')).toBeInTheDocument()
-    expect(screen.getByText('コンバージョン流出ポイントを特定して')).toBeInTheDocument()
-    expect(screen.getByText('最も効果的な流入チャネルとその理由')).toBeInTheDocument()
-    expect(screen.getByText('期間比較で一番変化が大きい指標は？')).toBeInTheDocument()
+    expect(screen.getByText('CV悪化の原因を特定')).toBeInTheDocument()
+    expect(screen.getByText('CPA改善の優先施策')).toBeInTheDocument()
+    expect(screen.getByText('流入チャネル別の勝ち筋')).toBeInTheDocument()
+    expect(screen.getByText('LP/広告/配信設定のどこを直すべきか')).toBeInTheDocument()
   })
 
   it('renders an InsightTurnCard for each completed user/assistant pair', () => {

@@ -176,7 +176,7 @@ export default function ProjectFormModal({ onClose, project }) {
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="space-y-1.5">
-        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider japanese-text">Dataset ID</label>
+        <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider japanese-text">GA4の保存先ID（BigQuery Dataset ID）</label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary-container text-lg">database</span>
           <input
@@ -186,6 +186,9 @@ export default function ProjectFormModal({ onClose, project }) {
             onChange={(e) => { updateField('dataset_id', e.target.value); setBqResult(null) }}
           />
         </div>
+        <p className="text-xs text-on-surface-variant japanese-text">
+          GA4 管理画面の BigQuery Links で確認できます。未設定でも Compare / Discovery / Creative Review は利用できます。
+        </p>
       </div>
 
       {form.dataset_id && form.case_id && (
@@ -234,7 +237,7 @@ export default function ProjectFormModal({ onClose, project }) {
       <div className="bg-surface-container-low/50 rounded-lg p-4">
         <p className="text-xs text-on-surface-variant japanese-text">
           <span className="material-symbols-outlined text-xs align-middle mr-1">info</span>
-          BigQuery接続は後から設定することも可能です。スキップして次に進めます。
+          BigQuery接続は後から設定することも可能です。GA4由来データだけでは広告費やCPAは直接取れないため、必要に応じてGA4推定として扱います。
         </p>
       </div>
     </div>

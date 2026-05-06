@@ -161,13 +161,108 @@ def _strip_comment_keys(data: dict) -> dict:
     return {k: v for k, v in data.items() if not k.startswith("//")}
 
 
+def _non_empty_text(value: object, fallback: str) -> str:
+    text = str(value or "").strip()
+    return text if text else fallback
+
+
+def _coerce_list(value: object) -> list:
+    return value if isinstance(value, list) else []
+
+
+def _has_items(value: object) -> bool:
+    return isinstance(value, list) and len(value) > 0
+
+
+def _repair_required_review_fields(data: dict) -> tuple[dict, list[str]]:
+    """Fill known Gemini omissions without relaxing the public schema.
+
+    Gemini occasionally returns a nearly valid object but omits one of the
+    required arrays/strings. The UI can still show a useful, clearly marked
+    review if we add conservative placeholders before Pydantic validation.
+    We intentionally do not synthesize a missing summary or review_type; those
+    indicate the model ignored the contract too broadly.
+    """
+    repaired = dict(data)
+    warnings: list[str] = []
+    summary = _non_empty_text(repaired.get("summary"), "AIレビュー結果")
+
+    if not _has_items(repaired.get("good_points")):
+        repaired["good_points"] = [{
+            "point": "レビュー本文からの暫定評価",
+            "reason": f"AI出力で good_points が空または欠落していたため、要約「{summary[:80]}」をもとに運用者確認対象として補完しました。",
+        }]
+        warnings.append("Auto-filled missing or empty good_points")
+
+    if "improvements" not in repaired:
+        repaired["improvements"] = [{
+            "point": "改善候補の再整理",
+            "reason": "AI出力で改善配列が欠落していたため、レビュー本文とスコアを見ながら運用者確認が必要です。",
+            "action": "レビュー結果の要約と低スコア項目を確認し、最初に検証する変更案を1つ選んでください。",
+        }]
+        warnings.append("Auto-filled missing improvements")
+
+    if "evidence" not in repaired:
+        repaired["evidence"] = [{
+            "evidence_type": "client_material",
+            "evidence_source": "アップロード画像の観察",
+            "evidence_text": f"AI出力に evidence が欠落していたため、要約「{summary[:80]}」を暫定根拠として運用者確認対象にしました。",
+        }]
+        warnings.append("Auto-filled missing evidence")
+
+    if not _non_empty_text(repaired.get("target_hypothesis"), ""):
+        repaired["target_hypothesis"] = "画像内の訴求・商品カテゴリから想定ターゲットを運用者が確認してください。"
+        warnings.append("Auto-filled missing target_hypothesis")
+
+    if not _non_empty_text(repaired.get("message_angle"), ""):
+        repaired["message_angle"] = "画像内の主コピーとCTAをもとに訴求軸を再確認してください。"
+        warnings.append("Auto-filled missing message_angle")
+
+    review_type = repaired.get("review_type")
+    expected_rubrics = RUBRIC_SETS.get(str(review_type or ""))
+    scores = _coerce_list(repaired.get("rubric_scores"))
+    if expected_rubrics is not None:
+        actual_ids = {
+            str(s.get("rubric_id"))
+            for s in scores
+            if isinstance(s, dict) and s.get("rubric_id")
+        }
+        missing = sorted(expected_rubrics - actual_ids)
+        if missing:
+            scores = list(scores)
+            for rid in missing:
+                scores.append({
+                    "rubric_id": rid,
+                    "score": None,
+                    "comment": "AI出力に該当rubricが欠落していたため評価保留（運用者確認が必要）",
+                })
+            repaired["rubric_scores"] = scores
+            warnings.append(f"Auto-filled missing rubric IDs: {missing}")
+    elif "rubric_scores" not in repaired:
+        repaired["rubric_scores"] = [{
+            "rubric_id": "contract_missing",
+            "score": None,
+            "comment": "review_type が不明なため評価保留（運用者確認が必要）",
+        }]
+        warnings.append("Auto-filled missing rubric_scores with contract placeholder")
+
+    return repaired, warnings
+
+
 def validate_review_output(data: dict) -> ValidationReport:
     """Validate a review output dict against the contract.
 
     Returns a ValidationReport with issues.
     """
     report = ValidationReport()
-    data = _strip_comment_keys(data)
+    stripped = _strip_comment_keys(data)
+    data.clear()
+    data.update(stripped)
+    repaired, repair_warnings = _repair_required_review_fields(data)
+    data.clear()
+    data.update(repaired)
+    for warning in repair_warnings:
+        report.add("warning", warning)
 
     # 1. Try Pydantic validation (structural)
     try:
