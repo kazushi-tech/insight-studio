@@ -412,7 +412,7 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
     <section className="rounded-[0.75rem] bg-surface-container-lowest border border-outline-variant/10 p-5 space-y-4" aria-labelledby="creative-review-readiness-title">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-secondary">Review Readiness</p>
+          <p className="text-[10px] font-black tracking-[0.16em] text-secondary">レビュー準備</p>
           <h3 id="creative-review-readiness-title" className="text-lg font-bold text-on-surface japanese-text mt-1">レビュー実行前チェック</h3>
         </div>
         {assetMeta?.width && assetMeta?.height && (
@@ -438,6 +438,35 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
   )
 }
 
+function CreativeReviewAiGuide({ isReviewed }) {
+  const prompts = isReviewed
+    ? ['最初に直す場所は？', '改善案を広告文にする', 'A/Bテスト案を作る']
+    : ['見るべき評価軸は？', 'LPとのズレは？', 'レビュー後の確認項目は？']
+
+  return (
+    <aside
+      data-testid="creative-review-ai-guide"
+      className="rounded-[0.75rem] border border-primary/15 bg-primary/[0.045] p-5 shadow-sm"
+      aria-label="バナーレビューのAI質問ガイド"
+    >
+      <p className="text-[11px] font-black tracking-[0.16em] text-primary">AIに質問</p>
+      <h3 className="mt-2 text-lg font-extrabold text-primary japanese-text">
+        {isReviewed ? 'レビュー結果を施策へ変換' : 'レビュー前に観点を確認'}
+      </h3>
+      <p className="mt-3 rounded-xl border border-primary/10 bg-surface-container-lowest px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
+        バナーの良い点、改善点、LPとのズレ、A/Bテスト案を同じ文脈で確認できます。
+      </p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+        {prompts.map((prompt) => (
+          <span key={prompt} className="rounded-full border border-primary/25 bg-surface-container-lowest px-4 py-2 text-center text-xs font-bold text-primary japanese-text">
+            {prompt}
+          </span>
+        ))}
+      </div>
+    </aside>
+  )
+}
+
 function BannerImage2Overview({ onDemoSelect }) {
   return (
     <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -445,7 +474,7 @@ function BannerImage2Overview({ onDemoSelect }) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>Creative Review</span>
+              <span>バナーレビュー</span>
               <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
               <span className="font-bold text-primary">バナーレビュー</span>
             </div>
@@ -899,7 +928,7 @@ export default function CreativeReview() {
       file.demoCreative = demo
       await handleFile(file)
     } catch (err) {
-      goError(`Demo Creative 読み込み失敗: ${err.message}`, classifyError(err))
+      goError(`デモ素材の読み込み失敗: ${err.message}`, classifyError(err))
     }
   }, [goError, handleFile])
 
@@ -1014,9 +1043,9 @@ export default function CreativeReview() {
             <span className="text-secondary font-bold">クリエイティブ・レビュー</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="display-md text-on-surface tracking-tight">Creative Review</h2>
+            <h2 className="display-md text-on-surface tracking-tight japanese-text">バナーレビュー</h2>
             <span className="inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-secondary">
-              {providerLabel} Review
+              {providerLabel} レビュー
             </span>
           </div>
           <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして、現在の分析プロバイダー（{providerLabel}）でレビューします。</p>
@@ -1095,7 +1124,7 @@ export default function CreativeReview() {
           <div className="mt-5 rounded-xl bg-surface-container px-5 py-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-secondary">Demo Creative</p>
+                <p className="text-xs font-black tracking-[0.16em] text-secondary">デモ素材</p>
                 <p className="text-sm font-bold text-on-surface japanese-text mt-1">検証用の架空デモ素材で試す</p>
                 <p className="text-xs text-on-surface-variant japanese-text mt-1">{DEMO_NOTICE}</p>
               </div>
@@ -1131,9 +1160,9 @@ export default function CreativeReview() {
 
       {/* ─── Two-column layout (Stitch 2): Left preview + Right analysis ─── */}
       {isUploaded && (
-        <div className="grid grid-cols-12 gap-10">
+        <div className="grid grid-cols-1 gap-8 xl:grid-cols-12 xl:gap-10">
           {/* Left: sticky preview */}
-          <div className="col-span-5 sticky top-24 self-start space-y-4">
+          <div className="space-y-4 xl:col-span-5 xl:sticky xl:top-24 xl:self-start">
             <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
               <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
                 <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
@@ -1172,7 +1201,7 @@ export default function CreativeReview() {
           </div>
 
           {/* Right: review settings, results, generation */}
-          <div className="col-span-7 space-y-8">
+          <div className="space-y-8 xl:col-span-7">
             <ReviewReadinessPanel
               fileName={fileName}
               assetMeta={assetMeta}
@@ -1180,6 +1209,8 @@ export default function CreativeReview() {
               hasAnalysisKey={hasAnalysisKey}
               providerLabel={providerLabel}
             />
+
+            <CreativeReviewAiGuide isReviewed={isReviewed} />
 
             {/* ─── Step 2: Review Input ─── */}
             <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-4">

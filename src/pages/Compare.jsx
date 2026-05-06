@@ -326,7 +326,7 @@ function CompareImage2Guide({ providerLabel }) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>Compare Report</span>
+              <span>競合LP分析</span>
               <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
               <span className="font-bold text-primary">LP比較レポート</span>
             </div>
@@ -336,7 +336,7 @@ function CompareImage2Guide({ providerLabel }) {
             </p>
           </div>
           <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            {providerLabel} analysis
+            {providerLabel} 分析
           </span>
         </div>
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -384,7 +384,7 @@ function CompareActionPreview() {
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-extrabold text-on-surface japanese-text">次のアクション</h2>
-            <span className="rounded-lg bg-primary/[0.08] px-3 py-1 text-xs font-bold text-primary">Compare GPT Image2 reflected</span>
+            <span className="rounded-lg bg-primary/[0.08] px-3 py-1 text-xs font-bold text-primary">Image2方向反映済み</span>
           </div>
           <p className="mt-2 text-sm text-on-surface-variant japanese-text">比較結果を、成果につながる施策へ優先順位順に整理します。</p>
         </div>
@@ -695,9 +695,9 @@ export default function Compare() {
   })
   const extracted = result?.extracted ?? null
   const siteCards = [
-    { key: 'target', label: '自社 LP', subtitle: 'Control', url: urls.target },
-    { key: 'compA', label: '競合 A', subtitle: 'Competitor Alpha', url: urls.compA },
-    { key: 'compB', label: '競合 B', subtitle: 'Competitor Beta', url: urls.compB },
+    { key: 'target', label: '自社 LP', subtitle: '比較基準', url: urls.target },
+    { key: 'compA', label: '競合 A', subtitle: '競合候補 A', url: urls.compA },
+    { key: 'compB', label: '競合 B', subtitle: '競合候補 B', url: urls.compB },
   ].filter((site) => site.url)
 
   return (
@@ -711,7 +711,7 @@ export default function Compare() {
         <div className="col-span-3 flex justify-end">
           <span className="inline-flex items-center gap-2 px-5 py-3 surface-section rounded-full label-md text-primary-container">
             <span className="material-symbols-outlined text-base">auto_awesome</span>
-            AI POWERED
+            AI分析
           </span>
         </div>
       </div>
@@ -733,9 +733,9 @@ export default function Compare() {
       <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
         <div className="grid grid-cols-3 gap-6">
           {[
-            { key: 'target', label: '自社URL (Target)', placeholder: '例: https://your-site.jp/lp01…' },
-            { key: 'compA', label: '競合URL A (Competitor)', placeholder: '例: https://competitor-a.com/landing…' },
-            { key: 'compB', label: '競合URL B (Competitor)', placeholder: '例: https://competitor-b.com/campaign…' },
+            { key: 'target', label: '自社URL', placeholder: '例: https://your-site.jp/lp01…' },
+            { key: 'compA', label: '競合URL A', placeholder: '例: https://competitor-a.com/landing…' },
+            { key: 'compB', label: '競合URL B', placeholder: '例: https://competitor-b.com/campaign…' },
           ].map(({ key, label, placeholder }) => (
             <div key={key}>
               <label htmlFor={`compare-url-${key}`} className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
@@ -1015,14 +1015,14 @@ export default function Compare() {
                         <span className="text-sm font-bold text-primary">関連レポート</span>
                       </div>
                       <p className="text-xs text-on-surface-variant mb-3">
-                        以下のブランドがDiscoveryレポートでも分析されています: {overlap.join('、')}
+                        以下のブランドが競合発見レポートでも分析されています: {overlap.join('、')}
                       </p>
                       <Link
                         to="/discovery"
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors"
                       >
                         <span className="material-symbols-outlined text-sm">open_in_new</span>
-                        Discoveryレポートを表示
+                        競合発見レポートを表示
                       </Link>
                     </div>
                   )

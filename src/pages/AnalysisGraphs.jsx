@@ -39,18 +39,18 @@ const SECTIONS = [
 
 /* ── Evidence Type styles ── */
 const EVIDENCE_STYLES = {
-  observed: { text: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/20', label: 'Observed' },
-  derived:  { text: 'text-secondary', bg: 'bg-secondary/5', border: 'border-secondary/20', label: 'Derived' },
-  proxy:    { text: 'text-accent-gold', bg: 'bg-accent-gold/10', border: 'border-accent-gold/20', label: 'Proxy' },
-  inferred: { text: 'text-tertiary', bg: 'bg-tertiary/5', border: 'border-tertiary/20', label: 'Inferred' },
+  observed: { text: 'text-primary', bg: 'bg-primary/5', border: 'border-primary/20', label: '実測' },
+  derived:  { text: 'text-secondary', bg: 'bg-secondary/5', border: 'border-secondary/20', label: '導出' },
+  proxy:    { text: 'text-accent-gold', bg: 'bg-accent-gold/10', border: 'border-accent-gold/20', label: '代替' },
+  inferred: { text: 'text-tertiary', bg: 'bg-tertiary/5', border: 'border-tertiary/20', label: '推論' },
 }
 
 /* ── Evidence Type colour map (for EvidenceDrawer) ── */
 const TYPE_STYLES = {
-  observed: { bg: 'bg-primary/5', border: 'border-primary/10', text: 'text-primary', badgeBg: 'bg-primary/10', label: '実測 (Observed)', borderL: 'border-l-primary' },
-  derived:  { bg: 'bg-secondary/5', border: 'border-secondary/10', text: 'text-secondary', badgeBg: 'bg-secondary/10', label: '導出 (Derived)', borderL: 'border-l-secondary' },
-  proxy:    { bg: 'bg-outline-variant/5', border: 'border-outline-variant/20', text: 'text-on-surface-variant', badgeBg: 'bg-outline-variant/10', label: '代替 (Proxy)', borderL: 'border-l-outline-variant' },
-  inferred: { bg: 'bg-tertiary/5', border: 'border-tertiary/10', text: 'text-tertiary', badgeBg: 'bg-tertiary/10', label: '推論 (Inferred)', borderL: 'border-l-tertiary' },
+  observed: { bg: 'bg-primary/5', border: 'border-primary/10', text: 'text-primary', badgeBg: 'bg-primary/10', label: '実測', borderL: 'border-l-primary' },
+  derived:  { bg: 'bg-secondary/5', border: 'border-secondary/10', text: 'text-secondary', badgeBg: 'bg-secondary/10', label: '導出', borderL: 'border-l-secondary' },
+  proxy:    { bg: 'bg-outline-variant/5', border: 'border-outline-variant/20', text: 'text-on-surface-variant', badgeBg: 'bg-outline-variant/10', label: '代替', borderL: 'border-l-outline-variant' },
+  inferred: { bg: 'bg-tertiary/5', border: 'border-tertiary/10', text: 'text-tertiary', badgeBg: 'bg-tertiary/10', label: '推論', borderL: 'border-l-tertiary' },
 }
 
 /* ── Evidence Drawer ── */
@@ -63,7 +63,7 @@ function EvidenceDrawer({ cards, reportBundle }) {
         <summary className="flex items-center justify-between px-8 py-3 cursor-pointer list-none hover:bg-surface-container-low transition-colors select-none">
           <div className="flex items-center gap-4">
             <span className="material-symbols-outlined text-on-surface-variant transition-transform group-open:rotate-180">keyboard_arrow_up</span>
-            <span className="text-[12px] font-bold text-on-surface-variant uppercase tracking-widest">根拠データ (Raw Evidence Drawer)</span>
+            <span className="text-[12px] font-bold text-on-surface-variant tracking-widest">根拠データ</span>
           </div>
           <div className="flex gap-4 items-center">
             {reportBundle?.generatedAt && (
@@ -93,7 +93,7 @@ function EvidenceDrawer({ cards, reportBundle }) {
                       <span className="font-bold text-on-surface">{card.source ?? 'BQ / GA4'}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="font-medium">Raw Value</span>
+                      <span className="font-medium">値</span>
                       <span className="font-bold text-on-surface tabular-nums">{card.value}</span>
                     </div>
                     {card.trend && (
@@ -126,7 +126,7 @@ function TextAdCard({ adRef, index }) {
   return (
     <div className="bg-surface-container-lowest rounded-xl ghost-border overflow-hidden flex flex-col">
       <div className="p-4 bg-primary/5 border-b border-outline-variant/10">
-        <span className="text-[10px] font-bold text-primary tracking-widest">TEXT AD #{String(index + 1).padStart(2, '0')}</span>
+        <span className="text-[10px] font-bold text-primary tracking-widest">テキスト広告 #{String(index + 1).padStart(2, '0')}</span>
       </div>
       <div className="p-6 flex-1 space-y-4">
         <div className="p-3 bg-surface rounded border border-outline-variant/20">
@@ -186,7 +186,7 @@ function BannerAdCard({ adRef, index }) {
           </div>
         )}
         <div className="absolute top-3 left-3 px-2 py-1 bg-primary text-on-primary text-[10px] font-bold rounded">
-          BANNER AD #{String(index + 1).padStart(2, '0')}
+          バナー広告 #{String(index + 1).padStart(2, '0')}
         </div>
       </div>
       <div className="p-6 space-y-4">
@@ -518,9 +518,9 @@ function AdsImage2KpiBoard({
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-on-surface-variant">
-            <span>Ads Graphs</span>
+            <span>広告グラフ</span>
             <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-            <span>Ads AI</span>
+            <span>AI考察</span>
             <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
             <span className="font-bold text-primary">分析グラフ</span>
           </div>
@@ -892,7 +892,10 @@ function GraphAiQuestionRail({
   }
 
   return (
-    <aside className="block self-start max-h-[calc(100vh-6rem)] overflow-y-auto rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm lg:fixed lg:right-8 lg:top-24 lg:z-30 lg:w-[360px]">
+    <aside
+      data-testid="ads-graph-ai-rail"
+      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm 2xl:sticky 2xl:top-24 2xl:max-h-[calc(100vh-6rem)] 2xl:overflow-y-auto"
+    >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -1198,7 +1201,7 @@ export default function AnalysisGraphs() {
 
   return (
     <div className="flex-1 min-w-0 overflow-y-auto">
-      <div className={`px-8 py-8 pb-20 max-w-[1680px] space-y-10 ${hasGraphData ? 'lg:pr-[420px]' : ''}`}>
+      <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-10">
 
         {/* ═══ 1. PAGE HEADER ═══ */}
         <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -1248,7 +1251,7 @@ export default function AnalysisGraphs() {
                     : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
-                Exec View
+                要約表示
               </button>
               <button
                 onClick={() => setViewMode('analyst')}
@@ -1258,7 +1261,7 @@ export default function AnalysisGraphs() {
                     : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
-                Analyst View
+                詳細表示
               </button>
             </div>
 
@@ -1383,7 +1386,7 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        <div className={hasGraphData ? 'space-y-10' : ''}>
+        <div className={hasGraphData ? 'space-y-10 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start 2xl:gap-8 2xl:space-y-0' : ''}>
           <div className="min-w-0 space-y-10">
             {/* ═══ 4. GRAPH SECTION ═══ */}
             <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
@@ -1574,7 +1577,7 @@ export default function AnalysisGraphs() {
                       <li key={idx} className="space-y-1">
                         <p className="text-sm leading-relaxed text-on-surface-variant japanese-text">{hyp.summary}</p>
                         {hyp.source && (
-                          <span className="px-2 py-0.5 bg-surface-container rounded text-[9px] text-on-surface-variant">Source: {hyp.source}</span>
+                          <span className="px-2 py-0.5 bg-surface-container rounded text-[9px] text-on-surface-variant">出典: {hyp.source}</span>
                         )}
                       </li>
                     )) : (

@@ -22,14 +22,14 @@ import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
 
 const NAV_ITEMS = [
-  { to: '/', icon: 'home', label: 'Dashboard' },
-  { to: '/compare', icon: 'balance', label: 'Compare' },
-  { to: '/discovery', icon: 'search', label: 'Discovery' },
-  { to: '/creative-review', icon: 'image', label: 'Creative Review' },
-  { to: '/ads/graphs', icon: 'monitoring', label: 'Ads Graphs', requiresSetup: true },
-  { to: '/ads/ai', icon: 'auto_awesome', label: 'Ads AI', requiresSetup: true },
-  { to: '/settings', icon: 'settings', label: 'Settings' },
-  { to: '/projects', icon: 'account_tree', label: 'Projects', adminOnly: true },
+  { to: '/', icon: 'home', label: 'ダッシュボード' },
+  { to: '/compare', icon: 'balance', label: '競合LP分析' },
+  { to: '/discovery', icon: 'search', label: '競合発見' },
+  { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
+  { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
+  { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
+  { to: '/settings', icon: 'settings', label: '設定' },
+  { to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true },
 ]
 
 function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
@@ -234,7 +234,7 @@ function KeySettingsModal({ onClose }) {
         {/* Gemini Key */}
         <div className="space-y-2">
           <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（推奨・分析用）</label>
-          <p className="text-xs text-on-surface-variant">設定されている場合は Compare / Discovery / Creative Review で Gemini を優先します</p>
+          <p className="text-xs text-on-surface-variant">設定されている場合は競合LP分析・競合発見・バナーレビューで Gemini を優先します</p>
           <a
             href="https://aistudio.google.com/app/apikey"
             target="_blank"
@@ -500,7 +500,7 @@ export default function Layout() {
               Insight Studio
             </h1>
             <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-              Ad Ops &amp; Analysis
+              広告運用分析
             </p>
           </div>
         </div>
@@ -516,7 +516,7 @@ export default function Layout() {
                 icon={item.icon}
                 label={item.label}
                 disabled={disabledPaths?.includes(item.to)}
-                badge={disabledPaths?.includes(item.to) && item.requiresSetup ? 'Setup' : item.badge}
+                badge={disabledPaths?.includes(item.to) && item.requiresSetup ? '要設定' : item.badge}
               />
             ))}
         </nav>
@@ -528,7 +528,7 @@ export default function Layout() {
         <div className="px-6 mb-3">
           <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-white/50">Compare / Discovery</span>
+              <span className="text-white/50">競合LP分析 / 競合発見</span>
               <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
                 {coreAnalysisStatusLabel}
@@ -556,7 +556,7 @@ export default function Layout() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-white/50">Ads AI</span>
+              <span className="text-white/50">AI考察</span>
               <span className={`flex items-center gap-1 font-bold ${adsAiTone}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${adsAiDot}`} />
                 {adsAiStatusLabel}

@@ -73,19 +73,19 @@ function DiscoveryImage2Guide({ providerLabel }) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>Discovery</span>
+              <span>競合発見</span>
               <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span>Discovery Report</span>
+              <span>発見レポート</span>
               <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
               <span className="font-bold text-primary">レポート</span>
             </div>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface">Discovery Report</h2>
+            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">発見レポート</h2>
             <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
               発見したURLを分類し、直接競合・隣接競合・参考ブランド・対象外を混ぜずに判断します。
             </p>
           </div>
           <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            {providerLabel} discovery
+            {providerLabel} 競合発見
           </span>
         </div>
 
@@ -143,7 +143,7 @@ function DiscoveryActionPreview() {
             </span>
             <div>
               <strong className="block text-on-surface japanese-text">直接競合で比較</strong>
-              <small className="text-on-surface-variant">Discovery結果をCompareに送って比較を開始します。</small>
+              <small className="text-on-surface-variant">競合発見の結果を競合LP分析に送って比較を開始します。</small>
             </div>
           </div>
           <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">最優先で比較</span>
@@ -153,7 +153,7 @@ function DiscoveryActionPreview() {
         {[
           ['直接競合で比較', '最初に詳細比較します', 'primary'],
           ['LP弱点を確認', '自社LPの弱点をチェックリスト化', 'amber'],
-          ['Compareへ送る', '比較レポートへつなぎます', 'blue'],
+          ['競合LP分析へ送る', '比較レポートへつなぎます', 'blue'],
         ].map(([title, body, tone]) => (
           <article key={title} className={`rounded-xl border p-5 ${
             tone === 'primary'
