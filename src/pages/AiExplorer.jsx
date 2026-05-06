@@ -404,7 +404,14 @@ export default function AiExplorer() {
       }
 
       const assistantMessage = { role: 'assistant', text: aiContent }
-      setMessages([...nextMessages, assistantMessage])
+      const completedMessages = [...nextMessages, assistantMessage]
+      setMessages(completedMessages)
+      addEntry({
+        setupState,
+        reportBundle,
+        messages: completedMessages,
+        contextMode,
+      })
 
       const hasTable = /\|.+\|/.test(aiContent)
       const hasBoldMetric = /\*\*[\d,.]+[%％]?(\s*(増|減|上昇|低下|改善|悪化))?(\*\*)?/.test(aiContent)
