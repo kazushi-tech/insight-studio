@@ -140,10 +140,13 @@ function InsightDecisionBoard({ reportBundle, messages }) {
   return (
     <section className={styles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
       <div className={styles.decisionBoardMain}>
-        <p className={styles.decisionEyebrow}>Insight Decision Board</p>
+        <p className={styles.decisionEyebrow}>AI Graph Chat / Python集計済み</p>
         <h2 id="insight-decision-board-title" className={`${styles.decisionTitle} japanese-text`}>
-          {state.topAction}
+          グラフを見ながらAIに質問
         </h2>
+        <p className="japanese-text" style={{ marginTop: '0.5rem', color: 'var(--color-on-surface-variant)', fontWeight: 700 }}>
+          {state.topAction}
+        </p>
         <div className={styles.decisionMetaGrid}>
           <div className={styles.decisionMeta}>
             <span>最重要変化指標</span>

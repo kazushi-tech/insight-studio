@@ -396,6 +396,92 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
   )
 }
 
+function DashboardImage2StatusPanel({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
+  const latestLabel = reportBundle?.generatedAt
+    ? new Date(reportBundle.generatedAt).toLocaleString('ja-JP', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '未更新'
+  const dataWindow = setupState?.periods?.length
+    ? `${setupState.periods.length} 期間`
+    : '過去 90 日間'
+
+  return (
+    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-emerald-700" aria-hidden="true">check_circle</span>
+              <h2 className="text-xl font-extrabold text-on-surface japanese-text">GA4 / BigQuery 連携済み</h2>
+            </div>
+            <p className="mt-2 text-sm text-on-surface-variant japanese-text">
+              おかえりなさい。データ連携の状態と、今日すぐ使える分析を最初に見せます。
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">verified</span>
+            {isAdsAuthenticated ? 'Ads 認証済み' : 'Ads 認証待ち'}
+          </span>
+        </div>
+
+        <div className="mt-7 grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1.1fr_0.9fr_0.9fr_1fr]">
+          {[
+            ['analytics', 'GA4', setupState?.propertyName || 'Hana Nest - GA4', isAdsAuthenticated ? '接続中' : '確認待ち'],
+            ['database', 'BigQuery', setupState?.datasetId || 'insight_studio', setupState?.datasetId ? '集計先' : '保存先ID待ち'],
+            ['folder_data', '保存先ID', setupState?.datasetId || '123456789', 'GA4保存先IDから集計'],
+            ['sync', '集計状況', latestLabel, 'Python集計'],
+            ['date_range', '取得データ期間', dataWindow, '最新データを反映'],
+          ].map(([icon, label, value, note]) => (
+            <div key={label} className="min-w-0 border-l border-outline-variant/20 pl-4 first:border-l-0 first:pl-0">
+              <div className="flex items-center gap-2 text-primary">
+                <span className="material-symbols-outlined text-lg" aria-hidden="true">{icon}</span>
+                <span className="text-xs font-black uppercase tracking-[0.14em]">{label}</span>
+              </div>
+              <p className="mt-2 text-base font-extrabold text-on-surface break-words japanese-text">{value}</p>
+              <p className="mt-1 text-xs text-on-surface-variant japanese-text">{note}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 rounded-xl border border-primary/15 bg-primary/[0.045] px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <p className="flex items-center gap-2 text-sm font-bold text-primary japanese-text">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">check_circle</span>
+            GA4保存先IDから集計済み
+          </p>
+          <button
+            type="button"
+            onClick={() => onNavigate('/ads/graphs')}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.06]"
+          >
+            Ads Graphs で詳細を見る
+            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+
+      <aside className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-extrabold text-primary japanese-text">## 今日のおすすめ</h2>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-7 text-on-surface japanese-text">
+              <li>LP比較で競合との差分を把握しましょう</li>
+              <li>発見レポートで新しい競合を見つけましょう</li>
+              <li>バナーレビューで改善点を確認しましょう</li>
+            </ul>
+          </div>
+          <span className="grid size-16 place-items-center rounded-full bg-primary/[0.08] text-primary">
+            <span className="material-symbols-outlined text-3xl" aria-hidden="true">lightbulb</span>
+          </span>
+        </div>
+      </aside>
+    </section>
+  )
+}
+
 export default function Dashboard() {
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(true)
@@ -456,9 +542,16 @@ export default function Dashboard() {
     <div className="p-10 max-w-[1400px] mx-auto space-y-10">
       {/* Page Header — title + subtitle only */}
       <div>
-        <h2 className="text-3xl font-bold text-on-surface tracking-tight japanese-text">ダッシュボード</h2>
-        <p className="text-on-surface-variant mt-2 text-lg">現在の分析状況の概要です</p>
+        <h2 className="text-4xl font-extrabold text-on-surface tracking-tight">Dashboard</h2>
+        <p className="text-on-surface-variant mt-2 text-lg japanese-text">すぐに分析を始められる状態を、接続・機能・次の順番で確認します。</p>
       </div>
+
+      <DashboardImage2StatusPanel
+        setupState={setupState}
+        reportBundle={reportBundle}
+        isAdsAuthenticated={isAdsAuthenticated}
+        onNavigate={navigate}
+      />
 
       <TodayFeatureBoard
         hasAnalysisKey={hasAnalysisKey}
