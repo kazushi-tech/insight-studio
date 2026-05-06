@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { getScanReportEnvelope, getDiscoveryReportEnvelope } from '../api/marketLens'
 
-const REPORT_ENVELOPE_ENABLED = import.meta.env.VITE_REPORT_ENVELOPE_V0 === '1'
+const REPORT_ENVELOPE_FLAG = String(import.meta.env.VITE_REPORT_ENVELOPE_V0 || '').toLowerCase()
+const REPORT_ENVELOPE_ENABLED = !['0', 'false', 'off', 'no'].includes(REPORT_ENVELOPE_FLAG)
 
 /**
  * Fetches the ReportEnvelope v0 side-channel for a scan or discovery job.

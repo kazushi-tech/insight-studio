@@ -700,7 +700,7 @@ export default function Compare() {
     { key: 'compA', label: '競合 A', subtitle: '競合候補 A', url: urls.compA },
     { key: 'compB', label: '競合 B', subtitle: '競合候補 B', url: urls.compB },
   ].filter((site) => site.url)
-  const compareRailStatus = loading ? '分析中' : error ? 'エラー' : result ? '完了' : '入力待ち'
+  const compareRailStatus = loading ? '分析中' : error ? 'エラー' : result ? 'レポート生成済み' : '入力待ち'
   const compareRailInput = siteCards.length > 0
     ? siteCards.map((site) => getHostname(site.url) || site.label).join(' / ')
     : 'URL未入力'
