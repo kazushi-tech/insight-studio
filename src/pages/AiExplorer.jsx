@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import { getScans, classifyError } from '../api/marketLens'
@@ -67,6 +68,7 @@ function toConversationHistory(messages) {
 }
 
 export default function AiExplorer() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { isV2 } = useUiVersion()
   const {
     isAdsAuthenticated,
@@ -108,6 +110,18 @@ export default function AiExplorer() {
   const chatEndRef = useRef(null)
   const abortRef = useRef(null)
   const submittingRef = useRef(false)
+
+  useEffect(() => {
+    const question = searchParams.get('question')
+    if (!question) return
+    setInput(question)
+    setStatus('グラフ分析から質問を引き継ぎました。内容を確認して送信できます。')
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('question')
+      return next
+    }, { replace: true })
+  }, [searchParams, setSearchParams])
 
   // アンマウント時にリトライ中のリクエストをキャンセル
   useEffect(() => {

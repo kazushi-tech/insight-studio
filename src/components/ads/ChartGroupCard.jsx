@@ -629,7 +629,7 @@ export default function ChartGroupCard({ group, featured = false }) {
         <div className="space-y-2 min-w-0">
           <div className="flex items-center gap-2 text-[10px] font-black tracking-[0.16em] uppercase text-primary">
             <span className="material-symbols-outlined text-base" aria-hidden="true">{accent.icon}</span>
-            {accent.label} Graph
+            {accent.label}グラフ
           </div>
           <h3 className={`${featured ? 'text-2xl' : 'text-xl'} font-black leading-tight text-primary japanese-text break-words`}>
             {group?.title || '無題グラフ'}
@@ -653,9 +653,9 @@ export default function ChartGroupCard({ group, featured = false }) {
         </div>
         <div className="grid grid-cols-3 gap-2 rounded-2xl border border-primary/10 bg-surface-container-lowest/80 p-2 text-center">
           {[
-            ['MAX', scaleSummary.max],
-            ['MIN', scaleSummary.min],
-            ['RANGE', scaleSummary.range],
+            ['最大', scaleSummary.max],
+            ['最小', scaleSummary.min],
+            ['差分', scaleSummary.range],
           ].map(([label, value]) => (
             <div key={label} className="min-w-14 rounded-xl bg-primary/[0.055] px-2 py-2">
               <p className="text-[9px] font-black tracking-[0.12em] text-on-surface-variant">{label}</p>
@@ -669,11 +669,11 @@ export default function ChartGroupCard({ group, featured = false }) {
       {hasRenderableData ? (
         <div className="flex-1 flex flex-col px-6 pb-6">
           <div className={`relative overflow-hidden border border-primary/15 bg-surface-container-lowest/85 shadow-inner ${effectiveChartType === 'doughnut'
-            ? `${featured ? 'h-[360px]' : 'h-[320px]'} rounded-[1.1rem] px-4 py-5`
-            : `${featured ? 'h-[380px]' : 'h-[320px]'} rounded-[1.1rem] p-5`
+            ? `${featured ? 'h-[330px]' : 'h-[300px]'} rounded-[1.1rem] px-4 py-5`
+            : `${featured ? 'h-[340px]' : 'h-[300px]'} rounded-[1.1rem] p-5`
           }`}>
             <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-black tracking-[0.14em] text-primary">
-              PYTHON PLOT CANVAS
+              Python描画エリア
             </div>
             <canvas ref={canvasRef} />
           </div>
