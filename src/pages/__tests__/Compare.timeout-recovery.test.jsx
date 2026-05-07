@@ -20,7 +20,11 @@ vi.spyOn(console, 'error').mockImplementation(() => {})
 function setup() {
   localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
   render(<Compare />, { wrapper: TestProviders })
-  const inputs = screen.getAllByRole('textbox')
+  const inputs = [
+    screen.getByPlaceholderText(/your-site\.jp/),
+    screen.getByPlaceholderText(/competitor-a\.com/),
+    screen.getByPlaceholderText(/competitor-b\.com/),
+  ]
   fireEvent.change(inputs[0], { target: { value: 'https://example.com' } })
   fireEvent.change(inputs[1], { target: { value: 'https://competitor.com' } })
   fireEvent.click(screen.getByRole('button', { name: /分析開始/ }))

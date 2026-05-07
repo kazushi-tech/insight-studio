@@ -23,6 +23,28 @@ function renderCompare() {
   return render(<Compare />, { wrapper: TestProviders })
 }
 
+function getUrlInputs() {
+  return [
+    screen.getByPlaceholderText(/your-site\.jp/),
+    screen.getByPlaceholderText(/competitor-a\.com/),
+    screen.getByPlaceholderText(/competitor-b\.com/),
+  ]
+}
+
+function mockFastScanJob(jobId = 'scan-job-001') {
+  server.use(
+    http.post('/api/ml/scan/jobs', () =>
+      HttpResponse.json({
+        job_id: jobId,
+        poll_url: `/scan/jobs/${jobId}`,
+        retry_after_sec: 0.01,
+        status: 'running',
+        stage: 'queued',
+      }),
+    ),
+  )
+}
+
 // ── Setup / teardown ─────────────────────────────────────────
 beforeEach(() => {})
 afterEach(() => {
@@ -33,7 +55,7 @@ afterEach(() => {
 // Helper: fill URLs and click scan
 async function fillAndScan() {
   const user = userEvent.setup()
-  const inputs = screen.getAllByRole('textbox')
+  const inputs = getUrlInputs()
   await user.type(inputs[0], 'https://example.com')
   await user.type(inputs[1], 'https://competitor.com')
   await user.click(screen.getByRole('button', { name: /分析開始/ }))
@@ -71,6 +93,7 @@ describe('Compare — async job error scenarios', () => {
 
   it('shows error when poll returns a failed job status', async () => {
     setClaudeKey()
+    mockFastScanJob()
 
     // Job creation succeeds, but polling returns failed status
     server.use(
@@ -176,7 +199,7 @@ describe('Compare — retry after error', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     await user.type(inputs[0], 'https://example.com')
     await user.type(inputs[1], 'https://competitor.com')
     await user.click(screen.getByRole('button', { name: /分析開始/ }))
@@ -206,6 +229,7 @@ describe('Compare — retry after error', () => {
 describe('Compare — poll result contains error status with report_md fallback', () => {
   it('extracts error message from report_md when error field is empty in poll result', async () => {
     setClaudeKey()
+    mockFastScanJob()
 
     // Poll returns completed but the result has error status + report_md
     server.use(

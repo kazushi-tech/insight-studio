@@ -24,6 +24,14 @@ function renderCompare() {
   return render(<Compare />, { wrapper: TestProviders })
 }
 
+function getUrlInputs() {
+  return [
+    screen.getByPlaceholderText(/your-site\.jp/),
+    screen.getByPlaceholderText(/competitor-a\.com/),
+    screen.getByPlaceholderText(/competitor-b\.com/),
+  ]
+}
+
 // ── Setup / teardown ─────────────────────────────────────────
 beforeEach(() => {
   // Make warmMarketLensBackend resolve immediately via the health handler
@@ -44,7 +52,7 @@ describe('Compare — basic rendering', () => {
     renderCompare()
 
     // Three input fields (target, compA, compB)
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     expect(inputs.length).toBeGreaterThanOrEqual(3)
 
     // The analysis button
@@ -69,7 +77,7 @@ describe('Compare — URL input interaction', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     // inputs[0]=target, [1]=compA, [2]=compB
     await user.type(inputs[0], 'https://my-site.jp')
     await user.type(inputs[1], 'https://comp-a.com')
@@ -95,7 +103,7 @@ describe('Compare — happy path scan', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     await user.type(inputs[0], 'https://example.com')
     await user.type(inputs[1], 'https://competitor.com')
 
@@ -117,7 +125,7 @@ describe('Compare — happy path scan', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     await user.type(inputs[0], 'https://example.com')
     await user.type(inputs[1], 'https://competitor.com')
 
@@ -154,7 +162,7 @@ describe('Compare — error display', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     await user.type(inputs[0], 'https://example.com')
     await user.type(inputs[1], 'https://competitor.com')
 
@@ -181,7 +189,7 @@ describe('Compare — error display', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     await user.type(inputs[0], 'https://example.com')
     await user.type(inputs[1], 'https://competitor.com')
 
@@ -219,7 +227,7 @@ describe('Compare — draft persistence', () => {
 
     renderCompare()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     expect(inputs[0]).toHaveValue('https://saved-target.com')
     expect(inputs[1]).toHaveValue('https://saved-comp-a.com')
     expect(inputs[2]).toHaveValue('https://saved-comp-b.com')
@@ -230,7 +238,7 @@ describe('Compare — draft persistence', () => {
     renderCompare()
     const user = userEvent.setup()
 
-    const inputs = screen.getAllByRole('textbox')
+    const inputs = getUrlInputs()
     await user.type(inputs[0], 'https://typed.com')
 
     const raw = sessionStorage.getItem('is-draft-compare')
