@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
 import SourceBadge from '../components/ads/SourceBadge'
@@ -37,6 +38,20 @@ const SECTIONS = [
   { id: 'creative', label: 'クリエイティブ', icon: 'palette' },
   { id: 'detail-report', label: '詳細レポート', icon: 'description' },
 ]
+
+const ADS_QUERY_LABELS = {
+  pv: 'PV分析',
+  traffic: '流入分析',
+  cv: 'CV分析',
+  search: '検索クエリ分析',
+  anomaly: '異常検知',
+  landing: 'LP分析',
+  device: 'デバイス分析',
+  hourly: '時間帯分析',
+  user_attr: 'ユーザー属性',
+  engagement: 'エンゲージメント時間',
+  auction_proxy: 'オークション圧分析',
+}
 
 /* ── Evidence Type styles ── */
 const EVIDENCE_STYLES = {
@@ -236,25 +251,6 @@ function pickKeyCharts(chartGroups) {
   })
   scored.sort((a, b) => b.score - a.score)
   return scored.slice(0, 2).map((s) => s.group)
-}
-
-function filterChartGroupsByRecentPoints(chartGroups, pointCount) {
-  if (!Number.isFinite(pointCount) || pointCount <= 0) return chartGroups
-  return chartGroups.map((group) => {
-    const labels = Array.isArray(group?.labels) ? group.labels : []
-    const start = Math.max(0, labels.length - pointCount)
-    return {
-      ...group,
-      labels: labels.slice(start),
-      datasets: Array.isArray(group?.datasets)
-        ? group.datasets.map((dataset) => ({
-            ...dataset,
-            data: Array.isArray(dataset?.data) ? dataset.data.slice(start) : dataset?.data,
-          }))
-        : group?.datasets,
-      _image2RangePreset: `${pointCount}日間`,
-    }
-  })
 }
 
 /* ── Theme Tabs (analyst supplement) ── */
@@ -485,6 +481,7 @@ function AdsImage2KpiBoard({
   periodFilter,
   periodTags,
   onPeriodFilterChange,
+  onChangeSetup,
   onScrollToGraphs,
 }) {
   const generatedAt = reportBundle?.generatedAt
@@ -507,12 +504,12 @@ function AdsImage2KpiBoard({
     { icon: 'error', label: '異常検知', value: hasTheme('anomaly') ? '確認可' : '未取得', delta: '追加取得で補完', tone: hasTheme('anomaly') ? 'up' : 'neutral' },
   ]
 
+  const selectedQueryLabels = (setupState?.queryTypes ?? [])
+    .map((queryType) => ADS_QUERY_LABELS[queryType] ?? queryType)
   const periodOptions = [
-    { label: '7日間', value: 'recent:7' },
-    { label: '14日間', value: 'recent:14' },
-    { label: '30日間', value: 'recent:30' },
-    { label: '90日間', value: 'recent:90' },
-    { label: 'カスタム', value: 'all' },
+    { label: '最新期間', value: 'latest', helper: periodTags[periodTags.length - 1] ?? '-' },
+    ...(periodTags.length > 1 ? [{ label: '全期間まとめ', value: 'all', helper: `${periodTags.length}期間` }] : []),
+    ...periodTags.map((period) => ({ label: period, value: period, helper: '選択期間' })),
   ]
   const latestPeriodLabel = periodTags.length > 0 ? periodTags[periodTags.length - 1] : '-'
 
@@ -543,36 +540,62 @@ function AdsImage2KpiBoard({
       </div>
 
       <div className="rounded-xl border border-outline-variant/20 bg-surface p-5">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-on-surface japanese-text">選択中の分析条件</h3>
+            <p className="mt-1 text-xs leading-6 text-on-surface-variant japanese-text">
+              ウィザードで選んだクエリと期間だけをここに反映します。条件を変える場合は選び直してください。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onChangeSetup}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/[0.05] transition-colors"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
+            クエリと期間を選び直す
+          </button>
+        </div>
+        <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)]">
+          <div className="rounded-xl border border-outline-variant/15 bg-surface-container-lowest p-4">
+            <p className="text-[11px] font-black tracking-widest text-on-surface-variant">選択クエリ</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {selectedQueryLabels.length > 0 ? selectedQueryLabels.map((label) => (
+                <span key={label} className="rounded-lg bg-primary/[0.08] px-3 py-1.5 text-xs font-bold text-primary japanese-text">
+                  {label}
+                </span>
+              )) : (
+                <span className="text-xs text-on-surface-variant">未選択</span>
+              )}
+            </div>
+          </div>
+          <div className="rounded-xl border border-outline-variant/15 bg-surface-container-lowest p-4">
+            <p className="text-[11px] font-black tracking-widest text-on-surface-variant">ウィザード選択期間</p>
+            <p className="mt-2 text-sm font-extrabold text-primary japanese-text">
+              {(setupState?.periods ?? []).length > 0 ? (setupState.periods.length === 1 ? setupState.periods[0] : `${setupState.periods[0]} 〜 ${setupState.periods[setupState.periods.length - 1]}`) : latestPeriodLabel}
+            </p>
+          </div>
+        </div>
         <h3 className="text-base font-extrabold text-on-surface japanese-text">期間選択</h3>
-        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-[repeat(5,minmax(0,1fr))_minmax(220px,1.4fr)]">
+        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
           {periodOptions.map((option) => (
             <button
               key={option.value}
               type="button"
               aria-pressed={periodFilter === option.value}
               onClick={() => onPeriodFilterChange(option.value)}
-              className={`rounded-lg border px-4 py-3 text-sm font-bold transition-colors ${
+              className={`min-h-16 rounded-lg border px-4 py-3 text-left text-sm font-bold transition-colors ${
                 periodFilter === option.value
                   ? 'border-primary bg-primary text-on-primary'
                   : 'border-outline-variant/25 bg-surface-container-lowest text-on-surface hover:border-primary/30'
               }`}
             >
-              {option.label}
+              <span className="block japanese-text">{option.label}</span>
+              <span className={`mt-1 block text-[11px] font-bold ${periodFilter === option.value ? 'text-on-primary/75' : 'text-on-surface-variant'}`}>
+                {option.helper}
+              </span>
             </button>
           ))}
-          <button
-            type="button"
-            aria-pressed={periodFilter === 'latest'}
-            onClick={() => onPeriodFilterChange('latest')}
-            className={`col-span-2 flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-bold md:col-span-1 ${
-              periodFilter === 'latest'
-                ? 'border-primary bg-primary text-on-primary'
-                : 'border-outline-variant/25 bg-surface-container-lowest text-on-surface hover:border-primary/30'
-            }`}
-          >
-            <span className={`material-symbols-outlined text-base ${periodFilter === 'latest' ? 'text-on-primary' : 'text-primary'}`} aria-hidden="true">calendar_month</span>
-            最新期間: {latestPeriodLabel}
-          </button>
         </div>
       </div>
 
@@ -1017,16 +1040,17 @@ function GraphAiQuestionRail({
    Main Component: 広告分析 (Unified Analysis Surface)
    ════════════════════════════════════════════════════════ */
 export default function AnalysisGraphs() {
+  const navigate = useNavigate()
   const {
     isAdsAuthenticated,
     analysisKey,
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
-  const { setupState, reportBundle, setReportBundle } = useAdsSetup()
+  const { setupState, reportBundle, setReportBundle, resetSetup } = useAdsSetup()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [periodFilter, setPeriodFilter] = useState('recent:30')
+  const [periodFilter, setPeriodFilter] = useState('latest')
   const [activeTheme, setActiveTheme] = useState('all')
   const [viewMode, setViewMode] = useState('analyst')
   const [openSections, setOpenSections] = useState({})
@@ -1068,16 +1092,11 @@ export default function AnalysisGraphs() {
 
   useEffect(() => {
     if (periodTags.length === 0) return
-    if (periodFilter.startsWith('recent:')) return
     if (periodFilter === 'all' || periodFilter === 'latest') return
     if (!periodTags.includes(periodFilter)) setPeriodFilter('latest')
   }, [periodFilter, periodTags])
 
   const filteredGroups = useMemo(() => {
-    if (periodFilter.startsWith('recent:')) {
-      const pointCount = Number(periodFilter.replace('recent:', ''))
-      return filterChartGroupsByRecentPoints(getDisplayChartGroups(chartGroups, 'latest'), pointCount)
-    }
     return getDisplayChartGroups(chartGroups, periodFilter)
   }, [chartGroups, periodFilter])
 
@@ -1137,7 +1156,6 @@ export default function AnalysisGraphs() {
 
   const activeScopeLabel =
     periodFilter === 'all' ? '全期間まとめ'
-    : periodFilter.startsWith('recent:') ? `直近${periodFilter.replace('recent:', '')}日間`
     : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
     : `対象期間: ${periodFilter}`
 
@@ -1159,6 +1177,11 @@ export default function AnalysisGraphs() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleChangeSetup() {
+    resetSetup()
+    navigate('/ads/wizard', { state: { resetAt: Date.now() } })
   }
 
   async function handleExcelFile(file) {
@@ -1275,6 +1298,15 @@ export default function AnalysisGraphs() {
                 詳細表示
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={handleChangeSetup}
+              className="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.05] transition-colors"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
+              条件を選び直す
+            </button>
 
             {/* Period selector */}
             {periodTags.length > 0 && (
@@ -1398,6 +1430,7 @@ export default function AnalysisGraphs() {
             periodFilter={periodFilter}
             periodTags={periodTags}
             onPeriodFilterChange={setPeriodFilter}
+            onChangeSetup={handleChangeSetup}
             onScrollToGraphs={() => scrollToSection('graphs')}
           />
         )}
