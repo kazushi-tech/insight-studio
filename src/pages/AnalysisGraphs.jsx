@@ -926,7 +926,7 @@ function GraphAiQuestionRail({
   return (
     <aside
       data-testid="ads-graph-ai-rail"
-      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm 2xl:sticky 2xl:top-24 2xl:max-h-[calc(100vh-6rem)] 2xl:overflow-y-auto"
+      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm"
     >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
