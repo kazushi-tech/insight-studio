@@ -12,6 +12,7 @@ import { getScanReportEnvelope, getDiscoveryReportEnvelope } from '../../api/mar
 describe('useReportEnvelope', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.stubEnv('VITE_REPORT_ENVELOPE_V0', '1')
   })
 
   it('returns empty state when kind or id is missing', () => {
@@ -97,5 +98,16 @@ describe('useReportEnvelope', () => {
     await waitFor(() => expect(result.current.envelope?.report_id).toBe('2'))
 
     expect(getScanReportEnvelope).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not fetch envelope unless the feature flag is enabled', () => {
+    vi.stubEnv('VITE_REPORT_ENVELOPE_V0', '')
+
+    const { result } = renderHook(() => useReportEnvelope('scan', 'abc'))
+
+    expect(result.current.envelope).toBeNull()
+    expect(result.current.loading).toBe(false)
+    expect(result.current.error).toBeNull()
+    expect(getScanReportEnvelope).not.toHaveBeenCalled()
   })
 })

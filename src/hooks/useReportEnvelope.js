@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { getScanReportEnvelope, getDiscoveryReportEnvelope } from '../api/marketLens'
 
-const REPORT_ENVELOPE_FLAG = String(import.meta.env.VITE_REPORT_ENVELOPE_V0 || '').toLowerCase()
-const REPORT_ENVELOPE_ENABLED = !['0', 'false', 'off', 'no'].includes(REPORT_ENVELOPE_FLAG)
+function isReportEnvelopeEnabled() {
+  const flag = String(import.meta.env.VITE_REPORT_ENVELOPE_V0 || '').toLowerCase()
+  return ['1', 'true', 'on', 'yes'].includes(flag)
+}
 
 /**
  * Fetches the ReportEnvelope v0 side-channel for a scan or discovery job.
@@ -25,7 +27,7 @@ export function useReportEnvelope(kind, id) {
 
   useEffect(() => {
     cancelRef.current = false
-    if (!REPORT_ENVELOPE_ENABLED || !kind || !id) {
+    if (!isReportEnvelopeEnabled() || !kind || !id) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when params clear
       setEnvelope(null)
       setLoading(false)
