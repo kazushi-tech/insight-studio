@@ -64,7 +64,7 @@ export default function ReportViewV2({ envelope, reportMd, kind = 'compare' }) {
 
   return (
     <div className={`ui-v2 ${printStyles.printRoot} ${styles.root}`}>
-      <ActionBoardV2 envelope={envelope} reportMd={reportMd} />
+      <ActionBoardV2 envelope={envelope} reportMd={reportMd} kind={kind} />
       <ReportChapterStackV2 envelope={envelope} reportMd={reportMd} kind={kind} />
       <PriorityActionHeroV2 envelope={envelope} reportMd={reportMd} />
       <MarketRangeV2 envelope={envelope} reportMd={reportMd} />

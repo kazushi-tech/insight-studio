@@ -693,7 +693,219 @@ function RubricCategoryHeatmap({ review }) {
   )
 }
 
-function ReviewResultDisplay({ review, size }) {
+function getScoreSummary(review) {
+  const items = Array.isArray(review?.rubric_scores) ? review.rubric_scores : []
+  const scoredItems = items.filter((item) => item.score != null)
+  if (scoredItems.length === 0) {
+    return {
+      score100: null,
+      avg5: null,
+      label: '評価保留',
+      tone: 'text-amber-700 bg-amber-50 border-amber-200',
+      description: '採点データが不足しています。評価保留の根拠を確認してください。',
+    }
+  }
+
+  const avg5 = scoredItems.reduce((sum, item) => sum + Number(item.score), 0) / scoredItems.length
+  const score100 = Math.round(avg5 * 20)
+  if (score100 >= 80) {
+    return {
+      score100,
+      avg5: avg5.toFixed(1),
+      label: '強み優勢',
+      tone: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+      description: '成果化できる要素が多く、微調整で伸ばしやすい状態です。',
+    }
+  }
+  if (score100 >= 60) {
+    return {
+      score100,
+      avg5: avg5.toFixed(1),
+      label: '改善余地あり',
+      tone: 'text-amber-700 bg-amber-50 border-amber-200',
+      description: '訴求やCTAの優先修正で成果改善を狙える状態です。',
+    }
+  }
+  return {
+    score100,
+    avg5: avg5.toFixed(1),
+    label: '要修正',
+    tone: 'text-rose-700 bg-rose-50 border-rose-200',
+    description: '伝達・視線誘導・信頼要素を先に整えてから配信判断してください。',
+  }
+}
+
+function getPendingItems(review) {
+  const pending = []
+  if (review?.operator_review_notice) pending.push(review.operator_review_notice)
+  if (!review?.product_identification) pending.push('製品特定が不足しています')
+  if (!review?.target_hypothesis) pending.push('ターゲット仮説が不足しています')
+  if (!review?.message_angle) pending.push('メッセージ角度が不足しています')
+
+  const evidence = Array.isArray(review?.evidence) ? review.evidence : []
+  evidence.forEach((item) => {
+    const text = `${item.evidence_type || ''} ${item.evidence_text || ''}`
+    if (/評価保留|pending|欠落|不足|AI出力/.test(text)) {
+      pending.push(item.evidence_text || item.evidence_type)
+    }
+  })
+
+  return [...new Set(pending.filter(Boolean))].slice(0, 3)
+}
+
+function CompactScoreBars({ review }) {
+  const items = Array.isArray(review?.rubric_scores) ? review.rubric_scores : []
+  if (items.length === 0) return null
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {items.slice(0, 8).map((item) => {
+        const label = RUBRIC_LABEL_MAP[item.rubric_id] || item.rubric_id
+        const isNA = item.score == null
+        const score = isNA ? 0 : Number(item.score)
+        const pct = isNA ? 0 : Math.max(0, Math.min(100, (score / 5) * 100))
+        const barColor = isNA ? 'bg-outline-variant/30' : score >= 4 ? 'bg-emerald-500' : score >= 3 ? 'bg-amber-400' : 'bg-rose-400'
+        return (
+          <div key={item.rubric_id} className="min-w-0 rounded-lg bg-surface-container px-3 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-[11px] font-bold text-on-surface japanese-text">{label}</span>
+              <span className="shrink-0 text-xs font-black tabular-nums text-on-surface-variant">{isNA ? 'N/A' : `${score}/5`}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+              <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function CreativeDecisionBoard({ review, previewUrl, fileName, assetMeta, size }) {
+  const score = getScoreSummary(review)
+  const firstImprovement = Array.isArray(review?.improvements) ? review.improvements[0] : null
+  const firstTest = Array.isArray(review?.test_ideas) ? review.test_ideas[0] : null
+  const pendingItems = getPendingItems(review)
+
+  return (
+    <section className="space-y-4" aria-labelledby="creative-decision-board-title">
+      <div className="flex flex-col gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-secondary">Decision board</p>
+        <h4 id="creative-decision-board-title" className="text-xl font-black text-on-surface japanese-text">最初に直すべきことが先に分かるレビュー</h4>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.25fr)]">
+        <article className="rounded-[0.75rem] border border-outline-variant/15 bg-surface-container p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h5 className="text-sm font-black text-on-surface japanese-text">画像プレビュー</h5>
+            {assetMeta?.width && assetMeta?.height && (
+              <span className="rounded-full bg-surface-container-lowest px-2.5 py-1 text-[10px] font-bold text-on-surface-variant">
+                {assetMeta.width} x {assetMeta.height}
+              </span>
+            )}
+          </div>
+          {previewUrl ? (
+            <img src={previewUrl} alt={fileName || 'レビュー対象画像'} className="mt-3 max-h-[280px] w-full rounded-lg border border-outline-variant/20 object-contain bg-surface-container-lowest" />
+          ) : (
+            <div className="mt-3 grid h-48 place-items-center rounded-lg bg-surface-container-lowest text-sm text-on-surface-variant">プレビューなし</div>
+          )}
+          {fileName && <p className="mt-2 truncate text-xs font-bold text-on-surface-variant">{fileName}</p>}
+        </article>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <article className={`rounded-[0.75rem] border p-4 ${score.tone}`}>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] opacity-80">総合スコア</p>
+            <div className="mt-3 flex items-end gap-2">
+              <span className="text-5xl font-black tabular-nums leading-none">{score.score100 ?? '--'}</span>
+              <span className="pb-1 text-sm font-black">/100</span>
+              <span className="ml-auto rounded-lg bg-white/65 px-3 py-1 text-xs font-black">{score.label}</span>
+            </div>
+            <p className="mt-3 text-xs font-bold leading-6">{score.description}</p>
+            {score.avg5 && <p className="mt-2 text-[11px] font-bold opacity-70">平均 {score.avg5}/5</p>}
+          </article>
+
+          <article className="rounded-[0.75rem] border border-amber-200 bg-amber-50/70 p-4">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg text-amber-700" aria-hidden="true">priority_high</span>
+              <h5 className="text-sm font-black text-amber-900 japanese-text">最重要改善</h5>
+            </div>
+            {firstImprovement ? (
+              <div className="mt-3 space-y-2 text-amber-950">
+                <p className="text-base font-black japanese-text">{firstImprovement.point}</p>
+                {firstImprovement.reason && <p className="text-xs leading-6 japanese-text">背景: {firstImprovement.reason}</p>}
+                {firstImprovement.action && <p className="rounded-lg bg-white/70 px-3 py-2 text-xs font-bold leading-6 japanese-text">対応: {firstImprovement.action}</p>}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs font-bold text-amber-800">改善提案が不足しています。</p>
+            )}
+          </article>
+
+          <article className="rounded-[0.75rem] border border-primary/15 bg-primary/[0.045] p-4">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg text-primary" aria-hidden="true">science</span>
+              <h5 className="text-sm font-black text-on-surface japanese-text">テスト仮説</h5>
+            </div>
+            {firstTest ? (
+              <dl className="mt-3 space-y-2 text-xs leading-6">
+                <div>
+                  <dt className="font-black text-primary">仮説</dt>
+                  <dd className="font-bold text-on-surface japanese-text">{firstTest.hypothesis || '-'}</dd>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <dt className="font-black text-on-surface-variant">変更変数</dt>
+                    <dd className="font-bold text-on-surface japanese-text">{firstTest.variable || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-black text-on-surface-variant">期待効果</dt>
+                    <dd className="font-bold text-on-surface japanese-text">{firstTest.expected_impact || '-'}</dd>
+                  </div>
+                </div>
+              </dl>
+            ) : (
+              <p className="mt-3 text-xs font-bold text-on-surface-variant">テスト案が不足しています。</p>
+            )}
+          </article>
+
+          <article className="rounded-[0.75rem] border border-outline-variant/20 bg-surface-container-lowest p-4">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg text-amber-700" aria-hidden="true">pending</span>
+              <h5 className="text-sm font-black text-on-surface japanese-text">評価保留</h5>
+            </div>
+            {pendingItems.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {pendingItems.map((item) => (
+                  <li key={item} className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800 japanese-text">{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 japanese-text">主要な評価保留はありません。</p>
+            )}
+          </article>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <SectionCard icon="analytics" title="コンパクトスコア" borderColor="border-outline-variant/20" bgColor="bg-surface-container-lowest">
+          <CompactScoreBars review={review} />
+        </SectionCard>
+        {review?.rubric_scores && (
+          <div className="min-w-0 [&_.panel-card-hover]:shadow-none">
+            <PerformanceRadar rubricScores={review.rubric_scores} reviewType={review.review_type} compact />
+          </div>
+        )}
+      </div>
+
+      {review?.summary && (
+        <SectionCard icon="summarize" title="レビュー本文サマリー" borderColor="border-outline-variant/20" bgColor="bg-surface-container-low/50">
+          <MarkdownRenderer content={review.summary} size={size} />
+        </SectionCard>
+      )}
+    </section>
+  )
+}
+
+function ReviewResultDisplay({ review, size, previewUrl, fileName, assetMeta }) {
   if (!review) return null
 
   // If string (raw markdown), fall back to MarkdownRenderer
@@ -729,18 +941,34 @@ function ReviewResultDisplay({ review, size }) {
           </div>
         </div>
       )}
-      <OperatorReviewNotice review={review} />
-      <SummarySection review={review} size={size} />
-      <RubricCategoryHeatmap review={review} />
-      <NeutralInfoSection review={review} size={size} />
-      <CategoryContextSection review={review} size={size} />
-      <GoodPointsSection review={review} size={size} />
-      <ImprovementsSection review={review} size={size} />
-      <ValuePropositionSection review={review} size={size} />
-      <TestIdeasSection review={review} size={size} />
-      <EvidenceSection review={review} size={size} />
-      <RubricSection review={review} />
-      <PositioningSection review={review} size={size} />
+      <CreativeDecisionBoard review={review} previewUrl={previewUrl} fileName={fileName} assetMeta={assetMeta} size={size} />
+
+      <section className="space-y-4" aria-labelledby="creative-ab-plan-title">
+        <h4 id="creative-ab-plan-title" className="text-lg font-black text-on-surface japanese-text">A/Bテスト計画</h4>
+        <TestIdeasSection review={review} size={size} />
+        <ValuePropositionSection review={review} size={size} />
+      </section>
+
+      <section className="space-y-4" aria-labelledby="creative-risk-title">
+        <h4 id="creative-risk-title" className="text-lg font-black text-on-surface japanese-text">法務・表現リスク</h4>
+        <OperatorReviewNotice review={review} />
+        <NeutralInfoSection review={review} size={size} />
+        <CategoryContextSection review={review} size={size} />
+      </section>
+
+      <section className="space-y-4" aria-labelledby="creative-evidence-title">
+        <h4 id="creative-evidence-title" className="text-lg font-black text-on-surface japanese-text">エビデンス一覧</h4>
+        <EvidenceSection review={review} size={size} />
+        <RubricCategoryHeatmap review={review} />
+        <RubricSection review={review} />
+        <PositioningSection review={review} size={size} />
+      </section>
+
+      <section className="space-y-4" aria-labelledby="creative-brief-title">
+        <h4 id="creative-brief-title" className="text-lg font-black text-on-surface japanese-text">修正ブリーフ</h4>
+        <ImprovementsSection review={review} size={size} />
+        <GoodPointsSection review={review} size={size} />
+      </section>
     </div>
   )
 }
@@ -1310,11 +1538,14 @@ export default function CreativeReview() {
                   </div>
                 </div>
 
-                {/* Performance Radar — stitch2 diamond visualization */}
-                {reviewResult?.rubric_scores && <PerformanceRadar rubricScores={reviewResult.rubric_scores} reviewType={reviewResult.review_type} />}
-
-                {/* Section-aware review blocks — no more giant scroll box */}
-                <ReviewResultDisplay review={reviewResult} size={reviewTextSize} />
+                {/* Section-aware review blocks — decision board first, compact score visualization */}
+                <ReviewResultDisplay
+                  review={reviewResult}
+                  size={reviewTextSize}
+                  previewUrl={previewUrl}
+                  fileName={fileName}
+                  assetMeta={assetMeta}
+                />
 
                 {runId && (
                   <p className="text-xs text-on-surface-variant/50 font-mono">run_id: {runId}</p>

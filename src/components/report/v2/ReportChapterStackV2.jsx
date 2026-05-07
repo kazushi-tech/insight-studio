@@ -13,14 +13,14 @@ const COMPARE_LABELS = {
   compare: {
     eyebrow: 'Compare Flow',
     title: '比較レポートの読み順',
-    lead: '入力した自社LPと競合URLを、文章レポートとグラフ根拠に分けて確認します。',
-    chapters: ['比較対象', 'Markdownレポート', 'グラフ根拠', '次アクション'],
+    lead: '長文本文の前に、結論・比較軸・根拠・実行順・計測条件を並べて確認します。',
+    chapters: ['結論', '比較マトリクス', '根拠トレース', '実行プラン', '計測条件', 'Markdown本文'],
   },
   discovery: {
     eyebrow: 'Discovery Flow',
     title: '発見レポートの読み順',
-    lead: '見つかった競合URLを分類し、自社LPと比較してどこを直すべきかまで確認します。',
-    chapters: ['発見URL', '自社LP比較', 'ポジション', 'Markdownレポート'],
+    lead: '市場定義から候補分類、採用/除外理由、不足根拠、再検索条件までを本文前に確認します。',
+    chapters: ['市場定義', '分類レーン', '比較候補', '採用/除外理由', '不足根拠', '再検索条件'],
   },
 }
 
@@ -57,6 +57,292 @@ function getReportExcerpt(reportMd) {
     })
     .slice(0, 16)
   return lines.join('\n')
+}
+
+function compactValue(...values) {
+  for (const value of values) {
+    const text = cleanText(value)
+    if (text) return text
+  }
+  return ''
+}
+
+function extractAfterLabel(reportMd, labels) {
+  if (!reportMd) return ''
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = reportMd.match(new RegExp(`${escaped}\\s*[:：]\\s*([^\\n]+)`, 'i'))
+    if (match?.[1]) return cleanText(match[1])
+  }
+  return ''
+}
+
+function makeSourceLabel(item) {
+  return compactValue(item.observation, item.sourceUrl, item.level?.helper, '本文からの抽出根拠')
+}
+
+function buildMarketDefinition(envelope, reportMd) {
+  return {
+    market: compactValue(
+      envelope?.market_definition,
+      envelope?.market?.definition,
+      envelope?.target_market,
+      extractAfterLabel(reportMd, ['市場定義', 'ターゲット市場', '対象市場']),
+      '自社LPの訴求・検索意図・商材カテゴリから推定した比較市場',
+    ),
+    audience: compactValue(
+      envelope?.target_audience,
+      envelope?.market?.audience,
+      extractAfterLabel(reportMd, ['対象顧客', 'ターゲット', '想定顧客']),
+      '広告流入後に資料請求・問い合わせ・購入を検討する見込み客',
+    ),
+    query: compactValue(
+      envelope?.query_used,
+      envelope?.search_query,
+      envelope?.discovery?.query_used,
+      extractAfterLabel(reportMd, ['検索クエリ', '再検索条件', '検索条件']),
+      '商材名、課題語、比較/導入/料金などの購買検討語',
+    ),
+  }
+}
+
+function MeasurementConditions({ envelope, reportMd, insights }) {
+  const conditions = [
+    ['比較対象', `${Math.max(insights.brands.length, insights.tiers.examples.length)}件 / 対象外 ${insights.tiers.counts.out_of_scope || 0}件`],
+    ['根拠状態', `確認済み ${insights.evidence.confirmed} / 評価保留 ${insights.evidence.pending}`],
+    ['期待KPI', `計測対象: ${insights.topAction?.expectedKpi || extractAfterLabel(reportMd, ['期待KPI', 'KPI']) || 'CVR / CPA への影響を実測で確認'}`],
+    ['分析条件', compactValue(envelope?.model, envelope?.analysis_model, envelope?.provider, 'Markdown本文と取得済みページ情報を利用')],
+  ]
+
+  return (
+    <section className={styles.chapter} aria-labelledby="compare-measurement-title">
+      <div className={styles.chapterHead}>
+        <span>05</span>
+        <div>
+          <h3 id="compare-measurement-title">計測条件を固定</h3>
+          <p>比較判断を施策化する前に、何を同じ条件で見たかを揃えます。</p>
+        </div>
+      </div>
+      <div className={styles.conditionGrid}>
+        {conditions.map(([label, value]) => (
+          <div key={label} className={styles.conditionItem}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function EvidenceTrace({ insights }) {
+  const rows = insights.evidenceItems.length > 0
+    ? insights.evidenceItems
+    : [{ label: 'Markdown本文', observation: '構造化根拠がないため、本文の説明を確認してください。', level: insights.evidence.confidence }]
+
+  return (
+    <section className={styles.chapter} aria-labelledby="compare-evidence-title">
+      <div className={styles.chapterHead}>
+        <span>03</span>
+        <div>
+          <h3 id="compare-evidence-title">根拠トレース</h3>
+          <p>観測事実、AI推論、未確認情報を混ぜずに読み分けます。</p>
+        </div>
+      </div>
+      <div className={styles.traceList}>
+        {rows.slice(0, 6).map((item, idx) => (
+          <article key={`${item.label}-${idx}`} className={styles.traceItem}>
+            <span className="material-symbols-outlined" aria-hidden="true">{item.level?.icon || 'fact_check'}</span>
+            <div>
+              <strong>{item.label}</strong>
+              <small>{makeSourceLabel(item)}</small>
+            </div>
+            <TierBadge role={{ key: item.level?.key === 'pending' ? 'reference' : 'direct', label: item.level?.label || '根拠' }} />
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CompareMatrix({ insights }) {
+  const brands = insights.brands.length > 0
+    ? insights.brands
+    : insights.tiers.examples.map((item) => ({ brand: item.brand, role: item.role, reason: item.reason, x: 50, y: 50, pendingCount: 0 }))
+  const axes = [
+    ['CTA', 'CVに向かう主導線'],
+    ['オファー', '価格・特典・資料請求の強さ'],
+    ['信頼要素', '実績・導入事例・第三者情報'],
+    ['ファネル段階', '認知から比較検討までの接続'],
+  ]
+
+  return (
+    <section className={styles.chapter} aria-labelledby="compare-matrix-title">
+      <div className={styles.chapterHead}>
+        <span>02</span>
+        <div>
+          <h3 id="compare-matrix-title">比較マトリクス</h3>
+          <p>自社と競合を同じ比較軸で横並びにし、勝ち筋と不足根拠を分けます。</p>
+        </div>
+      </div>
+      <div className={styles.matrixWrap}>
+        <table className={styles.compareMatrix}>
+          <thead>
+            <tr>
+              <th>比較軸</th>
+              {brands.slice(0, 3).map((brand, idx) => (
+                <th key={`${brand.brand}-${idx}`}>
+                  <span>{idx === 0 ? '自社/基準' : `競合${idx}`}</span>
+                  {getDomain(brand.brand) || brand.brand}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {axes.map(([axis, helper], axisIdx) => (
+              <tr key={axis}>
+                <th>
+                  <strong>{axis}</strong>
+                  <small>{helper}</small>
+                </th>
+                {brands.slice(0, 3).map((brand, brandIdx) => {
+                  const observed = brand.confirmedCount > brand.pendingCount
+                  const score = axisIdx % 2 === 0 ? brand.x : brand.y
+                  return (
+                    <td key={`${brand.brand}-${axis}`}>
+                      <span className={observed ? styles.factChip : styles.inferenceChip}>
+                        {observed ? '観測事実' : brand.pendingCount > 0 ? '未確認' : 'AI推論'}
+                      </span>
+                      <p>{score >= 64 ? '強みとして活用' : score <= 38 ? '改善余地あり' : brandIdx === 0 ? '基準化して比較' : '同等水準'}</p>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function MarketDefinition({ envelope, reportMd }) {
+  const market = buildMarketDefinition(envelope, reportMd)
+  return (
+    <section className={styles.chapter} aria-labelledby="discovery-market-title">
+      <div className={styles.chapterHead}>
+        <span>01</span>
+        <div>
+          <h3 id="discovery-market-title">市場定義</h3>
+          <p>候補URLを分類する前に、どの市場・顧客・検索条件で探したかを固定します。</p>
+        </div>
+      </div>
+      <div className={styles.definitionGrid}>
+        <div><span>対象市場</span><strong>{market.market}</strong></div>
+        <div><span>想定顧客</span><strong>{market.audience}</strong></div>
+        <div><span>検索/再検索条件</span><strong>{market.query}</strong></div>
+      </div>
+    </section>
+  )
+}
+
+function HandoffCandidates({ insights }) {
+  const rows = insights.tiers.examples.filter((item) => item.role.key === 'direct' || item.role.key === 'adjacent')
+  const fallbackRows = rows.length > 0 ? rows : insights.tiers.examples
+  return (
+    <section className={styles.chapter} aria-labelledby="discovery-handoff-title">
+      <div className={styles.chapterHead}>
+        <span>03</span>
+        <div>
+          <h3 id="discovery-handoff-title">次に比較する候補</h3>
+          <p>Compareへ送る前提で、直接競合と隣接競合を優先順に並べます。</p>
+        </div>
+      </div>
+      <div className={styles.handoffList}>
+        {fallbackRows.slice(0, 5).map((item, idx) => (
+          <article key={`${item.brand}-${idx}`} className={styles.handoffItem}>
+            <span>{String(idx + 1).padStart(2, '0')}</span>
+            <div>
+              <strong>{getDomain(item.brand) || item.brand || `候補 ${idx + 1}`}</strong>
+              <small>{item.reason || '市場・訴求・CV導線が比較可能な候補として扱います。'}</small>
+            </div>
+            <TierBadge role={item.role} />
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ReasonAndGapBoard({ insights }) {
+  const accepted = insights.tiers.examples.filter((item) => item.role.key === 'direct' || item.role.key === 'adjacent')
+  const rejected = insights.tiers.examples.filter((item) => item.role.key === 'reference' || item.role.key === 'out_of_scope')
+  const gaps = insights.evidenceItems.filter((item) => item.level?.key === 'pending')
+  const fallbackGaps = gaps.length > 0 ? gaps : [
+    { label: '価格・実績・CVRなどの定量情報', observation: '公開ページだけでは不足しやすいため、比較前に追加確認します。' },
+    { label: '検索意図との一致度', observation: '候補が広い場合は、購買検討語で再検索します。' },
+  ]
+
+  return (
+    <section className={styles.chapter} aria-labelledby="discovery-reasons-title">
+      <div className={styles.chapterHead}>
+        <span>04</span>
+        <div>
+          <h3 id="discovery-reasons-title">採用/除外理由と不足根拠</h3>
+          <p>採用理由、除外理由、未取得データを同じ場所で確認します。</p>
+        </div>
+      </div>
+      <div className={styles.reasonGrid}>
+        <div className={styles.reasonColumn}>
+          <h4>採用理由</h4>
+          {(accepted.length ? accepted : insights.tiers.examples).slice(0, 3).map((item, idx) => (
+            <p key={`${item.brand}-accepted-${idx}`}>確認 {idx + 1}: {item.reason || `${getDomain(item.brand) || item.brand} は比較候補として残します。`}</p>
+          ))}
+        </div>
+        <div className={styles.reasonColumn}>
+          <h4>除外理由</h4>
+          {(rejected.length ? rejected : [{ brand: '未分類候補', reason: '対象外候補がない場合も、検索ツール/大手モール/メディア系は除外対象として再確認します。' }]).slice(0, 3).map((item, idx) => (
+            <p key={`${item.brand}-rejected-${idx}`}>除外 {idx + 1}: {item.reason || `${getDomain(item.brand) || item.brand} は主比較から外します。`}</p>
+          ))}
+        </div>
+        <div className={styles.reasonColumn}>
+          <h4>不足根拠</h4>
+          {fallbackGaps.slice(0, 3).map((item, idx) => (
+            <p key={`${item.label}-gap-${idx}`}>不足 {idx + 1}: {item.label} - {item.observation || '追加確認が必要です。'}</p>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ResearchConditions({ envelope, reportMd, insights }) {
+  const market = buildMarketDefinition(envelope, reportMd)
+  const retryRows = [
+    ['再検索語', market.query],
+    ['残す候補', `直接競合 ${insights.tiers.counts.direct || 0} / 隣接 ${insights.tiers.counts.adjacent || 0}`],
+    ['除外条件', '検索エンジン結果、大手モール、メディア/代理店/ツール紹介のみのページ'],
+    ['追加取得', '料金、導入実績、CTA文言、フォーム到達、CV導線の定量情報'],
+  ]
+  return (
+    <section className={styles.chapter} aria-labelledby="discovery-research-title">
+      <div className={styles.chapterHead}>
+        <span>05</span>
+        <div>
+          <h3 id="discovery-research-title">再検索条件</h3>
+          <p>候補が弱い場合に、次回検索で変える条件を明示します。</p>
+        </div>
+      </div>
+      <div className={styles.conditionGrid}>
+        {retryRows.map(([label, value]) => (
+          <div key={label} className={styles.conditionItem}>
+            <span>{label}</span>
+            <strong>{value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function meterValue(action, fallback) {
@@ -266,7 +552,7 @@ function MarkdownChapter({ reportMd, insights, kind }) {
   return (
     <section className={styles.chapter} aria-labelledby={`${kind}-markdown-title`}>
       <div className={styles.chapterHead}>
-        <span>{kind === 'discovery' ? '04' : '03'}</span>
+        <span>06</span>
         <div>
           <h3 id={`${kind}-markdown-title`}>Markdownで読める説明</h3>
           <p>グラフで方向を掴んだ後、判断理由と補足を文章で確認します。</p>
@@ -342,17 +628,23 @@ export default function ReportChapterStackV2({ envelope, reportMd, kind = 'compa
 
       {mode === 'discovery' ? (
         <>
+          <MarketDefinition envelope={envelope} reportMd={reportMd} />
           <DiscoveryFoundSet insights={insights} />
+          <HandoffCandidates insights={insights} />
           <ComparisonBars insights={insights} kind="discovery" />
-          <PositionSketch insights={insights} />
+          <ReasonAndGapBoard insights={insights} />
+          <ResearchConditions envelope={envelope} reportMd={reportMd} insights={insights} />
           <MarkdownChapter reportMd={reportMd} insights={insights} kind="discovery" />
         </>
       ) : (
         <>
           <CompareScope insights={insights} />
-          <MarkdownChapter reportMd={reportMd} insights={insights} kind="compare" />
+          <CompareMatrix insights={insights} />
           <ComparisonBars insights={insights} kind="compare" />
+          <EvidenceTrace insights={insights} />
           <ActionChapter insights={insights} />
+          <MeasurementConditions envelope={envelope} reportMd={reportMd} insights={insights} />
+          <MarkdownChapter reportMd={reportMd} insights={insights} kind="compare" />
         </>
       )}
     </section>

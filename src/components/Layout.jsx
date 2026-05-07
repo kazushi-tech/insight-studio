@@ -19,15 +19,28 @@ import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 
-const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
+const SETUP_GATED_PATHS = ['/ads/graphs']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'home', label: 'ダッシュボード' },
-  { to: '/compare', icon: 'balance', label: '競合LP分析' },
-  { to: '/discovery', icon: 'search', label: '競合発見' },
-  { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
-  { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
-  { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
+  {
+    icon: 'balance',
+    label: '競合分析',
+    children: [
+      { to: '/compare', icon: 'balance', label: '競合LP分析' },
+      { to: '/discovery', icon: 'search', label: '競合発見' },
+      { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
+    ],
+  },
+  {
+    icon: 'monitoring',
+    label: '広告分析',
+    children: [
+      { to: '/ads/wizard', icon: 'tune', label: 'セットアップ' },
+      { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
+      { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察' },
+    ],
+  },
   { to: '/settings', icon: 'settings', label: '設定' },
   { to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true },
 ]
@@ -83,12 +96,13 @@ function SidebarGroup({ item, disabledPaths }) {
   const location = useLocation()
   const isGroupActive = item.children?.some((c) => location.pathname === c.to)
   const [open, setOpen] = useState(isGroupActive)
+  const isOpen = open || isGroupActive
 
   return (
     <div>
       <button
         onClick={() => setOpen(!open)}
-        aria-expanded={open}
+        aria-expanded={isOpen}
         className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-[#2d6a4f] focus-visible:outline-offset-[-2px] ${
           isGroupActive
             ? 'text-white border-[#2d6a4f] bg-[#2d6a4f] font-bold'
@@ -97,16 +111,17 @@ function SidebarGroup({ item, disabledPaths }) {
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
         <span className="japanese-text flex-1 text-left">{item.label}</span>
-        <span className={`material-symbols-outlined text-[16px] transition-transform ${open ? 'rotate-180' : ''}`}>
+        <span className={`material-symbols-outlined text-[16px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
           expand_more
         </span>
       </button>
-      {open && (
+      {isOpen && (
         <div className="flex flex-col">
           {item.children.map((child) => (
             <SidebarLink
               key={child.to}
               to={child.to}
+              icon={child.icon}
               label={child.label}
               isChild
               disabled={disabledPaths?.includes(child.to)}
@@ -511,7 +526,13 @@ export default function Layout() {
         <nav className="flex flex-col gap-2 flex-1">
           {NAV_ITEMS
             .filter((item) => !item.adminOnly || canManageProjects)
-            .map((item) => (
+            .map((item) => item.children ? (
+              <SidebarGroup
+                key={item.label}
+                item={item}
+                disabledPaths={disabledPaths}
+              />
+            ) : (
               <SidebarLink
                 key={item.to}
                 to={item.to}

@@ -4,6 +4,7 @@ import InsightTurnCard from './InsightTurnCard'
 import LoadingSkeleton from './LoadingSkeleton'
 import QuickPromptCard from './QuickPromptCard'
 import styles from './AiExplorerV2.module.css'
+import timelineStyles from './InsightTimeline.module.css'
 
 /**
  * InsightTimeline — v2 container replacing the bubble feed in AiExplorer.jsx.
@@ -38,6 +39,16 @@ const DEFAULT_QUICK_PROMPTS = [
       'LP改善、広告文、入札・ターゲティングを混ぜずに担当別タスクへ落とします。',
   },
 ]
+
+const QUERY_LABELS = {
+  lp: 'LP/ページ',
+  conversions: 'CVイベント',
+  acquisition: '流入チャネル',
+  landing_page: 'ランディングページ',
+  device: 'デバイス',
+  creative: 'クリエイティブ',
+  raw_events: '生データ',
+}
 
 function groupMessagesIntoTurns(messages) {
   if (!Array.isArray(messages)) return []
@@ -93,9 +104,24 @@ function compactText(value, fallback) {
   return text || fallback
 }
 
+function firstLineAfter(markdown, labels) {
+  const source = String(markdown || '')
+  for (const label of labels) {
+    const match = source.match(new RegExp(`${label}\\s*[:：]\\s*([^\\n]+)`, 'i'))
+    if (match?.[1]) return match[1]
+  }
+  return ''
+}
+
 function extractMetricFromMarkdown(markdown) {
   const match = String(markdown || '').match(/(CVR|CPA|CTR|CPC|ROAS|CV|売上|セッション)[^。\n]{0,28}(?:悪化|改善|上昇|低下|増加|減少|削減)?/i)
   return match?.[0] || ''
+}
+
+function extractMissingData(markdown) {
+  const source = String(markdown || '')
+  const matches = source.match(/(?:未取得|不足|要確認|未計測)[^。\n、,]{0,24}(?:データ|CVR|CPA|ROAS|CV|チャネル|キャンペーン|広告費|コンバージョン|指標)/g)
+  return [...new Set(matches || [])].slice(0, 4)
 }
 
 function buildDecisionBoardState({ reportBundle, messages }) {
@@ -108,11 +134,16 @@ function buildDecisionBoardState({ reportBundle, messages }) {
     ? reportBundle.periods.map((p) => p.label || p.name || p).filter(Boolean).join(' / ')
     : ''
   const topAction = compactText(
-    actions[0]?.title || latest.match(/(?:最優先|今週やる施策|次アクション)[:：]\s*([^\n]+)/)?.[1],
+    actions[0]?.title || firstLineAfter(latest, ['最優先', '今週やる施策', '次アクション', '改善タスク']),
     latest ? '回答内の最優先タスクを確認' : '分析データを生成して最優先施策を確認',
   )
+  const missingData = extractMissingData(sourceMd)
 
   return {
+    summary: compactText(
+      reportBundle?.decision_summary?.summary || firstLineAfter(latest, ['結論', '考察サマリー', '要約']),
+      latest ? '回答本文から主要な判断を先に確認できます' : '質問後に、結論・施策・根拠・不足データをここへ整理します',
+    ),
     topMetric: compactText(
       reportBundle?.decision_summary?.top_metric || extractMetricFromMarkdown(sourceMd),
       'CV / CPA / CVR の変化',
@@ -128,6 +159,7 @@ function buildDecisionBoardState({ reportBundle, messages }) {
     ),
     period: compactText(periods || reportBundle?.periodLabel || reportBundle?.period, '現在の分析データ期間'),
     confidence: compactText(reportBundle?.decision_summary?.confidence, latest ? '中' : '評価保留'),
+    missingData: missingData.length > 0 ? missingData : ['CVデータ', 'チャネル別CVR', 'CPA / ROAS', 'コンバージョン内訳'],
     actions: [
       topAction,
       ...actions.slice(1, 3).map((item) => compactText(item.title || item.action, '次タスク')),
@@ -135,49 +167,66 @@ function buildDecisionBoardState({ reportBundle, messages }) {
   }
 }
 
+function formatSetupQueries(setupState) {
+  const queryTypes = Array.isArray(setupState?.queryTypes) ? setupState.queryTypes : []
+  if (queryTypes.length === 0) return '未選択'
+  return queryTypes.map((key) => QUERY_LABELS[key] ?? key).join(' / ')
+}
+
+function formatSetupPeriods(setupState) {
+  const periods = Array.isArray(setupState?.periods) ? setupState.periods : []
+  if (periods.length === 0) return '未選択'
+  if (periods.length === 1) return periods[0]
+  return `${periods[0]} 〜 ${periods[periods.length - 1]}`
+}
+
 function InsightDecisionBoard({ reportBundle, messages }) {
   const state = buildDecisionBoardState({ reportBundle, messages })
   return (
-    <section className={styles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
-      <div className={styles.decisionBoardMain}>
-        <p className={styles.decisionEyebrow}>AIグラフチャット / Python集計済み</p>
-        <h2 id="insight-decision-board-title" className={`${styles.decisionTitle} japanese-text`}>
-          グラフを見ながらAIに質問
-        </h2>
-        <p className="japanese-text" style={{ marginTop: '0.5rem', color: 'var(--color-on-surface-variant)', fontWeight: 700 }}>
+    <section className={timelineStyles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
+      <div className={timelineStyles.summaryPanel}>
+        <p className={timelineStyles.eyebrow}>考察サマリー</p>
+        <h2 id="insight-decision-board-title" className={`${timelineStyles.decisionTitle} japanese-text`}>
           {state.topAction}
-        </p>
-        <div className={styles.decisionMetaGrid}>
-          <div className={styles.decisionMeta}>
-            <span>最重要変化指標</span>
-            <strong>{state.topMetric}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>推定原因</span>
-            <strong>{state.cause}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>期待KPI</span>
-            <strong>{state.expectedKpi}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>データ期間</span>
-            <strong>{state.period}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>信頼度</span>
-            <strong>{state.confidence}</strong>
-          </div>
-        </div>
+        </h2>
+        <p className={`${timelineStyles.summaryText} japanese-text`}>{state.summary}</p>
       </div>
-      <aside className={styles.decisionBoardSide} aria-label="優先アクション">
-        <p className={styles.decisionEyebrow}>優先アクション</p>
-        <div className={styles.decisionActionList}>
+
+      <div className={timelineStyles.actionPanel} aria-label="今週やる3施策">
+        <p className={timelineStyles.eyebrow}>今週やる3施策</p>
+        <div className={timelineStyles.actionList}>
           {state.actions.map((action, idx) => (
-            <div key={`${action}-${idx}`} className={styles.decisionAction}>
-              <b>{idx + 1}</b>
+            <div key={`${action}-${idx}`} className={timelineStyles.actionItem}>
+              <b>{`P${idx}`}</b>
               <p className="japanese-text">{action}</p>
             </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={timelineStyles.evidencePanel} aria-label="根拠指標">
+        <p className={timelineStyles.eyebrow}>根拠指標</p>
+        <div className={timelineStyles.metricGrid}>
+          {[
+            ['最重要変化指標', state.topMetric],
+            ['推定原因', state.cause],
+            ['期待KPI', state.expectedKpi],
+            ['データ期間', state.period],
+            ['信頼度', state.confidence],
+          ].map(([label, value]) => (
+            <div key={label} className={timelineStyles.metricItem}>
+              <span>{label}</span>
+              <strong className="japanese-text">{value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <aside className={timelineStyles.missingPanel} aria-label="未取得データ">
+        <p className={timelineStyles.eyebrow}>未取得データ</p>
+        <div className={timelineStyles.missingChips}>
+          {state.missingData.map((item) => (
+            <span key={item} className={`${timelineStyles.missingChip} japanese-text`}>{item}</span>
           ))}
         </div>
       </aside>
@@ -185,7 +234,57 @@ function InsightDecisionBoard({ reportBundle, messages }) {
   )
 }
 
-function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle }) {
+function AdsAiSetupGuide({ setupState, isAdsAuthenticated, reportBundle, onOpenSetup, onOpenGraphs }) {
+  const setupComplete = Boolean(
+    isAdsAuthenticated &&
+    setupState?.datasetId &&
+    Array.isArray(setupState?.periods) &&
+    setupState.periods.length > 0,
+  )
+  const items = [
+    ['接続', isAdsAuthenticated ? 'ログイン済み' : '未ログイン'],
+    ['クエリ', formatSetupQueries(setupState)],
+    ['期間', formatSetupPeriods(setupState)],
+    ['AIコンテキスト', reportBundle?.reportMd ? '生成済み' : setupComplete ? '更新待ち' : '未生成'],
+  ]
+
+  return (
+    <section className={styles.setupGuidePanel} data-testid="ads-ai-setup-guide" aria-label="AI考察セットアップ導線">
+      <div className={styles.setupGuideMain}>
+        <span className="material-symbols-outlined" aria-hidden="true">tune</span>
+        <div>
+          <p className={`${styles.setupGuideEyebrow} japanese-text`}>最初にここからセットアップ</p>
+          <h2 className={`${styles.setupGuideTitle} japanese-text`}>クエリと期間を選ぶと、AI考察の根拠が更新されます</h2>
+          <p className={`${styles.setupGuideBody} japanese-text`}>
+            広告グラフのセットアップで「欲しいクエリ」と「分析期間」を選択し、生成されたグラフ要約をこの画面のAI回答へ渡します。
+          </p>
+        </div>
+      </div>
+
+      <div className={styles.setupGuideMeta} aria-label="現在のセットアップ状態">
+        {items.map(([label, value]) => (
+          <div key={label} className={styles.setupGuideChip}>
+            <span className="japanese-text">{label}</span>
+            <strong className="japanese-text">{value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.setupGuideActions}>
+        <button type="button" className={styles.setupGuidePrimary} onClick={onOpenSetup}>
+          <span className="material-symbols-outlined" aria-hidden="true">settings_suggest</span>
+          {setupState ? 'セットアップで選び直す' : 'セットアップを開始'}
+        </button>
+        <button type="button" className={styles.setupGuideSecondary} onClick={onOpenGraphs}>
+          <span className="material-symbols-outlined" aria-hidden="true">stacked_line_chart</span>
+          広告グラフで確認
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle, onOpenSetup }) {
   const requirements = [
     {
       key: 'auth',
@@ -201,9 +300,9 @@ function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle })
     },
     {
       key: 'period',
-      label: '期間',
+      label: 'クエリ・期間',
       ok: Array.isArray(setupState?.periods) && setupState.periods.length > 0,
-      action: setupState?.periods?.length ? `${setupState.periods.length}期間` : '分析期間を選択',
+      action: setupState?.periods?.length ? `${formatSetupQueries(setupState)} / ${setupState.periods.length}期間` : 'セットアップでクエリと期間を選択',
     },
     {
       key: 'report',
@@ -217,17 +316,23 @@ function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle })
 
   return (
     <section className={styles.requirementPanel} aria-label="Ads AI 利用条件">
-      {requirements.map((item) => (
-        <div key={item.key} className={item.ok ? styles.requirementOk : styles.requirementTodo}>
-          <span className="material-symbols-outlined" aria-hidden="true">
-            {item.ok ? 'check_circle' : 'radio_button_unchecked'}
-          </span>
-          <div>
-            <strong className="japanese-text">{item.label}</strong>
-            <p className="japanese-text">{item.action}</p>
+      <div className={styles.requirementGrid}>
+        {requirements.map((item) => (
+          <div key={item.key} className={item.ok ? styles.requirementOk : styles.requirementTodo}>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {item.ok ? 'check_circle' : 'radio_button_unchecked'}
+            </span>
+            <div>
+              <strong className="japanese-text">{item.label}</strong>
+              <p className="japanese-text">{item.action}</p>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <button type="button" className={styles.requirementAction} onClick={onOpenSetup}>
+        <span className="material-symbols-outlined" aria-hidden="true">settings_suggest</span>
+        セットアップウィザードを開く
+      </button>
     </section>
   )
 }
@@ -260,6 +365,8 @@ export default function InsightTimeline({
   reportError,
   reportBundle,
   chartGroups,
+  onOpenSetup,
+  onOpenGraphs,
 }) {
   const endRef = useRef(null)
 
@@ -337,8 +444,17 @@ export default function InsightTimeline({
           setupState={setupState}
           isAdsAuthenticated={isAdsAuthenticated}
           reportBundle={reportBundle}
+          onOpenSetup={onOpenSetup}
         />
       </div>
+
+      <AdsAiSetupGuide
+        setupState={setupState}
+        isAdsAuthenticated={isAdsAuthenticated}
+        reportBundle={reportBundle}
+        onOpenSetup={onOpenSetup}
+        onOpenGraphs={onOpenGraphs}
+      />
 
       <InsightDecisionBoard reportBundle={reportBundle} messages={messages} />
 

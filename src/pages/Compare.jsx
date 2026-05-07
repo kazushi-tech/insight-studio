@@ -322,7 +322,7 @@ function ExtractedDataPanel({ extracted }) {
 
 function CompareImage2Guide({ providerLabel }) {
   return (
-    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <section className="grid min-w-0 grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -354,7 +354,7 @@ function CompareImage2Guide({ providerLabel }) {
           ))}
         </div>
       </div>
-      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] min-w-0 overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-5 shadow-sm">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
         <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">比較しながら質問</h3>
         <p className="mt-3 rounded-xl border border-primary/10 bg-surface-container-lowest px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
@@ -706,14 +706,14 @@ export default function Compare() {
     : 'URL未入力'
 
   return (
-    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
+    <div className="mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-8 p-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start 2xl:p-8 2xl:grid-cols-[minmax(0,1fr)_336px]">
       {/* Header */}
-      <div className="grid grid-cols-12 gap-12 items-end">
-        <div className="col-span-9">
+      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-12 lg:items-end">
+        <div className="min-w-0 lg:col-span-9">
           <h2 className="display-lg text-on-surface tracking-tight japanese-text">LP比較・競合分析</h2>
           <p className="body-lg text-on-surface-variant max-w-2xl mt-6">自社と競合のLPを並列比較し、AIが戦略的な改善点を提示します</p>
         </div>
-        <div className="col-span-3 flex justify-end">
+        <div className="flex justify-start lg:col-span-3 lg:justify-end">
           <span className="inline-flex items-center gap-2 px-5 py-3 surface-section rounded-full label-md text-primary-container">
             <span className="material-symbols-outlined text-base">auto_awesome</span>
             AI分析
@@ -728,12 +728,40 @@ export default function Compare() {
         inputSummary={compareRailInput}
         evidence={['CTA差分', '信頼要素', 'オファー', 'ファネル段階']}
         suggestedQuestions={[
-          '観測事実と推論を分けて、最初のLP改善を3つに絞って',
-          '競合セットが同業として妥当か確認して',
-          '広告文に落とせる訴求とCTA案を出して',
+          '競合AがCVRで優位な理由を詳しく分析して',
+          '不足している証拠だけを一覧にして',
+          '最初に直すCTAを1つに絞って',
+        ]}
+        questionGroups={[
+          {
+            title: 'この結果について',
+            questions: [
+              'オファー訴求を強化する具体策を提案して',
+              '信頼要素で強化すべきポイントは？',
+              'LPの離脱ポイントを推定して',
+            ],
+          },
+          {
+            title: '比較条件',
+            questions: [
+              '自社と競合の比較条件を確認して',
+              '未取得データが判断へ与える影響は？',
+            ],
+          },
+        ]}
+        contextItems={[
+          '観測事実とAI推論を分けて確認',
+          'CTA・オファー・信頼要素を優先',
+          '不足根拠は施策化前に再確認',
+        ]}
+        nextActions={[
+          { label: '比較へ送る', to: '/compare', icon: 'compare_arrows', primary: true },
+          { label: '比較一覧に戻る', to: '/dashboard', icon: 'list_alt' },
         ]}
         primaryAction="LP比較レポートを広告施策へ落とし込む"
+        primaryActionLabel="AI考察で深掘り"
         helperText="比較結果を読みながら、競合妥当性・獲得影響・欠損根拠を確認します。無関係な業界は主比較に混ぜない前提で質問できます。"
+        composerPlaceholder="比較結果について質問…"
       />
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
@@ -750,8 +778,8 @@ export default function Compare() {
       <CompareImage2Guide providerLabel={providerLabel} />
 
       {/* URL Inputs */}
-      <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
-        <div className="grid grid-cols-3 gap-6">
+      <div className="min-w-0 bg-surface-container-lowest p-6 2xl:p-8 rounded-xl ghost-border">
+        <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-3">
           {[
             { key: 'target', label: '自社URL', placeholder: '例: https://your-site.jp/lp01…' },
             { key: 'compA', label: '競合URL A', placeholder: '例: https://competitor-a.com/landing…' },

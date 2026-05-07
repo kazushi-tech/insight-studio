@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import { getScans, classifyError } from '../api/marketLens'
@@ -92,6 +92,7 @@ function toConversationHistory(messages) {
 }
 
 export default function AiExplorer() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { isV2 } = useUiVersion()
   const {
@@ -100,7 +101,7 @@ export default function AiExplorer() {
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
-  const { setupState, reportBundle, setReportBundle } = useAdsSetup()
+  const { setupState, reportBundle, setReportBundle, resetSetup } = useAdsSetup()
   const { getDraft, setDraft, clearDraft } = useAnalysisRuns()
   const { avatarInitial } = useUserProfile()
   const { restoreTarget, clearRestoreTarget, addEntry } = useReportHistory()
@@ -191,6 +192,15 @@ export default function AiExplorer() {
   function handleFontSizeChange(size) {
     setFontSize(size)
     localStorage.setItem(FONT_SIZE_KEY, size)
+  }
+
+  function handleOpenAdsSetup() {
+    if (setupState) resetSetup()
+    navigate('/ads/wizard', { state: { resetAt: Date.now(), from: 'ads-ai' } })
+  }
+
+  function handleOpenAdsGraphs() {
+    navigate('/ads/graphs')
   }
 
   useEffect(() => {
@@ -554,6 +564,8 @@ export default function AiExplorer() {
         reportError={reportError}
         reportBundle={reportBundle}
         chartGroups={reportBundle?.chartGroups}
+        onOpenSetup={handleOpenAdsSetup}
+        onOpenGraphs={handleOpenAdsGraphs}
       />
     )
   }

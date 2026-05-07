@@ -1,0 +1,161 @@
+.decisionBoard {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 22%, var(--color-outline-variant));
+  box-shadow: 0 18px 44px rgba(0, 57, 37, 0.1);
+}
+
+.summaryPanel,
+.actionPanel,
+.evidencePanel,
+.missingPanel {
+  min-width: 0;
+  padding: 1.15rem;
+  background: var(--color-surface-container-lowest);
+}
+
+.summaryPanel {
+  background:
+    linear-gradient(135deg, rgba(0, 57, 37, 0.96), rgba(18, 94, 65, 0.9)),
+    var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.evidencePanel {
+  grid-column: 1 / 2;
+}
+
+.missingPanel {
+  grid-column: 2 / 3;
+}
+
+.eyebrow {
+  margin: 0;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.decisionTitle {
+  margin: 0.5rem 0 0;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.summaryText {
+  margin: 0.65rem 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  font-weight: 700;
+}
+
+.actionList {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.actionItem {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.actionItem b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #d53f3f, #d7a528);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.actionItem p {
+  margin: 0;
+  color: var(--color-on-surface);
+  font-size: 0.87rem;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+
+.metricItem {
+  min-width: 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: var(--color-surface-container-low);
+}
+
+.metricItem span {
+  display: block;
+  color: var(--color-outline);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.metricItem strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-on-surface);
+  font-size: 0.84rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.missingChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.missingChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-error, #dc2626) 35%, transparent);
+  background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+  color: var(--color-error, #b91c1c);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+@media (max-width: 1023px) {
+  .decisionBoard,
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .evidencePanel,
+  .missingPanel {
+    grid-column: auto;
+  }
+}
