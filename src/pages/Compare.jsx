@@ -761,7 +761,6 @@ export default function Compare() {
         primaryAction="LP比較レポートを広告施策へ落とし込む"
         primaryActionLabel="AI考察で深掘り"
         helperText="比較結果を読みながら、競合妥当性・獲得影響・欠損根拠を確認します。無関係な業界は主比較に混ぜない前提で質問できます。"
-        composerPlaceholder="比較結果について質問…"
       />
 
       <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
