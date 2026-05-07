@@ -55,18 +55,18 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         aria-disabled="true"
         tabIndex={-1}
         onClick={(e) => e.preventDefault()}
-        className={`mx-4 flex min-w-0 items-center gap-3 rounded-xl ${spacingClass} py-3 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed`}
+        className={`mx-4 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 rounded-xl ${spacingClass} py-2.5 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed`}
         title="セットアップを完了してください"
       >
-        {icon && <span className="material-symbols-outlined shrink-0 text-[20px]">{icon}</span>}
-        <span className="japanese-text min-w-0 flex-1 truncate">{label}</span>
+        {icon && <span className="material-symbols-outlined row-span-2 shrink-0 self-start text-[20px] leading-6">{icon}</span>}
+        <span className="japanese-text min-w-0 truncate leading-6">{label}</span>
         {badge ? (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-300/80">
+          <span className="col-start-2 mt-0.5 inline-flex w-fit max-w-full items-center gap-1 rounded bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-bold leading-none text-amber-300/80">
             <span className="material-symbols-outlined text-[12px]" aria-hidden="true">lock</span>
             {badge}
           </span>
         ) : (
-          <span className="material-symbols-outlined shrink-0 text-[14px]">lock</span>
+          <span className="material-symbols-outlined col-start-2 mt-0.5 shrink-0 text-[14px] leading-none">lock</span>
         )}
       </a>
     )

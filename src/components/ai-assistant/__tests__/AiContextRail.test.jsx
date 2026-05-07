@@ -17,7 +17,6 @@ function renderRail() {
         status="入力待ち"
         inputSummary="URL未入力"
         suggestedQuestions={['競合AがCVRで優位な理由を詳しく分析して']}
-        composerPlaceholder="比較結果について質問…"
       />
       <LocationProbe />
     </MemoryRouter>,
@@ -29,7 +28,7 @@ describe('AiContextRail', () => {
     const user = userEvent.setup()
     renderRail()
 
-    await user.click(screen.getByPlaceholderText('比較結果について質問…'))
+    await user.click(screen.getByPlaceholderText('質問を入力してください…'))
 
     expect(screen.getByTestId('location')).toHaveTextContent('/compare')
   })
@@ -38,7 +37,7 @@ describe('AiContextRail', () => {
     const user = userEvent.setup()
     renderRail()
 
-    await user.type(screen.getByPlaceholderText('比較結果について質問…'), 'CTAの弱点を教えて')
+    await user.type(screen.getByPlaceholderText('質問を入力してください…'), 'CTAの弱点を教えて')
     await user.click(screen.getByRole('button', { name: 'AI考察でこの質問を開く' }))
 
     expect(screen.getByTestId('location').textContent).toContain('/ads/ai?question=')

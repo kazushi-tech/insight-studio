@@ -699,7 +699,6 @@ export default function Discovery() {
         primaryAction="競合発見レポートを次の比較に渡す"
         primaryActionLabel="AI考察で分類を確認"
         helperText="発見候補を同列に扱わず、市場適合・除外理由・次に比較すべき順番を確認します。"
-        composerPlaceholder="この分類について質問…"
       />
 
       {!hasAnalysisKey && (
