@@ -61,10 +61,10 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         {icon && <span className="material-symbols-outlined shrink-0 text-[20px]">{icon}</span>}
         <span className="japanese-text min-w-0 flex-1 truncate">{label}</span>
         {badge ? (
-          <>
-            <span className="shrink-0 text-[10px] font-bold text-amber-300/80 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>
-            <span className="material-symbols-outlined shrink-0 text-[14px]">lock</span>
-          </>
+          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-bold text-amber-300/80">
+            <span className="material-symbols-outlined text-[12px]" aria-hidden="true">lock</span>
+            {badge}
+          </span>
         ) : (
           <span className="material-symbols-outlined shrink-0 text-[14px]">lock</span>
         )}
