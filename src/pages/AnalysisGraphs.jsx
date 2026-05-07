@@ -926,7 +926,7 @@ function GraphAiQuestionRail({
   return (
     <aside
       data-testid="ads-graph-ai-rail"
-      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm"
+      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm 2xl:sticky 2xl:top-24 2xl:max-h-[calc(100vh-7rem)] 2xl:overflow-y-auto 2xl:overscroll-contain"
     >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
@@ -1234,7 +1234,7 @@ export default function AnalysisGraphs() {
   }
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto">
+    <div className="flex-1 min-w-0 overflow-visible">
       <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-10">
 
         {/* ═══ 1. PAGE HEADER ═══ */}
