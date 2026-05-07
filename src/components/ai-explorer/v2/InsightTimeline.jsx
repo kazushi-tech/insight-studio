@@ -40,6 +40,16 @@ const DEFAULT_QUICK_PROMPTS = [
   },
 ]
 
+const QUERY_LABELS = {
+  lp: 'LP/ページ',
+  conversions: 'CVイベント',
+  acquisition: '流入チャネル',
+  landing_page: 'ランディングページ',
+  device: 'デバイス',
+  creative: 'クリエイティブ',
+  raw_events: '生データ',
+}
+
 function groupMessagesIntoTurns(messages) {
   if (!Array.isArray(messages)) return []
   const turns = []
@@ -157,6 +167,19 @@ function buildDecisionBoardState({ reportBundle, messages }) {
   }
 }
 
+function formatSetupQueries(setupState) {
+  const queryTypes = Array.isArray(setupState?.queryTypes) ? setupState.queryTypes : []
+  if (queryTypes.length === 0) return '未選択'
+  return queryTypes.map((key) => QUERY_LABELS[key] ?? key).join(' / ')
+}
+
+function formatSetupPeriods(setupState) {
+  const periods = Array.isArray(setupState?.periods) ? setupState.periods : []
+  if (periods.length === 0) return '未選択'
+  if (periods.length === 1) return periods[0]
+  return `${periods[0]} 〜 ${periods[periods.length - 1]}`
+}
+
 function InsightDecisionBoard({ reportBundle, messages }) {
   const state = buildDecisionBoardState({ reportBundle, messages })
   return (
@@ -211,7 +234,57 @@ function InsightDecisionBoard({ reportBundle, messages }) {
   )
 }
 
-function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle }) {
+function AdsAiSetupGuide({ setupState, isAdsAuthenticated, reportBundle, onOpenSetup, onOpenGraphs }) {
+  const setupComplete = Boolean(
+    isAdsAuthenticated &&
+    setupState?.datasetId &&
+    Array.isArray(setupState?.periods) &&
+    setupState.periods.length > 0,
+  )
+  const items = [
+    ['接続', isAdsAuthenticated ? 'ログイン済み' : '未ログイン'],
+    ['クエリ', formatSetupQueries(setupState)],
+    ['期間', formatSetupPeriods(setupState)],
+    ['AIコンテキスト', reportBundle?.reportMd ? '生成済み' : setupComplete ? '更新待ち' : '未生成'],
+  ]
+
+  return (
+    <section className={styles.setupGuidePanel} data-testid="ads-ai-setup-guide" aria-label="AI考察セットアップ導線">
+      <div className={styles.setupGuideMain}>
+        <span className="material-symbols-outlined" aria-hidden="true">tune</span>
+        <div>
+          <p className={`${styles.setupGuideEyebrow} japanese-text`}>最初にここからセットアップ</p>
+          <h2 className={`${styles.setupGuideTitle} japanese-text`}>クエリと期間を選ぶと、AI考察の根拠が更新されます</h2>
+          <p className={`${styles.setupGuideBody} japanese-text`}>
+            広告グラフのセットアップで「欲しいクエリ」と「分析期間」を選択し、生成されたグラフ要約をこの画面のAI回答へ渡します。
+          </p>
+        </div>
+      </div>
+
+      <div className={styles.setupGuideMeta} aria-label="現在のセットアップ状態">
+        {items.map(([label, value]) => (
+          <div key={label} className={styles.setupGuideChip}>
+            <span className="japanese-text">{label}</span>
+            <strong className="japanese-text">{value}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.setupGuideActions}>
+        <button type="button" className={styles.setupGuidePrimary} onClick={onOpenSetup}>
+          <span className="material-symbols-outlined" aria-hidden="true">settings_suggest</span>
+          {setupState ? 'セットアップで選び直す' : 'セットアップを開始'}
+        </button>
+        <button type="button" className={styles.setupGuideSecondary} onClick={onOpenGraphs}>
+          <span className="material-symbols-outlined" aria-hidden="true">stacked_line_chart</span>
+          広告グラフで確認
+        </button>
+      </div>
+    </section>
+  )
+}
+
+function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle, onOpenSetup }) {
   const requirements = [
     {
       key: 'auth',
@@ -227,9 +300,9 @@ function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle })
     },
     {
       key: 'period',
-      label: '期間',
+      label: 'クエリ・期間',
       ok: Array.isArray(setupState?.periods) && setupState.periods.length > 0,
-      action: setupState?.periods?.length ? `${setupState.periods.length}期間` : '分析期間を選択',
+      action: setupState?.periods?.length ? `${formatSetupQueries(setupState)} / ${setupState.periods.length}期間` : 'セットアップでクエリと期間を選択',
     },
     {
       key: 'report',
@@ -243,17 +316,23 @@ function SetupRequirementPanel({ setupState, isAdsAuthenticated, reportBundle })
 
   return (
     <section className={styles.requirementPanel} aria-label="Ads AI 利用条件">
-      {requirements.map((item) => (
-        <div key={item.key} className={item.ok ? styles.requirementOk : styles.requirementTodo}>
-          <span className="material-symbols-outlined" aria-hidden="true">
-            {item.ok ? 'check_circle' : 'radio_button_unchecked'}
-          </span>
-          <div>
-            <strong className="japanese-text">{item.label}</strong>
-            <p className="japanese-text">{item.action}</p>
+      <div className={styles.requirementGrid}>
+        {requirements.map((item) => (
+          <div key={item.key} className={item.ok ? styles.requirementOk : styles.requirementTodo}>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {item.ok ? 'check_circle' : 'radio_button_unchecked'}
+            </span>
+            <div>
+              <strong className="japanese-text">{item.label}</strong>
+              <p className="japanese-text">{item.action}</p>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <button type="button" className={styles.requirementAction} onClick={onOpenSetup}>
+        <span className="material-symbols-outlined" aria-hidden="true">settings_suggest</span>
+        セットアップウィザードを開く
+      </button>
     </section>
   )
 }
@@ -286,6 +365,8 @@ export default function InsightTimeline({
   reportError,
   reportBundle,
   chartGroups,
+  onOpenSetup,
+  onOpenGraphs,
 }) {
   const endRef = useRef(null)
 
@@ -363,8 +444,17 @@ export default function InsightTimeline({
           setupState={setupState}
           isAdsAuthenticated={isAdsAuthenticated}
           reportBundle={reportBundle}
+          onOpenSetup={onOpenSetup}
         />
       </div>
+
+      <AdsAiSetupGuide
+        setupState={setupState}
+        isAdsAuthenticated={isAdsAuthenticated}
+        reportBundle={reportBundle}
+        onOpenSetup={onOpenSetup}
+        onOpenGraphs={onOpenGraphs}
+      />
 
       <InsightDecisionBoard reportBundle={reportBundle} messages={messages} />
 

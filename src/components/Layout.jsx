@@ -19,15 +19,16 @@ import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 
-const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai']
+const SETUP_GATED_PATHS = ['/ads/graphs']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'home', label: 'ダッシュボード' },
   { to: '/compare', icon: 'balance', label: '競合LP分析' },
   { to: '/discovery', icon: 'search', label: '競合発見' },
   { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
+  { to: '/ads/wizard', icon: 'tune', label: 'セットアップ' },
   { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
-  { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
+  { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察' },
   { to: '/settings', icon: 'settings', label: '設定' },
   { to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true },
 ]

@@ -111,7 +111,7 @@ export default function App() {
           <Route path="ads/wizard" element={<SetupWizard />} />
           <Route path="ads/pack" element={<Navigate to="/ads/graphs" replace />} />
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
-          <Route path="ads/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
+          <Route path="ads/ai" element={<AiExplorer />} />
           <Route path="cases" element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<AdminGuard><ProjectManagement /></AdminGuard>} />
           <Route path="settings" element={<Settings />} />

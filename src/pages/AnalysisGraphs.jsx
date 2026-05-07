@@ -553,7 +553,7 @@ function AdsImage2KpiBoard({
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/[0.05] transition-colors"
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
-            クエリと期間を選び直す
+            セットアップで選び直す
           </button>
         </div>
         <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)]">
@@ -1305,7 +1305,7 @@ export default function AnalysisGraphs() {
               className="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.05] transition-colors"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
-              条件を選び直す
+              セットアップ（クエリ・期間）
             </button>
 
             {/* Period selector */}
@@ -1541,8 +1541,16 @@ export default function AnalysisGraphs() {
                   <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
                   <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
                   <p className="text-sm text-on-surface-variant japanese-text">
-                    セットアップ完了後にグラフが表示されます。
+                    セットアップでクエリと期間を選ぶと、BigQueryから取得したグラフがここに表示されます。
                   </p>
+                  <button
+                    type="button"
+                    onClick={handleChangeSetup}
+                    className="mx-auto inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-90"
+                  >
+                    <span className="material-symbols-outlined text-base" aria-hidden="true">settings_suggest</span>
+                    セットアップでクエリ・期間を選ぶ
+                  </button>
                 </div>
               )}
             </section>
@@ -1692,8 +1700,16 @@ export default function AnalysisGraphs() {
             <span className="material-symbols-outlined text-5xl text-outline-variant">analytics</span>
             <h3 className="text-xl font-bold japanese-text">分析データがまだありません</h3>
             <p className="text-sm text-on-surface-variant japanese-text">
-              セットアップウィザードを完了するか、上の「再取得」ボタンを押してデータを読み込んでください。
+              セットアップでクエリ・期間を選ぶか、上の「再取得」ボタンを押してデータを読み込んでください。
             </p>
+            <button
+              type="button"
+              onClick={handleChangeSetup}
+              className="mx-auto inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">settings_suggest</span>
+              セットアップでクエリ・期間を選ぶ
+            </button>
           </div>
         )}
       </div>
