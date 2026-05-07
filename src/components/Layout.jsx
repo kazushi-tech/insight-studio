@@ -46,6 +46,8 @@ const NAV_ITEMS = [
 ]
 
 function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
+  const spacingClass = isChild ? 'pl-12 pr-3' : 'px-4'
+
   if (disabled) {
     return (
       <a
@@ -53,20 +55,18 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         aria-disabled="true"
         tabIndex={-1}
         onClick={(e) => e.preventDefault()}
-        className={`mx-4 flex items-center gap-4 rounded-xl px-4 py-3 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed ${
-          isChild ? 'pl-14' : ''
-        }`}
+        className={`mx-4 flex min-w-0 items-center gap-3 rounded-xl ${spacingClass} py-3 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed`}
         title="セットアップを完了してください"
       >
-        {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
-        <span className="japanese-text">{label}</span>
+        {icon && <span className="material-symbols-outlined shrink-0 text-[20px]">{icon}</span>}
+        <span className="japanese-text min-w-0 flex-1 truncate">{label}</span>
         {badge ? (
           <>
-            <span className="ml-auto text-[10px] font-bold text-amber-300/80 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>
-            <span className="material-symbols-outlined text-[14px] ml-2">lock</span>
+            <span className="shrink-0 text-[10px] font-bold text-amber-300/80 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>
+            <span className="material-symbols-outlined shrink-0 text-[14px]">lock</span>
           </>
         ) : (
-          <span className="material-symbols-outlined text-[14px] ml-auto">lock</span>
+          <span className="material-symbols-outlined shrink-0 text-[14px]">lock</span>
         )}
       </a>
     )
@@ -76,18 +76,16 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
       to={to}
       end={to === '/'}
       className={({ isActive }) =>
-        `mx-4 flex items-center gap-4 rounded-xl px-4 py-3 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-[#a8e7c5] focus-visible:outline-offset-[-2px] ${
-          isChild ? 'pl-14' : ''
-        } ${
+        `mx-4 flex min-w-0 items-center gap-3 rounded-xl ${spacingClass} py-3 transition-colors text-[15px] focus-visible:outline-2 focus-visible:outline-[#a8e7c5] focus-visible:outline-offset-[-2px] ${
           isActive
             ? 'text-white font-bold bg-white/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]'
             : 'text-white/80 hover:text-white hover:bg-white/10'
         }`
       }
     >
-      {icon && <span className="material-symbols-outlined text-[20px]">{icon}</span>}
-      <span className="japanese-text">{label}</span>
-      {badge && <span className="ml-auto text-[10px] font-bold text-amber-300 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>}
+      {icon && <span className="material-symbols-outlined shrink-0 text-[20px]">{icon}</span>}
+      <span className="japanese-text min-w-0 flex-1 truncate">{label}</span>
+      {badge && <span className="shrink-0 text-[10px] font-bold text-amber-300 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>}
     </NavLink>
   )
 }
@@ -505,9 +503,9 @@ export default function Layout() {
         メインコンテンツへスキップ
       </a>
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col" style={{ width: sidebarWidth, background: 'linear-gradient(135deg, #0f5238 0%, #002114 100%)' }}>
+      <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col overflow-hidden" style={{ width: sidebarWidth, background: 'linear-gradient(135deg, #0f5238 0%, #002114 100%)' }}>
         {/* Logo */}
-        <div className="px-6 mb-10 flex items-center gap-3">
+        <div className="px-6 mb-8 flex shrink-0 items-center gap-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#f4fff8' }}>
             <span className="material-symbols-outlined text-2xl">eco</span>
           </div>
@@ -522,7 +520,7 @@ export default function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex flex-col gap-2 flex-1">
+        <nav className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-4">
           {NAV_ITEMS
             .filter((item) => !item.adminOnly || canManageProjects)
             .map((item) => item.children ? (
@@ -543,70 +541,72 @@ export default function Layout() {
             ))}
         </nav>
 
-        {/* Background Running Indicator */}
-        <BackgroundIndicator />
+        <div className="shrink-0 border-t border-white/10 pt-3">
+          {/* Background Running Indicator */}
+          <BackgroundIndicator />
 
-        {/* Connection Status */}
-        <div className="px-6 mb-3">
-          <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-white/50">競合LP分析 / 競合発見</span>
-              <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {coreAnalysisStatusLabel}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/50">クリエイティブレビュー</span>
-              <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {coreAnalysisStatusLabel}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/50">分析API</span>
-              <span className={`flex items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {hasAnalysisKey ? `${aiInsightProviderLabel} 設定済` : '未設定'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/50">考察スタジオ</span>
-              <span className={`flex items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-400' : 'text-white/40'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                {isAdsAuthenticated ? '接続済' : '未接続'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-white/50">AI考察</span>
-              <span className={`flex items-center gap-1 font-bold ${adsAiTone}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${adsAiDot}`} />
-                {adsAiStatusLabel}
-              </span>
-            </div>
-            {isSetupComplete && setupState?.completedAt && (
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-white/40">最終セットアップ</span>
-                <span className="text-white/40 tabular-nums">
-                  {new Date(setupState.completedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          {/* Connection Status */}
+          <div className="px-6 mb-3">
+            <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-white/50">競合LP分析 / 競合発見</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                  {coreAnalysisStatusLabel}
                 </span>
               </div>
-            )}
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-white/50">クリエイティブレビュー</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                  {coreAnalysisStatusLabel}
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-white/50">分析API</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                  {hasAnalysisKey ? `${aiInsightProviderLabel} 設定済` : '未設定'}
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-white/50">考察スタジオ</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-400' : 'text-white/40'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                  {isAdsAuthenticated ? '接続済' : '未接続'}
+                </span>
+              </div>
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-white/50">AI考察</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${adsAiTone}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${adsAiDot}`} />
+                  {adsAiStatusLabel}
+                </span>
+              </div>
+              {isSetupComplete && setupState?.completedAt && (
+                <div className="flex min-w-0 items-center justify-between gap-2 text-[10px]">
+                  <span className="min-w-0 truncate text-white/40">最終セットアップ</span>
+                  <span className="shrink-0 text-white/40 tabular-nums">
+                    {new Date(setupState.completedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* New Setup Button */}
-        <div className="px-6 mt-2">
-          <button
-            onClick={() => {
-              resetSetup()
-              navigate('/ads/wizard', { state: { resetAt: Date.now() } })
-            }}
-            className="w-full py-2.5 bg-white/10 text-white rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/20 transition-colors text-xs focus-ring"
-          >
-            <span className="material-symbols-outlined text-base">add</span>
-            <span>新規レポート</span>
-          </button>
+          {/* New Setup Button */}
+          <div className="px-6 mt-2">
+            <button
+              onClick={() => {
+                resetSetup()
+                navigate('/ads/wizard', { state: { resetAt: Date.now() } })
+              }}
+              className="w-full py-2.5 bg-white/10 text-white rounded-full font-bold flex items-center justify-center gap-2 hover:bg-white/20 transition-colors text-xs focus-ring"
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              <span>新規レポート</span>
+            </button>
+          </div>
         </div>
         <div
           onMouseDown={startResize}
