@@ -96,7 +96,7 @@ function SidebarGroup({ item, disabledPaths }) {
   const [open, setOpen] = useState(isGroupActive)
 
   return (
-    <div>
+    <div className="py-0.5">
       <button
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -113,7 +113,7 @@ function SidebarGroup({ item, disabledPaths }) {
         </span>
       </button>
       {open && (
-        <div className="flex flex-col">
+        <div className="mt-1.5 mb-2 flex flex-col gap-1">
           {item.children.map((child) => (
             <SidebarLink
               key={child.to}
