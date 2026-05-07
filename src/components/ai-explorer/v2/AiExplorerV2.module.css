@@ -9,49 +9,23 @@
 /* ───────── Layout ───────── */
 
 .root {
+  --ai-explorer-content-width: 1120px;
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 4rem);
-  padding: 1.25rem 1.5rem 0;
-  gap: 1rem;
-}
-
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.headerControls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.headerLeft {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.headerRight {
-  display: flex;
-  align-items: center;
+  padding: 0.75rem 1.5rem 0;
   gap: 0.5rem;
-  position: relative;
 }
 
 .timelineWrap {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding: 1rem 0 1.5rem;
+  padding: 1.25rem 0 1.25rem;
 }
 
 .timeline {
-  max-width: 1400px;
+  max-width: var(--ai-explorer-content-width);
+  width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -409,113 +383,12 @@
 
 .emptyQuickPrompts {
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--ai-explorer-content-width);
   margin: 0 auto;
-}
-
-.decisionBoard {
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 16px;
-  background:
-    linear-gradient(135deg, rgba(0, 57, 37, 0.95), rgba(20, 93, 64, 0.9)),
-    var(--color-primary);
-  color: var(--color-on-primary);
-}
-
-.decisionBoardMain,
-.decisionBoardSide {
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1.1rem;
-}
-
-.decisionEyebrow {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-}
-
-.decisionTitle {
-  margin: 0.55rem 0 0;
-  font-size: 1.55rem;
-  line-height: 1.18;
-  font-weight: 900;
-}
-
-.decisionMetaGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  margin-top: 1rem;
-}
-
-.decisionMeta {
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.75rem;
-}
-
-.decisionMeta span {
-  display: block;
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 0.68rem;
-  font-weight: 900;
-}
-
-.decisionMeta strong {
-  display: block;
-  margin-top: 0.2rem;
-  color: #fff;
-  font-size: 0.88rem;
-  line-height: 1.35;
-}
-
-.decisionActionList {
-  display: grid;
-  gap: 0.55rem;
-  margin-top: 0.9rem;
-}
-
-.decisionAction {
-  display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  gap: 0.55rem;
-  align-items: start;
-  padding: 0.7rem;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.decisionAction b {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.16);
-  font-size: 0.75rem;
-}
-
-.decisionAction p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.84rem;
-  line-height: 1.45;
 }
 
 @media (max-width: 1023px) {
-  .operationalCards,
-  .decisionBoard,
-  .decisionMetaGrid {
+  .operationalCards {
     grid-template-columns: 1fr;
   }
 }
@@ -538,7 +411,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  max-width: 1400px;
+  max-width: var(--ai-explorer-content-width);
   margin: 0 auto;
   width: 100%;
 }
@@ -575,7 +448,7 @@
   border: 1px solid color-mix(in srgb, var(--color-outline-variant) 25%, transparent);
   border-radius: 999px;
   padding: 0.5rem 0.5rem 0.5rem 1.5rem;
-  max-width: 1400px;
+  max-width: var(--ai-explorer-content-width);
   width: 100%;
   margin: 0 auto;
 }
@@ -635,7 +508,7 @@
   gap: 1.5rem;
   font-size: 0.75rem;
   color: var(--color-outline);
-  max-width: 1400px;
+  max-width: var(--ai-explorer-content-width);
   margin: 0 auto;
   width: 100%;
 }
@@ -646,17 +519,15 @@
   gap: 0.25rem;
 }
 
-/* ───────── Status chip / banner helpers (reused styling) ───────── */
+/* ───────── Banner helpers ───────── */
 
-.statusChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.875rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  border: 1px solid transparent;
+.bannerStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: var(--ai-explorer-content-width);
+  width: 100%;
+  margin: 0 auto;
 }
 
 .banner {
@@ -678,219 +549,4 @@
   background: var(--color-surface-container-low);
   border: 1px solid color-mix(in srgb, var(--color-outline-variant) 25%, transparent);
   color: var(--color-on-surface-variant);
-}
-
-.setupGuidePanel {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr) auto;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 12px;
-  background: var(--color-surface-container-lowest);
-  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
-}
-
-.setupGuideMain {
-  display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr);
-  gap: 0.875rem;
-  min-width: 0;
-}
-
-.setupGuideMain > span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.setupGuideEyebrow {
-  margin: 0;
-  font-size: 0.6875rem;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  color: var(--color-primary);
-}
-
-.setupGuideTitle {
-  margin: 0.25rem 0 0;
-  font-size: 1rem;
-  font-weight: 900;
-  color: var(--color-on-surface);
-  line-height: 1.35;
-}
-
-.setupGuideBody {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
-  line-height: 1.6;
-  color: var(--color-on-surface-variant);
-}
-
-.setupGuideMeta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.setupGuideChip {
-  min-width: 0;
-  border-radius: 10px;
-  background: var(--color-surface-container-low);
-  padding: 0.625rem 0.75rem;
-}
-
-.setupGuideChip span {
-  display: block;
-  font-size: 0.625rem;
-  font-weight: 800;
-  color: var(--color-on-surface-variant);
-}
-
-.setupGuideChip strong {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.72rem;
-  color: var(--color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.setupGuideActions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 188px;
-}
-
-.setupGuidePrimary,
-.setupGuideSecondary,
-.requirementAction {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border: none;
-  border-radius: 12px;
-  padding: 0.7rem 0.95rem;
-  font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 900;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), box-shadow 160ms cubic-bezier(0.2, 0, 0, 1), background 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.setupGuidePrimary {
-  background: var(--color-primary);
-  color: var(--color-on-primary);
-  box-shadow: 0 10px 22px color-mix(in srgb, var(--color-primary) 12%, transparent);
-}
-
-.setupGuideSecondary {
-  background: var(--color-surface-container-low);
-  color: var(--color-primary);
-}
-
-.setupGuidePrimary:hover,
-.setupGuideSecondary:hover,
-.requirementAction:hover {
-  transform: translateY(-1px);
-}
-
-.setupGuidePrimary:focus-visible,
-.setupGuideSecondary:focus-visible,
-.requirementAction:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.requirementPanel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border-radius: 12px;
-  background: var(--color-surface-container-lowest);
-  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
-}
-
-.requirementGrid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.requirementOk,
-.requirementTodo {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-  min-width: 0;
-  padding: 0.75rem;
-  border-radius: 10px;
-}
-
-.requirementOk {
-  background: color-mix(in srgb, var(--color-success, #16a34a) 10%, transparent);
-  color: var(--color-on-surface);
-}
-
-.requirementTodo {
-  background: color-mix(in srgb, var(--color-warning, #b45309) 12%, transparent);
-  color: var(--color-on-surface);
-}
-
-.requirementOk > span {
-  color: var(--color-success, #16a34a);
-}
-
-.requirementTodo > span {
-  color: var(--color-warning, #b45309);
-}
-
-.requirementOk strong,
-.requirementTodo strong {
-  display: block;
-  font-size: 0.75rem;
-}
-
-.requirementOk p,
-.requirementTodo p {
-  margin: 0.125rem 0 0;
-  font-size: 0.6875rem;
-  line-height: 1.35;
-  color: var(--color-on-surface-variant);
-  overflow-wrap: anywhere;
-}
-
-.requirementAction {
-  align-self: flex-start;
-  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-  color: var(--color-primary);
-}
-
-@media (max-width: 1180px) {
-  .setupGuidePanel {
-    grid-template-columns: 1fr;
-  }
-
-  .setupGuideActions {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 820px) {
-  .requirementGrid,
-  .setupGuideMeta {
-    grid-template-columns: 1fr;
-  }
 }
