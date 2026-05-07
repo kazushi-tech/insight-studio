@@ -78,7 +78,7 @@ function getActiveJob() {
 
 function DiscoveryImage2Guide({ providerLabel }) {
   return (
-    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+    <section className="grid min-w-0 grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -115,7 +115,7 @@ function DiscoveryImage2Guide({ providerLabel }) {
         </div>
       </div>
 
-      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] min-w-0 overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-5 shadow-sm">
         <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
         <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">どの競合から比較するか</h3>
         <ol className="mt-4 space-y-4">
@@ -652,8 +652,8 @@ export default function Discovery() {
   }, [clearRun, stopPolling])
 
   return (
-    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
-      <div>
+    <div className="mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-8 p-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start 2xl:p-8 2xl:grid-cols-[minmax(0,1fr)_336px]">
+      <div className="min-w-0">
         <h2 className="display-lg text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
         <p className="body-lg text-on-surface-variant max-w-2xl mt-4">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
       </div>
@@ -665,12 +665,41 @@ export default function Discovery() {
         inputSummary={discoveryRailInput}
         evidence={['直接競合', '隣接競合', '参考ブランド', '対象外']}
         suggestedQuestions={[
-          'この候補を直接競合・隣接・参考・対象外に分け直して',
-          '対象外候補を主提案から外したうえで比較先を選んで',
-          'ターゲット市場を一文で定義してから施策を整理して',
+          '直接競合の妥当性を確認して',
+          '除外したサイトの理由を詳しく教えて',
+          '他に不足している情報は？',
+        ]}
+        questionGroups={[
+          {
+            title: '分類の基準について',
+            questions: [
+              'この分類ロジックを教えて',
+              '信頼度の基準は？',
+              '理由トレースの根拠を表示して',
+            ],
+          },
+          {
+            title: '次のアクション',
+            questions: [
+              'Compareに送る前に確認したい',
+              '比較分析レポートで何が分かる？',
+              '市場トレンドも合わせて見たい',
+            ],
+          },
+        ]}
+        contextItems={[
+          '機能の重複度が高い候補を優先',
+          '提供価値が近い候補を主比較へ',
+          'ターゲット一致を除外理由まで確認',
+        ]}
+        nextActions={[
+          { label: '比較分析へ送る', to: '/compare', icon: 'auto_awesome', primary: true },
+          { label: '選択をリセット', question: '競合候補の選択をリセットする前に、残すべき候補を教えて', icon: 'delete' },
         ]}
         primaryAction="競合発見レポートを次の比較に渡す"
+        primaryActionLabel="AI考察で分類を確認"
         helperText="発見候補を同列に扱わず、市場適合・除外理由・次に比較すべき順番を確認します。"
+        composerPlaceholder="この分類について質問…"
       />
 
       {!hasAnalysisKey && (
@@ -687,9 +716,9 @@ export default function Discovery() {
       {!result?.report_md && <DiscoveryImage2Guide providerLabel={providerLabel} />}
 
       {/* URL Input */}
-      <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border">
-        <div className="flex gap-4">
-          <div className="relative flex-1">
+      <div className="min-w-0 bg-surface-container-lowest p-6 2xl:p-8 rounded-xl ghost-border">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
+          <div className="relative min-w-0 flex-1">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden="true">link</span>
             <label htmlFor="discovery-brand-url" className="sr-only">競合発見の対象URL</label>
             <input

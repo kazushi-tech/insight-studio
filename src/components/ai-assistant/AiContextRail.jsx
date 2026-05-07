@@ -17,10 +17,14 @@ export default function AiContextRail({
   inputSummary,
   evidence = [],
   suggestedQuestions = [],
+  questionGroups = [],
+  contextItems = [],
+  nextActions = [],
   primaryAction,
   primaryActionTo = '/ads/ai',
   primaryActionLabel = 'AI考察で開く',
   helperText,
+  composerPlaceholder = '質問を入力してください…',
   className = '',
   children,
 }) {
@@ -77,11 +81,68 @@ export default function AiContextRail({
         </div>
       )}
 
+      {questionGroups.map((group) => (
+        <div key={group.title} className="ai-context-rail__section">
+          <p className="ai-context-rail__section-title">{group.title}</p>
+          <div className="ai-context-rail__questions">
+            {(group.questions || []).map((item) => (
+              <Link
+                key={item}
+                to={`/ads/ai?question=${encodeURIComponent(item)}`}
+                className="ai-context-rail__question ai-context-rail__question--compact japanese-text"
+              >
+                <span className="material-symbols-outlined" aria-hidden="true">article</span>
+                <span>{item}</span>
+                <span className="material-symbols-outlined ai-context-rail__question-arrow" aria-hidden="true">arrow_forward</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {contextItems.length > 0 && (
+        <div className="ai-context-rail__section">
+          <p className="ai-context-rail__section-title">判断メモ</p>
+          <ul className="ai-context-rail__checklist">
+            {contextItems.map((item) => (
+              <li key={item} className="japanese-text">
+                <span className="material-symbols-outlined" aria-hidden="true">check</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {nextActions.length > 0 && (
+        <div className="ai-context-rail__section">
+          <p className="ai-context-rail__section-title">次のアクション</p>
+          <div className="ai-context-rail__actions">
+            {nextActions.map((item) => (
+              <Link
+                key={item.label}
+                to={item.to || `/ads/ai?question=${encodeURIComponent(item.question || item.label)}`}
+                className={`ai-context-rail__action ${item.primary ? 'ai-context-rail__action--primary' : ''} japanese-text`}
+              >
+                {item.icon && <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>}
+                <span>{item.label}</span>
+                <span className="material-symbols-outlined ai-context-rail__question-arrow" aria-hidden="true">arrow_forward</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {children}
 
       <Link to={actionHref} className="ai-context-rail__primary japanese-text">
         <span className="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
         {primaryActionLabel}
+      </Link>
+
+      <Link to={actionHref} className="ai-context-rail__composer japanese-text" aria-label={primaryActionLabel}>
+        <span>{composerPlaceholder}</span>
+        <span className="material-symbols-outlined" aria-hidden="true">send</span>
       </Link>
     </aside>
   )

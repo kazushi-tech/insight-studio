@@ -1,25 +1,28 @@
 .ai-context-rail {
   position: relative;
   display: flex;
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
   flex-direction: column;
-  gap: 1rem;
-  overflow: hidden;
+  gap: 0.875rem;
+  overflow: clip;
   border: 1px solid color-mix(in srgb, var(--color-primary) 15%, transparent);
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 4%, transparent), transparent 44%),
     var(--color-surface-container-lowest);
-  padding: 1.25rem;
+  padding: 1rem;
   box-shadow: 0 18px 48px rgba(0, 57, 37, 0.08);
 }
 
 @media (min-width: 1280px) {
   .ai-context-rail {
     position: sticky;
-    top: 6rem;
-    max-height: calc(100vh - 7rem);
+    top: 5.25rem;
+    max-height: calc(100vh - 6rem);
     overflow-y: auto;
+    overscroll-behavior: contain;
   }
 }
 
@@ -42,7 +45,7 @@
 .ai-context-rail__title {
   margin-top: 0.25rem;
   color: var(--color-primary);
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 900;
   line-height: 1.45;
 }
@@ -56,18 +59,18 @@
   border-radius: 999px;
   background: var(--color-primary);
   color: var(--color-on-primary);
-  font-size: 1.125rem;
+  font-size: 1rem;
 }
 
 .ai-context-rail__body {
   border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
-  border-radius: 0.875rem;
+  border-radius: 0.75rem;
   background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest));
   color: var(--color-on-surface);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  line-height: 1.8;
-  padding: 0.875rem;
+  line-height: 1.75;
+  padding: 0.75rem;
 }
 
 .ai-context-rail__section {
@@ -96,20 +99,22 @@
 .ai-context-rail__evidence-chip,
 .ai-context-rail__question {
   min-width: 0;
+  max-width: 100%;
   overflow-wrap: anywhere;
-  border-radius: 0.875rem;
+  word-break: auto-phrase;
+  border-radius: 0.625rem;
   background: var(--color-surface-container-low);
   color: var(--color-on-surface);
   font-size: 0.75rem;
   line-height: 1.6;
-  padding: 0.625rem 0.75rem;
+  padding: 0.625rem 0.7rem;
 }
 
 .ai-context-rail__pill {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .ai-context-rail__pill b {
@@ -122,6 +127,7 @@
   min-width: 0;
   text-align: right;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .ai-context-rail__pill--good {
@@ -141,7 +147,9 @@
 }
 
 .ai-context-rail__question {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   border: 1px solid color-mix(in srgb, var(--color-outline-variant) 70%, transparent);
   text-decoration: none;
   transition:
@@ -150,22 +158,153 @@
     color 160ms ease;
 }
 
+.ai-context-rail__question--compact {
+  min-height: 2.625rem;
+  background: var(--color-surface-container-lowest);
+}
+
+.ai-context-rail__question .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  color: var(--color-primary);
+}
+
+.ai-context-rail__question span:not(.material-symbols-outlined) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ai-context-rail__question-arrow {
+  margin-left: auto;
+}
+
 .ai-context-rail__question:hover {
   border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
   background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest));
   color: var(--color-primary);
 }
 
+.ai-context-rail__checklist {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-context-rail__checklist li {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.45rem;
+  color: var(--color-on-surface);
+  font-size: 0.75rem;
+  font-weight: 750;
+  line-height: 1.65;
+}
+
+.ai-context-rail__checklist .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: var(--color-primary);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.ai-context-rail__actions {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ai-context-rail__action {
+  display: flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-radius: 0.625rem;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 850;
+  line-height: 1.5;
+  padding: 0.65rem 0.75rem;
+  text-decoration: none;
+}
+
+.ai-context-rail__action--primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.ai-context-rail__action .material-symbols-outlined {
+  flex: 0 0 auto;
+  font-size: 1rem;
+}
+
+.ai-context-rail__action span:not(.material-symbols-outlined) {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
 .ai-context-rail__primary {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
   min-height: 2.75rem;
-  border-radius: 999px;
+  border-radius: 0.75rem;
   background: var(--color-primary);
   color: var(--color-on-primary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 900;
+  line-height: 1.45;
+  padding: 0.65rem 0.85rem;
+  text-align: center;
   text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.ai-context-rail__composer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 55%, transparent);
+  border-radius: 0.75rem;
+  background: var(--color-surface-container-lowest);
+  color: var(--color-on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 750;
+  line-height: 1.5;
+  padding: 0.75rem;
+  text-decoration: none;
+}
+
+.ai-context-rail__composer span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-context-rail__composer .material-symbols-outlined {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 1rem;
+}
+
+@media (max-width: 1279px) {
+  .ai-context-rail {
+    overflow: visible;
+  }
 }

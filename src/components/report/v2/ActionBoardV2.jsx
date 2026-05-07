@@ -25,13 +25,14 @@ function PriorityMeter({ label, value, tone }) {
   )
 }
 
-export default function ActionBoardV2({ envelope, reportMd }) {
+export default function ActionBoardV2({ envelope, reportMd, kind = 'compare' }) {
   const insights = useMemo(
     () => buildReportDecisionInsights({ envelope, reportMd }),
     [envelope, reportMd],
   )
   const { topAction, actions, evidence, brands, evidenceItems, tiers } = insights
   const hasClassificationRisk = (tiers.counts.out_of_scope || 0) > 0 || evidence.pending > evidence.confirmed
+  const isDiscovery = kind === 'discovery'
 
   if (!topAction && !actions.length && !brands.length) return null
 
@@ -45,17 +46,19 @@ export default function ActionBoardV2({ envelope, reportMd }) {
         <div className={styles.header}>
           <span className={styles.eyebrow}>Action Board / Decision Board</span>
           <h2 id="action-board-v2-title" className={styles.title}>
-            次に動かす施策
+            {isDiscovery ? '比較へ送る候補' : '結論ボード'}
           </h2>
           <p className={styles.lead}>
-            長文レポートを読む前に、優先度・根拠・最初の一手を確認できます。
+            {isDiscovery
+              ? '長文レポートを読む前に、市場定義・候補分類・比較対象に残す理由を確認できます。'
+              : '長文レポートを読む前に、勝ち筋・不足根拠・最初に直すCTAを確認できます。'}
           </p>
         </div>
 
         <article className={styles.primaryAction}>
           <div className={styles.actionLabel}>
-            <span className="material-symbols-outlined" aria-hidden="true">flag</span>
-            最優先
+            <span className="material-symbols-outlined" aria-hidden="true">{isDiscovery ? 'manage_search' : 'flag'}</span>
+            {isDiscovery ? 'Compare Handoff' : '最重要ポイント'}
           </div>
           <h3 className={styles.actionTitle}>{topAction.title}</h3>
           {topAction.detail && <p className={styles.actionDetail}>{topAction.detail}</p>}

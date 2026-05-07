@@ -4,6 +4,7 @@ import InsightTurnCard from './InsightTurnCard'
 import LoadingSkeleton from './LoadingSkeleton'
 import QuickPromptCard from './QuickPromptCard'
 import styles from './AiExplorerV2.module.css'
+import timelineStyles from './InsightTimeline.module.css'
 
 /**
  * InsightTimeline — v2 container replacing the bubble feed in AiExplorer.jsx.
@@ -93,9 +94,24 @@ function compactText(value, fallback) {
   return text || fallback
 }
 
+function firstLineAfter(markdown, labels) {
+  const source = String(markdown || '')
+  for (const label of labels) {
+    const match = source.match(new RegExp(`${label}\\s*[:：]\\s*([^\\n]+)`, 'i'))
+    if (match?.[1]) return match[1]
+  }
+  return ''
+}
+
 function extractMetricFromMarkdown(markdown) {
   const match = String(markdown || '').match(/(CVR|CPA|CTR|CPC|ROAS|CV|売上|セッション)[^。\n]{0,28}(?:悪化|改善|上昇|低下|増加|減少|削減)?/i)
   return match?.[0] || ''
+}
+
+function extractMissingData(markdown) {
+  const source = String(markdown || '')
+  const matches = source.match(/(?:未取得|不足|要確認|未計測)[^。\n、,]{0,24}(?:データ|CVR|CPA|ROAS|CV|チャネル|キャンペーン|広告費|コンバージョン|指標)/g)
+  return [...new Set(matches || [])].slice(0, 4)
 }
 
 function buildDecisionBoardState({ reportBundle, messages }) {
@@ -108,11 +124,16 @@ function buildDecisionBoardState({ reportBundle, messages }) {
     ? reportBundle.periods.map((p) => p.label || p.name || p).filter(Boolean).join(' / ')
     : ''
   const topAction = compactText(
-    actions[0]?.title || latest.match(/(?:最優先|今週やる施策|次アクション)[:：]\s*([^\n]+)/)?.[1],
+    actions[0]?.title || firstLineAfter(latest, ['最優先', '今週やる施策', '次アクション', '改善タスク']),
     latest ? '回答内の最優先タスクを確認' : '分析データを生成して最優先施策を確認',
   )
+  const missingData = extractMissingData(sourceMd)
 
   return {
+    summary: compactText(
+      reportBundle?.decision_summary?.summary || firstLineAfter(latest, ['結論', '考察サマリー', '要約']),
+      latest ? '回答本文から主要な判断を先に確認できます' : '質問後に、結論・施策・根拠・不足データをここへ整理します',
+    ),
     topMetric: compactText(
       reportBundle?.decision_summary?.top_metric || extractMetricFromMarkdown(sourceMd),
       'CV / CPA / CVR の変化',
@@ -128,6 +149,7 @@ function buildDecisionBoardState({ reportBundle, messages }) {
     ),
     period: compactText(periods || reportBundle?.periodLabel || reportBundle?.period, '現在の分析データ期間'),
     confidence: compactText(reportBundle?.decision_summary?.confidence, latest ? '中' : '評価保留'),
+    missingData: missingData.length > 0 ? missingData : ['CVデータ', 'チャネル別CVR', 'CPA / ROAS', 'コンバージョン内訳'],
     actions: [
       topAction,
       ...actions.slice(1, 3).map((item) => compactText(item.title || item.action, '次タスク')),
@@ -138,46 +160,50 @@ function buildDecisionBoardState({ reportBundle, messages }) {
 function InsightDecisionBoard({ reportBundle, messages }) {
   const state = buildDecisionBoardState({ reportBundle, messages })
   return (
-    <section className={styles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
-      <div className={styles.decisionBoardMain}>
-        <p className={styles.decisionEyebrow}>AIグラフチャット / Python集計済み</p>
-        <h2 id="insight-decision-board-title" className={`${styles.decisionTitle} japanese-text`}>
-          グラフを見ながらAIに質問
-        </h2>
-        <p className="japanese-text" style={{ marginTop: '0.5rem', color: 'var(--color-on-surface-variant)', fontWeight: 700 }}>
+    <section className={timelineStyles.decisionBoard} data-testid="insight-decision-board" aria-labelledby="insight-decision-board-title">
+      <div className={timelineStyles.summaryPanel}>
+        <p className={timelineStyles.eyebrow}>考察サマリー</p>
+        <h2 id="insight-decision-board-title" className={`${timelineStyles.decisionTitle} japanese-text`}>
           {state.topAction}
-        </p>
-        <div className={styles.decisionMetaGrid}>
-          <div className={styles.decisionMeta}>
-            <span>最重要変化指標</span>
-            <strong>{state.topMetric}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>推定原因</span>
-            <strong>{state.cause}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>期待KPI</span>
-            <strong>{state.expectedKpi}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>データ期間</span>
-            <strong>{state.period}</strong>
-          </div>
-          <div className={styles.decisionMeta}>
-            <span>信頼度</span>
-            <strong>{state.confidence}</strong>
-          </div>
-        </div>
+        </h2>
+        <p className={`${timelineStyles.summaryText} japanese-text`}>{state.summary}</p>
       </div>
-      <aside className={styles.decisionBoardSide} aria-label="優先アクション">
-        <p className={styles.decisionEyebrow}>優先アクション</p>
-        <div className={styles.decisionActionList}>
+
+      <div className={timelineStyles.actionPanel} aria-label="今週やる3施策">
+        <p className={timelineStyles.eyebrow}>今週やる3施策</p>
+        <div className={timelineStyles.actionList}>
           {state.actions.map((action, idx) => (
-            <div key={`${action}-${idx}`} className={styles.decisionAction}>
-              <b>{idx + 1}</b>
+            <div key={`${action}-${idx}`} className={timelineStyles.actionItem}>
+              <b>{`P${idx}`}</b>
               <p className="japanese-text">{action}</p>
             </div>
+          ))}
+        </div>
+      </div>
+
+      <div className={timelineStyles.evidencePanel} aria-label="根拠指標">
+        <p className={timelineStyles.eyebrow}>根拠指標</p>
+        <div className={timelineStyles.metricGrid}>
+          {[
+            ['最重要変化指標', state.topMetric],
+            ['推定原因', state.cause],
+            ['期待KPI', state.expectedKpi],
+            ['データ期間', state.period],
+            ['信頼度', state.confidence],
+          ].map(([label, value]) => (
+            <div key={label} className={timelineStyles.metricItem}>
+              <span>{label}</span>
+              <strong className="japanese-text">{value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <aside className={timelineStyles.missingPanel} aria-label="未取得データ">
+        <p className={timelineStyles.eyebrow}>未取得データ</p>
+        <div className={timelineStyles.missingChips}>
+          {state.missingData.map((item) => (
+            <span key={item} className={`${timelineStyles.missingChip} japanese-text`}>{item}</span>
           ))}
         </div>
       </aside>

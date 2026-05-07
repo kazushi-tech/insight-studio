@@ -11,10 +11,8 @@
   align-items: end;
   padding: 28px;
   border: 1px solid color-mix(in srgb, var(--md-sys-color-primary, #003925) 14%, transparent);
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--md-sys-color-primary, #003925) 7%, transparent), transparent 48%),
-    var(--md-sys-color-surface-container-lowest, #fffef8);
+  border-radius: 10px;
+  background: var(--md-sys-color-surface-container-lowest, #fafaf5);
 }
 
 .eyebrow {
@@ -59,7 +57,7 @@
   gap: 8px;
   min-height: 40px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--md-sys-color-surface-container-low, #f3f0e8);
   color: var(--md-sys-color-on-surface, #1f1f1b);
   font-size: 0.82rem;
@@ -76,8 +74,8 @@
   gap: 18px;
   padding: 26px;
   border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 55%, transparent);
-  border-radius: 18px;
-  background: var(--md-sys-color-surface-container-lowest, #fffef8);
+  border-radius: 10px;
+  background: var(--md-sys-color-surface-container-lowest, #fafaf5);
   box-shadow: 0 18px 48px rgba(0, 57, 37, 0.06);
 }
 
@@ -93,7 +91,7 @@
   width: 42px;
   height: 42px;
   flex: 0 0 auto;
-  border-radius: 14px;
+  border-radius: 8px;
   background: var(--md-sys-color-primary, #003925);
   color: var(--md-sys-color-on-primary, #ffffff);
   font-size: 0.86rem;
@@ -125,7 +123,7 @@
   align-items: flex-start;
   min-height: 164px;
   padding: 20px;
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .ownedLp > span {
@@ -167,7 +165,7 @@
   align-items: center;
   min-height: 64px;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: 8px;
 }
 
 .foundItem {
@@ -184,7 +182,7 @@
   justify-content: center;
   min-width: 82px;
   padding: 6px 10px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--md-sys-color-primary, #003925) 9%, white);
   color: var(--md-sys-color-primary, #003925);
   font-size: 0.72rem;
@@ -211,7 +209,7 @@
 .tierCount {
   min-height: 92px;
   padding: 16px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: var(--md-sys-color-surface-container-low, #f7f4ec);
 }
 
@@ -244,7 +242,7 @@
   display: grid;
   gap: 16px;
   padding: 18px;
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .graphTitle {
@@ -280,7 +278,7 @@
 .barTrack,
 .dualBars {
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 44%, transparent);
 }
 
@@ -297,7 +295,7 @@
 }
 
 .barTrack i {
-  background: linear-gradient(90deg, var(--md-sys-color-primary, #003925), #b48b2f);
+  background: var(--md-sys-color-primary, #003925);
 }
 
 .barRow small {
@@ -334,7 +332,7 @@
   max-height: 520px;
   overflow: hidden;
   padding: 20px;
-  border-radius: 16px;
+  border-radius: 8px;
   background: var(--md-sys-color-surface-container-low, #f7f4ec);
 }
 
@@ -358,7 +356,7 @@
   gap: 6px;
   min-height: 34px;
   padding: 7px 10px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: color-mix(in srgb, var(--md-sys-color-primary, #003925) 8%, white);
   color: var(--md-sys-color-primary, #003925);
   font-size: 0.76rem;
@@ -372,12 +370,9 @@
 .positionBox {
   position: relative;
   min-height: 340px;
-  border-radius: 18px;
+  border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--md-sys-color-primary, #003925) 18%, transparent);
-  background:
-    linear-gradient(90deg, transparent 49.7%, color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 70%, transparent) 50%, transparent 50.3%),
-    linear-gradient(0deg, transparent 49.7%, color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 70%, transparent) 50%, transparent 50.3%),
-    var(--md-sys-color-surface-container-low, #f7f4ec);
+  background: var(--md-sys-color-surface-container-low, #f7f4ec);
 }
 
 .axisX,
@@ -462,7 +457,7 @@
   display: grid;
   gap: 14px;
   padding: 18px;
-  border-radius: 16px;
+  border-radius: 8px;
 }
 
 .actionCard > span {
@@ -506,11 +501,196 @@
   font-weight: 700;
 }
 
+.matrixWrap {
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 48%, transparent);
+  border-radius: 8px;
+  background: var(--md-sys-color-surface-container-lowest, #fafaf5);
+}
+
+.compareMatrix {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.compareMatrix th,
+.compareMatrix td {
+  padding: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 52%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 40%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.compareMatrix tr:last-child th,
+.compareMatrix tr:last-child td {
+  border-bottom: 0;
+}
+
+.compareMatrix th:last-child,
+.compareMatrix td:last-child {
+  border-right: 0;
+}
+
+.compareMatrix thead th {
+  color: var(--md-sys-color-primary, #003925);
+  font-size: 0.78rem;
+  font-weight: 900;
+  background: var(--md-sys-color-surface-container-low, #f7f4ec);
+}
+
+.compareMatrix thead span,
+.compareMatrix tbody small,
+.conditionItem span,
+.definitionGrid span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--md-sys-color-on-surface-variant, #625f58);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compareMatrix tbody th strong {
+  display: block;
+  color: var(--md-sys-color-on-surface, #201f1b);
+}
+
+.compareMatrix td p {
+  margin: 8px 0 0;
+  color: var(--md-sys-color-on-surface, #201f1b);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.factChip,
+.inferenceChip {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.factChip {
+  background: color-mix(in srgb, var(--md-sys-color-primary, #003925) 10%, white);
+  color: var(--md-sys-color-primary, #003925);
+}
+
+.inferenceChip {
+  background: #fbf2d5;
+  color: #7a5200;
+}
+
+.traceList,
+.handoffList {
+  display: grid;
+  gap: 10px;
+}
+
+.traceItem,
+.handoffItem {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 48%, transparent);
+  border-radius: 8px;
+  background: var(--md-sys-color-surface-container-low, #f7f4ec);
+}
+
+.traceItem > span,
+.handoffItem > span {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--md-sys-color-primary, #003925);
+  color: white;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.traceItem strong,
+.handoffItem strong {
+  color: var(--md-sys-color-on-surface, #201f1b);
+}
+
+.traceItem small,
+.handoffItem small {
+  display: block;
+  margin-top: 4px;
+  color: var(--md-sys-color-on-surface-variant, #625f58);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.definitionGrid,
+.conditionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.definitionGrid div,
+.conditionItem,
+.reasonColumn {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #d7d0c3) 48%, transparent);
+  border-radius: 8px;
+  background: var(--md-sys-color-surface-container-low, #f7f4ec);
+}
+
+.conditionGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.definitionGrid strong,
+.conditionItem strong {
+  display: block;
+  color: var(--md-sys-color-on-surface, #201f1b);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.reasonGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reasonColumn h4 {
+  margin: 0 0 10px;
+  color: var(--md-sys-color-primary, #003925);
+  font-size: 0.9rem;
+}
+
+.reasonColumn p {
+  margin: 0;
+  color: var(--md-sys-color-on-surface-variant, #625f58);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.reasonColumn p + p {
+  margin-top: 10px;
+}
+
 @media (max-width: 1180px) {
   .hero,
   .scopeGrid,
   .graphSplit,
-  .actionGrid {
+  .actionGrid,
+  .definitionGrid,
+  .conditionGrid,
+  .reasonGrid {
     grid-template-columns: 1fr;
   }
 
@@ -532,7 +712,9 @@
   .barRow,
   .brandMetric,
   .targetItem,
-  .foundItem {
+  .foundItem,
+  .traceItem,
+  .handoffItem {
     grid-template-columns: 1fr;
   }
 }
