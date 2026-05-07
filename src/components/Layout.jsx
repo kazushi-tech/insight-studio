@@ -96,13 +96,12 @@ function SidebarGroup({ item, disabledPaths }) {
   const location = useLocation()
   const isGroupActive = item.children?.some((c) => location.pathname === c.to)
   const [open, setOpen] = useState(isGroupActive)
-  const isOpen = open || isGroupActive
 
   return (
     <div>
       <button
         onClick={() => setOpen(!open)}
-        aria-expanded={isOpen}
+        aria-expanded={open}
         className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-[#2d6a4f] focus-visible:outline-offset-[-2px] ${
           isGroupActive
             ? 'text-white border-[#2d6a4f] bg-[#2d6a4f] font-bold'
@@ -111,11 +110,11 @@ function SidebarGroup({ item, disabledPaths }) {
       >
         <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
         <span className="japanese-text flex-1 text-left">{item.label}</span>
-        <span className={`material-symbols-outlined text-[16px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+        <span className={`material-symbols-outlined text-[16px] transition-transform ${open ? 'rotate-180' : ''}`}>
           expand_more
         </span>
       </button>
-      {isOpen && (
+      {open && (
         <div className="flex flex-col">
           {item.children.map((child) => (
             <SidebarLink
