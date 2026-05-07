@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import './AiContextRail.css'
 
 function StatusPill({ label, value, tone = 'neutral' }) {
@@ -28,8 +29,18 @@ export default function AiContextRail({
   className = '',
   children,
 }) {
+  const navigate = useNavigate()
+  const [composerValue, setComposerValue] = useState('')
   const question = suggestedQuestions[0] || primaryAction || `${screenName || 'この画面'}について質問したい`
   const actionHref = `${primaryActionTo}${primaryActionTo.includes('?') ? '&' : '?'}question=${encodeURIComponent(question)}`
+  const composerQuestion = composerValue.trim()
+
+  function handleComposerSubmit(event) {
+    event.preventDefault()
+    if (!composerQuestion) return
+    const composerHref = `${primaryActionTo}${primaryActionTo.includes('?') ? '&' : '?'}question=${encodeURIComponent(composerQuestion)}`
+    navigate(composerHref)
+  }
 
   return (
     <aside className={`ai-context-rail ${className}`} data-testid="ai-context-rail" aria-label={`${screenName}のAIアシスタント`}>
@@ -140,10 +151,18 @@ export default function AiContextRail({
         {primaryActionLabel}
       </Link>
 
-      <Link to={actionHref} className="ai-context-rail__composer japanese-text" aria-label={primaryActionLabel}>
-        <span>{composerPlaceholder}</span>
-        <span className="material-symbols-outlined" aria-hidden="true">send</span>
-      </Link>
+      <form className="ai-context-rail__composer japanese-text" onSubmit={handleComposerSubmit}>
+        <input
+          type="text"
+          value={composerValue}
+          onChange={(event) => setComposerValue(event.target.value)}
+          placeholder={composerPlaceholder}
+          aria-label={`${screenName}への質問を入力`}
+        />
+        <button type="submit" disabled={!composerQuestion} aria-label="AI考察でこの質問を開く">
+          <span className="material-symbols-outlined" aria-hidden="true">send</span>
+        </button>
+      </form>
     </aside>
   )
 }
