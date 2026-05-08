@@ -19,10 +19,8 @@ import ReportViewV2 from '../components/report/v2/ReportViewV2'
 import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { extractCompetitiveSet, extractKpis } from '../utils/kpiExtractor'
 import { useReportEnvelope } from '../hooks/useReportEnvelope'
-import ScoreDistributionChart from './discovery/ScoreDistributionChart'
 import MetaBand from './discovery/MetaBand'
 import PartialSuccessBanner from './discovery/PartialSuccessBanner'
-import DomainPlaceholder from './discovery/DomainPlaceholder'
 import DiscoveredLpGrid from './discovery/DiscoveredLpGrid'
 import {
   POLL_INTERVAL_INITIAL_MS,
@@ -138,49 +136,92 @@ function DiscoveryImage2Guide({ providerLabel }) {
   )
 }
 
-function DiscoveryActionPreview() {
+function DiscoveryActionPreview({ discoveries, result }) {
+  const candidateCount = Number(result?.candidate_count || 0)
+  const analyzedCount = Number(result?.analyzed_count || 0)
+  const excludedCount = Array.isArray(result?.excluded_candidates) ? result.excluded_candidates.length : 0
+  const fallbackCount = discoveries.filter((site) => (
+    site.analysis_source === 'search_result' || site.analysis_source === 'search_result_fallback'
+  )).length
+  const fetchedCount = discoveries.filter((site) => (
+    site.analysis_source !== 'search_result' &&
+    site.analysis_source !== 'search_result_fallback' &&
+    site.analysis_source !== 'failed'
+  )).length
+
   return (
-    <section className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
-      <div className="rounded-xl border border-outline-variant/15 bg-surface p-6">
-        <h2 className="text-2xl font-extrabold text-on-surface japanese-text">## 次に比較する競合</h2>
-        <p className="mt-3 text-sm leading-7 text-on-surface japanese-text">
-          まずは直接競合から比較します。対象外URLは主比較に混ぜず、参考情報として扱います。
-        </p>
-        <div className="mt-5 max-w-xl rounded-xl border border-primary/20 bg-primary/[0.045] px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-full bg-primary/[0.08] text-primary">
-              <span className="material-symbols-outlined" aria-hidden="true">shopping_cart</span>
-            </span>
-            <div>
-              <strong className="block text-on-surface japanese-text">直接競合で比較</strong>
-              <small className="text-on-surface-variant">競合発見の結果を競合LP分析に送って比較を開始します。</small>
-            </div>
-          </div>
-          <span className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">最優先で比較</span>
+    <section className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">Discovery Result</p>
+          <h2 className="mt-1 text-2xl font-extrabold text-on-surface japanese-text">比較候補を先に確認</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-on-surface-variant japanese-text">
+            長文レポートを読む前に、取得できた競合候補・補完分析・未分析数を確認します。
+          </p>
         </div>
+        <Link
+          to="/compare"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-secondary"
+        >
+          Compareへ進む
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+        </Link>
       </div>
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+
+      <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
-          ['直接競合で比較', '最初に詳細比較します', 'primary'],
-          ['LP弱点を確認', '自社LPの弱点をチェックリスト化', 'amber'],
-          ['競合LP分析へ送る', '比較レポートへつなぎます', 'blue'],
-        ].map(([title, body, tone]) => (
-          <article key={title} className={`rounded-xl border p-5 ${
-            tone === 'primary'
-              ? 'border-primary/25 bg-primary/[0.045]'
-              : tone === 'amber'
-              ? 'border-amber-300/60 bg-amber-50/55'
-              : 'border-blue-300/60 bg-blue-50/55'
-          }`}>
-            <h3 className="text-base font-extrabold text-on-surface japanese-text">{title}</h3>
-            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">{body}</p>
-            <button type="button" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary">
-              {title}
-              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
-            </button>
+          ['表示候補', `${discoveries.length}件`, 'verified'],
+          ['取得成功', `${fetchedCount}件`, 'language'],
+          ['分析対象', `${analyzedCount}サイト`, 'analytics'],
+          ['全候補', `${candidateCount}件`, 'manage_search'],
+          ['補完/除外', `${fallbackCount + excludedCount}件`, 'rule'],
+        ].map(([label, value, icon]) => (
+          <article key={label} className="rounded-lg border border-outline-variant/15 bg-surface-container-low px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-on-surface-variant japanese-text">{label}</span>
+              <span className="material-symbols-outlined text-base text-primary" aria-hidden="true">{icon}</span>
+            </div>
+            <p className="mt-2 text-2xl font-black tabular-nums text-on-surface">{value}</p>
           </article>
         ))}
       </div>
+
+      {discoveries.length > 0 && (
+        <div className="mt-5 overflow-hidden rounded-lg border border-outline-variant/15">
+          <div className="grid grid-cols-[minmax(0,1.2fr)_120px_140px] bg-surface-container px-4 py-2 text-xs font-bold text-on-surface-variant">
+            <span>候補</span>
+            <span>取得状態</span>
+            <span>次の操作</span>
+          </div>
+          {discoveries.slice(0, 5).map((site, index) => {
+            const isFallback = site.analysis_source === 'search_result' || site.analysis_source === 'search_result_fallback'
+            return (
+              <div key={site.url || index} className="grid grid-cols-[minmax(0,1.2fr)_120px_140px] items-center gap-3 border-t border-outline-variant/10 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-extrabold text-on-surface japanese-text">{site.title || site.domain || site.url}</p>
+                  <p className="mt-0.5 truncate text-xs font-mono text-on-surface-variant">{site.domain || site.url}</p>
+                </div>
+                <span className={`w-fit rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                  isFallback ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700'
+                }`}>
+                  {isFallback ? '補完分析' : '取得済み'}
+                </span>
+                {site.url ? (
+                  <Link
+                    to={`/compare?seed=${encodeURIComponent(site.url)}`}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-secondary/10 px-3 py-2 text-xs font-bold text-secondary hover:bg-secondary/20 focus-visible:ring-2 focus-visible:ring-secondary"
+                  >
+                    比較へ送る
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">arrow_forward</span>
+                  </Link>
+                ) : (
+                  <span className="text-xs text-on-surface-variant">URLなし</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }
@@ -792,117 +833,130 @@ export default function Discovery() {
 
         return (
           <>
-            <DiscoveryActionPreview />
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-on-surface-variant">
-                <span className="material-symbols-outlined">description</span>
-                <span className="text-sm font-bold">分析レポート</span>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    await copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))
-                    setCopyToast('コピーしました')
-                    setTimeout(() => setCopyToast(''), 2000)
-                  } catch {
-                    setCopyToast('コピー失敗')
-                    setTimeout(() => setCopyToast(''), 2000)
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-surface-container hover:bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-lg transition-colors print:hidden"
-              >
-                <span className="material-symbols-outlined text-sm">content_copy</span>
-                レポートをコピー
-              </button>
-              {copyToast && (
-                <span className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-on-success-container bg-emerald-50 dark:bg-success-container rounded-lg transition-opacity">
-                  <span className="material-symbols-outlined text-sm">check_circle</span>
-                  {copyToast}
-                </span>
-              )}
-              <PrintButton
-                onBeforePrint={() => {
-                  // Phase Q2-3: confirm dialog only for admin — clients never see quality state.
-                  if (isAdmin) {
-                    const { blockers } = splitIssuesBySeverity(discQIssues)
-                    if (blockers.length > 0) {
-                      return window.confirm(
-                        'このレポートには欠損セクションがあります。クライアント提出用PDFを作成しますか？\n（推奨: 先に「対象を絞って再実行」）'
-                      )
-                    }
-                  }
-                  return true
-                }}
-              />
-              {/* Phase Q2-3: quality badge (admin only, hidden in print) */}
-              <ReportQualityBadge
-                issues={discQIssues}
-                onRegenerate={() => {
-                  setUrl(result?.brand_url || url)
-                  handleRetry()
-                }}
-              />
-              <div className="flex items-center gap-1 bg-surface-container rounded-full p-1 print:hidden">
-                <span className="material-symbols-outlined text-on-surface-variant text-base px-1">text_fields</span>
-                {FONT_SIZES.map(({ key, label }) => (
+            <DiscoveryActionPreview discoveries={discoveries} result={result} />
+            {discoveries.length > 0 && <DiscoveredLpGrid discoveries={discoveries} />}
+
+            <details className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+              <summary className="cursor-pointer list-none">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-2 text-on-surface">
+                    <span className="material-symbols-outlined" aria-hidden="true">description</span>
+                    <span className="text-sm font-bold japanese-text">詳細レポートを開く</span>
+                  </div>
+                  <span className="text-xs font-bold text-on-surface-variant japanese-text">候補確認後に必要な時だけ開きます</span>
+                </div>
+              </summary>
+
+              <div className="mt-5 border-t border-outline-variant/10 pt-5">
+                <div className="mb-5 flex flex-wrap items-center gap-2">
                   <button
-                    key={key}
-                    onClick={() => setFontSize(key)}
-                    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
-                      fontSize === key
-                        ? 'bg-primary-container text-on-primary-container'
-                        : 'text-on-surface-variant hover:bg-surface-container-low'
-                    }`}
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await copyReportToClipboard(buildDiscoveryReportText({ discoveries, reportMd: result?.report_md }))
+                        setCopyToast('コピーしました')
+                        setTimeout(() => setCopyToast(''), 2000)
+                      } catch {
+                        setCopyToast('コピー失敗')
+                        setTimeout(() => setCopyToast(''), 2000)
+                      }
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container px-3 py-1.5 text-xs font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high focus-visible:ring-2 focus-visible:ring-secondary print:hidden"
                   >
-                    {label}
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">content_copy</span>
+                    レポートをコピー
                   </button>
-                ))}
-              </div>
-            </div>
-            <div className="mb-6">
-              <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} kind="discovery" />
-            </div>
-            <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
-            {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}
-            {/* KPI Tracking Card */}
-            {(() => {
-              const kpis = extractKpis(cleanBody)
-              if (kpis.length === 0) {
-                return (
-                  <div className="mt-6 bg-surface-container-lowest rounded-2xl p-5 border border-outline-variant/8 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 text-on-surface-variant">
-                      <span className="material-symbols-outlined text-lg">tracking</span>
-                      <span className="text-sm">KPI目標値が見つかりませんでした。Section 5を含む再分析で抽出できます。</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-secondary/10 text-secondary text-xs font-bold rounded-lg hover:bg-secondary/20 transition-colors japanese-text"
-                      onClick={handleDiscover}
-                      disabled={loading || !url}
-                    >
-                      <span className="material-symbols-outlined text-sm">refresh</span>
-                      再分析
-                    </button>
-                  </div>
-                )
-              }
-              return (
-                <div className="mt-6 bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/8">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="material-symbols-outlined text-secondary text-lg">tracking</span>
-                    <span className="text-sm font-bold text-on-surface">KPI目標値</span>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {kpis.map((kpi, i) => (
-                      <div key={i} className="rounded-xl px-4 py-3 bg-surface-container">
-                        <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">{kpi.label}</p>
-                        <p className="text-sm font-mono font-bold text-on-surface">{kpi.value}{kpi.tone === 'positive' ? ' ↑' : kpi.tone === 'negative' ? ' ↓' : ''}</p>
-                      </div>
+                  {copyToast && (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition-opacity dark:bg-success-container dark:text-on-success-container" aria-live="polite">
+                      <span className="material-symbols-outlined text-sm" aria-hidden="true">check_circle</span>
+                      {copyToast}
+                    </span>
+                  )}
+                  <PrintButton
+                    onBeforePrint={() => {
+                      // Phase Q2-3: confirm dialog only for admin — clients never see quality state.
+                      if (isAdmin) {
+                        const { blockers } = splitIssuesBySeverity(discQIssues)
+                        if (blockers.length > 0) {
+                          return window.confirm(
+                            'このレポートには欠損セクションがあります。クライアント提出用PDFを作成しますか？\n（推奨: 先に「対象を絞って再実行」）'
+                          )
+                        }
+                      }
+                      return true
+                    }}
+                  />
+                  <ReportQualityBadge
+                    issues={discQIssues}
+                    onRegenerate={() => {
+                      setUrl(result?.brand_url || url)
+                      handleRetry()
+                    }}
+                  />
+                  <div className="flex items-center gap-1 rounded-full bg-surface-container p-1 print:hidden">
+                    <span className="material-symbols-outlined px-1 text-base text-on-surface-variant" aria-hidden="true">text_fields</span>
+                    {FONT_SIZES.map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setFontSize(key)}
+                        className={`rounded-full px-3 py-1 text-xs font-bold transition-colors focus-visible:ring-2 focus-visible:ring-secondary ${
+                          fontSize === key
+                            ? 'bg-primary-container text-on-primary-container'
+                            : 'text-on-surface-variant hover:bg-surface-container-low'
+                        }`}
+                      >
+                        {label}
+                      </button>
                     ))}
                   </div>
                 </div>
-              )
-            })()}
+                <ReportViewV2 envelope={discoveryEnvelope} reportMd={result.report_md} kind="discovery" />
+                <details className="mt-6 rounded-lg border border-outline-variant/15 bg-surface-container-low p-4">
+                  <summary className="cursor-pointer text-sm font-bold text-on-surface japanese-text">Markdown本文を表示</summary>
+                  <div className="mt-4">
+                    <MarkdownRenderer content={cleanBody} size={fontSize} variant="discovery" />
+                  </div>
+                </details>
+                {result?.fetched_sites && <DataCoverageCard extracted={result.fetched_sites} className="mt-8" />}
+              </div>
+            </details>
+
+            <details className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+              <summary className="cursor-pointer text-sm font-bold text-on-surface japanese-text">KPI目標値を見る</summary>
+              {(() => {
+                const kpis = extractKpis(cleanBody)
+                if (kpis.length === 0) {
+                  return (
+                    <div className="mt-4 flex items-center justify-between gap-4 rounded-lg bg-surface-container-low p-4">
+                      <div className="flex items-center gap-3 text-on-surface-variant">
+                        <span className="material-symbols-outlined text-lg" aria-hidden="true">tracking</span>
+                        <span className="text-sm">KPI目標値が見つかりませんでした。Section 5を含む再分析で抽出できます。</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-secondary/10 px-4 py-2 text-xs font-bold text-secondary transition-colors hover:bg-secondary/20 focus-visible:ring-2 focus-visible:ring-secondary japanese-text"
+                        onClick={handleDiscover}
+                        disabled={loading || !url}
+                      >
+                        <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                        再分析
+                      </button>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {kpis.map((kpi, i) => (
+                      <div key={i} className="rounded-lg bg-surface-container px-4 py-3">
+                        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{kpi.label}</p>
+                        <p className="text-sm font-bold text-on-surface">{kpi.value}{kpi.tone === 'positive' ? ' ↑' : kpi.tone === 'negative' ? ' ↓' : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </details>
             {/* Cross-link to Compare report */}
             {compareResult?.report_md && (() => {
               const discBrands = extractCompetitiveSet(result.report_md)
@@ -942,12 +996,6 @@ export default function Discovery() {
           </>
         )
       })()}
-
-      {/* Score Distribution Chart */}
-      {discoveries.length > 0 && <ScoreDistributionChart discoveries={discoveries} />}
-
-      {/* Discovered LPs */}
-      {discoveries.length > 0 && <DiscoveredLpGrid discoveries={discoveries} />}
 
       {!loading && discoveries.length === 0 && !result && !error && (
         <div className="text-center py-20 text-on-surface-variant">
