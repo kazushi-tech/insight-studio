@@ -1,9 +1,10 @@
 export default function PartialSuccessBanner({ fetchedSites }) {
   if (!fetchedSites || fetchedSites.length === 0) return null
 
-  const fallback = fetchedSites.filter((site) => site.analysis_source === 'search_result_fallback')
+  const isSearchResultFallback = (site) => site.analysis_source === 'search_result' || site.analysis_source === 'search_result_fallback'
+  const fallback = fetchedSites.filter(isSearchResultFallback)
   const failed = fetchedSites.filter((site) => {
-    if (site.analysis_source === 'search_result_fallback') return false
+    if (isSearchResultFallback(site)) return false
     if (site.analysis_source === 'failed') return true
     return Boolean(site.error)
   })

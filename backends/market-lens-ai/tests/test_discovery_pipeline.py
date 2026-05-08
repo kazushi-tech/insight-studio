@@ -292,7 +292,7 @@ async def test_pipeline_passes_discovery_metadata_to_analyze():
     # Each candidate should have tier classification
     for c in received_metadata["discovered_candidates"]:
         assert "tier" in c
-        assert c["tier"] in ("直競合", "準競合", "ベンチマーク")
+        assert c["tier"] in ("直接競合", "隣接競合", "参考サイト", "対象外")
 
 
 @pytest.mark.asyncio
@@ -320,6 +320,74 @@ async def test_pipeline_response_has_excluded_candidates():
 
     # excluded_candidates should be a list (may be empty if no quality exclusions)
     assert isinstance(response.excluded_candidates, list)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_uses_search_result_fallback_when_all_competitor_fetches_fail():
+    search_client = RecordingSearchClient(_search_results())
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
+
+    async def _brand_only_fetch(url: str, timeout: float = 0.0):
+        if "example.com" in url:
+            return "<html></html>", None
+        return "", "HTTP 403"
+
+    response = await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-fetch-fallback",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_brand_only_fetch,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=lambda url, html: _extract_for(url),
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=analyze_mock,
+        validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+    )
+
+    assert response.fetched_sites
+    assert all(site.analysis_source == "search_result" for site in response.fetched_sites)
+    assert any("検索結果情報で低信頼" in item for item in response.excluded_candidates)
+    analyzed_sites = analyze_mock.await_args.args[0]
+    assert len(analyzed_sites) >= 2
+    assert getattr(analyzed_sites[1], "_is_low_quality") is True
+
+
+@pytest.mark.asyncio
+async def test_pipeline_rescues_low_quality_fetches_when_quality_gate_would_empty_all():
+    search_client = RecordingSearchClient(_search_results())
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
+
+    def _extract_low_quality_competitors(url: str, html: str) -> ExtractedData:
+        if "example.com" in url:
+            return _extract_for(url)
+        return ExtractedData(url=url, title="", body_text_snippet="")
+
+    response = await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-quality-fallback",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_fetch_html,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=_extract_low_quality_competitors,
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=analyze_mock,
+        validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+    )
+
+    assert response.fetched_sites
+    assert any("低信頼の暫定分析" in item for item in response.excluded_candidates)
+    analyzed_sites = analyze_mock.await_args.args[0]
+    assert getattr(analyzed_sites[1], "_is_low_quality") is True
 
 
 # ---------- Regression: Fix 2 — analyzed_targets & omitted_candidates in metadata ----------

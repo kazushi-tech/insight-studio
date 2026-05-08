@@ -9,7 +9,7 @@ export default function MetaBand({ run, now }) {
     ? Math.max(0, now - run.startedAt)
     : null
   const fallbackCount = Array.isArray(result?.fetched_sites)
-    ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result_fallback').length
+    ? result.fetched_sites.filter((site) => site.analysis_source === 'search_result' || site.analysis_source === 'search_result_fallback').length
     : 0
   const stage = run.meta?.stage
   const isWarming = stage === 'warming'

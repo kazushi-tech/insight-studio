@@ -293,6 +293,8 @@ class TestScanQualityContract:
         "| 項目 | 初期 | 拡張 | 備考 |\n|---|---|---|---|\n| 月額予算帯 | 10万円 | 30万円 | 推定 |\n"
         "### 5-1 LP改善施策\n| 項目 |\n|---|\n| FV改善 |\n"
         "### 5-2 検索広告施策\n| 項目 |\n|---|\n| 指名防衛 |\n"
+        "### 5-3 Meta/ディスプレイ施策\n| 項目 |\n|---|\n| リマーケティング |\n"
+        "### 5-4 KPI測定計画\n| 期待KPI | 実装難易度 | 初回検証方法 |\n|---|---|---|\n| CVR | 中 | GA4で週次確認 |\n"
     )
 
     @patch("web.app.services.scan_service.take_screenshot", new_callable=AsyncMock)
