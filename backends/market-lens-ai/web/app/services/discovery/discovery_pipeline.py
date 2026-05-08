@@ -1068,6 +1068,46 @@ async def run_discovery_pipeline(
             "全ての取得済み競合が品質ゲート低評価だったため、低信頼の暫定分析に切り替えました。"
         )
 
+    minimum_quality_output = min(_MIN_COMPETITOR_OUTPUT, max_competitors, len(comparable_ranked))
+    if 0 < len(competitor_extracted) < minimum_quality_output:
+        existing_domains = {site.domain.lower() for site in fetched_sites}
+        rescued_count = 0
+        for site, data, reason in quality_rejected:
+            if len(competitor_extracted) >= minimum_quality_output:
+                break
+            if site.domain.lower() in existing_domains:
+                continue
+            data._extraction_quality_score = compute_extraction_quality(data)
+            data._is_low_quality = True
+            site.error = f"品質ゲート低評価のため低信頼分析: {reason}"
+            fetched_sites.append(site)
+            competitor_extracted.append(data)
+            existing_domains.add(site.domain.lower())
+            rescued_count += 1
+        if len(competitor_extracted) < minimum_quality_output:
+            for cand in comparable_ranked:
+                if len(competitor_extracted) >= minimum_quality_output:
+                    break
+                if cand.domain.lower() in existing_domains:
+                    continue
+                site, data = _build_search_result_extraction(cand, "品質ゲート後の候補数不足")
+                fetched_sites.append(site)
+                competitor_extracted.append(data)
+                existing_domains.add(site.domain.lower())
+                rescued_count += 1
+        if rescued_count:
+            quality_excluded.append(
+                f"品質ゲート後の表示候補が{minimum_quality_output}件未満だったため、"
+                f"{rescued_count}件を低信頼の補完分析として戻しました。"
+            )
+            logger.warning(
+                "quality_gate_partial_low_confidence_fallback request_id=%s fetched=%d minimum=%d rescued=%d",
+                request_id,
+                len(competitor_extracted),
+                minimum_quality_output,
+                rescued_count,
+            )
+
     # Backfill if we lost competitors
     backfill_start = max_competitors + fail_count  # past already-fetched candidates
     for cand in comparable_ranked[backfill_start:]:
