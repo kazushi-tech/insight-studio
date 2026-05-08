@@ -388,6 +388,44 @@ async def test_pipeline_rescues_when_classification_leaves_too_few_candidates():
 
 
 @pytest.mark.asyncio
+async def test_pipeline_keeps_minimum_candidates_after_quality_gate():
+    search_client = RecordingSearchClient(_search_results())
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
+
+    async def _leave_three_comparable(candidates, *args, **kwargs):
+        for index, candidate in enumerate(candidates):
+            candidate.competitive_tier = "direct" if index < 3 else "out_of_scope"
+        return candidates
+
+    def _extract_with_one_low_quality(url: str, html: str = "") -> ExtractedData:
+        if "comp1.com" in url:
+            return ExtractedData(url=url, title="thin")
+        return _extract_for(url)
+
+    response = await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-quality-minimum-fallback",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_fetch_html,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=_extract_with_one_low_quality,
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=analyze_mock,
+        validate_candidates_fn=AsyncMock(side_effect=_leave_three_comparable),
+    )
+
+    assert len(response.fetched_sites) >= 3
+    assert any("品質ゲート後の表示候補" in item for item in response.excluded_candidates)
+    analyzed_sites = analyze_mock.await_args_list[0].args[0]
+    assert len(analyzed_sites) >= 4  # brand + at least 3 competitor candidates
+
+
+@pytest.mark.asyncio
 async def test_pipeline_uses_search_result_fallback_when_all_competitor_fetches_fail():
     search_client = RecordingSearchClient(_search_results())
     analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
