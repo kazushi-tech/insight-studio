@@ -123,10 +123,9 @@ async def test_pipeline_fetches_four_competitors_by_default():
     )
 
     assert len(response.fetched_sites) == 4
-    assert response.analyzed_count == 3  # brand + top 2 competitors (DISCOVERY_ANALYZE_SITE_LIMIT default = 3)
     assert search_client.calls[0]["num"] == 10
-    analyzed_sites = analyze_mock.await_args.args[0]
-    assert len(analyzed_sites) == 3
+    analyzed_sites = analyze_mock.await_args_list[0].args[0]
+    assert len(analyzed_sites) == 5
     assert "## 実行プラン" in response.report_md
 
 
@@ -154,7 +153,8 @@ async def test_pipeline_respects_env_override_for_competitor_count():
         )
 
     assert len(response.fetched_sites) == 3
-    assert response.analyzed_count == 3  # brand + top 2 competitors (site_limit=3)
+    analyzed_sites = analyze_mock.await_args_list[0].args[0]
+    assert len(analyzed_sites) == 4  # brand + 3 competitors
 
 
 @pytest.mark.asyncio
@@ -215,10 +215,9 @@ async def test_pipeline_retries_analyze_with_smaller_site_set_after_timeout():
         validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
     )
 
-    assert response.analyzed_count == 3  # fallback model, same 3 sites
-    # With site_limit=3 default, first attempt uses 3 sites;
-    # on timeout degrade switches to fallback model (still 3 sites)
-    assert call_sizes[0] == 3
+    assert response.analyzed_count == 5  # retry keeps the broader default site set before degrading
+    # Default site limit keeps brand + 4 competitors for the first compact retry.
+    assert call_sizes[0] == 5
     assert len(call_sizes) >= 2
 
 
@@ -229,7 +228,7 @@ async def test_pipeline_falls_back_to_lightweight_model_for_late_retry():
 
     async def _analyze(extracted_list, **kwargs):
         seen_models.append(kwargs.get("model"))
-        if len(seen_models) < 3:
+        if len(seen_models) < 4:
             raise RuntimeError("Claude API overloaded")
         return "## 総合サマリー", TokenUsage(model=kwargs.get("model") or "test")
 
@@ -391,6 +390,40 @@ async def test_pipeline_uses_search_result_fallback_when_all_competitor_fetches_
 
 
 @pytest.mark.asyncio
+async def test_pipeline_backfills_partial_fetch_failures_with_search_result_fallback():
+    search_client = RecordingSearchClient(_search_results())
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
+
+    async def _sparse_fetch(url: str, timeout: float = 0.0):
+        if "example.com" in url or "comp1.com" in url:
+            return "<html></html>", None
+        return "", "HTTP 403"
+
+    response = await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-partial-fetch-fallback",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_sparse_fetch,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=lambda url, html: _extract_for(url),
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=analyze_mock,
+        validate_candidates_fn=AsyncMock(side_effect=lambda candidates, *args, **kwargs: candidates),
+    )
+
+    assert len(response.fetched_sites) >= 3
+    assert any(site.analysis_source == "search_result" for site in response.fetched_sites)
+    assert any("検索結果情報で低信頼" in item for item in response.excluded_candidates)
+    analyzed_sites = analyze_mock.await_args_list[0].args[0]
+    assert len(analyzed_sites) >= 4  # brand + at least 3 competitor candidates
+
+
+@pytest.mark.asyncio
 async def test_pipeline_rescues_low_quality_fetches_when_quality_gate_would_empty_all():
     search_client = RecordingSearchClient(_search_results())
     analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
@@ -476,7 +509,7 @@ async def test_pipeline_metadata_updated_on_degrade_retry():
             "analyzed_targets": list(meta.get("analyzed_targets", [])),
             "omitted_candidates": list(meta.get("omitted_candidates", [])),
         })
-        if len(metadata_snapshots) == 1:
+        if len(metadata_snapshots) < 3:
             raise asyncio.TimeoutError()
         return "## 総合サマリー", TokenUsage(model="test")
 
@@ -504,11 +537,15 @@ async def test_pipeline_metadata_updated_on_degrade_retry():
     first_targets = len(metadata_snapshots[0]["analyzed_targets"])
     second_targets = len(metadata_snapshots[1]["analyzed_targets"])
     assert second_targets <= first_targets
-    # Second attempt should have omitted_candidates with degrade-retry reason
-    assert len(metadata_snapshots[1]["omitted_candidates"]) > 0
+    # A later reduced-site retry should have omitted_candidates with degrade-retry reason.
+    omitted_candidates = next(
+        (snapshot["omitted_candidates"] for snapshot in metadata_snapshots[1:] if snapshot["omitted_candidates"]),
+        [],
+    )
+    assert len(omitted_candidates) > 0
     assert any(
         "degrade-retry" in om.get("reason", "")
-        for om in metadata_snapshots[1]["omitted_candidates"]
+        for om in omitted_candidates
     )
 
 

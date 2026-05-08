@@ -51,8 +51,9 @@ _FAILED_ANALYSIS_SOURCE = "failed"
 _DEFAULT_MAX_COMPETITORS = 4
 _MIN_MAX_COMPETITORS = 2
 _MAX_MAX_COMPETITORS = 6
-_DEFAULT_ANALYZE_SITE_LIMIT = 3  # brand + top 2 competitors (was 4; reduced to keep analyze within budget)
+_DEFAULT_ANALYZE_SITE_LIMIT = 5  # brand + up to 4 competitors; retries still degrade when token pressure is high.
 _DEFAULT_DISCOVERY_FALLBACK_MODEL = "claude-haiku-4-5-20251001"
+_MIN_COMPETITOR_OUTPUT = 3
 _CLASSIFICATION_FALLBACK_BLOCKED_DOMAINS = {
     "google.com",
     "bing.com",
@@ -156,9 +157,9 @@ def _summarize_errors(errors: list[str]) -> str:
 def _build_search_result_extraction(cand: RankedCandidate, error_summary: str) -> tuple[FetchedSite, ExtractedData]:
     """Build a low-confidence extraction from search result metadata.
 
-    This is only used as a last resort when all competitor pages reject/timeout
-    during fetch. It keeps Discovery useful while preserving the limitation in
-    both the site source and analyzer confidence metadata.
+    Used when competitor pages reject/timeout during fetch. It keeps Discovery
+    useful while preserving the limitation in both the site source and analyzer
+    confidence metadata.
     """
     body = " ".join(part for part in [cand.title, cand.snippet] if part).strip()
     reason = f"ページ取得失敗のため検索結果情報で暫定分析: {error_summary or '詳細不明'}"
@@ -884,17 +885,52 @@ async def run_discovery_pipeline(
                 failed_fetch_sites.append(site)
                 fail_count += 1
 
+    fetch_failure_notes = [
+        f"{site.domain}: {site.error or '取得失敗'}"
+        for site in failed_fetch_sites
+    ]
+
+    minimum_output = min(_MIN_COMPETITOR_OUTPUT, max_competitors, len(comparable_ranked))
+    if 0 < len(competitor_extracted) < minimum_output:
+        existing_domains = {site.domain.lower() for site in fetched_sites}
+        rescued_count = 0
+        for cand in comparable_ranked:
+            if len(competitor_extracted) >= minimum_output:
+                break
+            if cand.domain.lower() in existing_domains:
+                continue
+            failure_reason = next(
+                (
+                    site.error or "取得失敗"
+                    for site in failed_fetch_sites
+                    if site.domain.lower() == cand.domain.lower()
+                ),
+                "取得候補数が不足",
+            )
+            site, data = _build_search_result_extraction(cand, failure_reason)
+            fetched_sites.append(site)
+            competitor_extracted.append(data)
+            existing_domains.add(site.domain.lower())
+            rescued_count += 1
+        if rescued_count:
+            fetch_failure_notes.append(
+                f"ページ取得済み候補が{minimum_output}件未満だったため、"
+                f"{rescued_count}件を検索結果情報で低信頼の暫定分析に補完しました。"
+            )
+            logger.warning(
+                "fetch_competitors_partial_search_result_fallback request_id=%s fetched=%d minimum=%d rescued=%d",
+                request_id,
+                len(competitor_extracted),
+                minimum_output,
+                rescued_count,
+            )
+
     fetch_elapsed = (time.monotonic() - t0) * 1000
     _log_stage(
         request_id, req.brand_url, "fetch_competitors", fetch_elapsed,
         "ok" if competitor_extracted else "error",
         f"full={len(fetched_sites)},fail={fail_count}",
     )
-
-    fetch_failure_notes = [
-        f"{site.domain}: {site.error or '取得失敗'}"
-        for site in failed_fetch_sites
-    ]
 
     if not competitor_extracted:
         fallback_candidates = comparable_ranked[:max_competitors]
