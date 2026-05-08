@@ -225,7 +225,7 @@ def create_discovery_router(
     _competitor_fetch_timeout = float(os.getenv("DISCOVERY_COMPETITOR_FETCH_TIMEOUT_SEC", "20"))
     _classify_timeout = float(os.getenv("DISCOVERY_CLASSIFY_TIMEOUT_SEC", "6"))
     _search_timeout = float(os.getenv("DISCOVERY_SEARCH_TIMEOUT_SEC", "90"))
-    _analyze_timeout = float(os.getenv("DISCOVERY_ANALYZE_TIMEOUT_SEC", "210"))
+    _analyze_timeout = float(os.getenv("DISCOVERY_ANALYZE_TIMEOUT_SEC", "300"))
     try:
         _max_competitors = int(os.getenv("DISCOVERY_MAX_COMPETITORS", "4"))
     except ValueError:
@@ -269,7 +269,7 @@ def create_discovery_router(
             _web_concurrency,
         )
     _running_tasks: dict[str, asyncio.Task] = {}
-    _overall_job_timeout = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
+    _overall_job_timeout = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "480"))
     _stale_threshold_sec = float(os.getenv("DISCOVERY_STALE_THRESHOLD_SEC", "300"))
 
     def _touch_record(record: DiscoveryJobRecord, now: datetime | None = None) -> datetime:

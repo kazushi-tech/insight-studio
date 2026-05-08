@@ -18,7 +18,7 @@ export default function DiscoveredLpGrid({ discoveries }) {
 
       <div className="grid grid-cols-3 gap-10">
         {discoveries.map((item, i) => {
-          const isFallback = item.analysis_source === 'search_result_fallback'
+          const isFallback = item.analysis_source === 'search_result' || item.analysis_source === 'search_result_fallback'
           const isFailed = item.analysis_source === 'failed' || (item.error && !isFallback)
 
           return (
