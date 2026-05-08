@@ -4,11 +4,13 @@
 Usage:
     python tests/test_data_providers.py
 """
-import sys
 from pathlib import Path
+import sys
 
-# プロジェクトルートをパスに追加
-sys.path.insert(0, str(Path(__file__).parent.parent / "web" / "app"))
+# プロジェクトルートと web/app をパスに追加
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "web" / "app"))
 
 from data_providers.mock_provider import MockProvider
 from data_providers.factory import get_data_provider
@@ -252,14 +254,7 @@ def test_weekly_point_pack_generation():
     print("[TEST] test_weekly_point_pack_generation...")
     from data_providers.mock_provider import MockProvider
 
-    # point_pack_generatorをインポート（絶対パスで）
-    import sys
-    from pathlib import Path
-    ppg_path = Path(__file__).parent.parent / "web" / "app"
-    if str(ppg_path) not in sys.path:
-        sys.path.insert(0, str(ppg_path))
-
-    import point_pack_generator
+    from web.app import point_pack_generator
 
     provider = MockProvider()
 

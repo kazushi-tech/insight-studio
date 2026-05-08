@@ -22,7 +22,7 @@ from ...analyzer import analyze, regenerate_execution_plan, section_5_looks_comp
 from ...extractor import extract
 from ...fetcher import fetch_html, take_screenshot
 from ...llm_client import PROVIDER_ANTHROPIC, PROVIDER_GEMINI, normalize_provider, provider_label
-from ...models import ScanResult
+from ...models import ExtractedData, ScanResult
 from ...policies import validate_operator_url
 from ...report_generator import ReportBundle, generate_report_bundle
 from ...schemas.discovery import (
@@ -46,6 +46,7 @@ from .pipeline_metrics import PipelineBudgetTracker
 logger = logging.getLogger("market-lens.discovery.pipeline")
 
 _PAGE_FETCH_ANALYSIS_SOURCE = "page_fetch"
+_SEARCH_RESULT_ANALYSIS_SOURCE = "search_result"
 _FAILED_ANALYSIS_SOURCE = "failed"
 _DEFAULT_MAX_COMPETITORS = 4
 _MIN_MAX_COMPETITORS = 2
@@ -122,6 +123,36 @@ def _summarize_errors(errors: list[str]) -> str:
     if len(unique_errors) > 2:
         summary = f"{summary} / 他{len(unique_errors) - 2}件"
     return summary
+
+
+def _build_search_result_extraction(cand: RankedCandidate, error_summary: str) -> tuple[FetchedSite, ExtractedData]:
+    """Build a low-confidence extraction from search result metadata.
+
+    This is only used as a last resort when all competitor pages reject/timeout
+    during fetch. It keeps Discovery useful while preserving the limitation in
+    both the site source and analyzer confidence metadata.
+    """
+    body = " ".join(part for part in [cand.title, cand.snippet] if part).strip()
+    reason = f"ページ取得失敗のため検索結果情報で暫定分析: {error_summary or '詳細不明'}"
+    data = ExtractedData(
+        url=cand.url,
+        title=cand.title or cand.domain,
+        meta_description=cand.snippet or "",
+        h1=cand.title or cand.domain,
+        hero_copy=cand.snippet or "",
+        body_text_snippet=body or cand.domain,
+        error=reason,
+    )
+    data._extraction_quality_score = _EXTRACTION_QUALITY_LOW
+    data._is_low_quality = True
+    return FetchedSite(
+        url=cand.url,
+        domain=cand.domain,
+        title=cand.title or cand.domain,
+        description=cand.snippet or "",
+        analysis_source=_SEARCH_RESULT_ANALYSIS_SOURCE,
+        error=reason,
+    ), data
 
 
 def _sanitize_secret(text: str, *secrets: str | None) -> str:
@@ -488,8 +519,9 @@ async def run_discovery_pipeline(
     search_timeout = timeouts["search_timeout"]
     analyze_timeout = timeouts["analyze_timeout"]
 
-    # Sonnet primary + MAX_COMPETITORS=3: overall budget 360s.
-    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "360"))
+    # Sonnet primary + MAX_COMPETITORS=3 plus Section-5 regeneration can exceed
+    # the old 360s envelope; keep this aligned with discovery_routes defaults.
+    overall_budget_sec = float(os.getenv("DISCOVERY_OVERALL_JOB_TIMEOUT_SEC", "480"))
     tracker = PipelineBudgetTracker(overall_budget=overall_budget_sec, job_id=request_id)
 
     # 1. URL validation
@@ -784,6 +816,7 @@ async def run_discovery_pipeline(
     fetch_results = await asyncio.gather(*[_fetch_one(c) for c in top_candidates])
 
     fetched_sites: list[FetchedSite] = []
+    failed_fetch_sites: list[FetchedSite] = []
     competitor_extracted = []
     fail_count = 0
     for site, data in fetch_results:
@@ -791,6 +824,7 @@ async def run_discovery_pipeline(
             fetched_sites.append(site)
             competitor_extracted.append(data)
         else:
+            failed_fetch_sites.append(site)
             fail_count += 1
 
     # Phase 2: backfill from remaining candidates (parallel batch)
@@ -805,6 +839,7 @@ async def run_discovery_pipeline(
                 fetched_sites.append(site)
                 competitor_extracted.append(data)
             else:
+                failed_fetch_sites.append(site)
                 fail_count += 1
 
     fetch_elapsed = (time.monotonic() - t0) * 1000
@@ -814,17 +849,49 @@ async def run_discovery_pipeline(
         f"full={len(fetched_sites)},fail={fail_count}",
     )
 
+    fetch_failure_notes = [
+        f"{site.domain}: {site.error or '取得失敗'}"
+        for site in failed_fetch_sites
+    ]
+
     if not competitor_extracted:
-        raise PipelineError(
-            502, "全ての競合サイトの取得に失敗しました (stage=fetch_competitors)。",
-            stage="fetch_competitors",
+        fallback_candidates = comparable_ranked[:max_competitors]
+        fallback_pairs = [
+            _build_search_result_extraction(
+                cand,
+                next(
+                    (
+                        site.error or "取得失敗"
+                        for site in failed_fetch_sites
+                        if site.domain.lower() == cand.domain.lower()
+                    ),
+                    "全候補のページ取得に失敗",
+                ),
+            )
+            for cand in fallback_candidates
+        ]
+        fetched_sites = [site for site, _ in fallback_pairs]
+        competitor_extracted = [data for _, data in fallback_pairs]
+        fetch_failure_notes.append(
+            "全ての競合ページ取得に失敗したため、検索結果情報で低信頼の暫定分析に切り替えました。"
+        )
+        logger.warning(
+            "fetch_competitors_all_failed_search_result_fallback request_id=%s candidates=%d failures=%s",
+            request_id,
+            len(fallback_pairs),
+            _summarize_errors(fetch_failure_notes),
         )
 
     # ── Task A: Quality gate — exclude low-quality / garbled extractions ──
     quality_passed: list[tuple[FetchedSite, object]] = []
+    quality_rejected: list[tuple[FetchedSite, object, str]] = []
     quality_excluded: list[str] = []
 
     for site, data in zip(fetched_sites, competitor_extracted):
+        if site.analysis_source == _SEARCH_RESULT_ANALYSIS_SOURCE:
+            quality_passed.append((site, data))
+            continue
+
         quality = compute_extraction_quality(data)
 
         # Garbled text detection on body
@@ -834,7 +901,9 @@ async def run_discovery_pipeline(
         )
 
         if quality < _EXTRACTION_QUALITY_LOW:
-            quality_excluded.append(f"{site.domain} (品質スコア={quality:.2f})")
+            reason = f"{site.domain} (品質スコア={quality:.2f})"
+            quality_excluded.append(reason)
+            quality_rejected.append((site, data, reason))
             logger.info(
                 "quality_gate_excluded domain=%s quality=%.2f garbled=%.2f",
                 site.domain, quality, garbled_ratio,
@@ -842,7 +911,9 @@ async def run_discovery_pipeline(
             continue
 
         if garbled_ratio > 0.20:
-            quality_excluded.append(f"{site.domain} (文字化け率={garbled_ratio:.2f})")
+            reason = f"{site.domain} (文字化け率={garbled_ratio:.2f})"
+            quality_excluded.append(reason)
+            quality_rejected.append((site, data, reason))
             logger.info(
                 "quality_gate_excluded domain=%s garbled=%.2f",
                 site.domain, garbled_ratio,
@@ -871,6 +942,25 @@ async def run_discovery_pipeline(
     fetched_sites = [s for s, _ in quality_passed]
     competitor_extracted = [d for _, d in quality_passed]
 
+    if not competitor_extracted and quality_rejected:
+        logger.warning(
+            "quality_gate_all_excluded_low_quality_fallback request_id=%s domains=[%s]",
+            request_id,
+            ", ".join(item[2] for item in quality_rejected),
+        )
+        rescued = quality_rejected[:max_competitors]
+        fetched_sites = []
+        competitor_extracted = []
+        for site, data, reason in rescued:
+            data._extraction_quality_score = compute_extraction_quality(data)
+            data._is_low_quality = True
+            site.error = f"品質ゲート低評価のため低信頼分析: {reason}"
+            fetched_sites.append(site)
+            competitor_extracted.append(data)
+        quality_excluded.append(
+            "全ての取得済み競合が品質ゲート低評価だったため、低信頼の暫定分析に切り替えました。"
+        )
+
     # Backfill if we lost competitors
     backfill_start = max_competitors + fail_count  # past already-fetched candidates
     for cand in comparable_ranked[backfill_start:]:
@@ -878,6 +968,8 @@ async def run_discovery_pipeline(
             break
         site, data = await _fetch_one(cand)
         if data is None:
+            failed_fetch_sites.append(site)
+            fetch_failure_notes.append(f"{site.domain}: {site.error or '取得失敗'}")
             continue
 
         quality = compute_extraction_quality(data)
@@ -898,10 +990,24 @@ async def run_discovery_pipeline(
         competitor_extracted.append(data)
 
     if not competitor_extracted:
-        raise PipelineError(
-            502, "品質ゲートにより全ての競合サイトが除外されました (stage=fetch_competitors)。",
-            stage="fetch_competitors",
+        fallback_candidates = comparable_ranked[:max_competitors]
+        fallback_pairs = [
+            _build_search_result_extraction(cand, "品質ゲート通過候補なし")
+            for cand in fallback_candidates
+        ]
+        fetched_sites = [site for site, _ in fallback_pairs]
+        competitor_extracted = [data for _, data in fallback_pairs]
+        quality_excluded.append(
+            "品質ゲート通過候補がなかったため、検索結果情報で低信頼の暫定分析に切り替えました。"
         )
+        logger.warning(
+            "quality_gate_empty_search_result_fallback request_id=%s candidates=%d",
+            request_id,
+            len(fallback_pairs),
+        )
+
+    if fetch_failure_notes:
+        quality_excluded.extend(fetch_failure_notes[:8])
 
     tracker.end_stage("fetch")
 

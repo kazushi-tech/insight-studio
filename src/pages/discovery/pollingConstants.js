@@ -2,8 +2,8 @@ export const POLL_INTERVAL_INITIAL_MS = 2000
 export const POLL_INTERVAL_SLOW_MS = 5000
 export const POLL_SLOWDOWN_AFTER_MS = 30000
 export const POLL_MAX_NETWORK_ERRORS = 3
-export const POLL_SOFT_WARNING_MS = 180_000   // ソフト警告のみ — キルしない（backend overall 450s に対して3分で警戒）
-export const POLL_HARD_CEILING_MS = 470_000   // 安全弁 — backend overall(450s) + 20s 余裕（backend が先にエラー返せるように）
+export const POLL_SOFT_WARNING_MS = 180_000   // ソフト警告のみ — キルしない（backend overall 480s に対して3分で警戒）
+export const POLL_HARD_CEILING_MS = 500_000   // 安全弁 — backend overall(480s) + 20s 余裕（backend が先にエラー返せるように）
 export const POLL_STALE_TIMEOUT_MS = 90_000   // ← PRIMARY キル判定（heartbeat 90秒無応答 — バックエンド10s間隔に対して余裕あり）
 export const STAGE_TIMEOUT_MS = {
   queued: 30_000,
@@ -11,7 +11,7 @@ export const STAGE_TIMEOUT_MS = {
   classify_industry: 30_000,
   search: 90_000,
   fetch_competitors: 60_000,
-  analyze: 460_000,  // backend overall(450s) + 10s 余裕
+  analyze: 490_000,  // backend overall(480s) + 10s 余裕
   warming: 60_000,
 }
 export const DISCOVERY_AUTO_RESUBMIT_MAX = 2

@@ -214,7 +214,8 @@ export default function Discovery() {
   const compareResult = compareRun?.status === 'completed' ? compareRun.result : null
   const allDiscoveries = result?.fetched_sites ?? result?.competitors ?? result?.results ?? []
   const discoveries = allDiscoveries.filter((item) => {
-    const isFailed = item.analysis_source === 'failed' || (item.error && item.analysis_source !== 'search_result_fallback')
+    const isSearchResultFallback = item.analysis_source === 'search_result' || item.analysis_source === 'search_result_fallback'
+    const isFailed = item.analysis_source === 'failed' || (item.error && !isSearchResultFallback)
     return !isFailed
   })
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
