@@ -53,6 +53,12 @@ _MIN_MAX_COMPETITORS = 2
 _MAX_MAX_COMPETITORS = 6
 _DEFAULT_ANALYZE_SITE_LIMIT = 3  # brand + top 2 competitors (was 4; reduced to keep analyze within budget)
 _DEFAULT_DISCOVERY_FALLBACK_MODEL = "claude-haiku-4-5-20251001"
+_CLASSIFICATION_FALLBACK_BLOCKED_DOMAINS = {
+    "google.com",
+    "bing.com",
+    "search.yahoo.co.jp",
+    "vertexaisearch.cloud.google.com",
+}
 
 StageCallback = Callable[[DiscoveryJobStage, dict], Awaitable[None] | None]
 ValidateUrlFn = Callable[[str], str | None]
@@ -68,6 +74,28 @@ MarkSearchConsumedFn = Callable[[], None]
 
 def _new_id() -> str:
     return uuid.uuid4().hex[:12]
+
+
+def _domain_matches_any(domain: str, targets: set[str]) -> bool:
+    d = domain.lower().strip(".")
+    return any(d == target or d.endswith(f".{target}") for target in targets)
+
+
+def _select_classification_fallback_candidates(
+    ranked: list[RankedCandidate],
+    max_competitors: int,
+) -> list[RankedCandidate]:
+    """Rescue a discovery run when every candidate was classified out of scope."""
+    fallback = [
+        c for c in ranked
+        if not _domain_matches_any(c.domain, _CLASSIFICATION_FALLBACK_BLOCKED_DOMAINS)
+    ][:max_competitors]
+    if not fallback:
+        fallback = ranked[:max_competitors]
+
+    for candidate in fallback:
+        candidate.competitive_tier = "benchmark"
+    return fallback
 
 
 def _rebuild_url(url: str, *, scheme: str | None = None, hostname: str | None = None) -> str:
@@ -734,14 +762,28 @@ async def run_discovery_pipeline(
 
     # Keep comparison breadth configurable while excluding sites that are known
     # to be directories, media, research, or otherwise outside the buying set.
+    classification_notes: list[str] = []
     comparable_ranked = [c for c in ranked if c.competitive_tier != "out_of_scope"]
     if not comparable_ranked:
-        raise PipelineError(
-            404,
-            "直接比較できる競合サイトが見つかりませんでした。対象URLまたは業界を確認してください。",
-            stage="search",
-            retryable=False,
-        )
+        comparable_ranked = _select_classification_fallback_candidates(ranked, max_competitors)
+        if comparable_ranked:
+            domains = ", ".join(c.domain for c in comparable_ranked)
+            classification_notes.append(
+                "候補分類で全件が対象外になったため、"
+                f"検索順位上位を低信頼の参考候補として暫定分析しました: {domains}"
+            )
+            logger.warning(
+                "discovery_classification_all_out_of_scope_fallback request_id=%s domains=%s",
+                request_id,
+                domains,
+            )
+        else:
+            raise PipelineError(
+                404,
+                "直接比較できる競合サイトが見つかりませんでした。対象URLまたは業界を確認してください。",
+                stage="search",
+                retryable=False,
+            )
     top_candidates = comparable_ranked[:max_competitors]
 
     # --- Stage: fetch_competitors ---
@@ -885,7 +927,7 @@ async def run_discovery_pipeline(
     # ── Task A: Quality gate — exclude low-quality / garbled extractions ──
     quality_passed: list[tuple[FetchedSite, object]] = []
     quality_rejected: list[tuple[FetchedSite, object, str]] = []
-    quality_excluded: list[str] = []
+    quality_excluded: list[str] = list(classification_notes)
 
     for site, data in zip(fetched_sites, competitor_extracted):
         if site.analysis_source == _SEARCH_RESULT_ANALYSIS_SOURCE:

@@ -323,6 +323,39 @@ async def test_pipeline_response_has_excluded_candidates():
 
 
 @pytest.mark.asyncio
+async def test_pipeline_uses_low_confidence_fallback_when_all_candidates_out_of_scope():
+    search_client = RecordingSearchClient(_search_results())
+    analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
+
+    async def _mark_all_out_of_scope(candidates, *args, **kwargs):
+        for candidate in candidates:
+            candidate.competitive_tier = "out_of_scope"
+        return candidates
+
+    response = await run_discovery_pipeline(
+        DiscoveryAnalyzeRequest(
+            brand_url="https://example.com",
+            api_key="test-key",
+            provider="anthropic",
+        ),
+        request_id="req-classification-fallback",
+        search_client=search_client,
+        validate_operator_url_fn=_validate_url,
+        fetch_html_fn=_fetch_html,
+        take_screenshot_fn=AsyncMock(return_value=None),
+        extract_fn=lambda url, html: _extract_for(url),
+        classify_industry_fn=AsyncMock(return_value="水回り"),
+        analyze_fn=analyze_mock,
+        validate_candidates_fn=AsyncMock(side_effect=_mark_all_out_of_scope),
+    )
+
+    assert response.fetched_sites
+    assert any("候補分類で全件が対象外" in item for item in response.excluded_candidates)
+    analyzed_sites = analyze_mock.await_args.args[0]
+    assert len(analyzed_sites) >= 2
+
+
+@pytest.mark.asyncio
 async def test_pipeline_uses_search_result_fallback_when_all_competitor_fetches_fail():
     search_client = RecordingSearchClient(_search_results())
     analyze_mock = AsyncMock(return_value=(_valid_report_markdown(), TokenUsage()))
