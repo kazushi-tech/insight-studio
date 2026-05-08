@@ -790,17 +790,20 @@ async def run_discovery_pipeline(
         if len(comparable_ranked) < minimum_pool:
             existing_domains = {c.domain.lower() for c in comparable_ranked}
             rescued: list[RankedCandidate] = []
-            for candidate in ranked:
+            for allow_blocked in (False, True):
+                for candidate in ranked:
+                    if len(comparable_ranked) + len(rescued) >= minimum_pool:
+                        break
+                    domain = candidate.domain.lower()
+                    if domain in existing_domains:
+                        continue
+                    if not allow_blocked and _domain_matches_any(candidate.domain, _CLASSIFICATION_FALLBACK_BLOCKED_DOMAINS):
+                        continue
+                    candidate.competitive_tier = "benchmark"
+                    rescued.append(candidate)
+                    existing_domains.add(domain)
                 if len(comparable_ranked) + len(rescued) >= minimum_pool:
                     break
-                domain = candidate.domain.lower()
-                if domain in existing_domains:
-                    continue
-                if _domain_matches_any(candidate.domain, _CLASSIFICATION_FALLBACK_BLOCKED_DOMAINS):
-                    continue
-                candidate.competitive_tier = "benchmark"
-                rescued.append(candidate)
-                existing_domains.add(domain)
             if rescued:
                 comparable_ranked = [*comparable_ranked, *rescued]
                 domains = ", ".join(c.domain for c in rescued)
