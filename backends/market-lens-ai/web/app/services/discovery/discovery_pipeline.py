@@ -785,6 +785,35 @@ async def run_discovery_pipeline(
                 stage="search",
                 retryable=False,
             )
+    else:
+        minimum_pool = min(_MIN_COMPETITOR_OUTPUT, max_competitors, len(ranked))
+        if len(comparable_ranked) < minimum_pool:
+            existing_domains = {c.domain.lower() for c in comparable_ranked}
+            rescued: list[RankedCandidate] = []
+            for candidate in ranked:
+                if len(comparable_ranked) + len(rescued) >= minimum_pool:
+                    break
+                domain = candidate.domain.lower()
+                if domain in existing_domains:
+                    continue
+                if _domain_matches_any(candidate.domain, _CLASSIFICATION_FALLBACK_BLOCKED_DOMAINS):
+                    continue
+                candidate.competitive_tier = "benchmark"
+                rescued.append(candidate)
+                existing_domains.add(domain)
+            if rescued:
+                comparable_ranked = [*comparable_ranked, *rescued]
+                domains = ", ".join(c.domain for c in rescued)
+                classification_notes.append(
+                    "直接・隣接候補が3件未満だったため、"
+                    f"検索順位上位を低信頼の参考候補として補完しました: {domains}"
+                )
+                logger.warning(
+                    "discovery_classification_partial_fallback request_id=%s comparable=%d rescued=%s",
+                    request_id,
+                    len(comparable_ranked),
+                    domains,
+                )
     top_candidates = comparable_ranked[:max_competitors]
 
     # --- Stage: fetch_competitors ---
