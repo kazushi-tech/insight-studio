@@ -520,10 +520,113 @@ def _check_label_mismatch(analysis_md: str, result: ScanResult) -> list[str]:
     return issues
 
 
+def _normalize_deferred_evidence_labels(analysis_md: str, result: ScanResult) -> str:
+    """Align report table labels with deterministic evaluator defer verdicts."""
+    if not getattr(result, "extracted", None) or "確認済み" not in analysis_md:
+        return analysis_md
+
+    try:
+        evaluations = evaluate_all(result.extracted)
+    except Exception as exc:
+        logger.warning("label mismatch normalizer failed: %s", exc)
+        return analysis_md
+
+    table_row_re = _re.compile(r"^\|[^\n]+\|$", _re.MULTILINE)
+    replacements: list[tuple[int, int, str]] = []
+    for m in table_row_re.finditer(analysis_md):
+        row = m.group(0)
+        if "確認済み" not in row:
+            continue
+        cells = [c.strip() for c in row.strip("|").split("|")]
+        axis_label = cells[0] if cells else ""
+        axis_key = None
+        for label, key in _AXIS_LABEL_TO_KEY.items():
+            if axis_label == label or label in axis_label:
+                axis_key = key
+                break
+        if axis_key is None:
+            continue
+
+        window = analysis_md[max(0, m.start() - 500): m.start()]
+        matched_eval = None
+        for ev in evaluations:
+            token = _brand_token_from_url(ev.url)
+            if token and token in window:
+                matched_eval = ev
+        if matched_eval is None:
+            continue
+        verdict = matched_eval.verdict_for(axis_key)
+        if verdict and verdict.verdict == VERDICT_DEFER:
+            replacements.append((m.start(), m.end(), row.replace("確認済み", "評価保留")))
+
+    if not replacements:
+        return analysis_md
+
+    pieces: list[str] = []
+    last = 0
+    for start, end, replacement in replacements:
+        pieces.append(analysis_md[last:start])
+        pieces.append(replacement)
+        last = end
+    pieces.append(analysis_md[last:])
+    logger.info("normalized_deferred_evidence_labels count=%d run_id=%s", len(replacements), result.run_id)
+    return "".join(pieces)
+
+
 _EXEC_PLAN_HEADING_RE = _re.compile(
     r"^(##\s+(?:\d+[.．]?\s*)?(?:実行プラン|広告運用アクションプラン|アクションプラン))$",
     _re.MULTILINE,
 )
+
+_EXEC_PLAN_REQUIREMENTS: list[tuple[str, str]] = [
+    ("期待KPI", r"期待KPI|初回KPI|主KPI|KPI測定|LP-CVR|CVR|CPA|CTR|ROAS"),
+    ("根拠", r"根拠|証拠強度|確認済み|推定|評価保留"),
+    ("実装難易度", r"工数|難易度|Effort|実装難易度|低|中|高"),
+    ("初回検証方法", r"初回|7日|今週|検証|テスト|A/B|測定方法|評価タイミング"),
+]
+
+
+def _exec_plan_text(analysis_md: str) -> str:
+    exec_plan_match = _re.search(
+        r'(?:##\s*(?:\d+[.．]?\s*)?(?:実行プラン|広告運用アクションプラン|アクションプラン))([\s\S]*?)(?=\n##\s+|\Z)',
+        analysis_md,
+    )
+    return exec_plan_match.group(1) if exec_plan_match else analysis_md
+
+
+def _ensure_exec_plan_operational_requirements(analysis_md: str, result: ScanResult) -> str:
+    """Add a deterministic ops row when the LLM omits required execution fields."""
+    if len(result.urls) <= 1:
+        return analysis_md
+    if not _EXEC_PLAN_HEADING_RE.search(analysis_md):
+        return analysis_md
+
+    exec_text = _exec_plan_text(analysis_md)
+    missing = [
+        label
+        for label, pattern in _EXEC_PLAN_REQUIREMENTS
+        if not _re.search(pattern, exec_text, _re.IGNORECASE)
+    ]
+    if not missing:
+        return analysis_md
+
+    first_brand = _brand_token_from_url(result.urls[0]) if result.urls else "対象LP"
+    block = "\n".join([
+        "### 実行プラン補足（運用チェック）",
+        "",
+        "| 対象 | 期待KPI | 根拠 | 実装難易度 | 初回検証方法 |",
+        "|---|---|---|---|---|",
+        (
+            f"| {first_brand or '対象LP'} | LP-CVR / CPA / CTR の方向性を初回KPIとして確認 | "
+            "抽出データとAI本文の差分は評価保留として運用者が再確認 | 中 | "
+            "7日または学習フェーズ後に検索語句・LP-CVR・主要CTA到達を確認 |"
+        ),
+    ])
+    logger.info(
+        "injected_exec_plan_operational_requirements run_id=%s missing=%s",
+        result.run_id, missing,
+    )
+    return _inject_stub_block(analysis_md, block)
 
 
 def _inject_stub_block(analysis_md: str, stub_block: str) -> str:
@@ -667,6 +770,8 @@ def generate_report_bundle(result: ScanResult, analysis_md: str) -> ReportBundle
     # ── Task B: Strip model-generated dates ──
     created_year = str(result.created_at.year)
     analysis_md = _strip_model_dates(analysis_md, created_year)
+    analysis_md = _normalize_deferred_evidence_labels(analysis_md, result)
+    analysis_md = _ensure_exec_plan_operational_requirements(analysis_md, result)
 
     # ── Quality Gate (Tasks A, G) ──
     quality_issues, is_critical = _quality_gate_check(analysis_md, result)

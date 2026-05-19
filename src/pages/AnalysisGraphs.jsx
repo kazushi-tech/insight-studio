@@ -2,11 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
-import SourceBadge from '../components/ads/SourceBadge'
 import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
-import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -31,13 +29,6 @@ import {
   extractRefinedInsights,
   extractDataQualityAlerts,
 } from '../utils/executiveSummaryExtractor'
-
-/* ── Section IDs for local nav ── */
-const SECTIONS = [
-  { id: 'graphs', label: 'グラフ分析', icon: 'bar_chart' },
-  { id: 'creative', label: 'クリエイティブ', icon: 'palette' },
-  { id: 'detail-report', label: '詳細レポート', icon: 'description' },
-]
 
 const ADS_QUERY_LABELS = {
   pv: 'PV分析',
@@ -926,7 +917,7 @@ function GraphAiQuestionRail({
   return (
     <aside
       data-testid="ads-graph-ai-rail"
-      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm 2xl:sticky 2xl:top-24 2xl:max-h-[calc(100vh-7rem)] 2xl:overflow-y-auto 2xl:overscroll-contain"
+      className="hidden lg:block lg:sticky lg:top-28 self-start max-h-[calc(100vh-8rem)] overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm"
     >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
@@ -1052,9 +1043,8 @@ export default function AnalysisGraphs() {
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
   const [activeTheme, setActiveTheme] = useState('all')
-  const [viewMode, setViewMode] = useState('analyst')
+  const [viewMode] = useState('analyst')
   const [openSections, setOpenSections] = useState({})
-  const [activeSection, setActiveSection] = useState('graphs')
   const [creativeFilter, setCreativeFilter] = useState('all')
 
   /* ── Excel import state ── */
@@ -1111,7 +1101,6 @@ export default function AnalysisGraphs() {
 
   /* ── Summary data (from EssentialPack extractors) ── */
   const currentReport = useMemo(() => reportBundle?.reportMd ?? '', [reportBundle?.reportMd])
-  const isFallbackReport = reportBundle?.dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
   const executiveCards = useMemo(
     () => extractExecutiveCards(currentReport, chartGroups),
     [currentReport, chartGroups],
@@ -1148,12 +1137,7 @@ export default function AnalysisGraphs() {
     setOpenSections((prev) => ({ ...prev, [themeId]: !prev[themeId] }))
   }, [])
 
-  /* ── Header data ── */
-  const periods = setupState?.periods ?? []
-  const dateRange = periods.length > 0
-    ? periods.length === 1 ? periods[0] : `${periods[0]} 〜 ${periods[periods.length - 1]}`
-    : null
-
+  /* ── Active data scope ── */
   const activeScopeLabel =
     periodFilter === 'all' ? '全期間まとめ'
     : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
@@ -1162,7 +1146,6 @@ export default function AnalysisGraphs() {
   const hasGraphData = filteredGroups.length > 0
   const hasCreativeData = creativeRefs.length > 0
   const hasDetailReport = refinedInsights.length > 0
-  const adsRailStatus = loading ? '取得中' : isFallbackReport ? '暫定' : hasGraphData ? 'グラフ表示中' : 'データ待ち'
 
   /* ── Handlers ── */
   async function handleRefresh() {
@@ -1229,110 +1212,12 @@ export default function AnalysisGraphs() {
   }
 
   function scrollToSection(sectionId) {
-    setActiveSection(sectionId)
     document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
-    <div className="flex-1 min-w-0 overflow-visible">
-      <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-10">
-
-        {/* ═══ 1. PAGE HEADER ═══ */}
-        <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              {reportBundle?.source && (
-                <span className="px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-bold rounded uppercase tracking-wider">
-                  {reportBundle.source === 'bq_generate_batch' ? 'BQ取得済み' : '暫定'}
-                </span>
-              )}
-              <h1 className="text-3xl font-extrabold tracking-tight text-primary japanese-text">広告分析</h1>
-            </div>
-            <div className="flex flex-wrap items-center gap-4 text-on-surface-variant text-sm">
-              {setupState?.datasetId && (
-                <span className="font-medium flex items-center gap-1">
-                  <span className="material-symbols-outlined text-base">corporate_fare</span>
-                  {setupState.datasetId}
-                </span>
-              )}
-              {dateRange && (
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-base">calendar_month</span>
-                  {dateRange}
-                </span>
-              )}
-              {reportBundle?.generatedAt && (
-                <span className="flex items-center gap-1 text-[11px] opacity-60">
-                  最終更新: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}
-                </span>
-              )}
-            </div>
-            {/* Source chips */}
-            <div className="flex gap-2 pt-1">
-              <SourceBadge source="ga4" />
-              {excelState === 'applied' && <SourceBadge source="excel" />}
-            </div>
-          </div>
-
-          {/* Exec / Analyst toggle + refresh */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center p-1 bg-surface-container rounded-full ghost-border">
-              <button
-                onClick={() => setViewMode('exec')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                  viewMode === 'exec'
-                    ? 'bg-surface-container-lowest text-primary shadow-sm'
-                    : 'text-on-surface-variant hover:text-primary'
-                }`}
-              >
-                要約表示
-              </button>
-              <button
-                onClick={() => setViewMode('analyst')}
-                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                  viewMode === 'analyst'
-                    ? 'bg-surface-container-lowest text-primary shadow-sm'
-                    : 'text-on-surface-variant hover:text-primary'
-                }`}
-              >
-                詳細表示
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleChangeSetup}
-              className="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.05] transition-colors"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
-              セットアップ（クエリ・期間）
-            </button>
-
-            {/* Period selector */}
-            {periodTags.length > 0 && (
-              <select
-                value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="text-sm text-on-surface-variant bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 cursor-pointer"
-              >
-                <option value="latest">最新期間</option>
-                <option value="all">全期間まとめ</option>
-                {periodTags.map((period) => (
-                  <option key={period} value={period}>{period}</option>
-                ))}
-              </select>
-            )}
-
-            <button
-              onClick={handleRefresh}
-              disabled={loading || !isAdsAuthenticated || !setupState}
-              className="px-5 py-2 bg-primary text-on-primary rounded-full font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
-            >
-              {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">refresh</span>}
-              再取得
-            </button>
-          </div>
-        </section>
+    <div className="flex-1 min-w-0">
+      <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-8">
 
         {/* ═══ 2. SOURCE / WARNING STRIP ═══ */}
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
@@ -1371,80 +1256,12 @@ export default function AnalysisGraphs() {
           <ExcelImportPreview result={excelPreview} onApply={handleExcelApply} onCancel={handleExcelCancel} />
         )}
 
-        {/* ═══ 3. LOCAL SECTION NAV ═══ */}
-        <nav className="flex gap-8 border-b border-outline-variant/15 pb-2">
-          {SECTIONS.map((sec) => (
-            <button
-              key={sec.id}
-              onClick={() => scrollToSection(sec.id)}
-              className={`relative py-2 text-sm font-medium transition-all ${
-                activeSection === sec.id
-                  ? 'text-primary font-semibold border-b-2 border-primary'
-                  : 'text-on-surface-variant hover:text-primary'
-              }`}
-            >
-              {sec.label}
-            </button>
-          ))}
-        </nav>
-
         {/* Data Quality Alert */}
         {qualityAlerts.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-warning-container border border-amber-200/50 dark:border-warning/30 text-on-surface rounded-xl">
             <span className="material-symbols-outlined text-xl text-amber-600 dark:text-warning">info</span>
             <p className="text-sm font-medium japanese-text">{qualityAlerts[0].message}</p>
           </div>
-        )}
-
-        {isFallbackReport && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-warning-container border border-amber-200/50 dark:border-warning/30 text-on-surface rounded-xl">
-            <span className="material-symbols-outlined text-xl text-amber-600 dark:text-warning">pending</span>
-            <p className="text-sm font-medium japanese-text">
-              BigQueryレポート本文またはグラフが未取得のため、数値断定ではなく確認手順・追加取得候補を表示しています。
-            </p>
-          </div>
-        )}
-
-        {!hasGraphData && (
-          <AiContextRail
-            screenName="広告グラフAIレール"
-            status={adsRailStatus}
-            inputSummary={setupState?.datasetId || 'GA4データセット未設定'}
-            evidence={['GA4 BigQuery', '取得状態', '追加クエリ', '未取得理由']}
-            suggestedQuestions={[
-              '今の未取得状態で、次に確認すべきクエリタイプを教えて',
-              '数値断定せず、確認手順だけを整理して',
-              'グラフ取得後に見るべき指標を優先順で出して',
-            ]}
-            primaryAction="広告グラフの未取得状態をAI考察で確認する"
-            helperText="グラフが未取得の状態では、成功表示や数値断定を避け、取得条件と追加確認だけを整理します。"
-          />
-        )}
-
-        {hasGraphData && (
-          <AdsImage2KpiBoard
-            filteredGroups={filteredGroups}
-            themes={themes}
-            setupState={setupState}
-            reportBundle={reportBundle}
-            periodFilter={periodFilter}
-            periodTags={periodTags}
-            onPeriodFilterChange={setPeriodFilter}
-            onChangeSetup={handleChangeSetup}
-            onScrollToGraphs={() => scrollToSection('graphs')}
-          />
-        )}
-
-        {hasGraphData && (
-          <GraphReadingBoard
-            themes={themes}
-            filteredGroups={filteredGroups}
-            topInsights={topInsights}
-            activeScopeLabel={activeScopeLabel}
-            setupState={setupState}
-            onThemeChange={setActiveTheme}
-            onScrollToGraphs={() => scrollToSection('graphs')}
-          />
         )}
 
         {/* Loading state */}
@@ -1458,7 +1275,7 @@ export default function AnalysisGraphs() {
         <div className={hasGraphData ? 'space-y-10 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start 2xl:gap-8 2xl:space-y-0' : ''}>
           <div className="min-w-0 space-y-10">
             {/* ═══ 4. GRAPH SECTION ═══ */}
-            <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
+            <section id="section-graphs" className="scroll-mt-24 space-y-6">
               {hasGraphData ? (
                 <>
                   <div className="rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
@@ -1473,7 +1290,7 @@ export default function AnalysisGraphs() {
                           Python集計グラフを先に確認してから、右カラムのAIグラフチャットへ渡します。
                         </p>
                         <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-                          期間選択後にBigQueryから取得したGA4数値をPythonで集計し、CVイベント・流入・LP・デバイス・生データの順で確認します。
+                          BigQueryから取得した数値をPythonで集計し、CV・CPA・流入・LP・生データの順で確認します。
                           文章の考察は右カラムのAI質問へ分け、ここではグラフを大きく読みます。
                         </p>
                       </div>

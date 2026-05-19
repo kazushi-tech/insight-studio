@@ -187,6 +187,16 @@ class TestValidateReviewOutput:
         assert data["good_points"][0]["point"] == "レビュー本文からの暫定評価"
         assert any("good_points" in i.message for i in report.issues)
 
+    def test_invalid_japanese_evidence_type_is_normalized(self):
+        data = _golden_banner_review()
+        data["evidence"][0]["evidence_type"] = "当バナー画像内の視覚要素の観察"
+
+        report = validate_review_output(data)
+
+        assert report.valid is True
+        assert data["evidence"][0]["evidence_type"] == "client_material"
+        assert any("Normalized invalid evidence_type" in i.message for i in report.issues)
+
 
 # -- Banner Review Service Tests (mocked LLM) --------------------------------
 
