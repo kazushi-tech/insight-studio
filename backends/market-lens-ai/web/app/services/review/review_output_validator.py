@@ -7,7 +7,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from ...schemas.review_result import ReviewResult
+from ...schemas.review_result import EvidenceType, ReviewResult
 from .review_prompt_builder import BANNER_RUBRIC_IDS, LP_RUBRIC_IDS, LP_DEPENDENT_RUBRIC_IDS
 
 logger = logging.getLogger("market-lens")
@@ -17,6 +17,15 @@ RUBRIC_SETS: dict[str, set[str]] = {
     "banner_review": set(BANNER_RUBRIC_IDS),
     "ad_lp_review": set(LP_RUBRIC_IDS),
 }
+
+_ALLOWED_EVIDENCE_TYPES = {e.value for e in EvidenceType}
+_EVIDENCE_TYPE_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("platform_guideline", ("guideline", "policy", "媒体", "規約", "ガイドライン", "審査")),
+    ("competitor_public", ("competitor", "競合", "他社", "公開", "LP", "ランディングページ")),
+    ("approved_proposal", ("approved", "承認", "提案書", "企画書")),
+    ("winning_creative", ("winning", "勝ち", "勝ちパターン", "高実績", "既存勝ち")),
+    ("client_material", ("client", "banner", "creative", "material", "素材", "画像", "バナー", "視覚", "観察", "当バナー")),
+]
 
 
 @dataclass
@@ -174,6 +183,62 @@ def _has_items(value: object) -> bool:
     return isinstance(value, list) and len(value) > 0
 
 
+def _normalize_evidence_type(value: object) -> str:
+    raw = str(value or "").strip()
+    if raw in _ALLOWED_EVIDENCE_TYPES:
+        return raw
+    lowered = raw.lower()
+    for canonical, keywords in _EVIDENCE_TYPE_KEYWORDS:
+        if any(keyword.lower() in lowered or keyword in raw for keyword in keywords):
+            return canonical
+    return "client_material"
+
+
+def _normalize_evidence_items(value: object) -> tuple[list, list[str]]:
+    items = _coerce_list(value)
+    normalized: list = []
+    warnings: list[str] = []
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            normalized.append(item)
+            continue
+        next_item = dict(item)
+        before = next_item.get("evidence_type")
+        after = _normalize_evidence_type(before)
+        if before != after:
+            next_item["evidence_type"] = after
+            warnings.append(f"Normalized invalid evidence_type at evidence[{idx}] to {after}")
+        normalized.append(next_item)
+    return normalized, warnings
+
+
+def _normalize_review_contract_values(data: dict) -> tuple[dict, list[str]]:
+    repaired = dict(data)
+    warnings: list[str] = []
+
+    evidence, evidence_warnings = _normalize_evidence_items(repaired.get("evidence"))
+    if "evidence" in repaired:
+        repaired["evidence"] = evidence
+        warnings.extend(evidence_warnings)
+
+    one_pager = repaired.get("one_pager_sections")
+    if isinstance(one_pager, dict):
+        evidence_sources = one_pager.get("evidence_sources")
+        if isinstance(evidence_sources, dict) and "items" in evidence_sources:
+            items, nested_warnings = _normalize_evidence_items(evidence_sources.get("items"))
+            evidence_sources = dict(evidence_sources)
+            evidence_sources["items"] = items
+            one_pager = dict(one_pager)
+            one_pager["evidence_sources"] = evidence_sources
+            repaired["one_pager_sections"] = one_pager
+            warnings.extend(
+                warning.replace("evidence[", "one_pager_sections.evidence_sources.items[")
+                for warning in nested_warnings
+            )
+
+    return repaired, warnings
+
+
 def _repair_required_review_fields(data: dict) -> tuple[dict, list[str]]:
     """Fill known Gemini omissions without relaxing the public schema.
 
@@ -258,9 +323,14 @@ def validate_review_output(data: dict) -> ValidationReport:
     stripped = _strip_comment_keys(data)
     data.clear()
     data.update(stripped)
+    normalized, normalize_warnings = _normalize_review_contract_values(data)
+    data.clear()
+    data.update(normalized)
     repaired, repair_warnings = _repair_required_review_fields(data)
     data.clear()
     data.update(repaired)
+    for warning in normalize_warnings:
+        report.add("warning", warning)
     for warning in repair_warnings:
         report.add("warning", warning)
 

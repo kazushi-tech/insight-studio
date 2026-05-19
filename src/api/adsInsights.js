@@ -101,6 +101,19 @@ function isFetchNetworkError(error) {
   return error instanceof TypeError || /Failed to fetch/i.test(String(error?.message))
 }
 
+function isBackendConfigAuthError(status, body) {
+  if (status !== 401 && status !== 403) return false
+  const code = String(body?.error || body?.code || '').toLowerCase()
+  const message = String(body?.message || body?.detail || '').toLowerCase()
+  return (
+    code === 'credentials_missing' ||
+    code === 'bigquery_credentials_missing' ||
+    code === 'bigquery_auth_missing' ||
+    message.includes('bigquery認証') ||
+    message.includes('bigquery credentials')
+  )
+}
+
 async function request(path, options = {}) {
   const {
     direct = false,
@@ -201,12 +214,13 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const error = new Error(
-      body.detail || body.error || body.message || `Ads Insights API error: ${res.status}`,
+      body.detail || body.message || body.error || `Ads Insights API error: ${res.status}`,
     )
     error.status = res.status
     error.body = body
-    // 401/403 は status コードだけで認証エラーと判定（body マーカーは参考情報のみ）
-    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth
+    error.isBackendConfigAuthError = isBackendConfigAuthError(res.status, body)
+    // BigQuery 等の外部サービス認証不足はログインセッション切れではない。
+    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth && !error.isBackendConfigAuthError
 
     if (error.isAuthError && !suppressAuthErrorHandler) {
       onAuthError?.(error)
