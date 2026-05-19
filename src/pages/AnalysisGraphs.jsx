@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
+import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
 import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
@@ -11,7 +11,11 @@ import {
   getChartPeriodTags,
   getDisplayChartGroups,
   regenerateAdsReportBundle,
+  buildAiChartContext,
+  buildAnalysisInstructions,
 } from '../utils/adsReports'
+import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
+import { getAnalysisModel } from '../utils/analysisProvider'
 import {
   groupChartsByTheme,
   extractTopInsights,
@@ -745,9 +749,18 @@ function GraphAiQuestionRail({
   themes,
   activeScopeLabel,
   setupState,
+  reportBundle,
+  isAdsAuthenticated,
+  hasAnalysisKey,
+  analysisKey,
+  analysisProvider,
   onThemeChange,
   onScrollToGraphs,
 }) {
+  const [inlineQuestion, setInlineQuestion] = useState('')
+  const [inlineAnswer, setInlineAnswer] = useState('')
+  const [inlineStatus, setInlineStatus] = useState('')
+  const [inlineLoading, setInlineLoading] = useState(false)
   const prompts = topInsights.length > 0
     ? topInsights.slice(0, 4).map((insight) => `${insight.title} の変化を、広告運用ではどう読むべき？`)
     : [
@@ -756,9 +769,76 @@ function GraphAiQuestionRail({
         '今週優先して見るべき数値を3つに絞って',
         '異常値が施策判断に影響するか確認したい',
       ]
+  const selectedQuestion = inlineQuestion.trim() || prompts[0] || ''
+  const wideAiHref = `/ads/ai?question=${encodeURIComponent(selectedQuestion)}`
+
+  async function handleInlineAsk(text) {
+    const prompt = (text ?? inlineQuestion).trim()
+    if (!prompt) {
+      setInlineStatus('質問を入力してください。')
+      return
+    }
+    if (!isAdsAuthenticated) {
+      setInlineStatus('考察スタジオへのログインが必要です。')
+      return
+    }
+    if (!hasAnalysisKey) {
+      setInlineStatus('分析用APIキーが必要です。設定後に質問できます。')
+      return
+    }
+    if (!reportBundle?.reportMd) {
+      setInlineStatus('先に分析データを取得してください。')
+      return
+    }
+
+    setInlineLoading(true)
+    setInlineStatus('右カラムで考察中…')
+    setInlineAnswer('')
+    try {
+      const analysisInstructions = buildAnalysisInstructions(
+        setupState?.queryTypes ?? [],
+        setupState?.periods ?? [],
+      )
+      const payload = {
+        mode: 'question',
+        model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
+        provider: analysisProvider || 'anthropic',
+        temperature: 0.3,
+        message: [
+          analysisInstructions,
+          `対象期間: ${activeScopeLabel}`,
+          '右カラムのグラフ確認中の質問です。回答は広告運用者向けに、根拠グラフ・読むべき指標・次の一手を短く示してください。',
+          `---\n${prompt}`,
+        ].filter(Boolean).join('\n\n'),
+        point_pack_md: reportBundle.reportMd,
+        style_reference: '',
+        style_preset: 'mixed',
+        data_source: 'bq',
+        data_availability: reportBundle?.dataAvailability || (reportBundle?.source === 'bq_generate_fallback' ? 'fallback' : 'full'),
+        missing_reason: reportBundle?.missingReason || '',
+        bq_query_types: setupState?.queryTypes ?? [],
+        conversation_history: [],
+        ai_chart_context: buildAiChartContext(reportBundle?.chartGroups ?? []),
+      }
+      const data = await neonGenerate(payload, analysisKey)
+      const normalized = normalizeAdsPayload(data)
+      const text = getAdsText(data) ?? getAdsText(normalized)
+      if (!text) throw new Error('AI応答本文を取得できませんでした。')
+      setInlineAnswer(text)
+      setInlineStatus('右カラムで回答しました。広い画面で続ける場合はAI考察を開けます。')
+    } catch (e) {
+      const message = e?.isAuthError ? AUTH_EXPIRED_MESSAGE : (e?.message || 'AI考察の生成に失敗しました。')
+      setInlineStatus(message)
+    } finally {
+      setInlineLoading(false)
+    }
+  }
 
   return (
-    <aside className="hidden lg:block lg:sticky lg:top-28 self-start max-h-[calc(100vh-8rem)] overflow-y-auto rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm">
+    <aside
+      data-testid="ads-graph-ai-rail"
+      className="hidden lg:block lg:sticky lg:top-28 self-start max-h-[calc(100vh-8rem)] overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm"
+    >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -786,6 +866,47 @@ function GraphAiQuestionRail({
           </span>
         </div>
 
+        <div className="rounded-2xl bg-surface-container-low p-3">
+          <label htmlFor="graph-ai-draft" className="text-[11px] font-black text-on-surface-variant tracking-widest">
+            質問メモ
+          </label>
+          <textarea
+            id="graph-ai-draft"
+            className="mt-2 min-h-28 w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary japanese-text"
+            placeholder="例: CVR推移とLP別CVRを見て、CPA悪化の原因を切り分けたい"
+            value={inlineQuestion}
+            onChange={(e) => setInlineQuestion(e.target.value)}
+          />
+          <div className="mt-3 grid gap-2">
+            <button
+              type="button"
+              onClick={() => handleInlineAsk()}
+              disabled={inlineLoading || !inlineQuestion.trim()}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-on-primary hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">{inlineLoading ? 'hourglass_top' : 'forum'}</span>
+              {inlineLoading ? '右カラムで考察中…' : '右カラムで質問する'}
+            </button>
+            <a
+              href={wideAiHref}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary/20 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-primary hover:bg-primary/[0.04] transition-colors"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">open_in_new</span>
+              広いAI考察で開く
+            </a>
+          </div>
+          {inlineStatus && (
+            <p className="mt-3 rounded-xl bg-surface-container-lowest px-3 py-2 text-xs leading-6 text-on-surface-variant japanese-text">
+              {inlineStatus}
+            </p>
+          )}
+          {inlineAnswer && (
+            <div className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-primary/15 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface japanese-text whitespace-pre-wrap">
+              {inlineAnswer}
+            </div>
+          )}
+        </div>
+
         {themes.length > 0 && (
           <div className="space-y-2">
             <p className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">見るグラフを切替</p>
@@ -811,32 +932,15 @@ function GraphAiQuestionRail({
         <div className="space-y-2">
           <p className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">質問例</p>
           {prompts.map((prompt) => (
-            <a
+            <button
               key={prompt}
-              href="/ads/ai"
-              className="block rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-xs leading-6 text-on-surface hover:border-primary/30 hover:bg-primary/[0.035] transition-colors japanese-text"
+              type="button"
+              onClick={() => setInlineQuestion(prompt)}
+              className="block w-full rounded-xl border border-outline-variant/20 bg-surface-container-lowest px-3 py-2 text-left text-xs leading-6 text-on-surface hover:border-primary/30 hover:bg-primary/[0.035] transition-colors japanese-text"
             >
               {prompt}
-            </a>
+            </button>
           ))}
-        </div>
-
-        <div className="rounded-2xl bg-surface-container-low p-3">
-          <label htmlFor="graph-ai-draft" className="text-[11px] font-black text-on-surface-variant uppercase tracking-widest">
-            Draft Question
-          </label>
-          <textarea
-            id="graph-ai-draft"
-            className="mt-2 min-h-28 w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary japanese-text"
-            placeholder="例: CVR推移とLP別CVRを見て、CPA悪化の原因を切り分けたい"
-          />
-          <a
-            href="/ads/ai"
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-on-primary hover:opacity-90 transition-opacity"
-          >
-            <span className="material-symbols-outlined text-base" aria-hidden="true">auto_awesome</span>
-            AI考察へ移動
-          </a>
         </div>
       </div>
     </aside>
@@ -847,7 +951,12 @@ function GraphAiQuestionRail({
    Main Component: 広告分析 (Unified Analysis Surface)
    ════════════════════════════════════════════════════════ */
 export default function AnalysisGraphs() {
-  const { isAdsAuthenticated } = useAuth()
+  const {
+    isAdsAuthenticated,
+    analysisKey,
+    analysisProvider,
+    hasAnalysisKey,
+  } = useAuth()
   const { setupState, reportBundle, setReportBundle } = useAdsSetup()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -1177,6 +1286,11 @@ export default function AnalysisGraphs() {
               themes={themes}
               activeScopeLabel={activeScopeLabel}
               setupState={setupState}
+              reportBundle={reportBundle}
+              isAdsAuthenticated={isAdsAuthenticated}
+              hasAnalysisKey={hasAnalysisKey}
+              analysisKey={analysisKey}
+              analysisProvider={analysisProvider}
               onThemeChange={setActiveTheme}
               onScrollToGraphs={() => scrollToSection('graphs')}
             />

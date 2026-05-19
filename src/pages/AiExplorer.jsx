@@ -98,6 +98,11 @@ export default function AiExplorer() {
     const draft = getDraft('ai-explorer')
     return draft?.contextMode === 'ads-with-ml' ? 'ads-with-ml' : 'ads-only'
   })
+
+  useEffect(() => {
+    const question = new URLSearchParams(window.location.search).get('question')
+    if (question) setInput((prev) => prev || question)
+  }, [])
   const [fontSize, setFontSize] = useState(() => {
     const saved = localStorage.getItem(FONT_SIZE_KEY)
     return saved === 'large' || saved === 'xlarge' ? saved : 'normal'
