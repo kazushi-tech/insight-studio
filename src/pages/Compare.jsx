@@ -172,6 +172,60 @@ function stripExecutionMeta(reportMd) {
   return reportMd.replace(/\n*(?:#{1,4}\s*)?(?:実行メタデータ|Execution Metadata)[\s\S]*$/i, '').trimEnd()
 }
 
+function compactText(value, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return fallback
+  return text.length > 130 ? text.slice(0, 127) + '…' : text
+}
+
+function findActionLine(reportMd) {
+  const line = String(reportMd || '')
+    .split(/\r?\n/)
+    .map((item) => item.replace(/^[-*#\d.\s]+/, '').trim())
+    .find((item) => /改善|施策|CTA|優先|アクション/.test(item) && item.length > 8)
+  return compactText(line, 'まずは負けている訴求、CTA、信頼要素の順に改善候補を確認してください。')
+}
+
+function CompareResultSummary({ result, report, overallScore, scores }) {
+  if (!result) return null
+  const scoreText = overallScore != null
+    ? `総合スコア ${overallScore}/100。${getScoreLabel(overallScore).label} 判定です。`
+    : compactText(result?.summary, '比較結果の要点を確認してください。')
+  const scoreEntries = Object.entries(scores || {}).filter(([, value]) => value != null)
+  const weakAxis = scoreEntries.sort((a, b) => Number(a[1]) - Number(b[1]))[0]
+  const evidenceText = weakAxis
+    ? `${weakAxis[0]} が ${weakAxis[1]} 点で、優先的に見直す根拠になります。`
+    : compactText(result?.summary || report, '自社LPと競合LPの訴求差分を根拠として確認してください。')
+
+  return (
+    <section className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">Decision Summary</p>
+          <h3 className="mt-1 text-2xl font-extrabold text-on-surface japanese-text">長文レポートの前に、勝ち負けだけ見る</h3>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-lowest px-3 py-1 text-xs font-bold text-primary">
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">compare_arrows</span>
+          結論 / 根拠 / 次アクション
+        </span>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {[
+          ['結論', scoreText, 'flag'],
+          ['根拠', evidenceText, 'fact_check'],
+          ['次アクション', findActionLine(report), 'bolt'],
+        ].map(([title, body, icon]) => (
+          <article key={title} className="rounded-xl bg-surface-container-lowest p-5">
+            <span className="material-symbols-outlined text-primary" aria-hidden="true">{icon}</span>
+            <h4 className="mt-3 text-sm font-extrabold text-on-surface japanese-text">{title}</h4>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">{body}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ─── MetaBand ────────────────────────────────────────────────
 
 function MetaBand({ run, modelName, now }) {
@@ -317,58 +371,6 @@ function ExtractedDataPanel({ extracted }) {
         </div>
       )}
     </div>
-  )
-}
-
-function CompareImage2Guide({ providerLabel }) {
-  return (
-    <section className="grid min-w-0 grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>競合LP分析</span>
-              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span className="font-bold text-primary">LP比較レポート</span>
-            </div>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">比較結果を、次のアクションまで読む</h2>
-            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-              URL入力後は、Markdown本文だけでなく「今すぐやる施策」「担当領域」「期待KPI」「AI質問」を同じ画面で確認します。
-            </p>
-          </div>
-          <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            {providerLabel} 分析
-          </span>
-        </div>
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-          {[
-            ['1', 'URLを入力', '自社LPと競合LPを最大2件まで指定'],
-            ['2', '差分を読む', 'CTA・信頼・訴求の差をレポート化'],
-            ['3', '施策化する', '優先順位つきタスクとAI質問へつなぐ'],
-          ].map(([step, title, body]) => (
-            <article key={step} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-5">
-              <span className="inline-grid size-8 place-items-center rounded-lg bg-primary text-on-primary text-sm font-black">{step}</span>
-              <h3 className="mt-4 text-base font-extrabold text-on-surface japanese-text">{title}</h3>
-              <p className="mt-2 text-xs leading-6 text-on-surface-variant japanese-text">{body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] min-w-0 overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-5 shadow-sm">
-        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
-        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">比較しながら質問</h3>
-        <p className="mt-3 rounded-xl border border-primary/10 bg-surface-container-lowest px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
-          この比較結果をもとに、広告文・LP修正・検証順のどこから進めるかを質問できます。
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2">
-          {['最初に直す場所は？', '広告文へ落とす', '根拠だけ確認'].map((prompt) => (
-            <span key={prompt} className="rounded-full border border-primary/25 bg-surface-container-lowest px-3 py-2 text-xs font-bold text-primary japanese-text">
-              {prompt}
-            </span>
-          ))}
-        </div>
-      </aside>
-    </section>
   )
 }
 
@@ -774,18 +776,28 @@ export default function Compare() {
         </div>
       )}
 
-      <CompareImage2Guide providerLabel={providerLabel} />
-
       {/* URL Inputs */}
-      <div className="min-w-0 bg-surface-container-lowest p-6 2xl:p-8 rounded-xl ghost-border">
-        <div className="grid min-w-0 grid-cols-1 gap-5 lg:grid-cols-3">
+      <section className="rounded-xl border border-secondary/20 bg-surface-container-lowest p-8 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-secondary">Compare Input</p>
+            <h3 className="mt-1 text-2xl font-extrabold text-on-surface japanese-text">比較したいLPをここに入れる</h3>
+            <p className="mt-2 text-sm text-on-surface-variant japanese-text">自社LPと競合LPを入れると、読みやすい比較レポートを生成します。</p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-4 py-2 text-xs font-bold text-secondary">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">link</span>
+            自社1 + 競合1以上
+          </span>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-3">
           {[
-            { key: 'target', label: '自社URL', placeholder: '例: https://your-site.jp/lp01…' },
-            { key: 'compA', label: '競合URL A', placeholder: '例: https://competitor-a.com/landing…' },
-            { key: 'compB', label: '競合URL B', placeholder: '例: https://competitor-b.com/campaign…' },
-          ].map(({ key, label, placeholder }) => (
-            <div key={key}>
+            { key: 'target', label: '自社LP URL', helper: '勝敗の基準にするLP', placeholder: '例: https://your-site.jp/lp01' },
+            { key: 'compA', label: '競合LP URL 1', helper: '必須: 比較したい競合', placeholder: '例: https://competitor-a.com/landing' },
+            { key: 'compB', label: '競合LP URL 2', helper: '任意: もう1社見る', placeholder: '例: https://competitor-b.com/campaign' },
+          ].map(({ key, label, helper, placeholder }) => (
+            <div key={key} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
               <label htmlFor={`compare-url-${key}`} className="text-sm font-bold text-on-surface-variant mb-2 block japanese-text">{label}</label>
+              <p className="mb-3 text-xs text-on-surface-variant japanese-text">{helper}</p>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg" aria-hidden="true">link</span>
                 <input
@@ -807,7 +819,7 @@ export default function Compare() {
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
       <div className="flex justify-end">
         <div className="flex flex-col items-end gap-2">
@@ -936,6 +948,7 @@ export default function Compare() {
       {/* Result Area */}
       {result && (
         <div className="space-y-8">
+          <CompareResultSummary result={result} report={report} overallScore={overallScore} scores={scores} />
           <CompareActionPreview />
 
           {/* Score Header */}

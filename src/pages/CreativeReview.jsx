@@ -81,6 +81,12 @@ function isFilledArray(value) {
   return Array.isArray(value) && value.length > 0
 }
 
+function compactText(value, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return fallback
+  return text.length > 110 ? text.slice(0, 107) + '…' : text
+}
+
 function normalizeCreativeReview(review) {
   if (!review || typeof review !== 'object') return review
 
@@ -139,6 +145,56 @@ function normalizeCreativeReview(review) {
   }
 
   return next
+}
+
+function CreativeResultDigest({ review }) {
+  if (!review || typeof review !== 'object') return null
+
+  const goodPoint = review.good_points?.[0] || review.keep_as_is?.[0]
+  const firstIssue = review.improvements?.[0]
+  const actions = (review.improvements || []).slice(0, 3).map((item) =>
+    compactText(item.action || item.point || item.reason, '改善案を確認してください。')
+  )
+
+  return (
+    <section className="rounded-xl border border-primary/15 bg-primary/[0.045] p-5">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">Review Summary</p>
+          <h3 className="mt-1 text-xl font-extrabold text-on-surface japanese-text">読み始めの要点</h3>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-lowest px-3 py-1 text-xs font-bold text-primary">
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">bolt</span>
+          レポート冒頭
+        </span>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <article className="rounded-xl bg-surface-container-lowest p-4">
+          <p className="text-xs font-black text-primary japanese-text">伝わること</p>
+          <p className="mt-2 text-sm leading-7 text-on-surface japanese-text">
+            {compactText(goodPoint?.point || review.summary, '主要訴求と第一印象を確認してください。')}
+          </p>
+        </article>
+        <article className="rounded-xl bg-surface-container-lowest p-4">
+          <p className="text-xs font-black text-amber-700 japanese-text">CVを落とす要因</p>
+          <p className="mt-2 text-sm leading-7 text-on-surface japanese-text">
+            {compactText(firstIssue?.reason || firstIssue?.point, 'CTA、訴求、情報量の弱点を確認してください。')}
+          </p>
+        </article>
+        <article className="rounded-xl bg-surface-container-lowest p-4">
+          <p className="text-xs font-black text-secondary japanese-text">修正案3つ</p>
+          <ol className="mt-2 space-y-2">
+            {(actions.length ? actions : ['CTAを明確にする', 'ベネフィットを先に出す', '信頼要素を近くに置く']).map((action, index) => (
+              <li key={`${action}-${index}`} className="flex gap-2 text-sm leading-6 text-on-surface japanese-text">
+                <span className="grid size-5 shrink-0 place-items-center rounded-md bg-secondary/10 text-[11px] font-black text-secondary">{index + 1}</span>
+                <span>{action}</span>
+              </li>
+            ))}
+          </ol>
+        </article>
+      </div>
+    </section>
+  )
 }
 
 
@@ -1304,67 +1360,111 @@ export default function CreativeReview() {
         <span className="japanese-text">クリエイティブレビューは現在 {providerLabel} で実行します。Gemini キーが設定されている場合は Gemini が優先されます。</span>
       </div>
 
-      {!isUploaded && phase !== 'uploading' && (
-        <BannerImage2Overview onDemoSelect={() => handleDemoCreative(DEMO_CREATIVES[0])} />
-      )}
-
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
       {(!isUploaded && phase !== 'uploading') && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
-          <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
-            <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
-            バナー画像アップロード
-          </h3>
-          <div
-            ref={dropZoneRef}
-            role="button"
-            tabIndex={0}
-            aria-label="バナー画像をアップロード"
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={onDropZoneKeyDown}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            onDragLeave={onDragLeave}
-            className="ghost-border-thick border-dashed rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-secondary hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[border-color,background-color,box-shadow]"
-          >
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-3" aria-hidden="true">cloud_upload</span>
-            <p className="text-sm text-on-surface-variant japanese-text">クリックまたはドラッグ＆ドロップで画像を選択</p>
-            <p className="text-xs text-on-surface-variant/60 mt-1">PNG / JPG 対応</p>
-            <input
-              ref={fileInputRef}
-              aria-label="バナー画像ファイル"
-              name="creative-review-file"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={onFileChange}
-              className="hidden"
-            />
-          </div>
-          <div className="mt-5 rounded-xl bg-surface-container px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+          <section className="rounded-xl border border-secondary/20 bg-surface-container-lowest p-7 shadow-sm">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-secondary">Creative Review Input</p>
+            <h3 className="mt-2 text-2xl font-extrabold text-on-surface japanese-text">バナー画像から、読みやすいレビューを生成します</h3>
+            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
+              まず画像を主役にアップロードします。ブランドメモとLP URLは任意ですが、入力するとレビュー本文が具体化します。
+            </p>
+
+            <div
+              ref={dropZoneRef}
+              role="button"
+              tabIndex={0}
+              aria-label="バナー画像をアップロード"
+              onClick={() => fileInputRef.current?.click()}
+              onKeyDown={onDropZoneKeyDown}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              className="mt-6 ghost-border-thick border-dashed rounded-xl p-12 flex min-h-[260px] flex-col items-center justify-center cursor-pointer bg-secondary/[0.025] hover:border-secondary hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[border-color,background-color,box-shadow]"
+            >
+              <span className="material-symbols-outlined text-5xl text-secondary mb-3" aria-hidden="true">cloud_upload</span>
+              <p className="text-base font-extrabold text-on-surface japanese-text">バナー画像をアップロード</p>
+              <p className="mt-1 text-sm text-on-surface-variant japanese-text">クリックまたはドラッグ＆ドロップ / PNG・JPG・WebP</p>
+              <input
+                ref={fileInputRef}
+                aria-label="バナー画像ファイル"
+                name="creative-review-file"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={onFileChange}
+                className="hidden"
+              />
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <p className="text-xs font-black tracking-[0.16em] text-secondary">デモ素材</p>
-                <p className="text-sm font-bold text-on-surface japanese-text mt-1">検証用の架空デモ素材で試す</p>
-                <p className="text-xs text-on-surface-variant japanese-text mt-1">{DEMO_NOTICE}</p>
+                <label htmlFor="creative-review-brand-info-idle" className="block text-xs font-bold text-on-surface-variant mb-1">ブランドメモ（任意）</label>
+                <input
+                  id="creative-review-brand-info-idle"
+                  name="creative-review-brand-info-idle"
+                  type="text"
+                  autoComplete="off"
+                  value={brandInfo}
+                  onChange={(e) => setBrandInfo(e.target.value)}
+                  placeholder="例: 20代女性向けスキンケア / 初回購入訴求"
+                  className="w-full px-4 py-3 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                />
+              </div>
+              <div>
+                <label htmlFor="creative-review-lp-url-idle" className="block text-xs font-bold text-on-surface-variant mb-1">LP URL（任意）</label>
+                <input
+                  id="creative-review-lp-url-idle"
+                  name="creative-review-lp-url-idle"
+                  type="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={lpUrl}
+                  onChange={(e) => setLpUrl(e.target.value)}
+                  placeholder="https://example.com/lp"
+                  className="w-full px-4 py-3 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              {DEMO_CREATIVES.map((demo) => (
-                <button
-                  key={demo.id}
-                  type="button"
-                  onClick={() => handleDemoCreative(demo)}
-                  className="flex items-center gap-3 rounded-[0.75rem] bg-surface-container-lowest px-3 py-3 text-left hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-                >
-                  <img src={demo.src} alt="" className="h-12 w-[58px] rounded-md object-cover border border-outline-variant/20" />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-bold text-on-surface japanese-text">{demo.title}</span>
-                    <span className="block text-[11px] text-on-surface-variant japanese-text">架空デモ素材</span>
-                  </span>
-                </button>
-              ))}
+            <div className="mt-4">
+              <label htmlFor="creative-review-operator-memo-idle" className="block text-xs font-bold text-on-surface-variant mb-1">レビュー観点（任意）</label>
+              <textarea
+                id="creative-review-operator-memo-idle"
+                name="creative-review-operator-memo-idle"
+                autoComplete="off"
+                value={operatorMemo}
+                onChange={(e) => setOperatorMemo(e.target.value)}
+                placeholder="例: CTAが弱い気がする / ファーストビューで何が伝わるか見たい"
+                rows={2}
+                className="w-full px-4 py-3 rounded-[0.75rem] border border-outline-variant bg-surface-container text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary resize-none"
+              />
             </div>
-          </div>
+          </section>
+
+          <aside className="rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">Demo Creative</p>
+            <h3 className="mt-2 text-xl font-extrabold text-on-surface japanese-text">すぐ試せる架空素材</h3>
+            <div className="mt-5 rounded-xl bg-surface-container px-5 py-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-secondary">Demo Creative</p>
+              <p className="text-sm font-bold text-on-surface japanese-text mt-1">検証用の架空デモ素材で試す</p>
+              <p className="text-xs text-on-surface-variant japanese-text mt-1">{DEMO_NOTICE}</p>
+              <div className="grid grid-cols-1 gap-3 mt-4">
+                {DEMO_CREATIVES.map((demo) => (
+                  <button
+                    key={demo.id}
+                    type="button"
+                    onClick={() => handleDemoCreative(demo)}
+                    className="flex items-center gap-3 rounded-[0.75rem] bg-surface-container-lowest px-3 py-3 text-left hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                  >
+                    <img src={demo.src} alt="" className="h-12 w-[58px] rounded-md object-cover border border-outline-variant/20" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-on-surface japanese-text">{demo.title}</span>
+                      <span className="block text-[11px] text-on-surface-variant japanese-text">架空デモ素材</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
         </div>
       )}
 
@@ -1536,6 +1636,13 @@ export default function CreativeReview() {
                       ))}
                     </div>
                   </div>
+                </div>
+
+                <CreativeResultDigest review={reviewResult} />
+
+                <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-on-surface-variant">Detailed Review</p>
+                  <p className="mt-1 text-sm text-on-surface-variant japanese-text">採点、根拠、詳細レビューはここから下で確認します。</p>
                 </div>
 
                 {/* Section-aware review blocks — decision board first, compact score visualization */}

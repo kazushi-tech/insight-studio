@@ -74,64 +74,71 @@ function getActiveJob() {
   } catch { return null }
 }
 
-function DiscoveryImage2Guide({ providerLabel }) {
+function compactText(value, fallback) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (!text) return fallback
+  return text.length > 110 ? text.slice(0, 107) + '…' : text
+}
+
+function formatDiscoveryName(item) {
+  const raw = item?.brand || item?.title || item?.name || item?.url || item?.domain
+  if (!raw) return '候補名未取得'
+  try {
+    if (String(raw).startsWith('http')) return new URL(raw).hostname.replace(/^www\./, '')
+  } catch { /* fallback below */ }
+  return compactText(raw, '候補名未取得')
+}
+
+function DiscoveryResultSummary({ discoveries, allDiscoveries }) {
+  const ranked = [...(discoveries || [])]
+    .sort((a, b) => Number(b.score ?? -1) - Number(a.score ?? -1))
+    .slice(0, 3)
+  const exclusions = (allDiscoveries || [])
+    .filter((item) => item.analysis_source === 'failed' || item.error || /対象外|除外|out/i.test(String(item.category || item.tier || item.label || '')))
+    .slice(0, 3)
+  const compareCandidates = ranked.slice(0, 2)
+
   return (
-    <section className="grid min-w-0 grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>競合発見</span>
-              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span>発見レポート</span>
-              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span className="font-bold text-primary">レポート</span>
-            </div>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">発見レポート</h2>
-            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-              発見したURLを分類し、直接競合・隣接競合・参考ブランド・対象外を混ぜずに判断します。
-            </p>
-          </div>
-          <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            {providerLabel} 競合発見
-          </span>
+    <section className="rounded-xl border border-primary/15 bg-primary/[0.045] p-6 shadow-sm">
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">Discovery Digest</p>
+          <h3 className="mt-1 text-2xl font-extrabold text-on-surface japanese-text">レポートの前に、比較候補だけ見る</h3>
         </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[
-            ['直接競合', '主比較', 'shopping_cart'],
-            ['隣接競合', '補助', 'hub'],
-            ['参考ブランド', '観測', 'visibility'],
-            ['対象外', '除外', 'block'],
-          ].map(([label, note, icon]) => (
-            <article key={label} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-5">
-              <span className="material-symbols-outlined text-primary" aria-hidden="true">{icon}</span>
-              <h3 className="mt-4 text-base font-extrabold text-on-surface japanese-text">{label}</h3>
-              <p className="mt-1 text-xs font-bold text-on-surface-variant japanese-text">{note}</p>
-            </article>
-          ))}
-        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-lowest px-3 py-1 text-xs font-bold text-primary">
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">travel_explore</span>
+          候補 / 除外 / Compare
+        </span>
       </div>
-
-      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] min-w-0 overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-5 shadow-sm">
-        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
-        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">どの競合から比較するか</h3>
-        <ol className="mt-4 space-y-4">
-          {[
-            ['オファーの明確さが高い', '初回特典・送料無料など、具体的で強いオファーを確認します。'],
-            ['CTAの強さで優位', '主要ボタンが目立つ競合を優先します。'],
-            ['差分が明確で改善しやすい', '自社LPとの差が大きい候補を次に送ります。'],
-          ].map(([title, body], index) => (
-            <li key={title} className="flex gap-3">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-on-primary text-xs font-black">{index + 1}</span>
-              <span>
-                <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
-                <small className="mt-1 block text-xs leading-6 text-on-surface-variant japanese-text">{body}</small>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </aside>
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <article className="rounded-xl bg-surface-container-lowest p-5">
+          <h4 className="text-sm font-extrabold text-on-surface japanese-text">まず比較すべき3社</h4>
+          <ol className="mt-3 space-y-2">
+            {(ranked.length ? ranked : [{ brand: '候補抽出を確認してください' }]).map((item, index) => (
+              <li key={`${formatDiscoveryName(item)}-${index}`} className="flex gap-2 text-sm text-on-surface japanese-text">
+                <span className="grid size-5 shrink-0 place-items-center rounded-md bg-primary/10 text-[11px] font-black text-primary">{index + 1}</span>
+                <span>{formatDiscoveryName(item)}</span>
+              </li>
+            ))}
+          </ol>
+        </article>
+        <article className="rounded-xl bg-surface-container-lowest p-5">
+          <h4 className="text-sm font-extrabold text-on-surface japanese-text">除外候補</h4>
+          <p className="mt-3 text-sm leading-7 text-on-surface-variant japanese-text">
+            {exclusions.length
+              ? exclusions.map(formatDiscoveryName).join(' / ')
+              : '対象外候補は詳細一覧で確認できます。主比較には混ぜない前提です。'}
+          </p>
+        </article>
+        <article className="rounded-xl bg-surface-container-lowest p-5">
+          <h4 className="text-sm font-extrabold text-on-surface japanese-text">Compareへ送る候補</h4>
+          <p className="mt-3 text-sm leading-7 text-on-surface-variant japanese-text">
+            {compareCandidates.length
+              ? compareCandidates.map(formatDiscoveryName).join(' / ')
+              : '直接競合の上位候補を選び、CompareでLP差分を見ます。'}
+          </p>
+        </article>
+      </div>
     </section>
   )
 }
@@ -754,12 +761,21 @@ export default function Discovery() {
         <span className="japanese-text">競合発見の分析は現在 {providerLabel} で実行します。必要な検索設定はサーバー側で処理します。</span>
       </div>
 
-      {!result?.report_md && <DiscoveryImage2Guide providerLabel={providerLabel} />}
-
       {/* URL Input */}
-      <div className="min-w-0 bg-surface-container-lowest p-6 2xl:p-8 rounded-xl ghost-border">
-        <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
-          <div className="relative min-w-0 flex-1">
+      <section className="rounded-xl border border-secondary/20 bg-surface-container-lowest p-8 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-secondary">Discovery Input</p>
+            <h3 className="mt-1 text-2xl font-extrabold text-on-surface japanese-text">自社URLまたは商材URLを1つだけ入れる</h3>
+            <p className="mt-2 text-sm text-on-surface-variant japanese-text">候補一覧とレポートを、読みやすい形で生成します。</p>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-secondary/10 px-4 py-2 text-xs font-bold text-secondary">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">looks_one</span>
+            URL 1つ
+          </span>
+        </div>
+        <div className="mt-6 flex gap-4">
+          <div className="relative flex-1">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden="true">link</span>
             <label htmlFor="discovery-brand-url" className="sr-only">競合発見の対象URL</label>
             <input
@@ -768,8 +784,8 @@ export default function Discovery() {
               type="url"
               autoComplete="off"
               spellCheck={false}
-              className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[box-shadow,background-color]"
-              placeholder="競合他社のURLを入力"
+              className="w-full bg-surface-container-low rounded-[0.75rem] py-5 pl-12 pr-4 text-base font-bold outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[box-shadow,background-color]"
+              placeholder="例: https://your-brand.jp または https://your-brand.jp/product"
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value)
@@ -807,7 +823,7 @@ export default function Discovery() {
              'サーバー状態確認中'}
           </span>
         </div>
-      </div>
+      </section>
 
       {/* Meta Band */}
       <MetaBand run={run} now={tickNow} />
@@ -833,6 +849,7 @@ export default function Discovery() {
 
         return (
           <>
+            <DiscoveryResultSummary discoveries={discoveries} allDiscoveries={allDiscoveries} />
             <DiscoveryActionPreview discoveries={discoveries} result={result} />
             {discoveries.length > 0 && <DiscoveredLpGrid discoveries={discoveries} />}
 
