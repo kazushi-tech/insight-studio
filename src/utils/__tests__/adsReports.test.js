@@ -198,4 +198,17 @@ describe('chart group normalization', () => {
     expect(bundle.periodReports[0].chartGroups[0].title).toBe('Apr graph')
     expect(bundle.periodReports[1].reportMd).toBe('# May')
   })
+
+  it('renames trend coverage into a concrete selection explanation', () => {
+    const normalized = normalizeChartGroupShape(makeGroup({
+      title: 'LP分析 — 日別推移（上位5件 / 最大5件）',
+      chartType: 'line',
+      labels: ['20260501'],
+      datasets: [{ label: 'www.petabit.co.jp/', data: [52] }],
+      coverageLabel: '上位5件 / 最大5件',
+    }))
+
+    expect(normalized.title).toBe('LP分析 — セッション数上位5LPの日別推移')
+    expect(normalized.selectionLabel).toBe('セッション数上位5LPを表示')
+  })
 })

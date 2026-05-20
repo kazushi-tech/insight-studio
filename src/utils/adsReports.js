@@ -65,7 +65,36 @@ function sameLabels(a = [], b = []) {
   return a.length === b.length && a.every((label, index) => label === b[index])
 }
 
+function getActualCountFromCoverage(coverageLabel) {
+  const match = String(coverageLabel ?? '').match(/上位(\d+)件/)
+  return match ? Number(match[1]) : null
+}
+
+function inferTrendSelectionLabel(group) {
+  const title = String(group?.title ?? '')
+  const coverageLabel = group?.coverageLabel ?? group?.metadata?.coverageLabel
+  const actualCount = getActualCountFromCoverage(coverageLabel)
+  if (!actualCount || !title.includes('日別推移')) return ''
+
+  if (title.includes('LP分析')) return `セッション数上位${actualCount}LPを表示`
+  if (title.includes('検索クエリ')) return `検索回数上位${actualCount}語を表示`
+  if (title.includes('流入分析')) return `セッション数上位${actualCount}チャネルを表示`
+  return ''
+}
+
+function normalizeTrendTitle(group, selectionLabel) {
+  const title = String(group?.title ?? '')
+  if (!selectionLabel || !title.includes('日別推移')) return title
+
+  if (title.includes('LP分析')) return `LP分析 — ${selectionLabel.replace('を表示', '')}の日別推移`
+  if (title.includes('検索クエリ')) return `検索クエリ — ${selectionLabel.replace('を表示', '')}の日別推移`
+  if (title.includes('流入分析')) return `流入分析 — ${selectionLabel.replace('を表示', '')}の日別推移`
+  return title
+}
+
 export function normalizeChartGroupShape(group = {}) {
+  const inferredSelectionLabel = group?.selectionLabel || group?.metadata?.selectionLabel || inferTrendSelectionLabel(group)
+  const normalizedTitle = normalizeTrendTitle(group, inferredSelectionLabel)
   const rawLabels = Array.isArray(group?.labels) ? group.labels : []
   const rawDatasets = Array.isArray(group?.datasets) ? group.datasets : []
   const maxDataLength = rawDatasets.reduce(
@@ -120,11 +149,14 @@ export function normalizeChartGroupShape(group = {}) {
 
   return {
     ...group,
+    title: normalizedTitle,
+    selectionLabel: inferredSelectionLabel,
     labels,
     datasets,
     warnings: [...warnings],
     metadata: {
       ...(group?.metadata ?? {}),
+      selectionLabel: inferredSelectionLabel,
       labelCount: labels.length,
       maxDataLength,
       missingDataPoints,
