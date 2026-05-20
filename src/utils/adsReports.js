@@ -25,7 +25,7 @@ export function pickReportMarkdown(result) {
 
 export function pickChartGroups(result, periodTag) {
   const groups = Array.isArray(result?.chart_data?.groups) ? result.chart_data.groups : []
-  return groups.map((group) => ({ ...group, _periodTag: periodTag }))
+  return groups.map((group) => normalizeChartGroupShape({ ...group, _periodTag: periodTag }))
 }
 
 export function getChartPeriodTags(chartGroups = []) {
@@ -39,27 +39,133 @@ function getChartGroupTitle(group, index) {
     : fallbackTitle
 }
 
+function toFiniteNumber(value) {
+  if (value == null || value === '') return null
+  const normalized =
+    typeof value === 'string' ? Number(value.trim().replace(/,/g, '').replace(/[%％]$/, '')) : Number(value)
+  return Number.isFinite(normalized) ? normalized : null
+}
+
+function normalizeWarningList(warnings) {
+  if (!Array.isArray(warnings)) return []
+  return warnings.filter((warning) => typeof warning === 'string' && warning.trim().length > 0)
+}
+
+function isRankingLikeChart(group) {
+  const title = String(group?.title ?? '')
+  const chartType = String(group?.chartType ?? '')
+  return (
+    Number.isFinite(Number(group?.limit)) ||
+    chartType === 'bar_horizontal' ||
+    /上位|ランキング|検索クエリ|LP分析|OS別|地域別|Top\s*\d+/i.test(title)
+  )
+}
+
+function sameLabels(a = [], b = []) {
+  return a.length === b.length && a.every((label, index) => label === b[index])
+}
+
+export function normalizeChartGroupShape(group = {}) {
+  const rawLabels = Array.isArray(group?.labels) ? group.labels : []
+  const rawDatasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const maxDataLength = rawDatasets.reduce(
+    (max, dataset) => Math.max(max, Array.isArray(dataset?.data) ? dataset.data.length : 0),
+    0,
+  )
+  const normalizedLength = Math.max(rawLabels.length, maxDataLength)
+  const labels = Array.from({ length: normalizedLength }, (_, index) => {
+    const label = rawLabels[index]
+    if (label == null || String(label).trim() === '') return `未対応ラベル ${index + 1}`
+    return String(label)
+  })
+
+  let missingDataPoints = 0
+  let overflowDataPoints = 0
+  let finiteValueCount = 0
+
+  const datasets = rawDatasets.map((dataset, datasetIndex) => {
+    const data = Array.isArray(dataset?.data) ? dataset.data : []
+    if (data.length < normalizedLength) missingDataPoints += normalizedLength - data.length
+    if (data.length > rawLabels.length) overflowDataPoints += data.length - rawLabels.length
+
+    const normalizedData = Array.from({ length: normalizedLength }, (_, index) => {
+      const value = index < data.length ? data[index] : null
+      if (value == null || value === '') {
+        missingDataPoints += index < data.length ? 1 : 0
+        return null
+      }
+      const numeric = toFiniteNumber(value)
+      if (numeric == null) {
+        missingDataPoints += 1
+        return null
+      }
+      finiteValueCount += 1
+      return value
+    })
+
+    return {
+      ...dataset,
+      label:
+        typeof dataset?.label === 'string' && dataset.label.trim().length > 0
+          ? dataset.label.trim()
+          : `Dataset ${datasetIndex + 1}`,
+      data: normalizedData,
+    }
+  })
+
+  const warnings = new Set(normalizeWarningList(group?.warnings))
+  if (rawLabels.length !== maxDataLength && rawDatasets.length > 0) warnings.add('label_data_mismatch')
+  if (missingDataPoints > 0) warnings.add('missing_values')
+  if (overflowDataPoints > 0) warnings.add('overflow_values')
+
+  return {
+    ...group,
+    labels,
+    datasets,
+    warnings: [...warnings],
+    metadata: {
+      ...(group?.metadata ?? {}),
+      labelCount: labels.length,
+      maxDataLength,
+      missingDataPoints,
+      overflowDataPoints,
+      finiteValueCount,
+      hasLabelDataMismatch: rawLabels.length !== maxDataLength && rawDatasets.length > 0,
+    },
+  }
+}
+
 export function mergeChartGroupsByTitle(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
 
   const titleMap = new Map()
 
   chartGroups.forEach((group, index) => {
-    const title = getChartGroupTitle(group, index)
+    const normalizedGroup = normalizeChartGroupShape(group)
+    const title = getChartGroupTitle(normalizedGroup, index)
 
     if (!titleMap.has(title)) titleMap.set(title, [])
-    titleMap.get(title).push(group)
+    titleMap.get(title).push(normalizedGroup)
   })
 
   const mergedGroups = []
 
   for (const [, groupList] of titleMap) {
     if (groupList.length === 1) {
-      mergedGroups.push(groupList[0])
+      mergedGroups.push(normalizeChartGroupShape(groupList[0]))
       continue
     }
 
     const baseGroup = groupList[0]
+    const canMerge =
+      !groupList.some(isRankingLikeChart) &&
+      groupList.every((group) => group?.chartType === baseGroup?.chartType && sameLabels(group?.labels ?? [], baseGroup?.labels ?? []))
+
+    if (!canMerge) {
+      groupList.forEach((group) => mergedGroups.push(normalizeChartGroupShape(group)))
+      continue
+    }
+
     const mergedDatasets = []
 
     groupList.forEach((group, index) => {
@@ -86,7 +192,7 @@ export function mergeChartGroupsByTitle(chartGroups = []) {
     })
   }
 
-  return mergedGroups
+  return mergedGroups.map(normalizeChartGroupShape)
 }
 
 export function dedupeExactChartGroups(chartGroups = []) {
@@ -112,24 +218,14 @@ export function dedupeExactChartGroups(chartGroups = []) {
   return deduped
 }
 
-function toFiniteNumber(value) {
-  if (value == null || value === '') return null
-  const normalized =
-    typeof value === 'string' ? Number(value.trim().replace(/,/g, '').replace(/[%％]$/, '')) : Number(value)
-  return Number.isFinite(normalized) ? normalized : null
-}
-
 export function isMeaningfulChartGroup(group) {
-  const values = (Array.isArray(group?.datasets) ? group.datasets : [])
+  const normalizedGroup = normalizeChartGroupShape(group)
+  const values = (Array.isArray(normalizedGroup?.datasets) ? normalizedGroup.datasets : [])
     .flatMap((dataset) => (Array.isArray(dataset?.data) ? dataset.data : []))
     .map(toFiniteNumber)
     .filter((value) => value != null)
 
-  if (values.length === 0) return false
-  if (values.length === 1) return true
-
-  const first = values[0]
-  return values.some((value) => value !== first)
+  return values.length > 0
 }
 
 export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest') {
@@ -152,7 +248,7 @@ export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest')
       : dedupeExactChartGroups(chartGroups.filter((group) => group?._periodTag === targetTag))
   }
 
-  return groups.filter(isMeaningfulChartGroup)
+  return groups.map(normalizeChartGroupShape).filter(isMeaningfulChartGroup)
 }
 
 export function buildAnalysisInstructions(queryTypes = [], periods = []) {
@@ -281,7 +377,9 @@ export function matchRelevantCharts(aiContent, chartGroups, { limit = 3 } = {}) 
 export function buildAiChartContext(chartGroups = []) {
   if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
 
-  const contextGroups = mergeChartGroupsByTitle(chartGroups).filter(isMeaningfulChartGroup)
+  const contextGroups = mergeChartGroupsByTitle(chartGroups)
+    .map(normalizeChartGroupShape)
+    .filter(isMeaningfulChartGroup)
   if (contextGroups.length === 0) return null
 
   return contextGroups
@@ -323,8 +421,13 @@ export function buildAdsReportBundle({ setupState, results }) {
   const datasetId = setupState?.datasetId
   if (!datasetId) throw new Error('dataset_id が設定されていません。案件を選択してください。')
   const periods = setupState?.periods ?? []
+  const resultsByPeriod = new Map()
+  ;(Array.isArray(results) ? results : []).forEach((result, index) => {
+    const resultPeriod = result?.period ?? result?.periodTag ?? periods[index]
+    if (resultPeriod) resultsByPeriod.set(resultPeriod, result)
+  })
   const periodReports = periods.map((periodTag, index) => {
-    const result = results[index] ?? {}
+    const result = resultsByPeriod.get(periodTag) ?? results[index] ?? {}
     const reportMd = pickReportMarkdown(result)
     const chartGroups = pickChartGroups(result, periodTag)
 
@@ -405,7 +508,7 @@ export async function regenerateAdsReportBundle(setupState) {
         query_types: setupState.queryTypes,
         dataset_id: setupState.datasetId,
         period,
-      })
+      }).then((result) => ({ ...result, period }))
     )
   )
 

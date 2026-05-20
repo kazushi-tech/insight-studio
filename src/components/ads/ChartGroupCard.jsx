@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Chart from 'chart.js/auto'
 import { useTheme } from '../../contexts/ThemeContext'
 import { resolveChartPresentation, CHART_TYPE_LABELS } from '../../utils/chartTypeInference'
+import { normalizeChartGroupShape } from '../../utils/adsReports'
 
 const PALETTE = [
   '#2563eb',
@@ -131,6 +132,28 @@ function getChartScaleSummary(labels, datasets) {
     max: formatAxisValue(max),
     range: formatAxisValue(max - min),
     count: labels.length,
+  }
+}
+
+const WARNING_LABELS = {
+  low_sample: '低サンプル',
+  missing_label: 'ラベル欠損',
+  missing_values: '欠損あり',
+  label_data_mismatch: '系列不一致',
+  overflow_values: '余剰値あり',
+}
+
+function getPointStats(group) {
+  const labels = Array.isArray(group?.labels) ? group.labels : []
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const values = datasets.flatMap((dataset) => (Array.isArray(dataset?.data) ? dataset.data : []))
+  const finiteValues = values.map(normalizeNumericValue).filter((value) => value != null)
+  const missingValues = values.length - finiteValues.length
+  return {
+    labelCount: labels.length,
+    seriesCount: datasets.length,
+    finiteValueCount: finiteValues.length,
+    missingValueCount: missingValues,
   }
 }
 
@@ -287,18 +310,18 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
     datasets: datasets.map((dataset, index) => {
       const label = getDatasetLabel(dataset, index)
       const usePercent = datasetUsesPercent(dataset, index)
-    const color = dataset?.borderColor || dataset?.backgroundColor || PALETTE[index % PALETTE.length]
-    const data = (Array.isArray(dataset?.data) ? dataset.data : []).map(normalizeNumericValue)
-    const common = {
-      label,
-      data,
-      formatAsPercent: usePercent,
-      borderColor: color,
-      pointBorderColor: '#ffffff',
-      pointBorderWidth: 2,
-      pointHitRadius: 10,
-      spanGaps: true,
-    }
+      const color = dataset?.borderColor || dataset?.backgroundColor || PALETTE[index % PALETTE.length]
+      const data = (Array.isArray(dataset?.data) ? dataset.data : []).map(normalizeNumericValue)
+      const common = {
+        label,
+        data,
+        formatAsPercent: usePercent,
+        borderColor: color,
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointHitRadius: 10,
+        spanGaps: true,
+      }
 
       if (isHorizontal) {
         return {
@@ -369,21 +392,52 @@ function buildChartDatasets(group, effectiveChartType, doughnutUsePercent) {
 }
 
 export default function ChartGroupCard({ group, featured = false }) {
+  const normalizedGroup = useMemo(() => normalizeChartGroupShape(group ?? {}), [group])
   const { theme } = useTheme()
   const canvasRef = useRef(null)
   const chartRef = useRef(null)
-  const labels = useMemo(() => (Array.isArray(group?.labels) ? group.labels : []), [group])
-  const datasets = useMemo(() => (Array.isArray(group?.datasets) ? group.datasets : []), [group])
-  const presentation = useMemo(() => resolveChartPresentation(group), [group])
+  const collapseKey = `${group?.title ?? 'chart'}::${group?._periodTag ?? ''}::${Boolean(group?.defaultCollapsed)}`
+  const [collapseState, setCollapseState] = useState(() => ({
+    key: collapseKey,
+    value: Boolean(group?.defaultCollapsed),
+  }))
+  const isCollapsed = collapseState.key === collapseKey ? collapseState.value : Boolean(group?.defaultCollapsed)
+  const setIsCollapsed = (updater) => {
+    setCollapseState((current) => {
+      const currentValue = current.key === collapseKey ? current.value : Boolean(group?.defaultCollapsed)
+      return {
+        key: collapseKey,
+        value: typeof updater === 'function' ? updater(currentValue) : Boolean(updater),
+      }
+    })
+  }
+  const labels = useMemo(() => (Array.isArray(normalizedGroup?.labels) ? normalizedGroup.labels : []), [normalizedGroup])
+  const datasets = useMemo(() => (Array.isArray(normalizedGroup?.datasets) ? normalizedGroup.datasets : []), [normalizedGroup])
+  const presentation = useMemo(() => resolveChartPresentation(normalizedGroup), [normalizedGroup])
   const effectiveChartType = presentation.chartType
   const doughnutUsePercent = presentation.usePercent
-  const keyInsights = useMemo(() => buildKeyInsights(group, effectiveChartType, doughnutUsePercent), [group, effectiveChartType, doughnutUsePercent])
-  const accent = useMemo(() => getChartAccent(group, effectiveChartType), [group, effectiveChartType])
+  const keyInsights = useMemo(() => buildKeyInsights(normalizedGroup, effectiveChartType, doughnutUsePercent), [normalizedGroup, effectiveChartType, doughnutUsePercent])
+  const accent = useMemo(() => getChartAccent(normalizedGroup, effectiveChartType), [normalizedGroup, effectiveChartType])
   const scaleSummary = useMemo(() => getChartScaleSummary(labels, datasets), [labels, datasets])
-  const hasRenderableData = labels.length > 0 && datasets.some((dataset) => Array.isArray(dataset?.data))
+  const pointStats = useMemo(() => getPointStats(normalizedGroup), [normalizedGroup])
+  const warningLabels = useMemo(
+    () => [...new Set([...(normalizedGroup?.warnings ?? [])])]
+      .map((warning) => WARNING_LABELS[warning] ?? warning)
+      .filter(Boolean),
+    [normalizedGroup],
+  )
+  const coverageLabel = normalizedGroup?.coverageLabel || normalizedGroup?.metadata?.coverageLabel
+  const hasRenderableData = labels.length > 0 && pointStats.finiteValueCount > 0
+  const contentId = `chart-card-${String(`${normalizedGroup?.title ?? 'chart'}-${normalizedGroup?._periodTag ?? ''}`).replace(/[^\w-]+/g, '-')}`
 
   useEffect(() => {
-    if (!group || !canvasRef.current || !hasRenderableData) return
+    if (isCollapsed) {
+      chartRef.current?.destroy()
+      chartRef.current = null
+      return
+    }
+
+    if (!normalizedGroup || !canvasRef.current || !hasRenderableData) return
 
     chartRef.current?.destroy()
 
@@ -395,9 +449,9 @@ export default function ChartGroupCard({ group, featured = false }) {
       primary: getThemeColor('--color-primary', '#003925'),
       primarySoft: getThemeColor('--color-primary-container', '#d7f5df'),
     }
-    const chartLabels = Array.isArray(group?.labels) ? group.labels : []
+    const chartLabels = Array.isArray(normalizedGroup?.labels) ? normalizedGroup.labels : []
 
-    const { isDoughnut, isHorizontal, useSinglePointMode, datasets: chartDatasets } = buildChartDatasets(group, effectiveChartType, doughnutUsePercent)
+    const { isDoughnut, isHorizontal, useSinglePointMode, datasets: chartDatasets } = buildChartDatasets(normalizedGroup, effectiveChartType, doughnutUsePercent)
     const ctx = canvasRef.current.getContext('2d')
     const chartGradient = ctx.createLinearGradient(0, 0, 0, featured ? 340 : 280)
     chartGradient.addColorStop(0, withAlpha(colors.primary, '28'))
@@ -439,36 +493,8 @@ export default function ChartGroupCard({ group, featured = false }) {
         ]
       : []
 
-    const plotSurfacePlugin = {
+    const chartValueLabelPlugin = {
       id: 'plotSurface',
-      beforeDraw(chart) {
-        const { ctx: drawCtx, chartArea } = chart
-        if (!chartArea) return
-
-        drawCtx.save()
-        drawCtx.fillStyle = isDoughnut ? withAlpha(colors.primarySoft, '44') : '#f8fbf6'
-        drawCtx.strokeStyle = withAlpha(colors.primary, '22')
-        drawCtx.lineWidth = 1
-        const radius = 18
-        const x = chartArea.left - 10
-        const y = chartArea.top - 12
-        const w = chartArea.right - chartArea.left + 20
-        const h = chartArea.bottom - chartArea.top + 24
-        drawCtx.beginPath()
-        drawCtx.moveTo(x + radius, y)
-        drawCtx.lineTo(x + w - radius, y)
-        drawCtx.quadraticCurveTo(x + w, y, x + w, y + radius)
-        drawCtx.lineTo(x + w, y + h - radius)
-        drawCtx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h)
-        drawCtx.lineTo(x + radius, y + h)
-        drawCtx.quadraticCurveTo(x, y + h, x, y + h - radius)
-        drawCtx.lineTo(x, y + radius)
-        drawCtx.quadraticCurveTo(x, y, x + radius, y)
-        drawCtx.closePath()
-        drawCtx.fill()
-        drawCtx.stroke()
-        drawCtx.restore()
-      },
       afterDatasetsDraw(chart) {
         if (isDoughnut) return
         const { ctx: drawCtx } = chart
@@ -506,7 +532,7 @@ export default function ChartGroupCard({ group, featured = false }) {
         labels: chartLabels,
         datasets: styledDatasets,
       },
-      plugins: [plotSurfacePlugin, ...singlePointLabelPlugin],
+      plugins: [chartValueLabelPlugin, ...singlePointLabelPlugin],
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -617,13 +643,12 @@ export default function ChartGroupCard({ group, featured = false }) {
       chartRef.current?.destroy()
       chartRef.current = null
     }
-  }, [group, effectiveChartType, doughnutUsePercent, hasRenderableData, theme, featured])
+  }, [normalizedGroup, effectiveChartType, doughnutUsePercent, hasRenderableData, theme, featured, isCollapsed])
 
   return (
-    <article className={`group relative overflow-hidden rounded-[1.35rem] border shadow-[0_18px_45px_rgba(0,57,37,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_26px_60px_rgba(0,57,37,0.14)] flex flex-col bg-gradient-to-br ${accent.tone} ${
-      featured ? 'border-primary/30 ring-1 ring-primary/10' : 'border-primary/15'
+    <article className={`group relative overflow-hidden rounded-xl border bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md flex flex-col ${
+      featured ? 'border-primary/30' : 'border-outline-variant/30'
     }`}>
-      <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-emerald-500 to-accent-gold" />
       <div className="p-6 pb-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 min-w-0">
@@ -632,49 +657,69 @@ export default function ChartGroupCard({ group, featured = false }) {
             {accent.label}グラフ
           </div>
           <h3 className={`${featured ? 'text-2xl' : 'text-xl'} font-black leading-tight text-primary japanese-text break-words`}>
-            {group?.title || '無題グラフ'}
+            {normalizedGroup?.title || '無題グラフ'}
           </h3>
           <div className="flex flex-wrap gap-2">
             <span className="bg-primary text-on-primary text-[10px] px-2.5 py-1 rounded-full font-black uppercase">
               {CHART_TYPE_LABELS[effectiveChartType] ?? '推移'}
             </span>
-            {group?._periodTag && (
+            {normalizedGroup?._periodTag && (
               <span className="text-primary text-[10px] font-black bg-surface-container-lowest/80 border border-primary/15 px-2.5 py-1 rounded-full">
-                {group._periodTag}
+                {normalizedGroup._periodTag}
               </span>
             )}
             <span className="text-on-surface-variant text-[10px] font-bold bg-surface-container-lowest/70 border border-outline-variant/15 px-2.5 py-1 rounded-full">
-              {datasets.length} 系列
+              {pointStats.seriesCount} 系列
             </span>
             <span className="text-on-surface-variant text-[10px] font-bold bg-surface-container-lowest/70 border border-outline-variant/15 px-2.5 py-1 rounded-full">
-              {labels.length} 点
+              {coverageLabel || `${pointStats.finiteValueCount}値 / ${pointStats.labelCount}項目`}
             </span>
+            {warningLabels.map((label) => (
+              <span key={label} className="text-amber-900 text-[10px] font-black bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                {label}
+              </span>
+            ))}
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-primary/10 bg-surface-container-lowest/80 p-2 text-center">
-          {[
-            ['最大', scaleSummary.max],
-            ['最小', scaleSummary.min],
-            ['差分', scaleSummary.range],
-          ].map(([label, value]) => (
-            <div key={label} className="min-w-14 rounded-xl bg-primary/[0.055] px-2 py-2">
-              <p className="text-[9px] font-black tracking-[0.12em] text-on-surface-variant">{label}</p>
-              <p className="mt-1 text-xs font-black tabular-nums text-primary">{value}</p>
-            </div>
-          ))}
+        <div className="flex items-start gap-3">
+          <div className="grid grid-cols-3 gap-2 rounded-xl border border-outline-variant/20 bg-surface-container-low p-2 text-center">
+            {[
+              ['最大', scaleSummary.max],
+              ['最小', scaleSummary.min],
+              ['差分', scaleSummary.range],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-14 rounded-lg bg-surface-container-lowest px-2 py-2">
+                <p className="text-[9px] font-black tracking-[0.12em] text-on-surface-variant">{label}</p>
+                <p className="mt-1 text-xs font-black tabular-nums text-primary">{value}</p>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest text-primary transition hover:bg-primary hover:text-on-primary"
+            aria-expanded={!isCollapsed}
+            aria-controls={contentId}
+            title={isCollapsed ? 'グラフを開く' : 'グラフを閉じる'}
+            onClick={() => setIsCollapsed((current) => !current)}
+          >
+            <span className={`material-symbols-outlined text-xl transition-transform ${isCollapsed ? '' : 'rotate-180'}`} aria-hidden="true">
+              expand_more
+            </span>
+          </button>
         </div>
       </div>
       </div>
 
-      {hasRenderableData ? (
-        <div className="flex-1 flex flex-col px-6 pb-6">
-          <div className={`relative overflow-hidden border border-primary/15 bg-surface-container-lowest/85 shadow-inner ${effectiveChartType === 'doughnut'
-            ? `${featured ? 'h-[330px]' : 'h-[300px]'} rounded-[1.1rem] px-4 py-5`
-            : `${featured ? 'h-[340px]' : 'h-[300px]'} rounded-[1.1rem] p-5`
+      {isCollapsed ? (
+        <div id={contentId} className="border-t border-outline-variant/20 px-6 py-4 text-sm font-bold text-on-surface-variant">
+          {coverageLabel || `${pointStats.labelCount}項目`}、{pointStats.seriesCount}系列。必要なときだけ展開して確認できます。
+        </div>
+      ) : hasRenderableData ? (
+        <div id={contentId} className="flex-1 flex flex-col px-6 pb-6">
+          <div className={`relative overflow-hidden border border-outline-variant/30 bg-surface ${effectiveChartType === 'doughnut'
+            ? `${featured ? 'h-[330px]' : 'h-[300px]'} rounded-xl px-4 py-5`
+            : `${featured ? 'h-[340px]' : 'h-[300px]'} rounded-xl p-5`
           }`}>
-            <div className="pointer-events-none absolute left-4 top-4 z-10 rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-black tracking-[0.14em] text-primary">
-              Python描画エリア
-            </div>
             <canvas ref={canvasRef} />
           </div>
 
@@ -682,7 +727,7 @@ export default function ChartGroupCard({ group, featured = false }) {
             <div className="mt-5 grid grid-cols-3 gap-3">
               {keyInsights.map((insight, index) => (
                 <div
-                  key={`${group?.title ?? 'group'}-insight-${index}`}
+                  key={`${normalizedGroup?.title ?? 'group'}-insight-${index}`}
                   className={`rounded-2xl border p-4 ${
                     index === 0
                       ? 'border-primary/20 bg-primary text-on-primary'
@@ -703,7 +748,7 @@ export default function ChartGroupCard({ group, featured = false }) {
           )}
         </div>
       ) : (
-        <div className="rounded-[0.75rem] border border-dashed border-outline-variant/50 bg-surface-container-low px-5 py-8 text-center text-sm text-on-surface-variant">
+        <div id={contentId} className="rounded-[0.75rem] border border-dashed border-outline-variant/50 bg-surface-container-low px-5 py-8 text-center text-sm text-on-surface-variant">
           このグラフグループには描画できるデータ系列がありません。
         </div>
       )}
