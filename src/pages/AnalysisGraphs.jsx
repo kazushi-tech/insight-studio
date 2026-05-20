@@ -303,12 +303,10 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
     <div id={`theme-section-${theme.id}`} className="overflow-hidden rounded-xl border border-outline-variant/25 bg-surface-container-lowest shadow-sm scroll-mt-24">
       <button
         onClick={onToggle}
-        className="w-full px-6 py-5 flex items-center justify-between cursor-pointer hover:bg-primary/[0.04] transition-colors border-b border-primary/10 text-left"
+        aria-expanded={isOpen}
+        className="group w-full px-6 py-5 flex items-center justify-between gap-6 cursor-pointer hover:bg-primary/[0.04] transition-colors border-b border-primary/10 text-left"
       >
-        <div className="flex items-center gap-5">
-          <span className={`grid size-11 place-items-center rounded-2xl border border-primary/15 bg-surface-container-lowest material-symbols-outlined ${isOpen ? 'text-primary' : 'text-on-surface-variant'}`}>
-            {isOpen ? 'expand_more' : 'chevron_right'}
-          </span>
+        <div className="min-w-0">
           <div className="flex items-center gap-3">
             <div>
               <p className="text-[10px] font-black tracking-[0.16em] text-primary">グラフテーマ</p>
@@ -326,11 +324,19 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-8 text-sm font-medium text-on-surface-variant">
+        <div className="flex shrink-0 items-center gap-3 text-sm font-medium text-on-surface-variant">
           <div className="flex items-center gap-2 rounded-full bg-surface-container-lowest px-4 py-2 border border-primary/10">
             <span className={`size-2.5 rounded-full ${summary.criticalShifts > 0 ? 'bg-accent-gold' : 'bg-primary'}`} />
             品質: {summary.criticalShifts > 0 ? '注意' : '良好'}
           </div>
+          <span
+            className="grid size-10 place-items-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest text-primary transition group-hover:bg-primary group-hover:text-on-primary"
+            aria-hidden="true"
+          >
+            <span className={`material-symbols-outlined text-xl transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+              expand_more
+            </span>
+          </span>
         </div>
       </button>
 
