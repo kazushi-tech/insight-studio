@@ -22,6 +22,8 @@ def test_search_uses_actual_coverage_instead_of_fixed_top20():
     group = build_bq_chart_data(df, "search")["groups"][0]
 
     assert "Top 20" not in group["title"]
+    assert group["title"] == "検索クエリ — 検索回数上位3語"
+    assert group["selectionLabel"] == "検索回数上位3語を表示"
     assert group["coverageLabel"] == "上位3件 / 最大20件"
     assert group["actualCount"] == 3
     assert group["limit"] == 20
@@ -50,12 +52,18 @@ def test_ranking_builders_report_actual_counts():
     })
 
     landing_group = build_bq_chart_data(landing_df, "landing")["groups"][0]
-    device_group = next(g for g in build_bq_chart_data(device_df, "device")["groups"] if "OS別" in g["title"])
-    user_group = next(g for g in build_bq_chart_data(user_df, "user_attr")["groups"] if "地域別" in g["title"])
+    device_group = next(g for g in build_bq_chart_data(device_df, "device")["groups"] if g.get("queryType") == "device")
+    user_group = next(g for g in build_bq_chart_data(user_df, "user_attr")["groups"] if g.get("queryType") == "user_attr")
 
     assert landing_group["coverageLabel"] == "上位2件 / 最大20件"
+    assert landing_group["title"] == "LP分析 — セッション数上位2LP"
+    assert landing_group["selectionLabel"] == "セッション数上位2LPを表示"
     assert device_group["coverageLabel"] == "上位2件 / 最大10件"
+    assert device_group["title"] == "デバイス分析 — セッション数上位2OS"
+    assert device_group["selectionLabel"] == "セッション数上位2OSを表示"
     assert user_group["coverageLabel"] == "上位3件 / 最大15件"
+    assert user_group["title"] == "ユーザー属性 — セッション数上位3地域"
+    assert user_group["selectionLabel"] == "セッション数上位3地域を表示"
 
 
 def test_missing_ranking_labels_are_excluded_and_warned():

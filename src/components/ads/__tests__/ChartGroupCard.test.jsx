@@ -26,7 +26,9 @@ describe('ChartGroupCard', () => {
       />,
     )
 
-    expect(screen.getByText('上位2件 / 最大20件')).toBeInTheDocument()
+    expect(screen.getByText('検索クエリ — 検索回数上位2語')).toBeInTheDocument()
+    expect(screen.getByText('検索回数上位2語を表示')).toBeInTheDocument()
+    expect(screen.getByText('実数: 上位2件 / 最大20件')).toBeInTheDocument()
     expect(screen.getByText('低サンプル')).toBeInTheDocument()
     expect(screen.getByTitle('グラフを開く')).toHaveAttribute('aria-expanded', 'false')
   })

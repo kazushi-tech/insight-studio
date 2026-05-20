@@ -430,6 +430,13 @@ export default function ChartGroupCard({ group, featured = false }) {
   const selectionLabel = normalizedGroup?.selectionLabel || normalizedGroup?.metadata?.selectionLabel
   const hasRenderableData = labels.length > 0 && pointStats.finiteValueCount > 0
   const contentId = `chart-card-${String(`${normalizedGroup?.title ?? 'chart'}-${normalizedGroup?._periodTag ?? ''}`).replace(/[^\w-]+/g, '-')}`
+  const chartFrameHeight = useMemo(() => {
+    if (effectiveChartType === 'doughnut') return featured ? 330 : 300
+    if (effectiveChartType === 'bar_horizontal') {
+      return Math.max(featured ? 340 : 300, labels.length * 30 + 130)
+    }
+    return featured ? 340 : 300
+  }, [effectiveChartType, featured, labels.length])
 
   useEffect(() => {
     if (isCollapsed) {
@@ -619,8 +626,11 @@ export default function ChartGroupCard({ group, featured = false }) {
                   ticks: {
                     color: colors.muted,
                     font: { size: 10, weight: '700' },
+                    precision: isHorizontal ? 0 : undefined,
                     maxRotation: isHorizontal ? 0 : 45,
                     minRotation: 0,
+                    callback: (value) =>
+                      isHorizontal ? formatAxisValue(value) : chartLabels[value] ?? value,
                   },
                   grid: { color: withAlpha(colors.grid, '35'), drawTicks: false },
                   border: { color: withAlpha(colors.primary, '22') },
@@ -628,7 +638,8 @@ export default function ChartGroupCard({ group, featured = false }) {
                 y: {
                   ticks: {
                     color: colors.muted,
-                    font: { size: 10, weight: '700' },
+                    autoSkip: isHorizontal ? false : undefined,
+                    font: { size: isHorizontal && chartLabels.length > 12 ? 9 : 10, weight: '700' },
                     callback: (value) =>
                       isHorizontal ? chartLabels[value] ?? value : formatAxisValue(value),
                   },
@@ -723,9 +734,9 @@ export default function ChartGroupCard({ group, featured = false }) {
       ) : hasRenderableData ? (
         <div id={contentId} className="flex-1 flex flex-col px-6 pb-6">
           <div className={`relative overflow-hidden border border-outline-variant/30 bg-surface ${effectiveChartType === 'doughnut'
-            ? `${featured ? 'h-[330px]' : 'h-[300px]'} rounded-xl px-4 py-5`
-            : `${featured ? 'h-[340px]' : 'h-[300px]'} rounded-xl p-5`
-          }`}>
+            ? 'rounded-xl px-4 py-5'
+            : 'rounded-xl p-5'
+          }`} style={{ height: chartFrameHeight }}>
             <canvas ref={canvasRef} />
           </div>
 

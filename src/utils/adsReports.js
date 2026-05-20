@@ -82,6 +82,24 @@ function inferTrendSelectionLabel(group) {
   return ''
 }
 
+function inferRankingSelectionLabel(group) {
+  const title = String(group?.title ?? '')
+  const chartType = String(group?.chartType ?? '')
+  const coverageLabel = group?.coverageLabel ?? group?.metadata?.coverageLabel
+  const actualCount = getActualCountFromCoverage(coverageLabel)
+  if (!actualCount || title.includes('日別推移')) return ''
+  if (chartType !== 'bar_horizontal' && !/上位|ランキング|Top\s*\d+/i.test(title)) return ''
+
+  if (title.includes('検索クエリ')) return `検索回数上位${actualCount}語を表示`
+  if (title.includes('流入分析')) return `セッション数上位${actualCount}チャネルを表示`
+  if (title.includes('ユーザー属性') && title.includes('地域')) return `セッション数上位${actualCount}地域を表示`
+  if (title.includes('デバイス分析') && title.includes('OS')) return `セッション数上位${actualCount}OSを表示`
+  if (title.includes('LP品質')) return `品質スコア上位${actualCount}LPを表示`
+  if (title.includes('LP分析') && title.includes('直帰率')) return `直帰率上位${actualCount}LPを表示`
+  if (title.includes('LP分析')) return `セッション数上位${actualCount}LPを表示`
+  return ''
+}
+
 function normalizeTrendTitle(group, selectionLabel) {
   const title = String(group?.title ?? '')
   if (!selectionLabel || !title.includes('日別推移')) return title
@@ -92,9 +110,31 @@ function normalizeTrendTitle(group, selectionLabel) {
   return title
 }
 
+function normalizeRankingTitle(group, selectionLabel) {
+  const title = String(group?.title ?? '')
+  if (!selectionLabel || title.includes('日別推移')) return title
+
+  if (title.includes('検索クエリ')) return `検索クエリ — ${selectionLabel.replace('を表示', '')}`
+  if (title.includes('流入分析')) return `流入分析 — ${selectionLabel.replace('を表示', '')}`
+  if (title.includes('ユーザー属性') && title.includes('地域')) return `ユーザー属性 — ${selectionLabel.replace('を表示', '')}`
+  if (title.includes('デバイス分析') && title.includes('OS')) return `デバイス分析 — ${selectionLabel.replace('を表示', '')}`
+  if (title.includes('LP品質')) return `LP品質ランキング — ${selectionLabel.replace('を表示', '')}`
+  if (title.includes('LP分析')) return `LP分析 — ${selectionLabel.replace('を表示', '')}`
+  return title
+}
+
 export function normalizeChartGroupShape(group = {}) {
-  const inferredSelectionLabel = group?.selectionLabel || group?.metadata?.selectionLabel || inferTrendSelectionLabel(group)
-  const normalizedTitle = normalizeTrendTitle(group, inferredSelectionLabel)
+  const inferredSelectionLabel =
+    group?.selectionLabel ||
+    group?.metadata?.selectionLabel ||
+    inferTrendSelectionLabel(group) ||
+    inferRankingSelectionLabel(group)
+  const originalTitle = String(group?.title ?? '')
+  const trendTitle = normalizeTrendTitle(group, inferredSelectionLabel)
+  const finalTitle =
+    trendTitle !== originalTitle
+      ? trendTitle
+      : normalizeRankingTitle(group, inferredSelectionLabel)
   const rawLabels = Array.isArray(group?.labels) ? group.labels : []
   const rawDatasets = Array.isArray(group?.datasets) ? group.datasets : []
   const maxDataLength = rawDatasets.reduce(
@@ -149,7 +189,7 @@ export function normalizeChartGroupShape(group = {}) {
 
   return {
     ...group,
-    title: normalizedTitle,
+    title: finalTitle,
     selectionLabel: inferredSelectionLabel,
     labels,
     datasets,
