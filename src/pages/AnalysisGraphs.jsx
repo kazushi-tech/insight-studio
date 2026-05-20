@@ -18,6 +18,7 @@ import {
   buildAnalysisInstructions,
   normalizeChartGroupShape,
 } from '../utils/adsReports'
+import { analyzeChartReadability } from '../utils/chartReadability'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import {
@@ -345,7 +346,12 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
           <div className="grid grid-cols-1 gap-8">
             {theme.groups.map((group, groupIndex) => {
               const normalizedGroup = normalizeChartGroupShape(group)
-              const shouldCollapse = groupIndex >= 2 || (normalizedGroup.labels?.length ?? 0) > 12
+              const readability = analyzeChartReadability(normalizedGroup, normalizedGroup.chartType)
+              const shouldStayOpen =
+                readability.recommendedDisplayMode === 'flat_diagnostic' ||
+                readability.recommendedDisplayMode === 'low_sample_table'
+              const shouldCollapse =
+                !shouldStayOpen && (groupIndex >= 2 || (normalizedGroup.labels?.length ?? 0) > 12)
               return (
                 <ChartGroupCard
                   key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
