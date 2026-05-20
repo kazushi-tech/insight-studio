@@ -23,6 +23,11 @@ def test_calculates_gemini_35_flash_cost() -> None:
     assert gb.calculate_cost_usd(100_000, 10_000) == pytest.approx(0.24)
 
 
+def test_normalizes_legacy_flash_preview_model() -> None:
+    assert gb.normalize_gemini_model("gemini-3-flash-preview") == "gemini-3.5-flash"
+    assert gb.normalize_gemini_model("") == "gemini-3.5-flash"
+
+
 def test_blocks_when_projected_monthly_budget_exceeds(monkeypatch) -> None:
     usage_path = _usage_path(monkeypatch)
     monkeypatch.setenv("GEMINI_MONTHLY_BUDGET_USD", "18")

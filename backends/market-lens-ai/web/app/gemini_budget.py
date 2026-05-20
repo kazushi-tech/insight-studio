@@ -13,6 +13,10 @@ from typing import Any
 
 GEMINI_35_FLASH_INPUT_USD_PER_1M = 1.50
 GEMINI_35_FLASH_OUTPUT_USD_PER_1M = 9.00
+GEMINI_35_FLASH_MODEL = "gemini-3.5-flash"
+LEGACY_GEMINI_FLASH_MODELS = {
+    "gemini-3-flash-preview",
+}
 DEFAULT_MONTHLY_BUDGET_USD = 18.0
 DEFAULT_USD_JPY = 159.0
 
@@ -25,6 +29,13 @@ class GeminiBudgetExceeded(RuntimeError):
 
 def is_gemini_model(model: str | None) -> bool:
     return str(model or "").strip().lower().startswith("gemini")
+
+
+def normalize_gemini_model(model: str | None) -> str:
+    normalized = str(model or "").strip()
+    if normalized.lower() in LEGACY_GEMINI_FLASH_MODELS:
+        return GEMINI_35_FLASH_MODEL
+    return normalized or GEMINI_35_FLASH_MODEL
 
 
 def current_month_key(now: datetime | None = None) -> str:

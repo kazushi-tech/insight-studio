@@ -13,12 +13,14 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 try:
     from .gemini_budget import (
         assert_gemini_budget_available,
+        normalize_gemini_model,
         record_gemini_usage,
         record_gemini_usage_from_response,
     )
 except ImportError:  # pragma: no cover - direct script execution fallback
     from web.app.gemini_budget import (  # type: ignore
         assert_gemini_budget_available,
+        normalize_gemini_model,
         record_gemini_usage,
         record_gemini_usage_from_response,
     )
@@ -31,7 +33,7 @@ LOG_DIR_DEFAULT = REPO / ".logs"
 SYSTEM_PROMPT_PATH = PROMPTS / "insights_system.txt"
 USER_TEMPLATE_PATH = PROMPTS / "insights_user_template.md"
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+DEFAULT_MODEL = normalize_gemini_model(os.getenv("GEMINI_MODEL", "gemini-3.5-flash"))
 DEFAULT_TEMPERATURE = float(os.getenv("GEMINI_TEMPERATURE", "0.1"))
 DEFAULT_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "2048"))
 

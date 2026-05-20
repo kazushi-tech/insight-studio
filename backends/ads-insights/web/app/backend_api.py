@@ -1158,6 +1158,7 @@ from .gemini_budget import (
     GeminiBudgetExceeded,
     assert_gemini_budget_available,
     get_budget_summary,
+    normalize_gemini_model,
     record_gemini_usage_from_response,
     reset_budget_for_dev,
 )
@@ -1429,7 +1430,7 @@ async def api_gemini_budget_smoke_test(request: Request):
             status_code=403,
         )
 
-    model = str(payload.get("model") or "gemini-3.5-flash").strip()
+    model = normalize_gemini_model(payload.get("model") or "gemini-3.5-flash")
     prompt = (
         "Insight Studio Gemini budget smoke test. "
         "Reply with exactly this text only: OK"
@@ -3764,7 +3765,7 @@ async def generate_insights(request: Request):
 
     point_pack_path = payload.get("point_pack_path") or payload.get("pointPackPath") or payload.get("path")
     message = payload.get("message") or ""
-    model = payload.get("model") or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+    model = normalize_gemini_model(payload.get("model") or os.getenv("GEMINI_MODEL", "gemini-3.5-flash"))
     temperature = payload.get("temperature", 0.7)
     gemini_api_key = payload.get("gemini_api_key") or payload.get("apiKey")
 
@@ -10437,6 +10438,7 @@ def _resolve_point_pack_from_body(repo_dir: Path, body: Any) -> Tuple[Optional[P
 
 
 async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.7, max_tokens: int = 8192, api_key: str | None = None, images: list[dict] | None = None) -> str:
+    model = normalize_gemini_model(model)
     # V2.6: 統一resolver使用
     final_api_key = _resolve_gemini_api_key(api_key)
 
@@ -13103,6 +13105,7 @@ def _gemini_generate(
     api_key: str | None = None,
     feature: str = "ads.neon_generate",
 ) -> str:
+    model = normalize_gemini_model(model)
     key = _resolve_gemini_api_key(api_key)
     if not key:
         raise RuntimeError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY). Set env var, config.json, or pass api_key.")
@@ -13267,6 +13270,8 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     mode = str(payload.get("mode") or "question")
     default_model = "claude-sonnet-4-20250514" if is_anthropic else "gemini-3.5-flash"
     model = str(payload.get("model") or default_model)
+    if not is_anthropic:
+        model = normalize_gemini_model(model)
     temperature = float(payload.get("temperature") or 0.7)
     msg = str(payload.get("message") or "").strip()
     style_preset = str(payload.get("style_preset") or "").strip()
