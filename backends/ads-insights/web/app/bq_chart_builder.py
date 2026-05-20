@@ -405,6 +405,9 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
         c1 = _color(3)
         bounce_pct = [None if pd.isna(v) or not np.isfinite(float(v)) else round(float(v) * 100, 1) for v in top["bounce_rate"]]
         bounce_meta = {**meta, "selectionLabel": f"直帰率上位{len(top)}LPを表示"}
+        finite_bounce = [v for v in bounce_pct if v is not None]
+        if len(finite_bounce) > 1 and len(set(finite_bounce)) == 1:
+            bounce_meta["warnings"] = [*bounce_meta.get("warnings", []), "flat_series"]
         groups.append(_with_meta({
             "title": f"LP分析 — 直帰率上位{len(top)}LP",
             "chartType": "bar_horizontal",

@@ -47,4 +47,64 @@ describe('ChartGroupCard', () => {
 
     expect(screen.getByText('このグラフグループには描画できるデータ系列がありません。')).toBeInTheDocument()
   })
+
+  it('renders a diagnostic card instead of a flat bounce-rate bar chart', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: 'LP分析 — 直帰率上位20LP',
+          chartType: 'bar_horizontal',
+          labels: ['/a', '/b', '/c'],
+          datasets: [{ label: '直帰率 (%)', data: [100, 100, 100] }],
+          coverageLabel: '上位3件 / 最大20件',
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('比較差なし').length).toBeGreaterThan(0)
+    expect(screen.getByText('すべて同じ値のため、棒グラフ比較は表示しません')).toBeInTheDocument()
+    expect(screen.getByText('平均ページ/セッション')).toBeInTheDocument()
+  })
+
+  it('renders a low-sample state instead of a search trend line chart', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: '検索クエリ — 検索回数上位3語の日別推移',
+          queryType: 'search',
+          chartType: 'line',
+          labels: ['2026-05-01', '2026-05-02'],
+          datasets: [
+            { label: 'alpha', data: [1, 0] },
+            { label: 'beta', data: [0, 2] },
+          ],
+          actualCount: 3,
+          warnings: ['low_sample'],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('検索回数が少ないため、日別トレンド化しません')).toBeInTheDocument()
+    expect(screen.getByText('全期間まとめで確認')).toBeInTheDocument()
+  })
+
+  it('marks crowded line charts as focused when collapsed', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: 'LP分析 — セッション数上位5LPの日別推移',
+          chartType: 'line',
+          labels: Array.from({ length: 14 }, (_, index) => `2026-05-${String(index + 1).padStart(2, '0')}`),
+          datasets: Array.from({ length: 5 }, (_, index) => ({
+            label: `https://example.com/landing-page-${index + 1}`,
+            data: Array.from({ length: 14 }, (_, day) => day + index),
+          })),
+          defaultCollapsed: true,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('主系列を強調')).toBeInTheDocument()
+    expect(screen.getByTitle('グラフを開く')).toHaveAttribute('aria-expanded', 'false')
+  })
 })

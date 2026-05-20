@@ -78,3 +78,20 @@ def test_missing_ranking_labels_are_excluded_and_warned():
     assert group["labels"] == ["alpha"]
     assert group["missingLabelCount"] == 3
     assert "missing_label" in group["warnings"]
+
+
+def test_flat_bounce_rate_ranking_reports_warning():
+    df = pd.DataFrame({
+        "landing_page": ["/a", "/b", "/c"],
+        "sessions": [10, 8, 6],
+        "avg_pages_per_session": [1.0, 1.0, 1.0],
+        "bounce_sessions": [10, 8, 6],
+    })
+
+    group = next(
+        g for g in build_bq_chart_data(df, "landing")["groups"]
+        if g["title"].startswith("LP分析 — 直帰率")
+    )
+
+    assert group["datasets"][0]["data"] == [100.0, 100.0, 100.0]
+    assert "flat_series" in group["warnings"]

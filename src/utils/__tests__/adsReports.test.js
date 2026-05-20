@@ -5,6 +5,7 @@ import {
   matchRelevantCharts,
   normalizeChartGroupShape,
 } from '../adsReports'
+import { analyzeChartReadability, shortenChartLabel } from '../chartReadability'
 
 const makeGroup = (overrides = {}) => ({
   title: '',
@@ -224,5 +225,55 @@ describe('chart group normalization', () => {
     expect(normalized.title).toBe('ユーザー属性 — セッション数上位15地域')
     expect(normalized.selectionLabel).toBe('セッション数上位15地域を表示')
     expect(normalized.labels).toHaveLength(15)
+  })
+
+  it('classifies crowded line charts as focused lines', () => {
+    const group = makeGroup({
+      title: 'LP分析 — セッション数上位5LPの日別推移',
+      chartType: 'line',
+      labels: Array.from({ length: 14 }, (_, i) => `2026-05-${String(i + 1).padStart(2, '0')}`),
+      datasets: Array.from({ length: 5 }, (_, i) => ({
+        label: `lp-${i + 1}`,
+        data: Array.from({ length: 14 }, (_, day) => day + i),
+      })),
+    })
+
+    const readability = analyzeChartReadability(group, 'line')
+
+    expect(readability.hasTooManyLineSeries).toBe(true)
+    expect(readability.hasTooManyXAxisLabels).toBe(true)
+    expect(readability.recommendedDisplayMode).toBe('focused_line')
+  })
+
+  it('classifies flat bounce rankings as diagnostic charts', () => {
+    const group = makeGroup({
+      title: 'LP分析 — 直帰率上位20LP',
+      chartType: 'bar_horizontal',
+      labels: ['/a', '/b', '/c'],
+      datasets: [{ label: '直帰率 (%)', data: [100, 100, 100] }],
+    })
+
+    const readability = analyzeChartReadability(group, 'bar_horizontal')
+
+    expect(readability.isFlatSeries).toBe(true)
+    expect(readability.recommendedDisplayMode).toBe('flat_diagnostic')
+  })
+
+  it('classifies low-sample search trends as table-first states', () => {
+    const group = makeGroup({
+      title: '検索クエリ — 検索回数上位3語の日別推移',
+      queryType: 'search',
+      chartType: 'line',
+      labels: ['2026-05-01', '2026-05-02'],
+      datasets: [{ label: 'alpha', data: [1, 2] }],
+      actualCount: 3,
+      warnings: ['low_sample'],
+    })
+
+    expect(analyzeChartReadability(group, 'line').recommendedDisplayMode).toBe('low_sample_table')
+  })
+
+  it('shortens long LP URLs for custom legends', () => {
+    expect(shortenChartLabel('https://example.com/a/very/long/landing/page/path?utm=1', 24)).toMatch(/…$/)
   })
 })
