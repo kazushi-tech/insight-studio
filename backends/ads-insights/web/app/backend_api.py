@@ -14894,7 +14894,7 @@ async def api_bq_generate_batch(request: Request):
                 try:
                     qt_key, data, from_cache = future.result()
                     if data is None:
-                        skipped.append(qt_key)
+                        skipped.append({"query_type": qt_key, "reason": "no_data"})
                         continue
                     # キャッシュからの場合もall_resultsに格納
                     if from_cache:
@@ -14906,7 +14906,11 @@ async def api_bq_generate_batch(request: Request):
                     if data.get("chart_data", {}).get("groups"):
                         all_groups.extend(data["chart_data"]["groups"])
                 except Exception as exc:
-                    skipped.append(qt)
+                    skipped.append({
+                        "query_type": qt,
+                        "reason": exc.__class__.__name__,
+                        "message": str(exc)[:300],
+                    })
 
         # 統合サマリー生成（DataFrameが必要なので、キャッシュ結果からは生成しない）
         cross_summary = ""
@@ -14927,7 +14931,13 @@ async def api_bq_generate_batch(request: Request):
                     cross_summary += f"- 期間: {period}\n"
                     cross_summary += f"- 実行クエリ: {', '.join(cross_results.keys())}\n"
                     if skipped:
-                        cross_summary += f"- スキップ: {', '.join(skipped)}\n"
+                        skipped_labels = [
+                            f"{item.get('query_type', 'unknown')}({item.get('reason', 'unknown')})"
+                            if isinstance(item, dict)
+                            else str(item)
+                            for item in skipped
+                        ]
+                        cross_summary += f"- スキップ: {', '.join(skipped_labels)}\n"
                     cross_summary += "\n"
             except Exception:
                 pass

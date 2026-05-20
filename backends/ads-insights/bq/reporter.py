@@ -31,15 +31,21 @@ from bq.client import run_query, list_datasets, PROJECT_ID
 def _escape_markdown_cell(value) -> str:
     """Markdown テーブルセル内の `|` をエスケープする。
 
-    None / NaN → 空文字列、数値はそのまま文字列化、
+    None / NaN / 空文字 → データなし、数値はそのまま文字列化、
     文字列セル中の `|` を `\\|` に置換する。
     """
     if value is None:
-        return ""
+        return "データなし"
     if isinstance(value, float) and pd.isna(value):
-        return ""
+        return "データなし"
     s = str(value)
+    if s.strip() == "" or s.strip().lower() in {"none", "nan", "null"}:
+        return "データなし"
     return s.replace("|", "\\|")
+
+
+def _top_label(actual_count: int, limit: int) -> str:
+    return f"上位{actual_count}件 / 最大{limit}件"
 
 
 def _escape_df_for_markdown(df: pd.DataFrame) -> pd.DataFrame:
@@ -261,11 +267,12 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         if total_searchers:
             lines.append(f"- **1ユーザーあたり平均検索回数**: {round(total_searches / total_searchers, 1)}")
         lines.append("")
-        lines.append("## 頻出検索キーワード（Top 20）")
+        top_terms = by_term.head(20)
+        lines.append(f"## 頻出検索キーワード（{_top_label(len(top_terms), 20)}）")
         try:
-            lines.append(_escape_df_for_markdown(by_term.head(20)).to_markdown(index=False))
+            lines.append(_escape_df_for_markdown(top_terms).to_markdown(index=False))
         except ImportError:
-            lines.append(by_term.head(20).to_string(index=False))
+            lines.append(top_terms.to_string(index=False))
         lines.append("")
         # V3.3: 日別推移セクション
         if "event_date" in df.columns:
@@ -373,8 +380,8 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
                 except ImportError:
                     lines.append(display_df.to_string(index=False))
                 lines.append("")
-        lines.append("## LP別セッション数ランキング（Top 15）")
         display_all = by_lp.head(15).copy()
+        lines.append(f"## LP別セッション数ランキング（{_top_label(len(display_all), 15)}）")
         if "bounce_rate" in display_all.columns:
             display_all["bounce_rate"] = display_all["bounce_rate"].apply(lambda x: f"{round(x * 100, 1)}%")
         if "avg_pages_per_session" in display_all.columns:
@@ -402,7 +409,7 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
             if max_q > 0:
                 by_lp_q["quality_score"] = (by_lp_q["quality_raw"] / max_q * 100).round(1)
                 top5 = by_lp_q.sort_values("quality_score", ascending=False).head(5)
-                lines.append("## LP品質ランキング（Top 5）")
+                lines.append(f"## LP品質ランキング（{_top_label(len(top5), 5)}）")
                 lines.append("*品質スコア = sessions × (1 - bounce_rate) × avg_pages を正規化*")
                 lines.append("")
                 for i, (_, row) in enumerate(top5.iterrows()):
@@ -464,7 +471,7 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         # OS別
         if "os" in df.columns:
             by_os = df.groupby("os").agg(sessions=("sessions", "sum")).sort_values("sessions", ascending=False).head(10).reset_index()
-            lines.append("## OS別セッション数（Top 10）")
+            lines.append(f"## OS別セッション数（{_top_label(len(by_os), 10)}）")
             try:
                 lines.append(_escape_df_for_markdown(by_os).to_markdown(index=False))
             except ImportError:
@@ -552,7 +559,7 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
                 top_city_pct = round(int(top_city["sessions"]) / total_sessions * 100, 1) if total_sessions else 0
                 lines.append(f"### 最多都市: {_escape_markdown_cell(top_city['city'])}（セッション構成比: {top_city_pct}%）")
                 lines.append("")
-            lines.append("## 地域別セッション数（Top 10）")
+            lines.append(f"## 地域別セッション数（{_top_label(len(by_city), 10)}）")
             try:
                 lines.append(_escape_df_for_markdown(by_city).to_markdown(index=False))
             except ImportError:
