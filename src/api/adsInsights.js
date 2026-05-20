@@ -106,6 +106,21 @@ function isFetchNetworkError(error) {
   return error instanceof TypeError || /Failed to fetch/i.test(String(error?.message))
 }
 
+function isBackendConfigAuthError(status, body = {}) {
+  if (status !== 401 && status !== 403) return false
+  const marker = String(
+    body.error_code || body.error || body.detail || body.message || '',
+  ).toLowerCase()
+  return (
+    marker === 'api_key_required' ||
+    marker.startsWith('gemini_') ||
+    marker.includes('gemini api') ||
+    marker.includes('gemini_api_key') ||
+    marker.includes('google_api_key') ||
+    marker.includes('anthropic_api_key')
+  )
+}
+
 async function request(path, options = {}) {
   const {
     direct = false,
@@ -210,8 +225,8 @@ async function request(path, options = {}) {
     )
     error.status = res.status
     error.body = body
-    // 401/403 は status コードだけで認証エラーと判定（body マーカーは参考情報のみ）
-    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth
+    error.isBackendConfigAuthError = isBackendConfigAuthError(res.status, body)
+    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth && !error.isBackendConfigAuthError
 
     if (error.isAuthError && !suppressAuthErrorHandler) {
       onAuthError?.(error)
@@ -403,6 +418,7 @@ export function runAdsGeminiBudgetSmokeTest(apiKey) {
       ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
     },
     body: JSON.stringify({ model: 'gemini-3.5-flash' }),
+    suppressAuthErrorHandler: true,
     timeout: 120000,
   })
 }
