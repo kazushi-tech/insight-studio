@@ -211,4 +211,18 @@ describe('chart group normalization', () => {
     expect(normalized.title).toBe('LP分析 — セッション数上位5LPの日別推移')
     expect(normalized.selectionLabel).toBe('セッション数上位5LPを表示')
   })
+
+  it('renames ranking coverage into a concrete chart title and selection explanation', () => {
+    const normalized = normalizeChartGroupShape(makeGroup({
+      title: 'ユーザー属性 — 地域別（上位15件 / 最大15件）',
+      chartType: 'bar_horizontal',
+      labels: Array.from({ length: 15 }, (_, i) => `city-${i + 1}`),
+      datasets: [{ label: 'セッション', data: Array.from({ length: 15 }, (_, i) => 15 - i) }],
+      coverageLabel: '上位15件 / 最大15件',
+    }))
+
+    expect(normalized.title).toBe('ユーザー属性 — セッション数上位15地域')
+    expect(normalized.selectionLabel).toBe('セッション数上位15地域を表示')
+    expect(normalized.labels).toHaveLength(15)
+  })
 })

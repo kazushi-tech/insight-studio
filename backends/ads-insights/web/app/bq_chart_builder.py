@@ -167,6 +167,7 @@ def _build_traffic(df: pd.DataFrame) -> list[dict]:
     top["channel"] = top["source"].astype(str) + " / " + top["medium"].astype(str)
     labels = top["channel"].tolist()
     meta = _ranking_meta("traffic", limit=limit, actual_count=len(top), source_row_count=len(agg))
+    meta["selectionLabel"] = f"セッション数上位{len(top)}チャネルを表示"
 
     datasets = []
     for i, (col, label) in enumerate([("sessions", "セッション"), ("users", "ユーザー")]):
@@ -179,7 +180,7 @@ def _build_traffic(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c["border"],
                 "borderWidth": 1,
             })
-    groups.append(_with_meta({"title": f"流入分析 — チャネル別（{meta['coverageLabel']}）", "chartType": "bar_horizontal", "labels": labels, "datasets": datasets}, meta))
+    groups.append(_with_meta({"title": f"流入分析 — セッション数上位{len(top)}チャネル", "chartType": "bar_horizontal", "labels": labels, "datasets": datasets}, meta))
 
     # V3.3: 上位チャネルの日別セッション推移
     if "event_date" in df.columns:
@@ -258,6 +259,7 @@ def _build_search(df: pd.DataFrame) -> list[dict]:
         source_row_count=len(agg),
         missing_label_count=missing_label_count,
     )
+    meta["selectionLabel"] = f"検索回数上位{len(top)}語を表示"
 
     c = _color(0)
     datasets = [{
@@ -268,7 +270,7 @@ def _build_search(df: pd.DataFrame) -> list[dict]:
         "borderWidth": 1,
     }]
     groups.append(_with_meta({
-        "title": f"検索クエリ — {meta['coverageLabel']}",
+        "title": f"検索クエリ — 検索回数上位{len(top)}語",
         "chartType": "bar_horizontal",
         "labels": labels,
         "datasets": datasets,
@@ -378,6 +380,7 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
         source_row_count=len(agg),
         missing_label_count=missing_label_count,
     )
+    meta["selectionLabel"] = f"セッション数上位{len(top)}LPを表示"
     # URLを短く表示（ドメイン部分を除去）
     top["short_page"] = top["landing_page"].apply(_short_url)
     labels = top["short_page"].tolist()
@@ -385,7 +388,7 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
     # セッション数
     c0 = _color(0)
     groups.append(_with_meta({
-        "title": f"LP分析 — セッション数（{meta['coverageLabel']}）",
+        "title": f"LP分析 — セッション数上位{len(top)}LP",
         "chartType": "bar_horizontal",
         "labels": labels,
         "datasets": [{
@@ -401,8 +404,9 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
     if "bounce_rate" in top.columns:
         c1 = _color(3)
         bounce_pct = [None if pd.isna(v) or not np.isfinite(float(v)) else round(float(v) * 100, 1) for v in top["bounce_rate"]]
+        bounce_meta = {**meta, "selectionLabel": f"直帰率上位{len(top)}LPを表示"}
         groups.append(_with_meta({
-            "title": f"LP分析 — 直帰率（{meta['coverageLabel']}）",
+            "title": f"LP分析 — 直帰率上位{len(top)}LP",
             "chartType": "bar_horizontal",
             "labels": labels,
             "datasets": [{
@@ -412,7 +416,7 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c1["border"],
                 "borderWidth": 1,
             }],
-        }, meta))
+        }, bounce_meta))
 
     # V3.3: 上位LPの日別セッション推移
     if "event_date" in df.columns:
@@ -491,10 +495,11 @@ def _build_device(df: pd.DataFrame) -> list[dict]:
                 source_row_count=len(os_agg),
                 missing_label_count=os_missing_label_count,
             )
+            os_meta["selectionLabel"] = f"セッション数上位{len(os_top)}OSを表示"
             os_labels = os_top["os"].astype(str).tolist()
             c = _color(4)
             groups.append(_with_meta({
-                "title": f"デバイス分析 — OS別（{os_meta['coverageLabel']}）",
+                "title": f"デバイス分析 — セッション数上位{len(os_top)}OS",
                 "chartType": "bar_horizontal",
                 "labels": os_labels,
                 "datasets": [{
@@ -586,9 +591,10 @@ def _build_user_attr(df: pd.DataFrame) -> list[dict]:
             source_row_count=len(city_agg),
             missing_label_count=city_missing_label_count,
         )
+        city_meta["selectionLabel"] = f"セッション数上位{len(city_top)}地域を表示"
         c2 = _color(2)
         groups.append(_with_meta({
-            "title": f"ユーザー属性 — 地域別（{city_meta['coverageLabel']}）",
+            "title": f"ユーザー属性 — セッション数上位{len(city_top)}地域",
             "chartType": "bar_horizontal",
             "labels": city_top["city"].astype(str).tolist(),
             "datasets": [{
@@ -719,10 +725,11 @@ def _build_lp_quality(df: pd.DataFrame, search_df: pd.DataFrame = None) -> list[
         source_row_count=len(agg),
         missing_label_count=missing_label_count,
     )
+    meta["selectionLabel"] = f"品質スコア上位{len(top15)}LPを表示"
 
     c0 = _color(2)
     groups.append(_with_meta({
-        "title": f"LP品質ランキング — {meta['coverageLabel']}",
+        "title": f"LP品質ランキング — 品質スコア上位{len(top15)}LP",
         "chartType": "bar_horizontal",
         "labels": top15["short_page"].tolist(),
         "datasets": [{
