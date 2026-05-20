@@ -46,7 +46,7 @@ services:
       # --- market-lens-ai 設定 ---
       # Staging 用の設定変更
       - key: GEMINI_ANALYSIS_MODEL
-        value: gemini-3-flash-preview
+        value: gemini-3.5-flash
       - key: GEMINI_VISION_MODEL
         value: gemini-3.1-flash-image-preview
       - key: RATE_LIMIT_PER_MIN
@@ -128,7 +128,7 @@ services:
       - key: ANALYSIS_MODEL
         value: gemini-flash
       - key: GEMINI_MODEL
-        value: gemini-3-flash-preview
+        value: gemini-3.5-flash
       - key: GCP_PROJECT_ID
         value: analyzedataplatform
       - key: RATE_LIMIT_MAX

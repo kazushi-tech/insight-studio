@@ -38,6 +38,7 @@ from .routers.watchlist_routes import create_watchlist_router
 from .routers.scheduler_routes import create_scheduler_router
 from .routers.delivery_routes import create_delivery_router
 from .routers.admin_routes import create_admin_router
+from .gemini_budget import get_budget_summary, reset_budget_for_dev
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -341,6 +342,19 @@ async def get_sample(sample_id: str):
     if sample is None:
         raise HTTPException(status_code=404, detail="Sample not found")
     return sample
+
+
+@app.get("/api/usage/budget", tags=["usage"])
+async def get_gemini_budget():
+    return get_budget_summary()
+
+
+@app.post("/api/usage/reset-dev", tags=["usage"])
+async def reset_gemini_budget_dev():
+    try:
+        return reset_budget_for_dev()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 # ── Static pages serving (Phase 9) ──────────────────────────

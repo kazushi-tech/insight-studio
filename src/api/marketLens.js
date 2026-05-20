@@ -977,6 +977,11 @@ export function health() {
   return requestJson('/health')
 }
 
+/** GET /api/usage/budget — Market Lens Gemini budget status */
+export function getMarketLensGeminiBudget() {
+  return requestJson('/usage/budget')
+}
+
 // ─── Creative Review: Upload ─────────────────────────────────
 
 /**

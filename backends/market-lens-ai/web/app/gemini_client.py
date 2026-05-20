@@ -7,10 +7,16 @@ import logging
 import os
 
 from .models import TokenUsage
+from .gemini_budget import (
+    assert_gemini_budget_available,
+    estimate_text_tokens,
+    normalize_gemini_model,
+    record_gemini_usage,
+)
 
 logger = logging.getLogger("market-lens.gemini")
 
-_DEFAULT_MODEL = os.getenv("GEMINI_ANALYSIS_MODEL", "gemini-2.0-flash")
+_DEFAULT_MODEL = normalize_gemini_model(os.getenv("GEMINI_ANALYSIS_MODEL", "gemini-3.5-flash"))
 _DEFAULT_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "8192"))
 _DEFAULT_TEMPERATURE = float(os.getenv("GEMINI_TEMPERATURE", "0.2"))
 
@@ -82,10 +88,16 @@ async def call_gemini(
     if not key:
         raise RuntimeError("Gemini API キーが必要です。GEMINI_API_KEY を設定するか BYOK キーを指定してください。")
 
-    mdl = model or _DEFAULT_MODEL
+    mdl = normalize_gemini_model(model or _DEFAULT_MODEL)
     max_tokens = max_output_tokens or _DEFAULT_MAX_OUTPUT_TOKENS
 
     logger.info("call_gemini model=%s max_tokens=%s has_byok=%s", mdl, max_tokens, bool(api_key))
+    budget_estimate = assert_gemini_budget_available(
+        model=mdl,
+        prompt=prompt,
+        max_output_tokens=max_tokens,
+        feature="market-lens.analysis",
+    )
 
     text, prompt_tokens, completion_tokens = await asyncio.to_thread(
         _call_sync,
@@ -99,6 +111,18 @@ async def call_gemini(
     logger.info(
         "call_gemini SUCCESS model=%s prompt_tokens=%s completion_tokens=%s",
         mdl, prompt_tokens, completion_tokens,
+    )
+    usage_is_estimated = not (prompt_tokens or completion_tokens)
+    usage_prompt_tokens = prompt_tokens or estimate_text_tokens(prompt)
+    usage_completion_tokens = completion_tokens or estimate_text_tokens(text)
+    record_gemini_usage(
+        model=mdl,
+        prompt_tokens=usage_prompt_tokens,
+        completion_tokens=usage_completion_tokens,
+        total_tokens=usage_prompt_tokens + usage_completion_tokens,
+        feature="market-lens.analysis",
+        estimated=usage_is_estimated,
+        request_estimate=budget_estimate,
     )
 
     return text, TokenUsage(

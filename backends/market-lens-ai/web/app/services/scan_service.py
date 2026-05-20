@@ -63,6 +63,8 @@ def _humanize_llm_error(provider_name: str, detail: str) -> str:
     else:
         if "api key" in normalized or "authentication" in normalized:
             return "LLM分析に失敗しました。Gemini API キーが無効か、権限が不足しています。"
+        if "gemini_budget_" in normalized or "budget" in normalized:
+            return "LLM分析に失敗しました。Gemini の月間利用上限に達しました。Claude fallbackを使うか、翌月まで待ってください。"
         if "quota" in normalized or "rate limit" in normalized:
             return "LLM分析に失敗しました。Gemini API の利用上限を確認してください。"
 

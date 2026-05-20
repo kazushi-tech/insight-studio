@@ -106,6 +106,21 @@ function isFetchNetworkError(error) {
   return error instanceof TypeError || /Failed to fetch/i.test(String(error?.message))
 }
 
+function isBackendConfigAuthError(status, body = {}) {
+  if (status !== 401 && status !== 403) return false
+  const marker = String(
+    body.error_code || body.error || body.detail || body.message || '',
+  ).toLowerCase()
+  return (
+    marker === 'api_key_required' ||
+    marker.startsWith('gemini_') ||
+    marker.includes('gemini api') ||
+    marker.includes('gemini_api_key') ||
+    marker.includes('google_api_key') ||
+    marker.includes('anthropic_api_key')
+  )
+}
+
 async function request(path, options = {}) {
   const {
     direct = false,
@@ -210,13 +225,64 @@ async function request(path, options = {}) {
     )
     error.status = res.status
     error.body = body
-    // 401/403 は status コードだけで認証エラーと判定（body マーカーは参考情報のみ）
-    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth
+    error.isBackendConfigAuthError = isBackendConfigAuthError(res.status, body)
+    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth && !error.isBackendConfigAuthError
 
     if (error.isAuthError && !suppressAuthErrorHandler) {
       onAuthError?.(error)
     }
 
+    throw error
+  }
+  return res.json()
+}
+
+async function requestLocalAds(path, options = {}) {
+  const {
+    skipAuth = false,
+    suppressAuthErrorHandler = false,
+    headers: customHeaders = {},
+    timeout = 30000,
+    ...fetchOptions
+  } = options
+
+  const headers = new Headers(skipAuth ? clientHeaders() : authHeaders())
+  new Headers(customHeaders).forEach((value, key) => {
+    headers.set(key, value)
+  })
+  const didSendAuth = Boolean(headers.get('Authorization'))
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  let res
+  try {
+    res = await fetch(`http://127.0.0.1:8001/api${path}`, {
+      ...fetchOptions,
+      headers,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    clearTimeout(timeoutId)
+    if (e.name === 'AbortError') {
+      const sec = Math.round(timeout / 1000)
+      throw new Error(`リクエストが ${sec} 秒でタイムアウトしました。`)
+    }
+    throw e
+  }
+  clearTimeout(timeoutId)
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const error = new Error(
+      body.detail || body.message || body.error || `Ads Insights API error: ${res.status}`,
+    )
+    error.status = res.status
+    error.body = body
+    error.isBackendConfigAuthError = isBackendConfigAuthError(res.status, body)
+    error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth && !error.isBackendConfigAuthError
+    if (error.isAuthError && !suppressAuthErrorHandler) {
+      onAuthError?.(error)
+    }
     throw error
   }
   return res.json()
@@ -324,6 +390,37 @@ export function validateReport(payload) {
 /** GET /api/key_status — APIキー状態 */
 export function keyStatus() {
   return request('/key_status')
+}
+
+/** GET /api/usage/budget — Ads Gemini budget status */
+export function getAdsGeminiBudget() {
+  if (isLocalOrigin()) {
+    return requestLocalAds('/usage/budget')
+  }
+  return request('/usage/budget')
+}
+
+/** POST /api/usage/gemini-smoke-test — saved Gemini key connectivity + budget usage check */
+export function runAdsGeminiBudgetSmokeTest(apiKey) {
+  if (isLocalOrigin()) {
+    return requestLocalAds('/usage/gemini-smoke-test', {
+      method: 'POST',
+      headers: {
+        ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
+      },
+      body: JSON.stringify({ model: 'gemini-3.5-flash' }),
+      timeout: 120000,
+    })
+  }
+  return request('/usage/gemini-smoke-test', {
+    method: 'POST',
+    headers: {
+      ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
+    },
+    body: JSON.stringify({ model: 'gemini-3.5-flash' }),
+    suppressAuthErrorHandler: true,
+    timeout: 120000,
+  })
 }
 
 /** GET /api/cases — 案件一覧 */
