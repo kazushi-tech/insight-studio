@@ -10,6 +10,18 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
+try:
+    from .gemini_budget import (
+        assert_gemini_budget_available,
+        record_gemini_usage,
+        record_gemini_usage_from_response,
+    )
+except ImportError:  # pragma: no cover - direct script execution fallback
+    from web.app.gemini_budget import (  # type: ignore
+        assert_gemini_budget_available,
+        record_gemini_usage,
+        record_gemini_usage_from_response,
+    )
 
 # Repo root: .../ads-insights/web/app/gemini_client.py -> parents[2] = repo root
 REPO = Path(__file__).resolve().parents[2]
@@ -19,7 +31,7 @@ LOG_DIR_DEFAULT = REPO / ".logs"
 SYSTEM_PROMPT_PATH = PROMPTS / "insights_system.txt"
 USER_TEMPLATE_PATH = PROMPTS / "insights_user_template.md"
 
-DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 DEFAULT_TEMPERATURE = float(os.getenv("GEMINI_TEMPERATURE", "0.1"))
 DEFAULT_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "2048"))
 
@@ -569,9 +581,44 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
     key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not key:
         raise RuntimeError("GEMINI_API_KEY または GOOGLE_API_KEY が未設定です。")
+    budget_prompt = system_prompt.strip() + "\n\n" + user_text
+    budget_estimate = assert_gemini_budget_available(
+        model=model,
+        prompt=budget_prompt,
+        max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
+        feature="ads.gemini_client",
+    )
 
     # Prefer google-genai (new), fallback to google-generativeai (old)
     last_err: Optional[Exception] = None
+
+    def record_from_resp(resp, text: str, estimated: bool = False) -> None:
+        usage = getattr(resp, "usage_metadata", None)
+        has_counts = usage is not None and (
+            getattr(usage, "prompt_token_count", 0)
+            or getattr(usage, "candidates_token_count", 0)
+            or getattr(usage, "total_token_count", 0)
+        )
+        if estimated or not has_counts:
+            record_gemini_usage_from_response(
+                model=model,
+                prompt=budget_prompt,
+                output_text=text,
+                max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
+                usage_metadata=None,
+                feature="ads.gemini_client",
+                request_estimate=budget_estimate,
+            )
+            return
+        record_gemini_usage(
+            model=model,
+            prompt_tokens=getattr(usage, "prompt_token_count", 0) or 0,
+            completion_tokens=getattr(usage, "candidates_token_count", 0) or 0,
+            total_tokens=getattr(usage, "total_token_count", 0) or 0,
+            feature="ads.gemini_client",
+            estimated=False,
+            request_estimate=budget_estimate,
+        )
 
     # 1) google-genai
     try:
@@ -591,6 +638,7 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
         )
         txt = getattr(resp, "text", None)
         if txt:
+            record_from_resp(resp, txt)
             return txt
         # fallback: try to stitch parts
         cands = getattr(resp, "candidates", None)
@@ -605,8 +653,12 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
                     if t:
                         parts.append(t)
             if parts:
-                return "\n".join(parts)
-        return str(resp)
+                out = "\n".join(parts)
+                record_from_resp(resp, out)
+                return out
+        out = str(resp)
+        record_from_resp(resp, out, estimated=True)
+        return out
     except Exception as e:
         last_err = e
 
@@ -632,6 +684,7 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
 
         txt = getattr(resp, "text", None)
         if txt:
+            record_from_resp(resp, txt)
             return txt
         # older responses might store in candidates
         cand = getattr(resp, "candidates", None)
@@ -646,8 +699,12 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
                     if t:
                         parts.append(t)
             if parts:
-                return "\n".join(parts)
-        return str(resp)
+                out = "\n".join(parts)
+                record_from_resp(resp, out)
+                return out
+        out = str(resp)
+        record_from_resp(resp, out, estimated=True)
+        return out
     except Exception as e:
         if last_err is not None:
             raise RuntimeError(f"Gemini呼び出しに失敗しました（google-genai→google-generativeai）: {last_err} / {e}") from e

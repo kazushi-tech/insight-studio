@@ -1154,6 +1154,13 @@ from fastapi import FastAPI, Request, HTTPException
 
 
 from fastapi.responses import Response
+from .gemini_budget import (
+    GeminiBudgetExceeded,
+    assert_gemini_budget_available,
+    get_budget_summary,
+    record_gemini_usage_from_response,
+    reset_budget_for_dev,
+)
 
 
 
@@ -1398,6 +1405,79 @@ async def _rate_limit_middleware(request, call_next):
             )
         bucket.append(now)
     return await call_next(request)
+
+@app.get("/api/usage/budget")
+async def api_gemini_budget():
+    return get_budget_summary()
+
+
+@app.post("/api/usage/reset-dev")
+async def api_gemini_budget_reset_dev():
+    try:
+        return reset_budget_for_dev()
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@app.post("/api/usage/gemini-smoke-test")
+async def api_gemini_budget_smoke_test(request: Request):
+    payload = await request.json()
+    client_key = request.headers.get("X-Gemini-API-Key") or payload.get("api_key")
+    if not client_key:
+        return JSONResponse(
+            {"ok": False, "error_code": "api_key_required", "detail": "Gemini APIキーが必要です。"},
+            status_code=403,
+        )
+
+    model = str(payload.get("model") or "gemini-3.5-flash").strip()
+    prompt = (
+        "Insight Studio Gemini budget smoke test. "
+        "Reply with exactly this text only: OK"
+    )
+    before = get_budget_summary()
+    try:
+        text = _gemini_generate(
+            model=model,
+            prompt=prompt,
+            temperature=0.0,
+            max_tokens=512,
+            api_key=client_key,
+            feature="ads.budget_smoke_test",
+        )
+    except GeminiBudgetExceeded as exc:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error_code": "gemini_budget_exceeded",
+                "detail": "Geminiの月間利用上限に達しました。Claude fallbackを使うか、翌月まで待ってください。",
+                "retryable": False,
+                "raw_error": str(exc)[:300],
+            },
+            status_code=429,
+        )
+    except RuntimeError as exc:
+        msg = str(exc)
+        status = 401 if "HTTPError 401" in msg or "API key" in msg.lower() else 400
+        return JSONResponse(
+            {
+                "ok": False,
+                "error_code": "gemini_smoke_test_failed",
+                "detail": msg[:300],
+                "retryable": False,
+            },
+            status_code=status,
+        )
+
+    after = get_budget_summary()
+    delta_usd = max(0.0, float(after.get("used_usd") or 0) - float(before.get("used_usd") or 0))
+    return {
+        "ok": True,
+        "model": model,
+        "text_preview": str(text)[:80],
+        "delta_usd": round(delta_usd, 8),
+        "before": before,
+        "after": after,
+    }
 
 # _FORCE_JSON_CHARSET_UTF8 + セキュリティヘッダー
 @app.middleware("http")
@@ -3684,7 +3764,7 @@ async def generate_insights(request: Request):
 
     point_pack_path = payload.get("point_pack_path") or payload.get("pointPackPath") or payload.get("path")
     message = payload.get("message") or ""
-    model = payload.get("model") or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    model = payload.get("model") or os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
     temperature = payload.get("temperature", 0.7)
     gemini_api_key = payload.get("gemini_api_key") or payload.get("apiKey")
 
@@ -3743,6 +3823,15 @@ async def generate_insights(request: Request):
     except Exception as e:
         retry_after = getattr(e, "retry_after", None)
         status_code = getattr(e, "status_code", None)
+
+        if isinstance(e, GeminiBudgetExceeded) or "gemini_budget_" in str(e):
+            return _json200({
+                "ok": False,
+                "error": "gemini_budget_exceeded",
+                "status_code": 429,
+                "hint": "monthly Gemini budget reached; use Claude fallback or wait until next month",
+                "detail": str(e),
+            })
 
         if e.__class__.__name__ == "GeminiRateLimitError" or "too many requests" in str(e).lower():
             return _json200({
@@ -10389,6 +10478,13 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
         print("[gemini] API key missing")
         return "Error: Gemini API key is not configured."
 
+    budget_estimate = assert_gemini_budget_available(
+        model=model,
+        prompt=prompt,
+        max_output_tokens=max_tokens,
+        feature="ads.generate_text",
+    )
+
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={final_api_key}"
 
 
@@ -10668,6 +10764,15 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
+            record_gemini_usage_from_response(
+                model=model,
+                prompt=prompt,
+                output_text=out,
+                max_output_tokens=max_tokens,
+                usage_metadata=data.get("usageMetadata") or {},
+                feature="ads.generate_text",
+                request_estimate=budget_estimate,
+            )
             return out
 
 
@@ -10716,7 +10821,17 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-    return json.dumps(data, ensure_ascii=False)
+    fallback_out = json.dumps(data, ensure_ascii=False)
+    record_gemini_usage_from_response(
+        model=model,
+        prompt=prompt,
+        output_text=fallback_out,
+        max_output_tokens=max_tokens,
+        usage_metadata=data.get("usageMetadata") or {},
+        feature="ads.generate_text",
+        request_estimate=budget_estimate,
+    )
+    return fallback_out
 
 
 
@@ -10972,7 +11087,7 @@ async def api_chat(request: Request):
 
 
 
-    model = "gemini-2.5-flash-lite"
+    model = "gemini-3.5-flash"
 
 
 
@@ -12980,10 +13095,23 @@ def _anthropic_generate(model: str, prompt: str, temperature: float = 0.7, max_t
             continue
     raise RuntimeError(f"Anthropic failed after retries: {last_err}")
 
-def _gemini_generate(model: str, prompt: str, temperature: float = 0.7, max_tokens: int = 8192, api_key: str | None = None) -> str:
+def _gemini_generate(
+    model: str,
+    prompt: str,
+    temperature: float = 0.7,
+    max_tokens: int = 8192,
+    api_key: str | None = None,
+    feature: str = "ads.neon_generate",
+) -> str:
     key = _resolve_gemini_api_key(api_key)
     if not key:
         raise RuntimeError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY). Set env var, config.json, or pass api_key.")
+    budget_estimate = assert_gemini_budget_available(
+        model=model,
+        prompt=prompt,
+        max_output_tokens=max_tokens,
+        feature=feature,
+    )
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
     def _single_call(prompt_text: str, temp: float, tokens: int) -> tuple:
@@ -13030,6 +13158,7 @@ def _gemini_generate(model: str, prompt: str, temperature: float = 0.7, max_toke
 
     # First call
     text, finish_reason, usage = _single_call(prompt, temperature, max_tokens)
+    combined_usage = dict(usage or {})
 
     # Auto-continuation if truncated (once only)
     if finish_reason == "MAX_TOKENS":
@@ -13037,8 +13166,22 @@ def _gemini_generate(model: str, prompt: str, temperature: float = 0.7, max_toke
         continuation_prompt = f"{prompt}\n\n# 前回の出力（途中切れ）\n{text}\n\n# 指示\n上記の続きを書いてください。前回の最後の文から自然に繋がるように続けること。重複して書かないこと。"
         cont_text, cont_reason, cont_usage = _single_call(continuation_prompt, temperature, max_tokens)
         text = text.rstrip() + "\n" + cont_text.lstrip()
+        for key_name in ("promptTokenCount", "candidatesTokenCount", "totalTokenCount"):
+            try:
+                combined_usage[key_name] = int(combined_usage.get(key_name) or 0) + int((cont_usage or {}).get(key_name) or 0)
+            except Exception:
+                pass
         print(f"[gemini] Continuation done. final_finish_reason={cont_reason}")
 
+    record_gemini_usage_from_response(
+        model=model,
+        prompt=prompt,
+        output_text=text,
+        max_output_tokens=max_tokens,
+        usage_metadata=combined_usage,
+        feature=feature,
+        request_estimate=budget_estimate,
+    )
     return text
 
 @app.get("/api/neon/clients")
@@ -13122,7 +13265,7 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     # Expected payload:
     # { mode: "question|improve|risk|numbers", model, temperature, message, point_pack_path? point_pack_md?, style_preset?, style_reference?, provider? }
     mode = str(payload.get("mode") or "question")
-    default_model = "claude-sonnet-4-20250514" if is_anthropic else "gemini-2.5-flash"
+    default_model = "claude-sonnet-4-20250514" if is_anthropic else "gemini-3.5-flash"
     model = str(payload.get("model") or default_model)
     temperature = float(payload.get("temperature") or 0.7)
     msg = str(payload.get("message") or "").strip()
@@ -13358,6 +13501,11 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     except RuntimeError as e:
         msg = str(e)
         logger.exception("[neon/generate] RuntimeError request_id=%s model=%s", request_id, model)
+        if isinstance(e, GeminiBudgetExceeded) or "gemini_budget_" in msg:
+            return JSONResponse(
+                {"ok": False, "error_code": "gemini_budget_exceeded", "detail": "Geminiの月間利用上限に達しました。Claude fallbackを使うか、翌月まで待ってください。", "retryable": False, "request_id": request_id},
+                status_code=429,
+            )
         # Anthropic HTTP エラーを status code に変換
         if "Anthropic HTTPError 429" in msg or "rate_limit" in msg.lower():
             return JSONResponse(

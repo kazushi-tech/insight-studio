@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ErrorBanner } from '../components/ui'
+import { getAdsGeminiBudget, runAdsGeminiBudgetSmokeTest } from '../api/adsInsights'
+import { getMarketLensGeminiBudget } from '../api/marketLens'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
@@ -55,6 +57,201 @@ function InlineNotice({ tone = 'success', children }) {
       <span className="material-symbols-outlined text-lg">{icon}</span>
       <span className="japanese-text">{children}</span>
     </div>
+  )
+}
+
+function formatUsd(value) {
+  const num = Number(value || 0)
+  if (num > 0 && num < 0.01) return `$${num.toFixed(6)}`
+  return `$${num.toFixed(num >= 10 ? 2 : 4)}`
+}
+
+function formatUsagePercent(ratio) {
+  const pct = Number(ratio || 0) * 100
+  if (pct <= 0) return '0%'
+  if (pct < 1) return `${pct.toFixed(4)}%`
+  return `${Math.round(pct)}%`
+}
+
+function BudgetMeter({ label, budget }) {
+  const ratio = Math.min(1, Math.max(0, Number(budget?.usage_ratio || 0)))
+  const percent = formatUsagePercent(ratio)
+  const barWidth = ratio > 0 ? `${Math.max(0.5, ratio * 100)}%` : '0%'
+  const status = budget?.status || 'unknown'
+  const tone = status === 'exceeded' || status === 'danger' || status === 'unknown'
+    ? 'text-red-700 bg-red-50 border-red-200'
+    : status === 'warning'
+      ? 'text-amber-800 bg-amber-50 border-amber-200'
+      : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+  const bar = status === 'exceeded' || status === 'danger' || status === 'unknown'
+    ? 'bg-red-500'
+    : status === 'warning'
+      ? 'bg-amber-500'
+      : 'bg-emerald-500'
+
+  return (
+    <div className="space-y-3 rounded-[0.75rem] bg-surface-container px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold japanese-text">{label}</p>
+          <p className="text-xs text-on-surface-variant">
+            {budget?.month || '----'} / {formatUsd(budget?.used_usd)} 使用
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${tone}`}>
+          {status === 'unknown' ? '確認不可' : percent}
+        </span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-surface-container-high">
+        <div className={`h-full rounded-full ${bar}`} style={{ width: barWidth }} />
+      </div>
+      <div className="flex items-center justify-between text-xs text-on-surface-variant">
+        <span>残り {formatUsd(budget?.remaining_usd)}</span>
+        <span>上限 {formatUsd(budget?.budget_usd)} / 約{Number(budget?.budget_jpy_estimate || 0).toLocaleString('ja-JP')}円</span>
+      </div>
+      {budget?.storage_status === 'corrupt' && (
+        <p className="text-xs font-bold text-red-700 japanese-text">使用量ファイルを読めないため、Gemini実行は停止されます。</p>
+      )}
+    </div>
+  )
+}
+
+function GeminiBudgetCard({ geminiKey, hasGeminiKey }) {
+  const [budgets, setBudgets] = useState({ ml: null, ads: null })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+
+  async function loadBudgets() {
+    setLoading(true)
+    setError(null)
+    const [ml, ads] = await Promise.allSettled([
+      getMarketLensGeminiBudget(),
+      getAdsGeminiBudget(),
+    ])
+    setBudgets({
+      ml: ml.status === 'fulfilled' ? ml.value : null,
+      ads: ads.status === 'fulfilled' ? ads.value : null,
+    })
+    if (ml.status === 'rejected' && ads.status === 'rejected') {
+      setError('Gemini利用上限を取得できませんでした。')
+    }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    let alive = true
+    async function loadBudgetsWhenAlive() {
+      const [ml, ads] = await Promise.allSettled([
+        getMarketLensGeminiBudget(),
+        getAdsGeminiBudget(),
+      ])
+      if (!alive) return
+      setBudgets({
+        ml: ml.status === 'fulfilled' ? ml.value : null,
+        ads: ads.status === 'fulfilled' ? ads.value : null,
+      })
+      if (ml.status === 'rejected' && ads.status === 'rejected') {
+        setError('Gemini利用上限を取得できませんでした。')
+      }
+      setLoading(false)
+    }
+    loadBudgetsWhenAlive()
+    return () => { alive = false }
+  }, [])
+
+  const primaryBudget = budgets.ml || budgets.ads
+  const totalUsed = Number(primaryBudget?.used_usd || 0)
+  const availableSources = [
+    budgets.ml ? 'Market Lens' : null,
+    budgets.ads ? 'Ads AI' : null,
+  ].filter(Boolean).join(' / ')
+  const anyStopped = [budgets.ml, budgets.ads].some((b) => b?.status === 'exceeded' || b?.storage_status === 'corrupt')
+
+  async function handleSmokeTest() {
+    if (!hasGeminiKey || !geminiKey) {
+      setTestResult({ tone: 'error', message: 'Gemini APIキーを保存してから疎通テストを実行してください。' })
+      return
+    }
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const result = await runAdsGeminiBudgetSmokeTest(geminiKey)
+      setBudgets((prev) => ({
+        ...prev,
+        ads: result.after || prev.ads,
+        ml: result.after || prev.ml,
+      }))
+      setTestResult({
+        tone: 'success',
+        message: `Gemini接続OK。今回の記録額は ${formatUsd(result.delta_usd)} です。`,
+      })
+      await loadBudgets()
+    } catch (e) {
+      const body = e?.body || {}
+      setTestResult({
+        tone: 'error',
+        message: body.detail || e?.message || 'Gemini疎通テストに失敗しました。',
+      })
+      await loadBudgets()
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <SettingsCard
+      icon="data_usage"
+      title="Gemini 月間利用上限"
+      description="Insight Studio内のGemini API利用を月$18目安で止めます。Google側の請求アラートも併用してください。"
+    >
+      {loading ? (
+        <div className="rounded-[0.75rem] bg-surface-container px-4 py-3 text-sm text-on-surface-variant japanese-text">
+          利用状況を確認中...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-[0.75rem] bg-primary/[0.06] px-4 py-3">
+            <div>
+              <p className="text-sm font-bold text-primary japanese-text">合計使用額</p>
+              <p className="text-xs text-on-surface-variant japanese-text">Market Lens と Ads AI 共通の月間上限です。</p>
+            </div>
+            <span className="text-lg font-black text-primary">{formatUsd(totalUsed)}</span>
+          </div>
+          {primaryBudget && <BudgetMeter label="Insight Studio Gemini 共通上限" budget={primaryBudget} />}
+          {availableSources && (
+            <p className="text-xs text-on-surface-variant japanese-text">取得元: {availableSources}</p>
+          )}
+          <div className="flex flex-col gap-3 rounded-[0.75rem] bg-surface-container px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold japanese-text">Gemini API疎通テスト</p>
+              <p className="text-xs text-on-surface-variant japanese-text">保存済みキーで短い1回だけ実行し、使用額の変化を確認します。</p>
+            </div>
+            <button
+              onClick={handleSmokeTest}
+              disabled={testing || !hasGeminiKey || anyStopped}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[0.75rem] bg-primary-container px-4 py-2.5 text-sm font-bold text-on-primary transition-all hover:opacity-88 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-base">{testing ? 'progress_activity' : 'bolt'}</span>
+              {testing ? '確認中...' : '疎通テスト'}
+            </button>
+          </div>
+          {!hasGeminiKey && (
+            <p className="text-xs text-on-surface-variant japanese-text">Gemini APIキーを保存すると、ここから実使用額の増加を確認できます。</p>
+          )}
+          {testResult && (
+            <InlineNotice tone={testResult.tone}>{testResult.message}</InlineNotice>
+          )}
+          {error && <ErrorBanner message={error} />}
+          {anyStopped && (
+            <InlineNotice tone="error">
+              Geminiは月間上限に達したため停止中です。Claude fallbackを使うか、翌月まで待ってください。
+            </InlineNotice>
+          )}
+        </div>
+      )}
+    </SettingsCard>
   )
 }
 
@@ -408,6 +605,8 @@ export default function Settings() {
           {claudeSaved && <InlineNotice>Claude API キーを更新しました。</InlineNotice>}
         </div>
       </SettingsCard>
+
+      <GeminiBudgetCard geminiKey={geminiKey} hasGeminiKey={hasGeminiKey} />
 
       <SettingsCard
         icon="cloud"
