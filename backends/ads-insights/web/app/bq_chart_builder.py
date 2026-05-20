@@ -41,7 +41,67 @@ def _color(i: int) -> dict:
 
 def _safe_list(series: pd.Series) -> list:
     """pandas Series を JSON-safe な list に変換（NaN → None, numpy型 → Python型）。"""
-    return [None if pd.isna(v) else _to_native(v) for v in series]
+    out = []
+    for v in series:
+        if pd.isna(v):
+            out.append(None)
+            continue
+        native = _to_native(v)
+        if isinstance(native, float) and not np.isfinite(native):
+            out.append(None)
+            continue
+        out.append(native)
+    return out
+
+
+def _is_missing_label(value: Any) -> bool:
+    """ランキング軸として読めないラベルを欠損扱いにする。"""
+    if pd.isna(value):
+        return True
+    s = str(value).strip()
+    return s == "" or s.lower() in {"none", "nan", "null"}
+
+
+def _valid_label_mask(series: pd.Series) -> pd.Series:
+    return ~series.map(_is_missing_label)
+
+
+def _coverage_label(actual_count: int, limit: int) -> str:
+    return f"上位{actual_count}件 / 最大{limit}件"
+
+
+def _ranking_meta(
+    query_type: str,
+    *,
+    limit: int,
+    actual_count: int,
+    source_row_count: int,
+    missing_label_count: int = 0,
+) -> dict[str, Any]:
+    warnings: list[str] = []
+    if actual_count < limit:
+        warnings.append("low_sample")
+    if missing_label_count:
+        warnings.append("missing_label")
+
+    return {
+        "queryType": query_type,
+        "limit": limit,
+        "actualCount": actual_count,
+        "sourceRowCount": source_row_count,
+        "coverageLabel": _coverage_label(actual_count, limit),
+        "warnings": warnings,
+        "missingLabelCount": missing_label_count,
+    }
+
+
+def _with_meta(group: dict[str, Any], meta: dict[str, Any]) -> dict[str, Any]:
+    return {**group, **meta}
+
+
+def _short_url(value: Any) -> str:
+    s = str(value)
+    return s.split("//")[-1].split("?")[0] if "//" in s else s
 
 
 def build_bq_chart_data(df: pd.DataFrame, query_type: str) -> dict[str, Any]:
@@ -97,13 +157,16 @@ def _build_pv(df: pd.DataFrame) -> list[dict]:
 def _build_traffic(df: pd.DataFrame) -> list[dict]:
     """チャネル別セッション・ユーザーの横棒グラフ（上位15）+ 日別推移。"""
     groups = []
+    limit = 15
+    trend_limit = 5
     # 再集計: source/medium単位で集約（日別明細から）
     agg = df.groupby(["source", "medium"], as_index=False).agg({
         "sessions": "sum", "users": "sum", "page_views": "sum",
     }).sort_values("sessions", ascending=False)
-    top = agg.head(15).copy()
+    top = agg.head(limit).copy()
     top["channel"] = top["source"].astype(str) + " / " + top["medium"].astype(str)
     labels = top["channel"].tolist()
+    meta = _ranking_meta("traffic", limit=limit, actual_count=len(top), source_row_count=len(agg))
 
     datasets = []
     for i, (col, label) in enumerate([("sessions", "セッション"), ("users", "ユーザー")]):
@@ -116,11 +179,11 @@ def _build_traffic(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c["border"],
                 "borderWidth": 1,
             })
-    groups.append({"title": "流入分析 — チャネル別", "chartType": "bar_horizontal", "labels": labels, "datasets": datasets})
+    groups.append(_with_meta({"title": f"流入分析 — チャネル別（{meta['coverageLabel']}）", "chartType": "bar_horizontal", "labels": labels, "datasets": datasets}, meta))
 
-    # V3.3: Top5チャネルの日別セッション推移
+    # V3.3: 上位チャネルの日別セッション推移
     if "event_date" in df.columns:
-        top5_channels = top.head(5)
+        top5_channels = top.head(trend_limit)
         df["channel"] = df["source"].astype(str) + " / " + df["medium"].astype(str)
         daily = df[df["channel"].isin(top5_channels["channel"].tolist())]
         if not daily.empty:
@@ -134,7 +197,8 @@ def _build_traffic(df: pd.DataFrame) -> list[dict]:
                     "borderColor": c["border"], "backgroundColor": c["bg"],
                     "tension": 0.3, "fill": False,
                 })
-            groups.append({"title": "流入分析 — Top5 日別推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
+            trend_meta = _ranking_meta("traffic", limit=trend_limit, actual_count=len(top5_channels), source_row_count=len(agg))
+            groups.append(_with_meta({"title": f"流入分析 — 日別推移（{trend_meta['coverageLabel']}）", "chartType": "line", "labels": d_labels, "datasets": d_datasets}, trend_meta))
 
     return groups
 
@@ -173,12 +237,26 @@ def _build_cv(df: pd.DataFrame) -> list[dict]:
 def _build_search(df: pd.DataFrame) -> list[dict]:
     """検索キーワード上位20の棒グラフ + 日別推移。"""
     groups = []
+    limit = 20
+    trend_limit = 10
+    valid_df = df[_valid_label_mask(df["search_term"])].copy()
+    missing_label_count = int(len(df) - len(valid_df))
+    if valid_df.empty:
+        return groups
+
     # 再集計: search_term単位で集約
-    agg = df.groupby("search_term", as_index=False).agg({
+    agg = valid_df.groupby("search_term", as_index=False).agg({
         "search_count": "sum", "unique_searchers": "sum",
     }).sort_values("search_count", ascending=False)
-    top = agg.head(20)
+    top = agg.head(limit)
     labels = top["search_term"].astype(str).tolist()
+    meta = _ranking_meta(
+        "search",
+        limit=limit,
+        actual_count=len(top),
+        source_row_count=len(agg),
+        missing_label_count=missing_label_count,
+    )
 
     c = _color(0)
     datasets = [{
@@ -188,12 +266,17 @@ def _build_search(df: pd.DataFrame) -> list[dict]:
         "borderColor": c["border"],
         "borderWidth": 1,
     }]
-    groups.append({"title": "検索クエリ — Top 20", "chartType": "bar_horizontal", "labels": labels, "datasets": datasets})
+    groups.append(_with_meta({
+        "title": f"検索クエリ — {meta['coverageLabel']}",
+        "chartType": "bar_horizontal",
+        "labels": labels,
+        "datasets": datasets,
+    }, meta))
 
-    # V3.3: Top10キーワードの日別検索推移
+    # V3.3: 上位キーワードの日別検索推移
     if "event_date" in df.columns:
-        top10_terms = agg.head(10)["search_term"].tolist()
-        daily = df[df["search_term"].isin(top10_terms)]
+        top10_terms = agg.head(trend_limit)["search_term"].tolist()
+        daily = valid_df[valid_df["search_term"].isin(top10_terms)]
         if not daily.empty:
             pivot = daily.pivot_table(index="event_date", columns="search_term", values="search_count", aggfunc="sum").fillna(0).sort_index()
             d_labels = [str(d) for d in pivot.index.tolist()]
@@ -205,7 +288,19 @@ def _build_search(df: pd.DataFrame) -> list[dict]:
                     "borderColor": c["border"], "backgroundColor": c["bg"],
                     "tension": 0.3, "fill": False,
                 })
-            groups.append({"title": "検索クエリ — Top10 日別推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
+            trend_meta = _ranking_meta(
+                "search",
+                limit=trend_limit,
+                actual_count=len(top10_terms),
+                source_row_count=len(agg),
+                missing_label_count=missing_label_count,
+            )
+            groups.append(_with_meta({
+                "title": f"検索クエリ — 日別推移（{trend_meta['coverageLabel']}）",
+                "chartType": "line",
+                "labels": d_labels,
+                "datasets": d_datasets,
+            }, trend_meta))
 
     return groups
 
@@ -255,8 +350,15 @@ def _build_anomaly(df: pd.DataFrame) -> list[dict]:
 def _build_landing(df: pd.DataFrame) -> list[dict]:
     """ランディングページ上位20のセッション数と直帰率 + 日別推移。"""
     groups = []
+    limit = 20
+    trend_limit = 5
+    valid_df = df[_valid_label_mask(df["landing_page"])].copy()
+    missing_label_count = int(len(df) - len(valid_df))
+    if valid_df.empty:
+        return groups
+
     # 再集計: landing_page単位で集約
-    agg = df.groupby("landing_page", as_index=False).agg({
+    agg = valid_df.groupby("landing_page", as_index=False).agg({
         "sessions": "sum",
         "avg_pages_per_session": "mean",
         "bounce_sessions": "sum" if "bounce_sessions" in df.columns else "count",
@@ -266,17 +368,22 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
     elif "bounce_rate" not in agg.columns:
         agg["bounce_rate"] = 0
 
-    top = agg.head(20).copy()
-    # URLを短く表示（ドメイン部分を除去）
-    top["short_page"] = top["landing_page"].astype(str).apply(
-        lambda u: u.split("//")[-1].split("?")[0] if "//" in u else u
+    top = agg.head(limit).copy()
+    meta = _ranking_meta(
+        "landing",
+        limit=limit,
+        actual_count=len(top),
+        source_row_count=len(agg),
+        missing_label_count=missing_label_count,
     )
+    # URLを短く表示（ドメイン部分を除去）
+    top["short_page"] = top["landing_page"].apply(_short_url)
     labels = top["short_page"].tolist()
 
     # セッション数
     c0 = _color(0)
-    groups.append({
-        "title": "LP分析 — セッション数 Top 20",
+    groups.append(_with_meta({
+        "title": f"LP分析 — セッション数（{meta['coverageLabel']}）",
         "chartType": "bar_horizontal",
         "labels": labels,
         "datasets": [{
@@ -286,14 +393,14 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
             "borderColor": c0["border"],
             "borderWidth": 1,
         }],
-    })
+    }, meta))
 
     # 直帰率（%変換）
     if "bounce_rate" in top.columns:
         c1 = _color(3)
-        bounce_pct = [None if pd.isna(v) else round(float(v) * 100, 1) for v in top["bounce_rate"]]
-        groups.append({
-            "title": "LP分析 — 直帰率 Top 20",
+        bounce_pct = [None if pd.isna(v) or not np.isfinite(float(v)) else round(float(v) * 100, 1) for v in top["bounce_rate"]]
+        groups.append(_with_meta({
+            "title": f"LP分析 — 直帰率（{meta['coverageLabel']}）",
             "chartType": "bar_horizontal",
             "labels": labels,
             "datasets": [{
@@ -303,17 +410,15 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c1["border"],
                 "borderWidth": 1,
             }],
-        })
+        }, meta))
 
-    # V3.3: Top5 LPの日別セッション推移
+    # V3.3: 上位LPの日別セッション推移
     if "event_date" in df.columns:
-        top5_pages = agg.head(5)["landing_page"].tolist()
-        daily = df[df["landing_page"].isin(top5_pages)]
+        top_pages = agg.head(trend_limit)["landing_page"].tolist()
+        daily = valid_df[valid_df["landing_page"].isin(top_pages)]
         if not daily.empty:
             daily = daily.copy()
-            daily["short_page"] = daily["landing_page"].astype(str).apply(
-                lambda u: u.split("//")[-1].split("?")[0] if "//" in u else u
-            )
+            daily["short_page"] = daily["landing_page"].apply(_short_url)
             pivot = daily.pivot_table(index="event_date", columns="short_page", values="sessions", aggfunc="sum").fillna(0).sort_index()
             d_labels = [str(d) for d in pivot.index.tolist()]
             d_datasets = []
@@ -324,7 +429,19 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
                     "borderColor": c["border"], "backgroundColor": c["bg"],
                     "tension": 0.3, "fill": False,
                 })
-            groups.append({"title": "LP分析 — Top5 日別推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
+            trend_meta = _ranking_meta(
+                "landing",
+                limit=trend_limit,
+                actual_count=len(top_pages),
+                source_row_count=len(agg),
+                missing_label_count=missing_label_count,
+            )
+            groups.append(_with_meta({
+                "title": f"LP分析 — 日別推移（{trend_meta['coverageLabel']}）",
+                "chartType": "line",
+                "labels": d_labels,
+                "datasets": d_datasets,
+            }, trend_meta))
 
     return groups
 
@@ -332,6 +449,7 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
 # ========== デバイス分析（V3.3: 既存ランキング + 日別推移） ==========
 def _build_device(df: pd.DataFrame) -> list[dict]:
     """デバイスカテゴリ別セッション・ユーザーの横棒グラフ + 日別推移。"""
+    groups = []
     # デバイスカテゴリ別に集約（日別明細から再集計）
     agg = df.groupby("device_category", as_index=False).agg({
         "sessions": "sum",
@@ -340,7 +458,6 @@ def _build_device(df: pd.DataFrame) -> list[dict]:
     }).sort_values("sessions", ascending=False)
 
     labels = agg["device_category"].astype(str).tolist()
-    groups = []
 
     datasets = []
     for i, (col, label) in enumerate([("sessions", "セッション"), ("users", "ユーザー"), ("page_views", "PV")]):
@@ -357,21 +474,34 @@ def _build_device(df: pd.DataFrame) -> list[dict]:
     groups.append({"title": "デバイス分析 — カテゴリ別", "chartType": "bar_horizontal", "labels": labels, "datasets": datasets})
 
     # OS別の内訳
-    os_agg = df.groupby("os", as_index=False).agg({"sessions": "sum"}).sort_values("sessions", ascending=False).head(10)
-    os_labels = os_agg["os"].astype(str).tolist()
-    c = _color(4)
-    groups.append({
-        "title": "デバイス分析 — OS別 Top 10",
-        "chartType": "bar_horizontal",
-        "labels": os_labels,
-        "datasets": [{
-            "label": "セッション",
-            "data": _safe_list(os_agg["sessions"]),
-            "backgroundColor": c["bg"],
-            "borderColor": c["border"],
-            "borderWidth": 1,
-        }],
-    })
+    if "os" in df.columns:
+        os_limit = 10
+        os_valid_df = df[_valid_label_mask(df["os"])].copy()
+        os_missing_label_count = int(len(df) - len(os_valid_df))
+        os_agg = os_valid_df.groupby("os", as_index=False).agg({"sessions": "sum"}).sort_values("sessions", ascending=False)
+        os_top = os_agg.head(os_limit)
+        if not os_top.empty:
+            os_meta = _ranking_meta(
+                "device",
+                limit=os_limit,
+                actual_count=len(os_top),
+                source_row_count=len(os_agg),
+                missing_label_count=os_missing_label_count,
+            )
+            os_labels = os_top["os"].astype(str).tolist()
+            c = _color(4)
+            groups.append(_with_meta({
+                "title": f"デバイス分析 — OS別（{os_meta['coverageLabel']}）",
+                "chartType": "bar_horizontal",
+                "labels": os_labels,
+                "datasets": [{
+                    "label": "セッション",
+                    "data": _safe_list(os_top["sessions"]),
+                    "backgroundColor": c["bg"],
+                    "borderColor": c["border"],
+                    "borderWidth": 1,
+                }],
+            }, os_meta))
 
     # V3.3: デバイスカテゴリ別日別推移
     if "event_date" in df.columns:
@@ -439,22 +569,33 @@ def _build_user_attr(df: pd.DataFrame) -> list[dict]:
     })
 
     # 地域別（上位15都市）
-    city_agg = df.groupby("city", as_index=False).agg({"sessions": "sum"}).sort_values("sessions", ascending=False).head(15)
-    city_agg = city_agg[city_agg["city"].notna() & (city_agg["city"] != "(not set)")]
-    if not city_agg.empty:
+    city_limit = 15
+    city_valid_mask = _valid_label_mask(df["city"]) & (df["city"] != "(not set)")
+    city_valid_df = df[city_valid_mask].copy()
+    city_missing_label_count = int(len(df) - len(city_valid_df))
+    city_agg = city_valid_df.groupby("city", as_index=False).agg({"sessions": "sum"}).sort_values("sessions", ascending=False)
+    city_top = city_agg.head(city_limit)
+    if not city_top.empty:
+        city_meta = _ranking_meta(
+            "user_attr",
+            limit=city_limit,
+            actual_count=len(city_top),
+            source_row_count=len(city_agg),
+            missing_label_count=city_missing_label_count,
+        )
         c2 = _color(2)
-        groups.append({
-            "title": "ユーザー属性 — 地域別 Top 15",
+        groups.append(_with_meta({
+            "title": f"ユーザー属性 — 地域別（{city_meta['coverageLabel']}）",
             "chartType": "bar_horizontal",
-            "labels": city_agg["city"].astype(str).tolist(),
+            "labels": city_top["city"].astype(str).tolist(),
             "datasets": [{
                 "label": "セッション",
-                "data": _safe_list(city_agg["sessions"]),
+                "data": _safe_list(city_top["sessions"]),
                 "backgroundColor": c2["bg"],
                 "borderColor": c2["border"],
                 "borderWidth": 1,
             }],
-        })
+        }, city_meta))
 
     return groups
 
@@ -542,17 +683,22 @@ def _build_lp_quality(df: pd.DataFrame, search_df: pd.DataFrame = None) -> list[
     groups = []
     if df is None or df.empty or "landing_page" not in df.columns:
         return groups
+    limit = 15
+    valid_df = df[_valid_label_mask(df["landing_page"])].copy()
+    missing_label_count = int(len(df) - len(valid_df))
+    if valid_df.empty:
+        return groups
 
     # landing_page単位で再集計
-    agg = df.groupby("landing_page", as_index=False).agg({
+    agg = valid_df.groupby("landing_page", as_index=False).agg({
         "sessions": "sum",
         "avg_pages_per_session": "mean",
     })
-    if "bounce_sessions" in df.columns:
-        b_agg = df.groupby("landing_page", as_index=False).agg({"bounce_sessions": "sum", "sessions": "sum"})
+    if "bounce_sessions" in valid_df.columns:
+        b_agg = valid_df.groupby("landing_page", as_index=False).agg({"bounce_sessions": "sum", "sessions": "sum"})
         agg["bounce_rate"] = b_agg["bounce_sessions"] / b_agg["sessions"]
-    elif "bounce_rate" in df.columns:
-        agg["bounce_rate"] = df.groupby("landing_page", as_index=False)["bounce_rate"].mean()["bounce_rate"]
+    elif "bounce_rate" in valid_df.columns:
+        agg["bounce_rate"] = valid_df.groupby("landing_page", as_index=False)["bounce_rate"].mean()["bounce_rate"]
     else:
         agg["bounce_rate"] = 0.5  # デフォルト
 
@@ -561,14 +707,19 @@ def _build_lp_quality(df: pd.DataFrame, search_df: pd.DataFrame = None) -> list[
     max_q = agg["quality_raw"].max()
     agg["quality_score"] = (agg["quality_raw"] / max_q * 100).round(1) if max_q > 0 else 0
 
-    top15 = agg.sort_values("quality_score", ascending=False).head(15).copy()
-    top15["short_page"] = top15["landing_page"].astype(str).apply(
-        lambda u: u.split("//")[-1].split("?")[0] if "//" in u else u
+    top15 = agg.sort_values("quality_score", ascending=False).head(limit).copy()
+    top15["short_page"] = top15["landing_page"].apply(_short_url)
+    meta = _ranking_meta(
+        "landing",
+        limit=limit,
+        actual_count=len(top15),
+        source_row_count=len(agg),
+        missing_label_count=missing_label_count,
     )
 
     c0 = _color(2)
-    groups.append({
-        "title": "LP品質ランキング — Top 15",
+    groups.append(_with_meta({
+        "title": f"LP品質ランキング — {meta['coverageLabel']}",
         "chartType": "bar_horizontal",
         "labels": top15["short_page"].tolist(),
         "datasets": [{
@@ -576,7 +727,7 @@ def _build_lp_quality(df: pd.DataFrame, search_df: pd.DataFrame = None) -> list[
             "data": _safe_list(top15["quality_score"]),
             "backgroundColor": c0["bg"], "borderColor": c0["border"], "borderWidth": 1,
         }],
-    })
+    }, meta))
 
     return groups
 

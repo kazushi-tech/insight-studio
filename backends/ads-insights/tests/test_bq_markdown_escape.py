@@ -28,11 +28,11 @@ def test_escape_no_pipe():
 
 
 def test_escape_none():
-    assert _escape_markdown_cell(None) == ""
+    assert _escape_markdown_cell(None) == "データなし"
 
 
 def test_escape_nan():
-    assert _escape_markdown_cell(float("nan")) == ""
+    assert _escape_markdown_cell(float("nan")) == "データなし"
 
 
 def test_escape_numeric():

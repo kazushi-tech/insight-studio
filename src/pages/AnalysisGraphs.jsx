@@ -16,6 +16,7 @@ import {
   regenerateAdsReportBundle,
   buildAiChartContext,
   buildAnalysisInstructions,
+  normalizeChartGroupShape,
 } from '../utils/adsReports'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
@@ -282,12 +283,24 @@ function ThemeTabs({ activeTheme, onThemeChange, themes }) {
   )
 }
 
+function formatRawTableValue(value) {
+  if (value == null || value === '') return '欠損'
+  if (typeof value === 'number') return Number.isFinite(value) ? value : '算出不可'
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return '欠損'
+    if (['none', 'nan', 'null'].includes(trimmed.toLowerCase())) return '欠損'
+    return value
+  }
+  return value
+}
+
 /* ── Graph Section (Accordion for analyst) ── */
 function GraphSection({ theme, isOpen, onToggle, viewMode }) {
   const summary = useMemo(() => computeThemeSummary(theme.groups), [theme.groups])
 
   return (
-    <div id={`theme-section-${theme.id}`} className="overflow-hidden rounded-[1.5rem] border border-primary/15 bg-gradient-to-br from-primary/[0.06] via-surface-container-lowest to-surface-container-low shadow-[0_22px_60px_rgba(0,57,37,0.08)] scroll-mt-24">
+    <div id={`theme-section-${theme.id}`} className="overflow-hidden rounded-xl border border-outline-variant/25 bg-surface-container-lowest shadow-sm scroll-mt-24">
       <button
         onClick={onToggle}
         className="w-full px-6 py-5 flex items-center justify-between cursor-pointer hover:bg-primary/[0.04] transition-colors border-b border-primary/10 text-left"
@@ -324,12 +337,16 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
       {isOpen && (
         <div className="p-6 lg:p-8">
           <div className="grid grid-cols-1 gap-8">
-            {theme.groups.map((group, groupIndex) => (
-              <ChartGroupCard
-                key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
-                group={group}
-              />
-            ))}
+            {theme.groups.map((group, groupIndex) => {
+              const normalizedGroup = normalizeChartGroupShape(group)
+              const shouldCollapse = groupIndex >= 2 || (normalizedGroup.labels?.length ?? 0) > 12
+              return (
+                <ChartGroupCard
+                  key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
+                  group={{ ...normalizedGroup, defaultCollapsed: shouldCollapse }}
+                />
+              )
+            })}
           </div>
 
           {viewMode === 'analyst' && theme.groups.length > 0 && (
@@ -339,16 +356,24 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
                 生データテーブル
               </h4>
               {theme.groups.map((group, gIdx) => {
-                const labels = Array.isArray(group.labels) ? group.labels : []
-                const datasets = Array.isArray(group.datasets) ? group.datasets : []
+                const normalizedGroup = normalizeChartGroupShape(group)
+                const labels = Array.isArray(normalizedGroup.labels) ? normalizedGroup.labels : []
+                const datasets = Array.isArray(normalizedGroup.datasets) ? normalizedGroup.datasets : []
                 if (labels.length === 0 || datasets.length === 0) return null
+                const warnings = Array.isArray(normalizedGroup.warnings) ? normalizedGroup.warnings : []
 
                 return (
                   <div key={gIdx} className="space-y-2">
                     <div className="flex items-center gap-3">
-                      <p className="text-xs font-bold text-on-surface japanese-text">{group.title ?? '無題'}</p>
-                      {group._periodTag && (
-                        <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{group._periodTag}</span>
+                      <p className="text-xs font-bold text-on-surface japanese-text">{normalizedGroup.title ?? '無題'}</p>
+                      {normalizedGroup._periodTag && (
+                        <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{normalizedGroup._periodTag}</span>
+                      )}
+                      {normalizedGroup.coverageLabel && (
+                        <span className="text-[10px] font-bold text-primary bg-primary/[0.08] px-2 py-0.5 rounded">{normalizedGroup.coverageLabel}</span>
+                      )}
+                      {warnings.length > 0 && (
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded">欠損/注意あり</span>
                       )}
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-outline-variant/30 shadow-sm max-h-[400px] overflow-y-auto">
@@ -367,7 +392,7 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
                               <td className="px-4 py-2 font-medium text-on-surface-variant sticky left-0 bg-surface-container-lowest whitespace-nowrap text-xs">{label}</td>
                               {datasets.map((ds, dsIdx) => (
                                 <td key={dsIdx} className="px-4 py-2 text-right font-medium tabular-nums text-xs">
-                                  {ds.data?.[rowIdx] != null ? ds.data[rowIdx] : '-'}
+                                  {formatRawTableValue(ds.data?.[rowIdx])}
                                 </td>
                               ))}
                             </tr>
@@ -496,7 +521,7 @@ function AdsImage2KpiBoard({
   const hasTheme = (id) => themes.some((theme) => theme.id === id)
 
   const metrics = [
-    { icon: 'stacked_line_chart', label: 'グラフ数', value: `${filteredGroups.length}件`, delta: isFallback ? '暫定' : '表示中', tone: filteredGroups.length > 0 ? 'up' : 'neutral' },
+    { icon: 'stacked_line_chart', label: '表示グループ数', value: `${filteredGroups.length}件`, delta: isFallback ? '暫定' : '統合後', tone: filteredGroups.length > 0 ? 'up' : 'neutral' },
     { icon: 'category', label: 'テーマ数', value: `${themes.length}分類`, delta: 'Python分類', tone: themes.length > 0 ? 'up' : 'neutral' },
     { icon: 'shopping_cart', label: 'CVイベント', value: hasTheme('cv') ? '確認可' : '未取得', delta: 'GA4イベント', tone: hasTheme('cv') ? 'up' : 'neutral' },
     { icon: 'travel_explore', label: '流入分析', value: hasTheme('traffic') ? '確認可' : '未取得', delta: 'source/medium', tone: hasTheme('traffic') ? 'up' : 'neutral' },
@@ -714,7 +739,7 @@ function GraphReadingBoard({
         </div>
         <div className="grid grid-cols-3 gap-3 min-w-[360px]">
           <div className="rounded-2xl bg-surface-container-low p-4">
-            <p className="text-[10px] font-black text-on-surface-variant tracking-widest">グラフ数</p>
+            <p className="text-[10px] font-black text-on-surface-variant tracking-widest">表示グループ数</p>
             <strong className="text-2xl text-primary tabular-nums">{filteredGroups.length}</strong>
           </div>
           <div className="rounded-2xl bg-surface-container-low p-4">
@@ -1421,32 +1446,6 @@ export default function AnalysisGraphs() {
           />
         )}
 
-        {hasGraphData && (
-          <AdsImage2KpiBoard
-            filteredGroups={filteredGroups}
-            themes={themes}
-            setupState={setupState}
-            reportBundle={reportBundle}
-            periodFilter={periodFilter}
-            periodTags={periodTags}
-            onPeriodFilterChange={setPeriodFilter}
-            onChangeSetup={handleChangeSetup}
-            onScrollToGraphs={() => scrollToSection('graphs')}
-          />
-        )}
-
-        {hasGraphData && (
-          <GraphReadingBoard
-            themes={themes}
-            filteredGroups={filteredGroups}
-            topInsights={topInsights}
-            activeScopeLabel={activeScopeLabel}
-            setupState={setupState}
-            onThemeChange={setActiveTheme}
-            onScrollToGraphs={() => scrollToSection('graphs')}
-          />
-        )}
-
         {/* Loading state */}
         {loading && !currentReport && chartGroups.length === 0 && (
           <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
@@ -1458,19 +1457,19 @@ export default function AnalysisGraphs() {
         <div className={hasGraphData ? 'space-y-10 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start 2xl:gap-8 2xl:space-y-0' : ''}>
           <div className="min-w-0 space-y-10">
             {/* ═══ 4. GRAPH SECTION ═══ */}
-            <section id="section-graphs" className="scroll-mt-24 mt-16 space-y-6">
+            <section id="section-graphs" className="scroll-mt-24 space-y-6">
               {hasGraphData ? (
                 <>
-                  <div className="rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
+                  <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-6 shadow-sm">
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                       <div className="max-w-3xl">
                         <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-[0.14em] uppercase text-primary">
                           <span className="material-symbols-outlined text-base" aria-hidden="true">stacked_line_chart</span>
                           Python集計グラフ
                         </span>
-                        <h2 className="mt-2 text-2xl font-extrabold text-primary japanese-text">Python集計グラフ</h2>
+                        <h2 className="mt-2 text-2xl font-extrabold text-on-surface japanese-text">Python集計グラフ</h2>
                         <p className="mt-1 text-base font-bold text-on-surface japanese-text">
-                          Python集計グラフを先に確認してから、右カラムのAIグラフチャットへ渡します。
+                          Pythonで集計済みのグラフを、この画面の先頭で確認できます。
                         </p>
                         <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
                           期間選択後にBigQueryから取得したGA4数値をPythonで集計し、CVイベント・流入・LP・デバイス・生データの順で確認します。
@@ -1479,7 +1478,7 @@ export default function AnalysisGraphs() {
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-xs min-w-[300px]">
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">グラフ数</b>
+                          <b className="block text-on-surface-variant">表示グループ数</b>
                           <strong className="text-xl text-primary tabular-nums">{filteredGroups.length}</strong>
                         </span>
                         <span className="rounded-2xl bg-surface-container-low px-3 py-3">
@@ -1497,7 +1496,7 @@ export default function AnalysisGraphs() {
                   {keyCharts.length > 0 && (
                     <div className="grid grid-cols-1 gap-8">
                       {keyCharts.map((group, idx) => (
-                        <ChartGroupCard key={`key-${group.title ?? idx}`} group={group} featured />
+                        <ChartGroupCard key={`key-${group.title ?? idx}`} group={{ ...group, defaultCollapsed: idx >= 3 }} featured />
                       ))}
                     </div>
                   )}

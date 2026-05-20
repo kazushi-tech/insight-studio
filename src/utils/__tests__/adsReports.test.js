@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { matchRelevantCharts } from '../adsReports'
+import {
+  buildAdsReportBundle,
+  getDisplayChartGroups,
+  matchRelevantCharts,
+  normalizeChartGroupShape,
+} from '../adsReports'
 
 const makeGroup = (overrides = {}) => ({
   title: '',
@@ -101,5 +106,96 @@ describe('matchRelevantCharts', () => {
     const content = groups.map((g) => g.title).join(' ')
     const result = matchRelevantCharts(content, groups)
     expect(result).toHaveLength(3)
+  })
+})
+
+describe('chart group normalization', () => {
+  it('pads short data with null and reports missing values', () => {
+    const normalized = normalizeChartGroupShape(makeGroup({
+      title: '検索クエリ — 上位3件 / 最大20件',
+      labels: ['a', 'b', 'c'],
+      datasets: [{ label: '検索回数', data: [10, 5] }],
+    }))
+
+    expect(normalized.datasets[0].data).toEqual([10, 5, null])
+    expect(normalized.metadata.hasLabelDataMismatch).toBe(true)
+    expect(normalized.metadata.missingDataPoints).toBe(1)
+    expect(normalized.warnings).toContain('label_data_mismatch')
+    expect(normalized.warnings).toContain('missing_values')
+  })
+
+  it('keeps overflow data visible with placeholder labels instead of dropping it', () => {
+    const normalized = normalizeChartGroupShape(makeGroup({
+      labels: ['a'],
+      datasets: [{ label: 'sessions', data: [10, 20, 30] }],
+    }))
+
+    expect(normalized.labels).toEqual(['a', '未対応ラベル 2', '未対応ラベル 3'])
+    expect(normalized.datasets[0].data).toEqual([10, 20, 30])
+    expect(normalized.metadata.overflowDataPoints).toBe(2)
+    expect(normalized.warnings).toContain('overflow_values')
+  })
+
+  it('does not merge all-period ranking charts with different labels', () => {
+    const groups = [
+      makeGroup({
+        title: '検索クエリ — 上位2件 / 最大20件',
+        chartType: 'bar_horizontal',
+        labels: ['alpha', 'beta'],
+        datasets: [{ label: '検索回数', data: [10, 5] }],
+        _periodTag: '2026-04',
+      }),
+      makeGroup({
+        title: '検索クエリ — 上位2件 / 最大20件',
+        chartType: 'bar_horizontal',
+        labels: ['gamma', 'delta'],
+        datasets: [{ label: '検索回数', data: [8, 4] }],
+        _periodTag: '2026-05',
+      }),
+    ]
+
+    const displayGroups = getDisplayChartGroups(groups, 'all')
+
+    expect(displayGroups).toHaveLength(2)
+    expect(displayGroups[0].labels).toEqual(['alpha', 'beta'])
+    expect(displayGroups[1].labels).toEqual(['gamma', 'delta'])
+  })
+
+  it('filters groups that only contain null values', () => {
+    const displayGroups = getDisplayChartGroups([
+      makeGroup({
+        title: '空グラフ',
+        labels: ['a', 'b'],
+        datasets: [{ label: '値', data: [null, null] }],
+      }),
+    ])
+
+    expect(displayGroups).toEqual([])
+  })
+
+  it('matches report results by period key instead of relying only on index', () => {
+    const bundle = buildAdsReportBundle({
+      setupState: {
+        datasetId: 'analytics_123',
+        periods: ['2026-04', '2026-05'],
+      },
+      results: [
+        {
+          period: '2026-05',
+          report_md: '# May',
+          chart_data: { groups: [makeGroup({ title: 'May graph', labels: ['m'], datasets: [{ label: 'v', data: [1] }] })] },
+        },
+        {
+          period: '2026-04',
+          report_md: '# Apr',
+          chart_data: { groups: [makeGroup({ title: 'Apr graph', labels: ['a'], datasets: [{ label: 'v', data: [2] }] })] },
+        },
+      ],
+    })
+
+    expect(bundle.periodReports[0].periodTag).toBe('2026-04')
+    expect(bundle.periodReports[0].reportMd).toBe('# Apr')
+    expect(bundle.periodReports[0].chartGroups[0].title).toBe('Apr graph')
+    expect(bundle.periodReports[1].reportMd).toBe('# May')
   })
 })
