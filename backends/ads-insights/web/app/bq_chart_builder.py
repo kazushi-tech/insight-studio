@@ -198,7 +198,8 @@ def _build_traffic(df: pd.DataFrame) -> list[dict]:
                     "tension": 0.3, "fill": False,
                 })
             trend_meta = _ranking_meta("traffic", limit=trend_limit, actual_count=len(top5_channels), source_row_count=len(agg))
-            groups.append(_with_meta({"title": f"流入分析 — 日別推移（{trend_meta['coverageLabel']}）", "chartType": "line", "labels": d_labels, "datasets": d_datasets}, trend_meta))
+            trend_meta["selectionLabel"] = f"セッション数上位{len(top5_channels)}チャネルを表示"
+            groups.append(_with_meta({"title": f"流入分析 — セッション数上位{len(top5_channels)}チャネルの日別推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets}, trend_meta))
 
     return groups
 
@@ -295,8 +296,9 @@ def _build_search(df: pd.DataFrame) -> list[dict]:
                 source_row_count=len(agg),
                 missing_label_count=missing_label_count,
             )
+            trend_meta["selectionLabel"] = f"検索回数上位{len(top10_terms)}語を表示"
             groups.append(_with_meta({
-                "title": f"検索クエリ — 日別推移（{trend_meta['coverageLabel']}）",
+                "title": f"検索クエリ — 検索回数上位{len(top10_terms)}語の日別推移",
                 "chartType": "line",
                 "labels": d_labels,
                 "datasets": d_datasets,
@@ -436,8 +438,9 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
                 source_row_count=len(agg),
                 missing_label_count=missing_label_count,
             )
+            trend_meta["selectionLabel"] = f"セッション数上位{len(top_pages)}LPを表示"
             groups.append(_with_meta({
-                "title": f"LP分析 — 日別推移（{trend_meta['coverageLabel']}）",
+                "title": f"LP分析 — セッション数上位{len(top_pages)}LPの日別推移",
                 "chartType": "line",
                 "labels": d_labels,
                 "datasets": d_datasets,

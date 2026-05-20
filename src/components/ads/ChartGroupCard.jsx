@@ -427,6 +427,7 @@ export default function ChartGroupCard({ group, featured = false }) {
     [normalizedGroup],
   )
   const coverageLabel = normalizedGroup?.coverageLabel || normalizedGroup?.metadata?.coverageLabel
+  const selectionLabel = normalizedGroup?.selectionLabel || normalizedGroup?.metadata?.selectionLabel
   const hasRenderableData = labels.length > 0 && pointStats.finiteValueCount > 0
   const contentId = `chart-card-${String(`${normalizedGroup?.title ?? 'chart'}-${normalizedGroup?._periodTag ?? ''}`).replace(/[^\w-]+/g, '-')}`
 
@@ -672,8 +673,13 @@ export default function ChartGroupCard({ group, featured = false }) {
               {pointStats.seriesCount} 系列
             </span>
             <span className="text-on-surface-variant text-[10px] font-bold bg-surface-container-lowest/70 border border-outline-variant/15 px-2.5 py-1 rounded-full">
-              {coverageLabel || `${pointStats.finiteValueCount}値 / ${pointStats.labelCount}項目`}
+              {selectionLabel || coverageLabel || `${pointStats.finiteValueCount}値 / ${pointStats.labelCount}項目`}
             </span>
+            {selectionLabel && coverageLabel && (
+              <span className="text-on-surface-variant text-[10px] font-bold bg-surface-container-lowest/70 border border-outline-variant/15 px-2.5 py-1 rounded-full">
+                実数: {coverageLabel}
+              </span>
+            )}
             {warningLabels.map((label) => (
               <span key={label} className="text-amber-900 text-[10px] font-black bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
                 {label}
@@ -712,7 +718,7 @@ export default function ChartGroupCard({ group, featured = false }) {
 
       {isCollapsed ? (
         <div id={contentId} className="border-t border-outline-variant/20 px-6 py-4 text-sm font-bold text-on-surface-variant">
-          {coverageLabel || `${pointStats.labelCount}項目`}、{pointStats.seriesCount}系列。必要なときだけ展開して確認できます。
+          {selectionLabel || coverageLabel || `${pointStats.labelCount}項目`}、{pointStats.seriesCount}系列。必要なときだけ展開して確認できます。
         </div>
       ) : hasRenderableData ? (
         <div id={contentId} className="flex-1 flex flex-col px-6 pb-6">
