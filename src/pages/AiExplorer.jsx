@@ -612,7 +612,13 @@ export default function AiExplorer() {
         isAdsAuthenticated={isAdsAuthenticated}
         handleRefreshReport={handleRefreshReport}
         hasAnalysisKey={hasAnalysisKey}
-        onClearChat={() => { setMessages([]); setStatus(''); clearDraft('ai-explorer') }}
+        onClearChat={() => {
+          setMessages([])
+          setInput('')
+          submittingRef.current = false
+          setStatus('✓ セッションをクリアしました。次の質問は履歴なしで生成します。')
+          clearDraft('ai-explorer')
+        }}
         mlStatus={mlStatus}
         reportError={reportError}
         reportBundle={reportBundle}

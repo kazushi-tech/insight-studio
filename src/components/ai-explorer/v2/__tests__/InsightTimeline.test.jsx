@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import InsightTimeline from '../InsightTimeline'
 
 vi.mock('../../../MarkdownRenderer', () => ({
@@ -57,6 +58,8 @@ describe('InsightTimeline', () => {
     expect(screen.queryByText('文字サイズ')).not.toBeInTheDocument()
     expect(screen.queryByText('チャット消去')).not.toBeInTheDocument()
     expect(screen.queryByText('コンテキスト更新')).not.toBeInTheDocument()
+    expect(screen.getByTestId('ai-session-toolbar')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'セッションをクリア' })).toBeDisabled()
   })
 
   it('renders an InsightTurnCard for each completed user/assistant pair', () => {
@@ -71,6 +74,25 @@ describe('InsightTimeline', () => {
     expect(cards).toHaveLength(2)
     // Skeleton should not render when loading=false and no pending turn.
     expect(screen.queryByRole('status', { name: '考察を生成中' })).not.toBeInTheDocument()
+    expect(screen.getByText('2件のやり取りを保持中。精度を戻すなら新しいセッションで聞き直せます。')).toBeInTheDocument()
+  })
+
+  it('calls onClearChat from the visible session clear button', async () => {
+    const user = userEvent.setup()
+    const onClearChat = vi.fn()
+    render(
+      <InsightTimeline
+        {...baseProps}
+        onClearChat={onClearChat}
+        messages={[
+          { role: 'user', text: '質問' },
+          { role: 'assistant', text: '回答' },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByText('セッションをクリア'))
+    expect(onClearChat).toHaveBeenCalledTimes(1)
   })
 
   it('shows the loading skeleton when there is a pending user message', () => {
