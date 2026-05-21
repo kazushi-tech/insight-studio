@@ -36,8 +36,22 @@ function getSavedCaseId() {
   }
 }
 
+function getCaseLoginPriority(caseItem) {
+  const caseId = getCaseId(caseItem)
+  const savedCaseId = getSavedCaseId()
+  let score = 0
+  if (caseId && caseId === savedCaseId) score += 20
+  if (caseId && getCaseTrustToken(caseId)) score += 10
+  return score
+}
+
+function getCaseLoginOrder(cases) {
+  return [...cases]
+    .filter((caseItem) => getCaseId(caseItem))
+    .sort((a, b) => getCaseLoginPriority(b) - getCaseLoginPriority(a))
+}
+
 export default function Login() {
-  const [authMode, setAuthMode] = useState('case')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -49,7 +63,6 @@ export default function Login() {
 
   // Prefetch active cases for parallel login attempts
   const [activeCases, setActiveCases] = useState([])
-  const [selectedCaseId, setSelectedCaseId] = useState(() => getSavedCaseId())
   useEffect(() => {
     getCasesPublic()
       .then((data) => setActiveCases(data.cases || (Array.isArray(data) ? data : [])))
@@ -59,20 +72,6 @@ export default function Login() {
   useEffect(() => {
     void warmAdsInsightsBackend()
   }, [])
-
-  useEffect(() => {
-    if (activeCases.length === 0) return
-    const currentCaseIds = new Set(activeCases.map(getCaseId).filter(Boolean))
-    if (selectedCaseId && currentCaseIds.has(selectedCaseId)) return
-
-    const trustedCase = activeCases.find((caseItem) => getCaseTrustToken(getCaseId(caseItem)))
-    const savedCaseId = getSavedCaseId()
-    const fallbackCase =
-      activeCases.find((caseItem) => getCaseId(caseItem) === savedCaseId) ||
-      trustedCase ||
-      activeCases[0]
-    setSelectedCaseId(getCaseId(fallbackCase))
-  }, [activeCases, selectedCaseId])
 
   // Already logged in — case_user は直接 wizard へ、admin はホームへ
   if (user) {
@@ -113,35 +112,42 @@ export default function Login() {
       setError('パスワードを入力してください')
       return
     }
-    if (authMode === 'case' && !selectedCaseId) {
-      setError('案件を選択してください')
-      return
-    }
     setLoading(true)
     setError('')
     try {
-      if (authMode === 'admin') {
-        await loginAds(password)
-        // loginAds が成功 → AuthContext で処理済み
-        return
+      const orderedCases = getCaseLoginOrder(activeCases)
+
+      for (const caseItem of orderedCases) {
+        const caseId = getCaseId(caseItem)
+        const result = await loginCase(caseId, password, { deviceTrustToken: getCaseTrustToken(caseId) })
+          .catch((err) => {
+            if (err?.status === 401 || err?.status === 404) return null
+            throw err
+          })
+
+        if (result?.ok) {
+          loginWithCase(result)
+          return
+        }
+        if (result?.totp_required) {
+          setPendingTotp({ caseId: result.case_id, caseName: result.name, password })
+          return
+        }
       }
 
-      const r = await loginCase(selectedCaseId, password, { deviceTrustToken: getCaseTrustToken(selectedCaseId) })
-      if (r?.ok) {
-        loginWithCase(r)
-        return
-      }
-      if (r?.totp_required) {
-        setPendingTotp({ caseId: r.case_id, caseName: r.name, password })
+      const adminResult = await loginAds(password).catch((err) => {
+        if (err?.status === 401) return null
+        throw err
+      })
+      if (adminResult) {
+        // loginAds が成功 → AuthContext で処理済み
         return
       }
 
       setError('パスワードが正しくありません')
     } catch (err) {
-      if (authMode === 'case' && err?.status === 401) {
+      if (err?.status === 401) {
         setError('パスワードが正しくありません')
-      } else if (authMode === 'admin' && err?.status === 401) {
-        setError('管理者パスワードが正しくありません')
       } else {
         setError(err?.message || 'ログインに失敗しました')
       }
@@ -222,75 +228,6 @@ export default function Login() {
           <form className="w-full space-y-6" onSubmit={handleSubmit}>
             {!pendingTotp ? (
               <>
-                <div className="space-y-2">
-                  <span
-                    className="block text-xs font-semibold ml-1"
-                    style={{ color: DK.textMuted }}
-                  >
-                    ログイン種別
-                  </span>
-                  <div
-                    className="grid grid-cols-2 gap-1 rounded-xl p-1"
-                    style={{ backgroundColor: DK.input }}
-                  >
-                    {[
-                      ['case', '案件'],
-                      ['admin', '管理者'],
-                    ].map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => { setAuthMode(value); setError('') }}
-                        disabled={loading}
-                        className="h-10 rounded-lg text-sm font-bold transition-all"
-                        style={{
-                          backgroundColor: authMode === value ? DK.gold : 'transparent',
-                          color: authMode === value ? DK.onGold : DK.textMuted,
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {authMode === 'case' && (
-                  <div className="space-y-2">
-                    <label
-                      htmlFor="login-case"
-                      className="block text-xs font-semibold ml-1"
-                      style={{ color: DK.textMuted }}
-                    >
-                      案件
-                    </label>
-                    <select
-                      id="login-case"
-                      value={selectedCaseId}
-                      onChange={(e) => { setSelectedCaseId(e.target.value); setError('') }}
-                      disabled={loading || activeCases.length === 0}
-                      className="w-full h-12 px-4 border-none rounded-xl transition-all duration-200 outline-none"
-                      style={{
-                        backgroundColor: DK.input,
-                        color: DK.text,
-                        border: inputRing,
-                      }}
-                    >
-                      {activeCases.length === 0 ? (
-                        <option value="">案件を取得中</option>
-                      ) : (
-                        activeCases.map((caseItem) => {
-                          const caseId = getCaseId(caseItem)
-                          return (
-                            <option key={caseId} value={caseId}>
-                              {caseItem.name || caseId}
-                            </option>
-                          )
-                        })
-                      )}
-                    </select>
-                  </div>
-                )}
-
                 {/* Password Field */}
                 <div className="space-y-2">
                   <label

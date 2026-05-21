@@ -53,8 +53,9 @@ describe('Login', () => {
     warmAdsInsightsBackend.mockResolvedValue(false)
   })
 
-  it('logs into only the selected case without trying admin first', async () => {
+  it('keeps the login screen simple and tries the saved case first', async () => {
     const user = userEvent.setup()
+    localStorage.setItem('insight-studio-current-case', JSON.stringify({ case_id: 'demo' }))
     loginCase.mockResolvedValue({
       ok: true,
       case_id: 'demo',
@@ -65,7 +66,8 @@ describe('Login', () => {
 
     renderLogin()
 
-    await user.selectOptions(await screen.findByRole('combobox'), 'demo')
+    expect(screen.queryByText('ログイン種別')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     await user.type(screen.getByLabelText('パスワード'), 'case-password')
     await user.click(screen.getByRole('button', { name: /ログイン|ログイン中/ }))
 
@@ -77,19 +79,19 @@ describe('Login', () => {
     expect(loginWithCase).toHaveBeenCalledWith(expect.objectContaining({ case_id: 'demo' }))
   })
 
-  it('uses admin login only when admin mode is selected', async () => {
+  it('falls back to admin login when no case password matches', async () => {
     const user = userEvent.setup()
+    loginCase.mockRejectedValue({ status: 401 })
     loginAds.mockResolvedValue({ token: 'admin-token' })
 
     renderLogin()
 
-    await user.click(screen.getByRole('button', { name: '管理者' }))
     await user.type(screen.getByLabelText('パスワード'), 'admin-password')
     await user.click(screen.getByRole('button', { name: /ログイン|ログイン中/ }))
 
     await waitFor(() => {
       expect(loginAds).toHaveBeenCalledWith('admin-password')
     })
-    expect(loginCase).not.toHaveBeenCalled()
+    expect(loginCase).toHaveBeenCalledTimes(2)
   })
 })
