@@ -545,6 +545,103 @@ function DataRowsTable({ rows, valueLabel = '値', usePercent = false, compact =
   )
 }
 
+function getRankingRows(group = {}, limit = 20) {
+  const labels = Array.isArray(group?.labels) ? group.labels : []
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+
+  return labels
+    .map((label, index) => {
+      const values = datasets
+        .map((dataset, datasetIndex) => ({
+          label: getDatasetLabel(dataset, datasetIndex),
+          value: normalizeNumericValue(dataset?.data?.[index]),
+          usePercent: datasetUsesPercent(dataset, datasetIndex),
+        }))
+        .filter((item) => item.value != null)
+
+      if (values.length === 0) return null
+
+      const total = values.reduce((sum, item) => sum + item.value, 0)
+      return {
+        label: String(label ?? `項目 ${index + 1}`),
+        total,
+        values,
+        usePercent: values.length === 1 ? values[0].usePercent : false,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit)
+}
+
+function ReadableRankingChart({ group }) {
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const rows = getRankingRows(group, 20)
+  const maxValue = Math.max(...rows.map((row) => row.total), 1)
+  const showBreakdown = datasets.length > 1
+
+  if (rows.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-outline-variant/25 bg-surface-container-lowest p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary/[0.08] px-3 py-1 text-[10px] font-black text-primary">
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">format_list_numbered</span>
+            順位表で表示
+          </span>
+          <h4 className="mt-2 text-lg font-black text-on-surface japanese-text">上位ランキングで読む</h4>
+        </div>
+        <p className="text-xs font-bold text-on-surface-variant">
+          {rows.length}件 / {datasets.length}系列
+        </p>
+      </div>
+
+      <div className="mt-5 max-h-[480px] space-y-2 overflow-y-auto pr-1">
+        {rows.map((row, index) => {
+          const ratio = Math.max(4, Math.round((row.total / maxValue) * 100))
+          const topValues = row.values.slice(0, 3)
+
+          return (
+            <div
+              key={`${row.label}-${index}`}
+              className="grid grid-cols-[2.25rem_minmax(0,1fr)_5.75rem] items-center gap-3 rounded-xl border border-outline-variant/15 bg-surface-container-low px-3 py-3"
+            >
+              <span className={`grid size-7 place-items-center rounded-lg text-[11px] font-black ${
+                index < 3 ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-primary'
+              }`}>
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="truncate text-sm font-black text-on-surface" title={row.label}>
+                    {shortenChartLabel(row.label, 64)}
+                  </p>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-container-high">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${ratio}%` }} />
+                </div>
+                {showBreakdown && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {topValues.map((item) => (
+                      <span key={`${row.label}-${item.label}`} className="rounded-full bg-surface-container-lowest px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">
+                        {shortenChartLabel(item.label, 18)} {formatValue(item.value, item.usePercent)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <strong className="text-right text-sm font-black tabular-nums text-primary">
+                {formatValue(row.total, row.usePercent)}
+              </strong>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ChartDiagnosticCard({ group, readability }) {
   const rows = getChartRows(group, 8)
   const value = readability.maxValue ?? readability.minValue
@@ -715,6 +812,9 @@ export default function ChartGroupCard({ group, featured = false }) {
   const usesDiagnosticSurface =
     readability.recommendedDisplayMode === 'flat_diagnostic' ||
     readability.recommendedDisplayMode === 'low_sample_table'
+  const usesNonCanvasSurface =
+    usesDiagnosticSurface ||
+    readability.recommendedDisplayMode === 'readable_ranking'
   const contentId = `chart-card-${String(`${normalizedGroup?.title ?? 'chart'}-${normalizedGroup?._periodTag ?? ''}`).replace(/[^\w-]+/g, '-')}`
   const chartFrameHeight = useMemo(() => {
     if (effectiveChartType === 'doughnut') return featured ? 330 : 300
@@ -739,7 +839,7 @@ export default function ChartGroupCard({ group, featured = false }) {
       return
     }
 
-    if (!normalizedGroup || !canvasRef.current || !hasRenderableData || usesDiagnosticSurface) return
+    if (!normalizedGroup || !canvasRef.current || !hasRenderableData || usesNonCanvasSurface) return
 
     chartRef.current?.destroy()
 
@@ -957,7 +1057,7 @@ export default function ChartGroupCard({ group, featured = false }) {
       chartRef.current?.destroy()
       chartRef.current = null
     }
-  }, [normalizedGroup, effectiveChartType, doughnutUsePercent, hasRenderableData, theme, featured, isCollapsed, readability, usesDiagnosticSurface])
+  }, [normalizedGroup, effectiveChartType, doughnutUsePercent, hasRenderableData, theme, featured, isCollapsed, readability, usesNonCanvasSurface])
 
   return (
     <article className={`group relative overflow-hidden rounded-xl border bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md flex flex-col ${
@@ -1005,6 +1105,11 @@ export default function ChartGroupCard({ group, featured = false }) {
             {readability.recommendedDisplayMode === 'flat_diagnostic' && (
               <span className="text-amber-900 text-[10px] font-black bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
                 比較差なし
+              </span>
+            )}
+            {readability.recommendedDisplayMode === 'readable_ranking' && (
+              <span className="text-primary text-[10px] font-black bg-primary/[0.08] border border-primary/15 px-2.5 py-1 rounded-full">
+                順位表で表示
               </span>
             )}
             {selectionLabel && coverageLabel && (
@@ -1068,6 +1173,10 @@ export default function ChartGroupCard({ group, featured = false }) {
       ) : hasRenderableData && readability.recommendedDisplayMode === 'low_sample_table' ? (
         <div id={contentId} className="flex-1 px-6 pb-6">
           <LowSampleChartState group={normalizedGroup} />
+        </div>
+      ) : hasRenderableData && readability.recommendedDisplayMode === 'readable_ranking' ? (
+        <div id={contentId} className="flex-1 px-6 pb-6">
+          <ReadableRankingChart group={normalizedGroup} />
         </div>
       ) : hasRenderableData ? (
         <div id={contentId} className="flex-1 flex flex-col px-6 pb-6">
