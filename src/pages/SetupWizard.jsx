@@ -27,6 +27,7 @@ const GRANULARITIES = [
   { value: 'weekly', label: '週別', icon: 'date_range' },
   { value: 'daily', label: '日別', icon: 'today' },
 ]
+
 function extractPeriods(data) {
   if (Array.isArray(data?.periods) && data.periods.length > 0) return data.periods
   if (Array.isArray(data?.results)) return data.results
@@ -50,6 +51,7 @@ export default function SetupWizard() {
   const [loadResult, setLoadResult] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
   const [loadingLabel, setLoadingLabel] = useState('処理中…')
+  const [periodDiagnostics, setPeriodDiagnostics] = useState(null)
 
   useEffect(() => {
     if (!location.state?.resetAt) return
@@ -63,6 +65,7 @@ export default function SetupWizard() {
     setLoadResult(null)
     setGranularity('monthly')
     setLoadingLabel('処理中…')
+    setPeriodDiagnostics(null)
   }, [location.state?.resetAt])
 
   useEffect(() => {
@@ -77,6 +80,7 @@ export default function SetupWizard() {
     setLoadResult(null)
     setGranularity('monthly')
     setLoadingLabel('処理中…')
+    setPeriodDiagnostics(null)
   }, [isAdsAuthenticated])
 
   const toggle = (index) => {
@@ -97,7 +101,16 @@ export default function SetupWizard() {
 
   async function fetchPeriods(gran) {
     const data = await bqPeriods({ granularity: gran, dataset_id: getCurrentDatasetId() })
-    return extractPeriods(data)
+    const datasetId = getCurrentDatasetId()
+    const diagnostics = {
+      dataset_id: data?.dataset_id ?? datasetId,
+      granularity: data?.granularity ?? gran,
+      table_count: data?.table_count ?? null,
+      method: data?.method ?? 'period_api',
+      message: data?.message ?? '',
+      raw: data,
+    }
+    return { items: extractPeriods(data), diagnostics }
   }
 
   async function handleGranularityChange(gran) {
@@ -106,13 +119,18 @@ export default function SetupWizard() {
     setGeneratedPeriods(new Set())
     setError(null)
     setLoadResult(null)
+    setPeriodDiagnostics(null)
     setLoading(true)
     setLoadingLabel('期間を取得中…')
     try {
-      const items = await fetchPeriods(gran)
-      setPeriods(items)
+      const { items, diagnostics } = await fetchPeriods(gran)
+      setPeriodDiagnostics(diagnostics)
       if (items.length === 0) {
-        setError('この粒度では利用可能な分析期間が見つかりませんでした。')
+        setPeriods([])
+        setSelectedPeriods(new Set())
+        setError(diagnostics?.message || 'この粒度では利用可能な分析期間が見つかりませんでした。')
+      } else {
+        setPeriods(items)
       }
     } catch (e) {
       setError(e.message)
@@ -131,10 +149,16 @@ export default function SetupWizard() {
       setLoadingLabel('期間を取得中…')
 
       try {
-        const items = await fetchPeriods(granularity)
+        const { items, diagnostics } = await fetchPeriods(granularity)
+        setPeriodDiagnostics(diagnostics)
 
         if (items.length === 0) {
-          setError('BigQueryデータセットに利用可能な分析期間が見つかりませんでした。')
+          setPeriods([])
+          setSelectedPeriods(new Set())
+          setGeneratedPeriods(new Set())
+          setLoadResult(null)
+          setError(diagnostics?.message || 'BigQueryデータセットに利用可能な分析期間が見つかりませんでした。')
+          setStep(1)
           return
         }
 
@@ -166,21 +190,20 @@ export default function SetupWizard() {
         const pendingPeriods = periodsArray.filter((period) => !currentGenerated.has(period))
         setLoadingLabel(`レポートを生成中… (0/${periodsArray.length})`)
 
-        const results = await Promise.all(
-          pendingPeriods.map((period) =>
-            generateBatchWithRetry({
-              query_types: queryTypeIds,
-              dataset_id: getCurrentDatasetId(),
-              period,
-            }).then((data) => {
-              currentGenerated.add(period)
-              completedCount = currentGenerated.size
-              setGeneratedPeriods(new Set(currentGenerated))
-              setLoadingLabel(`レポートを生成中… (${currentGenerated.size}/${periodsArray.length})`)
-              return data
-            }),
-          ),
-        )
+        const results = []
+        for (const period of pendingPeriods) {
+          setLoadingLabel(`レポートを生成中… (${currentGenerated.size}/${periodsArray.length})`)
+          const data = await generateBatchWithRetry({
+            query_types: queryTypeIds,
+            dataset_id: getCurrentDatasetId(),
+            period,
+          })
+          currentGenerated.add(period)
+          completedCount = currentGenerated.size
+          setGeneratedPeriods(new Set(currentGenerated))
+          setLoadingLabel(`レポートを生成中… (${currentGenerated.size}/${periodsArray.length})`)
+          results.push({ ...data, period })
+        }
         const reportBundle = buildAdsReportBundle({
           setupState: {
             queryTypes: queryTypeIds,
@@ -336,7 +359,7 @@ export default function SetupWizard() {
               <p className="text-on-surface-variant mt-1 text-sm">
                 {selectedPeriods.size > 0
                   ? `${selectedPeriods.size} 件選択中`
-                  : '1件以上選択してください'}
+                  : periods.length > 0 ? '1件以上選択してください' : 'BigQueryの期間一覧を取得できていません'}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -386,7 +409,32 @@ export default function SetupWizard() {
               <LoadingSpinner size="md" label={loadingLabel} />
             </div>
           ) : periods.length === 0 ? (
-            <p className="text-on-surface-variant text-sm japanese-text">利用可能な期間がありません。</p>
+            <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-5">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-amber-700" aria-hidden="true">database_off</span>
+                <div>
+                  <p className="text-sm font-black text-amber-900 japanese-text">利用可能な期間がありません。</p>
+                  <p className="mt-1 text-sm leading-6 text-on-surface-variant japanese-text">
+                    手動候補は作成していません。BigQueryの events_YYYYMMDD テーブル取得結果を確認してください。
+                  </p>
+                  {periodDiagnostics && (
+                    <dl className="mt-4 grid gap-2 text-xs md:grid-cols-2">
+                      {[
+                        ['dataset_id', periodDiagnostics.dataset_id],
+                        ['granularity', periodDiagnostics.granularity],
+                        ['table_count', periodDiagnostics.table_count],
+                        ['method', periodDiagnostics.method],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-amber-200 bg-surface-container-lowest px-3 py-2">
+                          <dt className="font-black text-on-surface-variant">{label}</dt>
+                          <dd className="mt-1 break-all font-bold text-on-surface">{value ?? '-'}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="space-y-4">
               {generatedPeriods.size > 0 && (
