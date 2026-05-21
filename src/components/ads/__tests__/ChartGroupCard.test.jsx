@@ -87,6 +87,28 @@ describe('ChartGroupCard', () => {
     expect(screen.getByText('平均ページ/セッション')).toBeInTheDocument()
   })
 
+  it('renders long horizontal bar charts as a compact ranking table', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: 'LP分析 — セッション数 Top 20',
+          chartType: 'bar_horizontal',
+          labels: Array.from({ length: 12 }, (_, index) => `/lp/${index + 1}`),
+          datasets: [
+            {
+              label: 'セッション',
+              data: Array.from({ length: 12 }, (_, index) => 120 - index * 6),
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('順位表で表示').length).toBeGreaterThan(0)
+    expect(screen.getByText('上位ランキングで読む')).toBeInTheDocument()
+    expect(screen.getByText('/lp/1')).toBeInTheDocument()
+  })
+
   it('renders a low-sample state instead of a search trend line chart', () => {
     render(
       <ChartGroupCard
