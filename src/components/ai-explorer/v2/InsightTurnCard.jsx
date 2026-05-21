@@ -1,9 +1,10 @@
 import MarkdownRenderer from '../../MarkdownRenderer'
 import UserPromptPill from './UserPromptPill'
 import InsightChartPanel from './InsightChartPanel'
+import InsightHtmlReport from './InsightHtmlReport'
 import InsightSummaryHero from './InsightSummaryHero'
 import { matchRelevantCharts } from '../../../utils/adsReports'
-import { extractInsightMeta, extractOperationalInsightCards } from '../../../utils/adsResponse'
+import { extractInsightMeta, extractInsightReport, extractOperationalInsightCards } from '../../../utils/adsResponse'
 import styles from './AiExplorerV2.module.css'
 import cardStyles from './InsightTurnCard.module.css'
 
@@ -203,8 +204,9 @@ export default function InsightTurnCard({
 }) {
   const { userPrompt = '', userTimestamp, aiContent = '', aiTimestamp, isError } = turn
 
+  const derivedReport = extractInsightReport(aiContent)
   const derivedMeta = insightMeta ?? extractInsightMeta(aiContent)
-  const renderContent = derivedMeta?._strippedMarkdown ?? aiContent
+  const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
 
   const relevantCharts = Array.isArray(chartGroups) && chartGroups.length > 0
     ? matchRelevantCharts(renderContent, chartGroups, { limit: 3 })
@@ -232,9 +234,13 @@ export default function InsightTurnCard({
 
       <UserPromptPill content={userPrompt} timestamp={userTimestamp} />
 
-      {derivedMeta && <InsightSummaryHero meta={derivedMeta} />}
+      {derivedReport ? (
+        <InsightHtmlReport report={derivedReport} />
+      ) : derivedMeta ? (
+        <InsightSummaryHero meta={derivedMeta} />
+      ) : null}
 
-      {operationalCards.length > 0 && (
+      {!derivedReport && operationalCards.length > 0 && (
         <div className={styles.operationalCards} data-testid="operational-insight-cards">
           {operationalCards.map((card) => (
             <section key={card.key} className={styles.operationalCard}>
@@ -253,7 +259,7 @@ export default function InsightTurnCard({
         </div>
       )}
 
-      {!isError && renderContent && (
+      {!derivedReport && !isError && renderContent && (
         <InsightReportSections
           content={renderContent}
           operationalCards={operationalCards}
@@ -261,14 +267,27 @@ export default function InsightTurnCard({
         />
       )}
 
-      <div className={styles.turnBody}>
-        <div className={cardStyles.longFormHeader}>
-          <span className="material-symbols-outlined" aria-hidden="true">article</span>
-          <h3 className="japanese-text">AIによる考察回答</h3>
+      {derivedReport ? (
+        renderContent && (
+          <details className={`${styles.turnBody} ${cardStyles.longFormDetails}`}>
+            <summary className={cardStyles.longFormSummary}>
+              <span className="material-symbols-outlined" aria-hidden="true">article</span>
+              <span className="japanese-text">詳細なAI回答を開く</span>
+            </summary>
+            <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
+            {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
+          </details>
+        )
+      ) : (
+        <div className={styles.turnBody}>
+          <div className={cardStyles.longFormHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">article</span>
+            <h3 className="japanese-text">AIによる考察回答</h3>
+          </div>
+          <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
+          {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
         </div>
-        <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
-        {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
-      </div>
+      )}
     </article>
   )
 }
