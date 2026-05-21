@@ -173,6 +173,33 @@ describe('InsightTurnCard', () => {
     expect(md.textContent).not.toContain('insight-meta')
   })
 
+  it('prefers insight-report rendering and collapses the raw markdown detail', () => {
+    const aiContent = [
+      '## 分析結果',
+      '本文テキスト',
+      '',
+      '```insight-report',
+      JSON.stringify({
+        summary: 'CVR低下はLP導線の影響が強い',
+        metric_cards: [{ label: 'CVR', value: '1.2%', delta: 'down' }],
+        findings: [{ title: 'LP別CVR', body: '主要LPで低下' }],
+        actions: [{ label: 'P0', title: 'LP別CVRを確認' }],
+      }),
+      '```',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-html-report')).toBeInTheDocument()
+    expect(screen.getByText('CVR低下はLP導線の影響が強い')).toBeInTheDocument()
+    expect(screen.queryByTestId('insight-summary-hero')).not.toBeInTheDocument()
+    expect(screen.getByText('詳細なAI回答を開く')).toBeInTheDocument()
+
+    const md = screen.getByTestId('markdown-renderer')
+    expect(md.textContent).toContain('## 分析結果')
+    expect(md.textContent).not.toContain('insight-report')
+  })
+
   it('renders no hero and preserves original aiContent when no meta block is present', () => {
     const aiContent = '## 普通のレポート\n- 項目A'
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractInsightMeta } from '../adsResponse'
+import { extractInsightMeta, extractInsightReport } from '../adsResponse'
 
 describe('extractInsightMeta', () => {
   it('returns null for empty input', () => {
@@ -153,5 +153,88 @@ describe('extractInsightMeta', () => {
     expect(meta.tldr).toEqual([])
     expect(meta.key_metrics).toEqual([])
     expect(meta.recommended_charts).toEqual(['OK'])
+  })
+})
+
+describe('extractInsightReport', () => {
+  it('returns null for empty, non-string, or missing blocks', () => {
+    expect(extractInsightReport('')).toBeNull()
+    expect(extractInsightReport(null)).toBeNull()
+    expect(extractInsightReport({})).toBeNull()
+    expect(extractInsightReport('通常のMarkdownだけ')).toBeNull()
+  })
+
+  it('returns null for invalid JSON and non-object JSON', () => {
+    expect(extractInsightReport('```insight-report\n{ bad json }\n```')).toBeNull()
+    expect(extractInsightReport('```insight-report\n"nope"\n```')).toBeNull()
+  })
+
+  it('parses a valid HTML report block and strips internal fenced blocks', () => {
+    const md = [
+      '## 本文',
+      '通常の説明',
+      '',
+      '```insight-report',
+      JSON.stringify({
+        summary: 'CVR低下はLP導線の影響が強い',
+        metric_cards: [
+          { label: 'CVR', value: '1.2%', delta: 'down', note: '前期比で悪化' },
+          { label: 'CPA', value: '¥4,200', delta: 'up' },
+          { label: 'bad' },
+        ],
+        findings: [
+          { title: 'LP別CVR', body: '主要LPで低下', evidence: ['LP分析'] },
+          '検索流入の質も要確認',
+        ],
+        risks: [{ title: 'CV未取得', body: '一部CVが未計測' }],
+        actions: [{ label: 'P0', title: 'LP別CVRを確認', body: '悪化LPを特定', owner: '運用担当', due: '今日' }],
+        evidence: ['CVR推移', 'LP分析'],
+        recommended_charts: ['LP別CVR', '検索クエリ'],
+      }),
+      '```',
+      '',
+      '```insight-meta',
+      JSON.stringify({ tldr: ['旧メタ'] }),
+      '```',
+    ].join('\n')
+
+    const report = extractInsightReport(md)
+    expect(report).not.toBeNull()
+    expect(report.summary).toBe('CVR低下はLP導線の影響が強い')
+    expect(report.metric_cards).toEqual([
+      { label: 'CVR', value: '1.2%', delta: 'down', note: '前期比で悪化' },
+      { label: 'CPA', value: '¥4,200', delta: 'up', note: '' },
+    ])
+    expect(report.findings).toEqual([
+      { title: 'LP別CVR', body: '主要LPで低下', evidence: ['LP分析'], priority: '' },
+      { title: '', body: '検索流入の質も要確認', evidence: [], priority: '' },
+    ])
+    expect(report.actions[0]).toMatchObject({
+      label: 'P0',
+      title: 'LP別CVRを確認',
+      body: '悪化LPを特定',
+      owner: '運用担当',
+      due: '今日',
+    })
+    expect(report.evidence).toEqual(['CVR推移', 'LP分析'])
+    expect(report.recommended_charts).toEqual(['LP別CVR', '検索クエリ'])
+    expect(report._strippedMarkdown).toBe('## 本文\n通常の説明')
+  })
+
+  it('returns null when all report fields are empty after normalization', () => {
+    const md = [
+      '```insight-report',
+      JSON.stringify({
+        summary: '',
+        metric_cards: [{ label: 'missing value' }],
+        findings: [null],
+        risks: [{}],
+        actions: [{ label: 'P0' }],
+        evidence: [123],
+        recommended_charts: [{}],
+      }),
+      '```',
+    ].join('\n')
+    expect(extractInsightReport(md)).toBeNull()
   })
 })

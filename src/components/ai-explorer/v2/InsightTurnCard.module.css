@@ -266,10 +266,298 @@
   font-weight: 900;
 }
 
+.htmlReport {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin: 1rem 0 1.35rem;
+}
+
+.htmlReportCompact {
+  margin: 0.75rem 0 0;
+  gap: 0.75rem;
+}
+
+.htmlReportHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.1rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 55%),
+    var(--color-surface-container-lowest);
+}
+
+.htmlReportHero h2 {
+  margin: 0.2rem 0 0;
+  color: var(--color-on-surface);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.htmlReportHero :global(.material-symbols-outlined) {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 1.35rem;
+}
+
+.htmlReportKicker {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 0.7rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.htmlReportMetricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.htmlReportMetricCard {
+  min-width: 0;
+  padding: 0.9rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
+  background: var(--color-surface-container-lowest);
+}
+
+.htmlReportMetricCard p {
+  margin: 0 0 0.35rem;
+  color: var(--color-on-surface-variant);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.htmlReportMetricCard div {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.htmlReportMetricCard strong {
+  color: var(--color-on-surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1.12rem;
+  font-weight: 950;
+  overflow-wrap: anywhere;
+}
+
+.htmlReportMetricCard small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--color-on-surface-variant);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.metricDelta_up {
+  color: #059669;
+}
+
+.metricDelta_down {
+  color: #dc2626;
+}
+
+.metricDelta_flat {
+  color: var(--color-on-surface-variant);
+}
+
+.htmlReportGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.htmlReportPanel {
+  min-width: 0;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 24%, transparent);
+  background: var(--color-surface-container-lowest);
+  overflow: hidden;
+}
+
+.htmlReportPanel_finding {
+  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest));
+}
+
+.htmlReportPanel_risk {
+  border-color: color-mix(in srgb, var(--color-error, #dc2626) 22%, transparent);
+  background: color-mix(in srgb, var(--color-error, #dc2626) 5%, var(--color-surface-container-lowest));
+}
+
+.htmlReportList,
+.htmlReportCompactList {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+}
+
+.htmlReportCompactList {
+  gap: 0.55rem;
+  padding: 0.75rem;
+}
+
+.htmlReportItem {
+  min-width: 0;
+}
+
+.htmlReportItemHead {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.htmlReportItemHead b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 1.55rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.htmlReportItemHead strong,
+.htmlReportItem p {
+  color: var(--color-on-surface);
+  overflow-wrap: anywhere;
+}
+
+.htmlReportItemHead strong {
+  font-size: 0.88rem;
+  line-height: 1.4;
+  font-weight: 900;
+}
+
+.htmlReportItem p {
+  margin: 0.35rem 0 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.htmlReportEvidenceList {
+  margin: 0.45rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--color-on-surface-variant);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.htmlActionList {
+  display: grid;
+}
+
+.htmlActionItem {
+  display: grid;
+  grid-template-columns: 2.8rem minmax(0, 1fr) minmax(105px, auto);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-outline-variant) 16%, transparent);
+}
+
+.htmlActionItem b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.05rem;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 0.8rem;
+  font-weight: 950;
+}
+
+.htmlActionItem strong {
+  display: block;
+  color: var(--color-on-surface);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.htmlActionItem p,
+.htmlActionItem small,
+.htmlActionItem span {
+  color: var(--color-on-surface-variant);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.htmlActionItem p,
+.htmlActionItem small {
+  display: block;
+  margin: 0.28rem 0 0;
+}
+
+.htmlActionItem span {
+  font-weight: 850;
+  text-align: right;
+}
+
+.htmlReportFooter {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 20%, transparent);
+  background: var(--color-surface-container-lowest);
+}
+
+.htmlReportFooter > div {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.longFormDetails {
+  margin-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-outline-variant) 20%, transparent);
+}
+
+.longFormSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  margin-top: 0.6rem;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.longFormSummary :global(.material-symbols-outlined) {
+  font-size: 1rem;
+}
+
 @media (max-width: 1023px) {
   .metricTable,
   .splitGrid,
-  .actionRow {
+  .actionRow,
+  .htmlReportMetricGrid,
+  .htmlReportGrid,
+  .htmlActionItem {
     grid-template-columns: 1fr;
   }
 

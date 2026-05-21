@@ -16,10 +16,11 @@ import {
   extractMarkdownSummary,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
-import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
+import { extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import { useUiVersion } from '../hooks/useUiVersion'
 import InsightTimeline from '../components/ai-explorer/v2/InsightTimeline'
+import InsightHtmlReport from '../components/ai-explorer/v2/InsightHtmlReport'
 
 function formatAnalysisError(error) {
   if (error.isAuthError) return AUTH_EXPIRED_MESSAGE
@@ -41,6 +42,21 @@ const QUICK_PROMPTS = [
 ]
 
 const REPORT_REBUILD_FALLBACK_MS = 25000
+const HTML_REPORT_OUTPUT_INSTRUCTIONS = [
+  '回答の末尾に、必ず次の fenced JSON ブロックを追加してください。',
+  '```insight-report',
+  '{',
+  '  "summary": "1文の結論",',
+  '  "metric_cards": [{"label": "KPI名", "value": "値", "delta": "up|down|flat", "note": "読み取り"}],',
+  '  "findings": [{"title": "主要所見", "body": "観測事実と解釈", "evidence": ["根拠指標"]}],',
+  '  "risks": [{"title": "要確認", "body": "判断前に確認すること", "evidence": ["不足データ"]}],',
+  '  "actions": [{"label": "P0", "title": "次アクション", "body": "実行内容", "owner": "担当", "due": "期限", "evidence": ["根拠"]}],',
+  '  "evidence": ["使ったグラフ名や指標"],',
+  '  "recommended_charts": ["次に見るグラフ"]',
+  '}',
+  '```',
+  'JSON内にHTMLタグは入れず、文字列だけで返してください。本文は通常の日本語で構いません。',
+].join('\n')
 
 async function regenerateAdsReportBundleForAi(setupState) {
   let timeoutId = null
@@ -89,6 +105,41 @@ function toConversationHistory(messages) {
         ? `${message.text.slice(0, 800)}…(省略)`
         : message?.text ?? '',
   }))
+}
+
+function LegacyAssistantMessage({ message, fontSize }) {
+  const report = extractInsightReport(message.text)
+  const renderContent = report?._strippedMarkdown ?? message.text
+
+  return (
+    <div className="flex gap-4">
+      <div className="w-10 h-10 bg-primary-container/20 rounded-full flex items-center justify-center shrink-0">
+        <span className="material-symbols-outlined text-primary-container text-lg">auto_awesome</span>
+      </div>
+      <div>
+        <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
+        <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-8 max-w-5xl ${message.isError ? 'border border-red-200 dark:border-error/30' : ''}`}>
+          {report ? (
+            <>
+              <InsightHtmlReport report={report} />
+              {renderContent && (
+                <details className="mt-4 border-t border-outline-variant/20 pt-3">
+                  <summary className="cursor-pointer text-sm font-bold text-primary japanese-text">
+                    詳細なAI回答を開く
+                  </summary>
+                  <div className="mt-3">
+                    <MarkdownRenderer content={renderContent} className="text-sm" size={fontSize} />
+                  </div>
+                </details>
+              )}
+            </>
+          ) : (
+            <MarkdownRenderer content={message.text} className="text-sm" size={fontSize} />
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function AiExplorer() {
@@ -344,6 +395,7 @@ export default function AiExplorer() {
       )
       const enrichedPrompt = [
         analysisInstructions,
+        HTML_REPORT_OUTPUT_INSTRUCTIONS,
         contextMode === 'ads-with-ml' && mlContextSummary
           ? `[補助コンテキスト: Market Lens]\n${mlContextSummary}`
           : '',
@@ -425,12 +477,13 @@ export default function AiExplorer() {
         contextMode,
       })
 
+      const hasStructuredReport = /```insight-report\s*\n/.test(aiContent)
       const hasTable = /\|.+\|/.test(aiContent)
       const hasBoldMetric = /\*\*[\d,.]+[%％]?(\s*(増|減|上昇|低下|改善|悪化))?(\*\*)?/.test(aiContent)
       const hasNumericRef = /\d{2,}([,.]\d+)*(%|％|件|人|回|円|万|億)/.test(aiContent)
       const isLowQuality = aiContent.length < 100
         ? !aiContent.includes('不明') && !aiContent.includes('未取得')
-        : !hasTable && !hasBoldMetric && !hasNumericRef
+        : !hasStructuredReport && !hasTable && !hasBoldMetric && !hasNumericRef
       if (isLowQuality) {
         const hints = [
           !hasTable && !hasBoldMetric ? '表や数値比較' : '',
@@ -737,17 +790,7 @@ export default function AiExplorer() {
 
         {messages.map((message, index) =>
           isAssistantMessage(message) ? (
-            <div key={index} className="flex gap-4">
-              <div className="w-10 h-10 bg-primary-container/20 rounded-full flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-primary-container text-lg">auto_awesome</span>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-on-surface-variant mb-1">AI 考察エンジン</p>
-                <div className={`bg-surface-container-lowest rounded-2xl rounded-tl-none panel-card-hover p-8 max-w-5xl ${message.isError ? 'border border-red-200 dark:border-error/30' : ''}`}>
-                  <MarkdownRenderer content={message.text} className="text-sm" size={fontSize} />
-                </div>
-              </div>
-            </div>
+            <LegacyAssistantMessage key={index} message={message} fontSize={fontSize} />
           ) : (
             <div key={index} className="flex justify-end gap-4">
               <div className="bg-primary-container text-on-primary rounded-2xl rounded-tr-none px-6 py-4 max-w-3xl">

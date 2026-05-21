@@ -7,6 +7,7 @@ import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
 import AiContextRail from '../components/ai-assistant/AiContextRail'
+import InsightHtmlReport from '../components/ai-explorer/v2/InsightHtmlReport'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -18,7 +19,7 @@ import {
   buildAnalysisInstructions,
   normalizeChartGroupShape,
 } from '../utils/adsReports'
-import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
+import { extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import {
   groupChartsByTheme,
@@ -63,6 +64,21 @@ const EVIDENCE_STYLES = {
 }
 
 const AI_RAIL_COLLAPSED_STORAGE_KEY = 'insight-studio.adsGraphs.aiRailCollapsed'
+const GRAPH_AI_HTML_REPORT_INSTRUCTIONS = [
+  '回答の末尾に、必ず次の fenced JSON ブロックを追加してください。',
+  '```insight-report',
+  '{',
+  '  "summary": "1文の結論",',
+  '  "metric_cards": [{"label": "KPI名", "value": "値", "delta": "up|down|flat", "note": "読み取り"}],',
+  '  "findings": [{"title": "主要所見", "body": "観測事実と解釈", "evidence": ["根拠グラフ"]}],',
+  '  "risks": [{"title": "要確認", "body": "判断前に確認すること", "evidence": ["不足データ"]}],',
+  '  "actions": [{"label": "P0", "title": "次アクション", "body": "実行内容", "owner": "担当", "due": "期限", "evidence": ["根拠"]}],',
+  '  "evidence": ["使ったグラフ名や指標"],',
+  '  "recommended_charts": ["次に見るグラフ"]',
+  '}',
+  '```',
+  'JSON内にHTMLタグは入れず、右カラムで読みやすい短めの文字列にしてください。',
+].join('\n')
 
 /* ── Evidence Type colour map (for EvidenceDrawer) ── */
 const TYPE_STYLES = {
@@ -953,6 +969,7 @@ function GraphAiQuestionRail({
         temperature: 0.3,
         message: [
           analysisInstructions,
+          GRAPH_AI_HTML_REPORT_INSTRUCTIONS,
           `対象期間: ${activeScopeLabel}`,
           `右カラムのグラフ確認中の質問です。回答は広告運用者向けに、根拠グラフ・読むべき指標・次の一手を短く示してください。`,
           `---\n${prompt}`,
@@ -1090,13 +1107,39 @@ function GraphAiQuestionRail({
             </p>
           )}
           {inlineAnswer && (
-            <div className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-primary/15 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface japanese-text whitespace-pre-wrap">
-              {inlineAnswer}
-            </div>
+            <GraphInlineAnswer answer={inlineAnswer} />
           )}
         </div>
       </div>
     </aside>
+  )
+}
+
+function GraphInlineAnswer({ answer }) {
+  const report = extractInsightReport(answer)
+  const renderContent = report?._strippedMarkdown ?? answer
+
+  return (
+    <div
+      className="mt-3 max-h-80 overflow-y-auto rounded-xl border border-primary/15 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface japanese-text"
+      data-testid="graph-ai-inline-answer"
+    >
+      {report ? (
+        <>
+          <InsightHtmlReport report={report} compact />
+          {renderContent && (
+            <details className="mt-3 border-t border-outline-variant/20 pt-2">
+              <summary className="cursor-pointer text-xs font-black text-primary japanese-text">
+                詳細回答を開く
+              </summary>
+              <div className="mt-2 whitespace-pre-wrap">{renderContent}</div>
+            </details>
+          )}
+        </>
+      ) : (
+        <div className="whitespace-pre-wrap">{answer}</div>
+      )}
+    </div>
   )
 }
 

@@ -128,6 +128,184 @@ export function getAdsSections(payload) {
   return []
 }
 
+function stripInsightBlocks(markdown) {
+  return String(markdown || '')
+    .replace(/```insight-report\s*\n[\s\S]*?\n```\s*/g, '')
+    .replace(/```insight-meta\s*\n[\s\S]*?\n```\s*/g, '')
+    .trim()
+}
+
+function normalizeTextArray(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (isPlainObject(item)) {
+        const title = typeof item.title === 'string' ? item.title.trim() : ''
+        const body = typeof item.body === 'string'
+          ? item.body.trim()
+          : typeof item.note === 'string'
+          ? item.note.trim()
+          : typeof item.text === 'string'
+          ? item.text.trim()
+          : ''
+        return [title, body].filter(Boolean).join(': ')
+      }
+      return ''
+    })
+    .filter(Boolean)
+}
+
+function normalizeInsightItems(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (typeof item === 'string') return { title: '', body: item.trim(), evidence: [], priority: '' }
+      if (!isPlainObject(item)) return null
+      const title = typeof item.title === 'string'
+        ? item.title.trim()
+        : typeof item.label === 'string'
+        ? item.label.trim()
+        : ''
+      const body = typeof item.body === 'string'
+        ? item.body.trim()
+        : typeof item.text === 'string'
+        ? item.text.trim()
+        : typeof item.note === 'string'
+        ? item.note.trim()
+        : ''
+      const evidence = normalizeTextArray(item.evidence)
+      const priority = typeof item.priority === 'string' ? item.priority.trim() : ''
+      if (!title && !body && evidence.length === 0) return null
+      return { title, body, evidence, priority }
+    })
+    .filter(Boolean)
+}
+
+function normalizeMetricCards(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (!isPlainObject(item)) return null
+      const label = typeof item.label === 'string'
+        ? item.label.trim()
+        : typeof item.title === 'string'
+        ? item.title.trim()
+        : ''
+      const valueText = typeof item.value === 'string'
+        ? item.value.trim()
+        : typeof item.current === 'string'
+        ? item.current.trim()
+        : ''
+      const note = typeof item.note === 'string'
+        ? item.note.trim()
+        : typeof item.body === 'string'
+        ? item.body.trim()
+        : ''
+      const delta =
+        item.delta === 'up' || item.delta === 'down' || item.delta === 'flat'
+          ? item.delta
+          : undefined
+      if (!label || !valueText) return null
+      return { label, value: valueText, delta, note }
+    })
+    .filter(Boolean)
+}
+
+function normalizeActionItems(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        const body = item.trim()
+        return body ? { label: `P${index}`, title: body, body: '', owner: '', due: '', evidence: [] } : null
+      }
+      if (!isPlainObject(item)) return null
+      const label = typeof item.label === 'string' ? item.label.trim() : `P${index}`
+      const title = typeof item.title === 'string'
+        ? item.title.trim()
+        : typeof item.task === 'string'
+        ? item.task.trim()
+        : ''
+      const body = typeof item.body === 'string'
+        ? item.body.trim()
+        : typeof item.note === 'string'
+        ? item.note.trim()
+        : ''
+      const owner = typeof item.owner === 'string' ? item.owner.trim() : ''
+      const due = typeof item.due === 'string' ? item.due.trim() : ''
+      const evidence = normalizeTextArray(item.evidence)
+      if (!title && !body) return null
+      return { label, title, body, owner, due, evidence }
+    })
+    .filter(Boolean)
+}
+
+/**
+ * Extracts the structured HTML-report contract emitted by AI responses.
+ * The AI appends a final fenced block:
+ *   ```insight-report
+ *   { "summary": "...", "metric_cards": [...], "findings": [...] }
+ *   ```
+ * The block is parsed into a safe React-renderable object. No raw HTML is
+ * accepted. Returns null for missing, invalid, or empty report blocks.
+ *
+ * @param {string} markdown
+ * @returns {{
+ *   summary: string,
+ *   metric_cards: Array<{label: string, value: string, delta?: 'up'|'down'|'flat', note?: string}>,
+ *   findings: Array<{title: string, body: string, evidence: string[], priority?: string}>,
+ *   risks: Array<{title: string, body: string, evidence: string[], priority?: string}>,
+ *   actions: Array<{label: string, title: string, body: string, owner: string, due: string, evidence: string[]}>,
+ *   evidence: string[],
+ *   recommended_charts: string[],
+ *   _strippedMarkdown: string,
+ * } | null}
+ */
+export function extractInsightReport(markdown) {
+  if (!markdown || typeof markdown !== 'string') return null
+  const match = markdown.match(/```insight-report\s*\n([\s\S]*?)\n```/)
+  if (!match) return null
+  let parsed
+  try {
+    parsed = JSON.parse(match[1])
+  } catch {
+    return null
+  }
+  if (!isPlainObject(parsed)) return null
+
+  const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
+  const metric_cards = normalizeMetricCards(parsed.metric_cards)
+  const findings = normalizeInsightItems(parsed.findings)
+  const risks = normalizeInsightItems(parsed.risks)
+  const actions = normalizeActionItems(parsed.actions)
+  const evidence = normalizeTextArray(parsed.evidence)
+  const recommended_charts = normalizeTextArray(parsed.recommended_charts)
+
+  if (
+    !summary &&
+    metric_cards.length === 0 &&
+    findings.length === 0 &&
+    risks.length === 0 &&
+    actions.length === 0 &&
+    evidence.length === 0 &&
+    recommended_charts.length === 0
+  ) {
+    return null
+  }
+
+  return {
+    summary,
+    metric_cards,
+    findings,
+    risks,
+    actions,
+    evidence,
+    recommended_charts,
+    _strippedMarkdown: stripInsightBlocks(markdown),
+  }
+}
+
 /**
  * Extracts the insight-meta JSON block emitted at the end of AI responses.
  * Backend convention: the AI is instructed to append a final fenced block:
@@ -179,9 +357,7 @@ export function extractInsightMeta(markdown) {
     return null
   }
   // Strip the fenced block from the markdown so MarkdownRenderer doesn't render it
-  const strippedMarkdown = markdown
-    .replace(/```insight-meta\s*\n[\s\S]*?\n```\s*/g, '')
-    .trim()
+  const strippedMarkdown = stripInsightBlocks(markdown)
   return { tldr, key_metrics, recommended_charts, _strippedMarkdown: strippedMarkdown }
 }
 
