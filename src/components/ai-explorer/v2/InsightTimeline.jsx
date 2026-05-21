@@ -84,9 +84,13 @@ export default function InsightTimeline({
   input = '',
   setInput,
   onSend,
+  onClearChat,
   loading = false,
   promptDisabled = false,
   fontSize = 'normal',
+  status = '',
+  statusTone = '',
+  statusIcon = 'info',
   reportLoading = false,
   setupState,
   isAdsAuthenticated,
@@ -169,6 +173,38 @@ export default function InsightTimeline({
             </span>
           </div>
         )}
+      </div>
+
+      <div className={styles.sessionToolbar} data-testid="ai-session-toolbar">
+        <div className={styles.sessionMeta}>
+          <span className="material-symbols-outlined" aria-hidden="true">forum</span>
+          <div>
+            <p className="japanese-text">現在のAI考察セッション</p>
+            <small className="japanese-text">
+              {messages.length > 0
+                ? `${Math.ceil(messages.length / 2)}件のやり取りを保持中。精度を戻すなら新しいセッションで聞き直せます。`
+                : '新しい質問は履歴なしの状態で開始されます。'}
+            </small>
+          </div>
+        </div>
+        <div className={styles.sessionActions}>
+          {status && (
+            <span className={`${styles.statusPill} ${statusTone}`}>
+              <span className="material-symbols-outlined" aria-hidden="true">{statusIcon}</span>
+              <span className="japanese-text">{status}</span>
+            </span>
+          )}
+          <button
+            type="button"
+            className={styles.sessionClearButton}
+            onClick={onClearChat}
+            disabled={messages.length === 0 || loading}
+            title="現在のAI考察セッションをクリア"
+          >
+            <span className="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
+            <span className="japanese-text">セッションをクリア</span>
+          </button>
+        </div>
       </div>
 
       {/* ───────── Timeline body ───────── */}
