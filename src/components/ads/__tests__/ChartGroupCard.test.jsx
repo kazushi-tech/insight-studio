@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ChartGroupCard from '../ChartGroupCard'
 
@@ -11,6 +11,27 @@ vi.mock('../../../contexts/ThemeContext', () => ({
 }))
 
 describe('ChartGroupCard', () => {
+  it('opens chart content by default and collapses from the card header', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: 'LP分析 — 直帰率上位4LP',
+          chartType: 'bar_horizontal',
+          labels: ['/a', '/b', '/c', '/d'],
+          datasets: [{ label: '直帰率 (%)', data: [100, 100, 100, 100] }],
+        }}
+      />,
+    )
+
+    const header = screen.getByTitle('グラフを閉じる')
+    expect(header).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.click(header)
+
+    expect(screen.getByTitle('グラフを開く')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText(/展開すると診断カードと詳細表を確認できます/)).toBeInTheDocument()
+  })
+
   it('shows coverage and warning metadata in the card header', () => {
     render(
       <ChartGroupCard

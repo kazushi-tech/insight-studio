@@ -725,6 +725,13 @@ export default function ChartGroupCard({ group, featured = false }) {
     return featured ? 340 : 300
   }, [effectiveChartType, featured, labels.length, readability.recommendedDisplayMode])
 
+  const toggleCollapsed = () => setIsCollapsed((current) => !current)
+  const handleHeaderKeyDown = (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    toggleCollapsed()
+  }
+
   useEffect(() => {
     if (isCollapsed) {
       chartRef.current?.destroy()
@@ -956,7 +963,16 @@ export default function ChartGroupCard({ group, featured = false }) {
     <article className={`group relative overflow-hidden rounded-xl border bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md flex flex-col ${
       featured ? 'border-primary/30' : 'border-outline-variant/30'
     }`}>
-      <div className="p-6 pb-4">
+      <div
+        className="p-6 pb-4 cursor-pointer"
+        role="button"
+        tabIndex={0}
+        aria-expanded={!isCollapsed}
+        aria-controls={contentId}
+        title={isCollapsed ? 'グラフを開く' : 'グラフを閉じる'}
+        onClick={toggleCollapsed}
+        onKeyDown={handleHeaderKeyDown}
+      >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 min-w-0">
           <div className="flex items-center gap-2 text-[10px] font-black tracking-[0.16em] uppercase text-primary">
@@ -1016,24 +1032,29 @@ export default function ChartGroupCard({ group, featured = false }) {
               </div>
             ))}
           </div>
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest text-primary transition hover:bg-primary hover:text-on-primary"
+          <span
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-outline-variant/40 bg-surface-container-lowest text-primary transition group-hover:bg-primary group-hover:text-on-primary"
             aria-expanded={!isCollapsed}
             aria-controls={contentId}
-            title={isCollapsed ? 'グラフを開く' : 'グラフを閉じる'}
-            onClick={() => setIsCollapsed((current) => !current)}
           >
             <span className={`material-symbols-outlined text-xl transition-transform ${isCollapsed ? '' : 'rotate-180'}`} aria-hidden="true">
               expand_more
             </span>
-          </button>
+          </span>
         </div>
       </div>
       </div>
 
       {isCollapsed ? (
-        <div id={contentId} className="border-t border-outline-variant/20 px-6 py-4 text-sm font-bold text-on-surface-variant">
+        <div
+          id={contentId}
+          className="border-t border-outline-variant/20 px-6 py-4 text-sm font-bold text-on-surface-variant cursor-pointer hover:bg-primary/[0.035] transition-colors"
+          role="button"
+          tabIndex={0}
+          aria-label="グラフを開く"
+          onClick={toggleCollapsed}
+          onKeyDown={handleHeaderKeyDown}
+        >
           {usesDiagnosticSurface
             ? readability.recommendedDisplayMode === 'flat_diagnostic'
               ? '値が同一のため、展開すると診断カードと詳細表を確認できます。'
