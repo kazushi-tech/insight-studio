@@ -18,7 +18,6 @@ import {
   buildAnalysisInstructions,
   normalizeChartGroupShape,
 } from '../utils/adsReports'
-import { analyzeChartReadability } from '../utils/chartReadability'
 import { getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import {
@@ -62,6 +61,8 @@ const EVIDENCE_STYLES = {
   proxy:    { text: 'text-accent-gold', bg: 'bg-accent-gold/10', border: 'border-accent-gold/20', label: '代替' },
   inferred: { text: 'text-tertiary', bg: 'bg-tertiary/5', border: 'border-tertiary/20', label: '推論' },
 }
+
+const AI_RAIL_COLLAPSED_STORAGE_KEY = 'insight-studio.adsGraphs.aiRailCollapsed'
 
 /* ── Evidence Type colour map (for EvidenceDrawer) ── */
 const TYPE_STYLES = {
@@ -346,16 +347,10 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
           <div className="grid grid-cols-1 gap-8">
             {theme.groups.map((group, groupIndex) => {
               const normalizedGroup = normalizeChartGroupShape(group)
-              const readability = analyzeChartReadability(normalizedGroup, normalizedGroup.chartType)
-              const shouldStayOpen =
-                readability.recommendedDisplayMode === 'flat_diagnostic' ||
-                readability.recommendedDisplayMode === 'low_sample_table'
-              const shouldCollapse =
-                !shouldStayOpen && (groupIndex >= 2 || (normalizedGroup.labels?.length ?? 0) > 12)
               return (
                 <ChartGroupCard
                   key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
-                  group={{ ...normalizedGroup, defaultCollapsed: shouldCollapse }}
+                  group={{ ...normalizedGroup, defaultCollapsed: false }}
                 />
               )
             })}
@@ -882,6 +877,8 @@ function GraphAiQuestionRail({
   analysisProvider,
   onThemeChange,
   onScrollToGraphs,
+  isCollapsed,
+  onToggleCollapsed,
 }) {
   const [inlineQuestion, setInlineQuestion] = useState('')
   const [inlineAnswer, setInlineAnswer] = useState('')
@@ -897,6 +894,30 @@ function GraphAiQuestionRail({
       ]
   const selectedQuestion = inlineQuestion.trim() || prompts[0] || ''
   const wideAiHref = `/ads/ai?question=${encodeURIComponent(selectedQuestion)}`
+
+  if (isCollapsed) {
+    return (
+      <aside
+        data-testid="ads-graph-ai-rail"
+        data-state="collapsed"
+        className="block self-start 2xl:sticky 2xl:top-24"
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-label="AIグラフチャットを開く"
+          title="AIグラフチャットを開く"
+          className="flex w-full min-h-24 2xl:min-h-[calc(100vh-7rem)] flex-col items-center justify-start gap-3 rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest px-3 py-5 text-primary shadow-sm transition hover:bg-primary/[0.045]"
+        >
+          <span className="grid size-10 place-items-center rounded-full bg-primary text-on-primary">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">forum</span>
+          </span>
+          <span className="text-[10px] font-black tracking-[0.14em] [writing-mode:vertical-rl]">AIチャット</span>
+          <span className="material-symbols-outlined text-base" aria-hidden="true">left_panel_open</span>
+        </button>
+      </aside>
+    )
+  }
 
   async function handleInlineAsk(text) {
     const prompt = (text ?? inlineQuestion).trim()
@@ -971,9 +992,15 @@ function GraphAiQuestionRail({
             <p className="text-[10px] font-black tracking-[0.14em] text-primary">AIグラフチャット</p>
             <h2 className="mt-1 text-lg font-extrabold text-primary japanese-text">グラフを見ながら質問</h2>
           </div>
-          <span className="grid size-10 place-items-center rounded-full bg-primary text-on-primary">
-            <span className="material-symbols-outlined text-lg" aria-hidden="true">forum</span>
-          </span>
+          <button
+            type="button"
+            onClick={onToggleCollapsed}
+            aria-label="AIグラフチャットを閉じる"
+            title="AIグラフチャットを閉じる"
+            className="grid size-10 place-items-center rounded-full bg-primary text-on-primary transition hover:opacity-85"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">right_panel_close</span>
+          </button>
         </div>
         <p className="mt-3 text-xs leading-6 text-on-surface-variant japanese-text">
           右カラムは考察専用です。期間とGA4保存先を固定したまま、気になったグラフの読み解きをAIに聞きます。
@@ -1093,6 +1120,14 @@ export default function AnalysisGraphs() {
   const [openSections, setOpenSections] = useState({})
   const [activeSection, setActiveSection] = useState('graphs')
   const [creativeFilter, setCreativeFilter] = useState('all')
+  const [isAiRailCollapsed, setIsAiRailCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem(AI_RAIL_COLLAPSED_STORAGE_KEY) === 'true'
+    } catch {
+      return false
+    }
+  })
 
   /* ── Excel import state ── */
   const [excelState, setExcelState] = useState('none')
@@ -1176,14 +1211,25 @@ export default function AnalysisGraphs() {
 
   /* ── Accordion state for analyst themes ── */
   useEffect(() => {
-    const init = {}
-    for (const theme of themes) init[theme.id] = true
-    setOpenSections(init)
+    setOpenSections((current) => {
+      const next = {}
+      for (const theme of themes) next[theme.id] = current[theme.id] ?? true
+      return next
+    })
   }, [themes])
 
   const toggleSection = useCallback((themeId) => {
     setOpenSections((prev) => ({ ...prev, [themeId]: !prev[themeId] }))
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(AI_RAIL_COLLAPSED_STORAGE_KEY, String(isAiRailCollapsed))
+    } catch {
+      // localStorageが使えない環境では、この画面内だけの開閉状態として扱います。
+    }
+  }, [isAiRailCollapsed])
 
   /* ── Header data ── */
   const periods = setupState?.periods ?? []
@@ -1200,6 +1246,11 @@ export default function AnalysisGraphs() {
   const hasCreativeData = creativeRefs.length > 0
   const hasDetailReport = refinedInsights.length > 0
   const adsRailStatus = loading ? '取得中' : isFallbackReport ? '暫定' : hasGraphData ? 'グラフ表示中' : 'データ待ち'
+  const graphsLayoutClassName = hasGraphData
+    ? `space-y-10 2xl:grid ${
+        isAiRailCollapsed ? '2xl:grid-cols-[minmax(0,1fr)_72px]' : '2xl:grid-cols-[minmax(0,1fr)_360px]'
+      } 2xl:items-start 2xl:gap-8 2xl:space-y-0`
+    : ''
 
   /* ── Handlers ── */
   async function handleRefresh() {
@@ -1466,7 +1517,7 @@ export default function AnalysisGraphs() {
           </div>
         )}
 
-        <div className={hasGraphData ? 'space-y-10 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_360px] 2xl:items-start 2xl:gap-8 2xl:space-y-0' : ''}>
+        <div className={graphsLayoutClassName}>
           <div className="min-w-0 space-y-10">
             {/* ═══ 4. GRAPH SECTION ═══ */}
             <section id="section-graphs" className="scroll-mt-24 space-y-6">
@@ -1508,7 +1559,7 @@ export default function AnalysisGraphs() {
                   {keyCharts.length > 0 && (
                     <div className="grid grid-cols-1 gap-8">
                       {keyCharts.map((group, idx) => (
-                        <ChartGroupCard key={`key-${group.title ?? idx}`} group={{ ...group, defaultCollapsed: idx >= 3 }} featured />
+                        <ChartGroupCard key={`key-${group.title ?? idx}`} group={{ ...group, defaultCollapsed: false }} featured />
                       ))}
                     </div>
                   )}
@@ -1580,6 +1631,8 @@ export default function AnalysisGraphs() {
               analysisProvider={analysisProvider}
               onThemeChange={setActiveTheme}
               onScrollToGraphs={() => scrollToSection('graphs')}
+              isCollapsed={isAiRailCollapsed}
+              onToggleCollapsed={() => setIsAiRailCollapsed((current) => !current)}
             />
           )}
         </div>
