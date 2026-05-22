@@ -292,6 +292,39 @@ def test_review_safe_report_is_professional_and_beginner_readable():
     assert validate_ai_insight_output(text, pack, data_source="bq")["ok"] is True
 
 
+def test_review_safe_report_with_prior_issues_is_repaired_and_valid():
+    """Review Agent の指摘後に安全版へ修復したレポートは 422 に戻さない"""
+    from web.app.backend_api import _build_review_safe_insight_report
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "scope_label": "2026-05",
+        "charts": [
+            {
+                "chart_id": "chart_01",
+                "title": "PV分析 — 日別推移",
+                "series": [
+                    {"label": "ユーザー数", "points": [{"label": "5/7", "aliases": ["20260507", "2026年5月7日"], "value": 273}]},
+                    {"label": "セッション数", "points": [{"label": "5/7", "aliases": ["20260507", "2026年5月7日"], "value": 308}]},
+                    {"label": "PV数", "points": [{"label": "5/7", "aliases": ["20260507", "2026年5月7日"], "value": 328}]},
+                ],
+            }
+        ],
+    }
+
+    text = _build_review_safe_insight_report(
+        pack,
+        review_issues=["元のLLM回答に根拠パック外の値があります: 999件"],
+        query_text="20260507 と 2026年5月7日の PV数・セッション数・ユーザー数",
+    )
+
+    result = validate_ai_insight_output(text, pack, data_source="bq", require_agent_trace=True)
+    assert result["ok"] is True
+    assert '"verdict": "pass"' in text
+    assert "273" in text and "308" in text and "328" in text
+    assert "Review Agent の指摘を受け" in text
+
+
 def test_validate_ai_insight_output_requires_full_agent_trace_when_requested():
     from web.app.bq_chart_builder import REQUIRED_AGENT_TRACE_STAGES, validate_ai_insight_output
 
