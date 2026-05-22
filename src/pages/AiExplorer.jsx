@@ -45,19 +45,27 @@ const QUICK_PROMPTS = [
 
 const REPORT_REBUILD_FALLBACK_MS = 25000
 const HTML_REPORT_OUTPUT_INSTRUCTIONS = [
+  '回答は業務レポートとして読みやすいMarkdownにしてください。',
+  '- 冒頭は1〜2文で「つまり何が起きているか」を平易に書く。',
+  '- 数値比較はMarkdownテーブルで出す。',
+  '- 根拠に使ったグラフは chart_id とグラフ名を必ず本文にも書く。',
+  '- 専門用語を使う場合は、直後に短い補足を入れる。',
+  '- 断定できない原因は「仮説」と明記する。',
+  '',
   '回答の末尾に、必ず次の fenced JSON ブロックを追加してください。',
   '```insight-report',
   '{',
-  '  "summary": "1文の結論",',
-  '  "metric_cards": [{"label": "KPI名", "value": "値", "delta": "up|down|flat", "note": "読み取り"}],',
-  '  "findings": [{"title": "主要所見", "body": "観測事実と解釈", "evidence": ["根拠指標"]}],',
-  '  "risks": [{"title": "要確認", "body": "判断前に確認すること", "evidence": ["不足データ"]}],',
-  '  "actions": [{"label": "P0", "title": "次アクション", "body": "実行内容", "owner": "担当", "due": "期限", "evidence": ["根拠"]}],',
-  '  "evidence": ["使ったグラフ名や指標"],',
-  '  "recommended_charts": ["次に見るグラフ"]',
+  '  "version": "insight_report_v2",',
+  '  "executive_summary": ["平易な重要結論"],',
+  '  "evidence_table": [{"claim": "主張", "metric": "指標", "value": "値", "period": "期間", "source": "chart_id", "confidence": "high|medium|low"}],',
+  '  "interpretation": ["読み解き。初心者にも分かる表現にする"],',
+  '  "hypotheses": [{"hypothesis": "仮説", "evidence": "根拠chart_idまたは根拠値", "missing_data": "不足データ"}],',
+  '  "actions": [{"priority": "P0|P1|P2", "action": "施策", "rationale": "根拠", "expected_metric": "見る指標"}],',
+  '  "limitations": ["断定できないこと"],',
+  '  "review_status": {"verdict": "pass|needs_review", "notes": ["確認結果"]}',
   '}',
   '```',
-  'JSON内にHTMLタグは入れず、文字列だけで返してください。本文は通常の日本語で構いません。',
+  'JSON内にHTMLタグは入れず、文字列だけで返してください。',
 ].join('\n')
 
 async function regenerateAdsReportBundleForAi(setupState) {

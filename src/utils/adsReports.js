@@ -442,6 +442,8 @@ function normalizeSearchText(text) {
     .trim()
 }
 
+const chartEvidenceReferenceCache = new WeakMap()
+
 /**
  * Match the chart groups most relevant to an AI response by scoring title,
  * KPI-label, and dataset-label hits against the response text. Used to power
@@ -452,9 +454,15 @@ export function matchRelevantCharts(aiContent, chartGroups, { limit = 3 } = {}) 
   const normalized = normalizeSearchText(aiContent)
   if (!normalized) return []
 
-  const scored = chartGroups.map((group) => {
+  const scored = chartGroups.map((group, index) => {
     const title = group?.title || ''
     const titleHit = title && normalized.includes(normalizeSearchText(title)) ? 3 : 0
+    const evidenceReference = getChartEvidenceReference(group, index)
+    if (group && typeof group === 'object') {
+      chartEvidenceReferenceCache.set(group, evidenceReference)
+    }
+    const evidenceIdHit = normalized.includes(normalizeSearchText(evidenceReference.chartId)) ? 8 : 0
+    const evidenceHashHit = evidenceReference.hash && normalized.includes(normalizeSearchText(evidenceReference.hash)) ? 6 : 0
 
     let kpiHit = 0
     const kpis = Array.isArray(group?.kpis) ? group.kpis : []
@@ -468,7 +476,7 @@ export function matchRelevantCharts(aiContent, chartGroups, { limit = 3 } = {}) 
       if (label && normalized.includes(normalizeSearchText(label))) kpiHit += 1
     }
 
-    return { group, score: titleHit + kpiHit }
+    return { group, score: evidenceIdHit + evidenceHashHit + titleHit + kpiHit }
   })
 
   return scored
@@ -514,6 +522,23 @@ function hashStableText(text) {
     hash |= 0
   }
   return Math.abs(hash).toString(36)
+}
+
+export function getChartEvidenceReference(group, index = 0) {
+  if (group && typeof group === 'object' && chartEvidenceReferenceCache.has(group)) {
+    return chartEvidenceReferenceCache.get(group)
+  }
+
+  const normalized = normalizeChartGroupShape(group)
+  const title = getChartGroupTitle(normalized, index)
+  const periodTag = normalized?._periodTag ?? normalized?.periodTag ?? ''
+  const hash = hashStableText(`${title}:${periodTag}`)
+  return {
+    chartId: `chart_${String(index + 1).padStart(2, '0')}_${hash}`,
+    hash,
+    title,
+    periodTag,
+  }
 }
 
 function formatEvidenceLabel(label) {

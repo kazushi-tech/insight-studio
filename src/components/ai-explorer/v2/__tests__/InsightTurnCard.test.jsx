@@ -289,4 +289,40 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText('CPA / ROAS')).not.toBeInTheDocument()
     expect(screen.queryByText('CV / CVR')).not.toBeInTheDocument()
   })
+
+  it('surfaces referenced graph cards inside insight-report v2', () => {
+    const group = {
+      title: 'PV分析 — 日別推移',
+      labels: ['20260507'],
+      datasets: [{ label: 'PV数', data: [328] }],
+      chartType: 'line',
+      _periodTag: '2026-05',
+    }
+    const aiContent = [
+      '```insight-report',
+      JSON.stringify({
+        version: 'insight_report_v2',
+        executive_summary: ['5/7のPV数は328です'],
+        evidence_table: [
+          { claim: '5/7のPVが確認できます', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'high' },
+        ],
+        interpretation: ['PV分析 — 日別推移を参照しています。'],
+        hypotheses: [],
+        actions: [],
+        limitations: [],
+        review_status: { verdict: 'pass', notes: ['数値根拠確認済み'] },
+      }),
+      '```',
+      '',
+      'PV分析 — 日別推移 の chart_01 を参照しています。',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} chartGroups={[group]} />)
+
+    expect(screen.getByTestId('referenced-chart-report')).toBeInTheDocument()
+    expect(screen.getByText('参照した広告グラフ')).toBeInTheDocument()
+    expect(screen.getByText('グラフ本文 (1)')).toBeInTheDocument()
+    expect(screen.getByTestId('chart-group-card')).toHaveTextContent('PV分析 — 日別推移')
+    expect(screen.getAllByText(/328/).length).toBeGreaterThan(0)
+  })
 })

@@ -12,9 +12,18 @@ import ChartGroupCard from '../../ads/ChartGroupCard'
  *
  * Default expansion rule: open when groups.length <= 2, collapsed otherwise.
  */
-export default function InsightChartPanel({ groups }) {
+export default function InsightChartPanel({
+  groups,
+  defaultExpanded,
+  title = '関連データグラフを展開',
+  description = '',
+}) {
   const list = Array.isArray(groups) ? groups : []
-  const [expanded, setExpanded] = useState(list.length > 0 && list.length <= 2)
+  const [expanded, setExpanded] = useState(
+    typeof defaultExpanded === 'boolean'
+      ? defaultExpanded
+      : list.length > 0 && list.length <= 2,
+  )
 
   if (list.length === 0) return null
 
@@ -22,42 +31,34 @@ export default function InsightChartPanel({ groups }) {
 
   return (
     <div className="mt-6 pt-6 border-t border-outline-variant/20">
-      <div
-        className="flex items-center justify-between cursor-pointer py-2"
+      <button
+        type="button"
+        className="flex w-full items-center justify-between rounded-lg py-2 text-left transition-colors hover:bg-surface-container-low/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
         onClick={toggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            toggle()
-          }
-        }}
-        role="button"
-        tabIndex={0}
         aria-expanded={expanded}
         data-testid="insight-chart-panel-header"
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
-            <span className="material-symbols-outlined">psychology</span>
+            <span className="material-symbols-outlined" aria-hidden="true">monitoring</span>
           </div>
-          <h3 className="text-base font-bold text-on-surface japanese-text">
-            {`関連データグラフを展開 (${list.length})`}
-          </h3>
+          <div>
+            <h3 className="text-base font-bold text-on-surface japanese-text">
+              {`${title} (${list.length})`}
+            </h3>
+            {description && (
+              <p className="mt-0.5 text-xs font-medium text-on-surface-variant japanese-text">
+                {description}
+              </p>
+            )}
+          </div>
         </div>
-        <button
-          type="button"
-          aria-label="toggle"
-          onClick={(e) => {
-            e.stopPropagation()
-            toggle()
-          }}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low/60"
-        >
+        <span className="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant">
           <span className="material-symbols-outlined">
             {expanded ? 'expand_less' : 'expand_more'}
           </span>
-        </button>
-      </div>
+        </span>
+      </button>
 
       {expanded && (
         <div
