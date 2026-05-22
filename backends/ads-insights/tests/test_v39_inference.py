@@ -162,7 +162,7 @@ def test_validate_ai_insight_output_accepts_evidence_numbers():
         ]
     }
     text = """```insight-report
-{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["200を根拠に確認"],"hypotheses":[],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費は未取得"]}
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["初心者にも分かるよう、5/3のセッション200を見ます。","Senior AdOps Reviewerは広告費未取得を確認しました。"],"hypotheses":[{"hypothesis":"流入増の仮説","evidence":"chart_01_test","missing_data":"広告費"}],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費は未取得","Consistency Agent: 日付と数値を確認"],"review_status":{"verdict":"pass","notes":["初心者説明","Senior AdOps Reviewer","Consistency Agent"]}}
 ```
 chart_01_test のセッション 200 を根拠にします。
 """
@@ -209,9 +209,9 @@ def test_validate_ai_insight_output_allows_grouped_missing_ad_kpis():
         ]
     }
     text = """```insight-report
-{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["200を根拠に確認"],"hypotheses":[],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。"]}
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["初心者にも分かるよう、5/3のセッション200を見ます。","Senior AdOps Reviewerは広告費未取得を確認しました。"],"hypotheses":[{"hypothesis":"流入増の仮説","evidence":"chart_01_test","missing_data":"広告費"}],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。","Consistency Agent: 日付と数値を確認"],"review_status":{"verdict":"pass","notes":["初心者説明","Senior AdOps Reviewer","Consistency Agent"]}}
 ```
-chart_01_test のセッション 200 を根拠にします。広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。
+chart_01_test のセッション 200 を根拠にします。初心者向けに説明し、Senior AdOps Reviewer と Consistency Agent が確認しました。広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。
 """
 
     result = validate_ai_insight_output(text, pack, data_source="bq")
@@ -256,6 +256,39 @@ def test_review_safe_report_resolves_date_aliases():
     assert "chart_02_date" in japanese
     assert "5/7" in japanese
     assert "114" in japanese
+    for marker in ["Beginner Explainer Agent", "Senior AdOps Reviewer Agent", "Consistency Agent", "初心者", "未取得"]:
+        assert marker in compact
+
+
+def test_review_safe_report_is_professional_and_beginner_readable():
+    """fallbackでもシニア運用判断と初心者説明を含む"""
+    from web.app.backend_api import _build_review_safe_insight_report
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "scope_label": "2026-05",
+        "charts": [
+            {
+                "chart_id": "chart_01",
+                "title": "PV分析 — 日別推移",
+                "series": [
+                    {"label": "ユーザー数", "points": [{"label": "5/7", "aliases": ["20260507", "2026年5月7日"], "value": 273}], "latest": {"label": "5/7", "value": 273}, "max": {"label": "5/7", "value": 273}},
+                    {"label": "セッション数", "points": [{"label": "5/7", "aliases": ["20260507", "2026年5月7日"], "value": 308}], "latest": {"label": "5/7", "value": 308}, "max": {"label": "5/7", "value": 308}},
+                    {"label": "PV数", "points": [{"label": "5/7", "aliases": ["20260507", "2026年5月7日"], "value": 328}], "latest": {"label": "5/7", "value": 328}, "max": {"label": "5/7", "value": 328}},
+                ],
+            }
+        ],
+    }
+
+    text = _build_review_safe_insight_report(pack, query_text="2026年5月7日を初心者にも分かるように説明")
+
+    assert "chart_01" in text
+    assert "273" in text and "308" in text and "328" in text
+    assert "初心者" in text
+    assert "シニア広告運用" in text or "Senior AdOps Reviewer Agent" in text
+    assert "原因ではなく、検証前の仮説" in text
+    assert "CPA" in text and "未取得" in text
+    assert validate_ai_insight_output(text, pack, data_source="bq")["ok"] is True
 
 
 def test_load_bq_system_prompt_with_inference():
