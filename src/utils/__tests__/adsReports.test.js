@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   buildAdsReportBundle,
   buildChartEvidencePack,
-  getChartEvidenceReference,
   getDisplayChartGroups,
   matchRelevantCharts,
   normalizeChartGroupShape,
@@ -113,19 +112,6 @@ describe('matchRelevantCharts', () => {
     expect(result).toHaveLength(3)
   })
 
-  it('matches chart evidence ids emitted in insight_report_v2', () => {
-    const group = makeGroup({
-      title: 'PV分析 — 日別推移',
-      labels: ['20260507'],
-      datasets: [{ label: 'PV数', data: [328] }],
-      _periodTag: '2026-05',
-    })
-    const reference = getChartEvidenceReference(group, 0)
-
-    const result = matchRelevantCharts(`根拠は ${reference.chartId} のPV数です。`, [group])
-
-    expect(result).toEqual([group])
-  })
 })
 
 describe('chart group normalization', () => {
@@ -360,7 +346,7 @@ describe('buildChartEvidencePack', () => {
     expect(pack.version).toBe('chart_evidence_pack_v1')
     expect(pack.scope_label).toBe('2026-05')
     expect(pack.charts).toHaveLength(1)
-    expect(pack.charts[0].chart_id).toMatch(/^chart_01_/)
+    expect(pack.charts[0].chart_id).toBe('chart_01')
     expect(pack.charts[0].series_count).toBe(3)
     expect(pack.charts[0].missing_values).toBe(1)
     expect(pack.charts[0].series[0].latest).toEqual({

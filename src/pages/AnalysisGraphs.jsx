@@ -180,21 +180,26 @@ const EVIDENCE_STYLES = {
 
 const AI_RAIL_COLLAPSED_STORAGE_KEY = 'insight-studio.adsGraphs.aiRailCollapsed'
 const GRAPH_AI_HTML_REPORT_INSTRUCTIONS = [
-  '回答は右カラムでも読める短い業務レポートMarkdownにしてください。',
-  '- 冒頭は1〜2文で「つまり何を見るべきか」を平易に書く。',
-  '- 数値比較はMarkdownテーブルで出す。',
-  '- 根拠に使ったグラフは chart_id とグラフ名を必ず本文にも書く。',
-  '- 専門用語を使う場合は、直後に短い補足を入れる。',
-  '- 断定できない原因は「仮説」と明記する。',
+  '回答は右カラムで読める短いMarkdownレポートにしてください。',
+  '構成は次だけに絞ってください。',
+  '1. 結論: 1〜2文。初心者にも分かる言葉で書く。',
+  '2. 根拠表: chart_id / グラフ名 / 指標 / 値 / 期間 のMarkdownテーブル。',
+  '3. 読み解き: 2〜4文。原因は断定せず、必要なら「仮説」と書く。',
+  '4. 次に見ること: 3件まで。',
+  '',
+  '禁止:',
+  '- 根拠にないCPA、ROAS、CTR、広告費、CVRを断定しない。',
+  '- 長いエージェント説明や内部処理名を本文の主役にしない。',
+  '- 同じ数値や同じグラフを繰り返し並べない。',
   '',
   '回答の末尾に、必ず次の fenced JSON ブロックを追加してください。',
   '```insight-report',
   '{',
   '  "version": "insight_report_v2",',
-  '  "executive_summary": ["平易な重要結論"],',
+  '  "executive_summary": ["1〜2文の結論"],',
   '  "evidence_table": [{"claim": "主張", "metric": "指標", "value": "値", "period": "期間", "source": "chart_id", "confidence": "high|medium|low"}],',
-  '  "interpretation": ["読み解き。初心者にも分かる表現にする"],',
-  '  "hypotheses": [{"hypothesis": "仮説", "evidence": "根拠chart_idまたは根拠値", "missing_data": "不足データ"}],',
+  '  "interpretation": ["2〜4文の読み解き"],',
+  '  "hypotheses": [{"hypothesis": "仮説", "evidence": "根拠chart_id", "missing_data": "不足データ"}],',
   '  "actions": [{"priority": "P0|P1|P2", "action": "施策", "rationale": "根拠", "expected_metric": "見る指標"}],',
   '  "limitations": ["断定できないこと"],',
   '  "review_status": {"verdict": "pass|needs_review", "notes": ["確認結果"]}',
@@ -1212,14 +1217,14 @@ function GraphAiQuestionRail({
       <aside
         data-testid="ads-graph-ai-rail"
         data-state="collapsed"
-        className="block self-start 2xl:sticky 2xl:top-24"
+        className="fixed right-4 top-24 z-20 xl:right-6"
       >
         <button
           type="button"
           onClick={onToggleCollapsed}
           aria-label="AIグラフチャットを開く"
           title="AIグラフチャットを開く"
-          className="flex w-full min-h-24 2xl:min-h-[calc(100vh-7rem)] flex-col items-center justify-start gap-3 rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest px-3 py-5 text-primary shadow-sm transition hover:bg-primary/[0.045]"
+          className="flex min-h-24 w-12 flex-col items-center justify-start gap-3 rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest px-2.5 py-4 text-primary shadow-sm transition hover:bg-primary/[0.045]"
         >
           <span className="grid size-10 place-items-center rounded-full bg-primary text-on-primary">
             <span className="material-symbols-outlined text-lg" aria-hidden="true">forum</span>
@@ -1330,7 +1335,7 @@ function GraphAiQuestionRail({
   return (
     <aside
       data-testid="ads-graph-ai-rail"
-      className="fixed right-4 top-20 z-20 block w-[min(360px,calc(100vw-2rem))] max-h-[calc(100vh-6rem)] self-start overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm xl:right-6 xl:top-24 xl:max-h-[calc(100vh-7rem)] 2xl:right-[calc((100vw-1440px)/2+1.5rem)]"
+      className="fixed right-4 top-20 z-20 block w-[min(360px,calc(100vw-2rem))] max-h-[calc(100vh-6rem)] self-start overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm xl:right-6 xl:top-24 xl:max-h-[calc(100vh-7rem)]"
     >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
@@ -1482,11 +1487,13 @@ export default function AnalysisGraphs() {
   const [activeSection, setActiveSection] = useState('graphs')
   const [creativeFilter, setCreativeFilter] = useState('all')
   const [isAiRailCollapsed, setIsAiRailCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false
+    if (typeof window === 'undefined') return true
     try {
-      return window.localStorage.getItem(AI_RAIL_COLLAPSED_STORAGE_KEY) === 'true'
+      const saved = window.localStorage.getItem(AI_RAIL_COLLAPSED_STORAGE_KEY)
+      if (saved == null) return true
+      return saved !== 'false'
     } catch {
-      return false
+      return true
     }
   })
 
@@ -1613,9 +1620,9 @@ export default function AnalysisGraphs() {
   }), [hasCreativeData, hasDetailReport])
   const adsRailStatus = loading ? '取得中' : isFallbackReport ? '暫定' : hasGraphData ? 'グラフ表示中' : 'データ待ち'
   const graphsLayoutClassName = hasGraphData
-    ? `space-y-10 xl:grid ${
-        isAiRailCollapsed ? 'xl:grid-cols-[minmax(0,1fr)_72px]' : 'xl:grid-cols-[minmax(0,1fr)_360px]'
-      } xl:items-start xl:gap-8 xl:space-y-0`
+    ? isAiRailCollapsed
+      ? 'space-y-10'
+      : 'space-y-10 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start xl:gap-8 xl:space-y-0'
     : ''
 
   /* ── Handlers ── */

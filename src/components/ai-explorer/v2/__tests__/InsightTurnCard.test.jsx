@@ -94,7 +94,7 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(/関連データグラフを展開/)).not.toBeInTheDocument()
   })
 
-  it('renders the chart panel when chartGroups contain a matching title', () => {
+  it('keeps graph bodies out of AI reports even when chartGroups match', () => {
     const group = {
       title: 'CVR推移',
       labels: ['W1', 'W2'],
@@ -110,8 +110,9 @@ describe('InsightTurnCard', () => {
         chartGroups={[group]}
       />,
     )
-    expect(screen.getByTestId('chart-group-card')).toBeInTheDocument()
-    expect(screen.getByText('関連データグラフを展開 (1)')).toBeInTheDocument()
+    expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
+    expect(screen.queryByText(/関連データグラフを展開/)).not.toBeInTheDocument()
+    expect(screen.getByText(/直近のCVR推移が改善/)).toBeInTheDocument()
   })
 
   it('does not render the chart panel when no chartGroups match the content', () => {
@@ -285,19 +286,12 @@ describe('InsightTurnCard', () => {
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
     expect(screen.getByText('重要結論')).toBeInTheDocument()
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
-    expect(screen.getByText('LP /a の流入元を確認')).toBeInTheDocument()
+    expect(screen.getByText(/LP \/a の流入元を確認/)).toBeInTheDocument()
     expect(screen.queryByText('CPA / ROAS')).not.toBeInTheDocument()
     expect(screen.queryByText('CV / CVR')).not.toBeInTheDocument()
   })
 
-  it('surfaces referenced graph cards inside insight-report v2', () => {
-    const group = {
-      title: 'PV分析 — 日別推移',
-      labels: ['20260507'],
-      datasets: [{ label: 'PV数', data: [328] }],
-      chartType: 'line',
-      _periodTag: '2026-05',
-    }
+  it('keeps insight-report v2 compact and avoids inline chart expansion', () => {
     const aiContent = [
       '```insight-report',
       JSON.stringify({
@@ -317,12 +311,12 @@ describe('InsightTurnCard', () => {
       'PV分析 — 日別推移 の chart_01 を参照しています。',
     ].join('\n')
 
-    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} chartGroups={[group]} />)
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
-    expect(screen.getByTestId('referenced-chart-report')).toBeInTheDocument()
-    expect(screen.getByText('参照した広告グラフ')).toBeInTheDocument()
-    expect(screen.getByText('グラフ本文 (1)')).toBeInTheDocument()
-    expect(screen.getByTestId('chart-group-card')).toHaveTextContent('PV分析 — 日別推移')
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
     expect(screen.getAllByText(/328/).length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('referenced-chart-report')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
   })
 })

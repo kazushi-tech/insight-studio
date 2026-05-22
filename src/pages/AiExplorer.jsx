@@ -45,21 +45,26 @@ const QUICK_PROMPTS = [
 
 const REPORT_REBUILD_FALLBACK_MS = 25000
 const HTML_REPORT_OUTPUT_INSTRUCTIONS = [
-  '回答は業務レポートとして読みやすいMarkdownにしてください。',
-  '- 冒頭は1〜2文で「つまり何が起きているか」を平易に書く。',
-  '- 数値比較はMarkdownテーブルで出す。',
-  '- 根拠に使ったグラフは chart_id とグラフ名を必ず本文にも書く。',
-  '- 専門用語を使う場合は、直後に短い補足を入れる。',
-  '- 断定できない原因は「仮説」と明記する。',
+  '回答は短いMarkdownレポートにしてください。',
+  '構成は次だけに絞ってください。',
+  '1. 結論: 1〜2文。初心者にも分かる言葉で書く。',
+  '2. 根拠表: chart_id / グラフ名 / 指標 / 値 / 期間 のMarkdownテーブル。',
+  '3. 読み解き: 2〜4文。原因は断定せず、必要なら「仮説」と書く。',
+  '4. 次に見ること: 3件まで。',
+  '',
+  '禁止:',
+  '- 根拠にないCPA、ROAS、CTR、広告費、CVRを断定しない。',
+  '- 長いエージェント説明や内部処理名を本文の主役にしない。',
+  '- 同じ数値や同じグラフを繰り返し並べない。',
   '',
   '回答の末尾に、必ず次の fenced JSON ブロックを追加してください。',
   '```insight-report',
   '{',
   '  "version": "insight_report_v2",',
-  '  "executive_summary": ["平易な重要結論"],',
+  '  "executive_summary": ["1〜2文の結論"],',
   '  "evidence_table": [{"claim": "主張", "metric": "指標", "value": "値", "period": "期間", "source": "chart_id", "confidence": "high|medium|low"}],',
-  '  "interpretation": ["読み解き。初心者にも分かる表現にする"],',
-  '  "hypotheses": [{"hypothesis": "仮説", "evidence": "根拠chart_idまたは根拠値", "missing_data": "不足データ"}],',
+  '  "interpretation": ["2〜4文の読み解き"],',
+  '  "hypotheses": [{"hypothesis": "仮説", "evidence": "根拠chart_id", "missing_data": "不足データ"}],',
   '  "actions": [{"priority": "P0|P1|P2", "action": "施策", "rationale": "根拠", "expected_metric": "見る指標"}],',
   '  "limitations": ["断定できないこと"],',
   '  "review_status": {"verdict": "pass|needs_review", "notes": ["確認結果"]}',
@@ -246,7 +251,7 @@ export default function AiExplorer() {
   }, [messages, contextMode, setDraft])
 
   // Subscribe to restoreTarget — replaces messages/reportBundle from a history entry.
-  // No API calls: MarkdownRenderer and InsightChartPanel render purely from state.
+  // No API calls: MarkdownRenderer renders purely from state.
   useEffect(() => {
     if (!restoreTarget?.entry) return
     const entry = restoreTarget.entry

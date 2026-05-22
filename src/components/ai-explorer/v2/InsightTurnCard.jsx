@@ -1,18 +1,15 @@
 import MarkdownRenderer from '../../MarkdownRenderer'
 import UserPromptPill from './UserPromptPill'
-import InsightChartPanel from './InsightChartPanel'
 import InsightHtmlReport from './InsightHtmlReport'
 import InsightSummaryHero from './InsightSummaryHero'
-import { getChartEvidenceReference, matchRelevantCharts } from '../../../utils/adsReports'
 import { extractInsightMeta, extractInsightReport, extractOperationalInsightCards } from '../../../utils/adsResponse'
 import styles from './AiExplorerV2.module.css'
 import cardStyles from './InsightTurnCard.module.css'
 
 /**
  * InsightTurnCard — a single user prompt + AI response rendered as one
- * full-width card. Replaces the v1 chat-bubble pair. Phase 2 wires up the
- * `chartGroups` prop to surface related charts under the AI markdown via
- * InsightChartPanel. Phase 3 derives `insight-meta` from `turn.aiContent` (if
+ * full-width card. Replaces the v1 chat-bubble pair. Phase 3 derives
+ * `insight-meta` from `turn.aiContent` (if
  * not passed explicitly) and renders the InsightSummaryHero at the top of
  * the card. The insight-meta fenced block is stripped from the markdown so
  * users don't see it. Fully backwards-compatible: if no meta is present,
@@ -91,108 +88,7 @@ function extractMissingItems(markdown) {
   return [...new Set(matches || [])].slice(0, 5)
 }
 
-function chartChipKey(group, index) {
-  const title = group?.title || group?.label || 'chart'
-  const period = group?.periodTag || group?.period || group?.dateRange || group?.range || ''
-  const stableId = group?.id || group?.key || group?.metricKey || group?.sourceKey || ''
-  return `${title}-${period}-${stableId}-${index}`
-}
-
-function toFiniteChartNumber(value) {
-  if (value == null || value === '') return null
-  const numeric = Number(String(value).replace(/,/g, '').replace(/[%％]$/, '').trim())
-  return Number.isFinite(numeric) ? numeric : null
-}
-
-function formatChartValue(value) {
-  const numeric = toFiniteChartNumber(value)
-  if (numeric == null) return String(value ?? '-')
-  return new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 2 }).format(numeric)
-}
-
-function getChartSnapshot(group) {
-  const labels = Array.isArray(group?.labels) ? group.labels : []
-  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
-  const rows = datasets.slice(0, 3).map((dataset) => {
-    const data = Array.isArray(dataset?.data) ? dataset.data : []
-    const validPoints = data
-      .map((value, index) => ({
-        value: toFiniteChartNumber(value),
-        rawValue: value,
-        label: labels[index] ?? `#${index + 1}`,
-      }))
-      .filter((point) => point.value != null)
-    const latest = validPoints[validPoints.length - 1] ?? null
-    const max = validPoints.reduce((best, point) => (!best || point.value > best.value ? point : best), null)
-    return {
-      label: dataset?.label || 'データ',
-      latest,
-      max,
-      count: validPoints.length,
-    }
-  }).filter((row) => row.count > 0)
-
-  return {
-    labelCount: labels.length,
-    seriesCount: datasets.length,
-    rows,
-  }
-}
-
-function ReferencedChartsReport({ groups }) {
-  const list = Array.isArray(groups) ? groups : []
-  if (list.length === 0) return null
-
-  return (
-    <section className={cardStyles.referencedChartsReport} aria-label="参照した広告グラフ" data-testid="referenced-chart-report">
-      <div className={cardStyles.sectionHeader}>
-        <span className="material-symbols-outlined" aria-hidden="true">monitoring</span>
-        <h3 className="japanese-text">参照した広告グラフ</h3>
-      </div>
-      <div className={cardStyles.referenceCards}>
-        {list.map((group, index) => {
-          const reference = getChartEvidenceReference(group, index)
-          const snapshot = getChartSnapshot(group)
-          return (
-            <article key={chartChipKey(group, index)} className={cardStyles.referenceCard}>
-              <div className={cardStyles.referenceCardHeader}>
-                <span translate="no">{reference.chartId}</span>
-                <strong className="japanese-text">{group.title || reference.title || 'グラフ'}</strong>
-              </div>
-              <div className={cardStyles.referenceMeta}>
-                <span className="japanese-text">{group.chartType || 'chart'}</span>
-                <span className="japanese-text">{reference.periodTag || group._periodTag || '期間未指定'}</span>
-                <span className="japanese-text">{snapshot.seriesCount}系列 / {snapshot.labelCount}点</span>
-              </div>
-              {snapshot.rows.length > 0 && (
-                <div className={cardStyles.referenceMiniTable}>
-                  <div>系列</div>
-                  <div>最新</div>
-                  <div>最大</div>
-                  {snapshot.rows.map((row) => (
-                    <div key={`${reference.chartId}-${row.label}`} className={cardStyles.referenceMiniRow}>
-                      <span className="japanese-text">{row.label}</span>
-                      <b>{row.latest ? `${row.latest.label}: ${formatChartValue(row.latest.rawValue)}` : '-'}</b>
-                      <b>{row.max ? `${row.max.label}: ${formatChartValue(row.max.rawValue)}` : '-'}</b>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </article>
-          )
-        })}
-      </div>
-      <InsightChartPanel
-        groups={list}
-        defaultExpanded
-        title="グラフ本文"
-        description="AIが根拠として使ったグラフを同じカード内で確認できます。"
-      />
-    </section>
-  )
-}
-
-function InsightReportSections({ content, operationalCards, relevantCharts }) {
+function InsightReportSections({ content, operationalCards }) {
   const metricRows = extractMetricRows(content)
   const observations = collectMarkdownBullets(content, ['観測', '事実', '現状', '指標'], 4)
   const inferences = collectMarkdownBullets(content, ['推論', '原因', '解釈', '仮説'], 4)
@@ -276,154 +172,107 @@ function InsightReportSections({ content, operationalCards, relevantCharts }) {
           ))}
         </div>
       </section>
-
-      {relevantCharts.length > 0 && (
-        <section className={cardStyles.chartChipSection} aria-label="関連グラフチップ">
-          <span className={cardStyles.chartChipLabel}>関連グラフ</span>
-          <div className={cardStyles.chartChips}>
-            {relevantCharts.map((group, index) => (
-              <span key={chartChipKey(group, index)} className={`${cardStyles.chartChip} japanese-text`}>
-                <span className="material-symbols-outlined" aria-hidden="true">monitoring</span>
-                {group.title || group.label || 'グラフ'}
-              </span>
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   )
 }
 
-function StructuredInsightReport({ report, relevantCharts }) {
+function StructuredInsightReport({ report }) {
   if (!report) return null
 
   return (
-    <div className={cardStyles.structuredReport} data-testid="insight-report-v2">
+    <div className={cardStyles.markdownReport} data-testid="insight-report-v2">
+      <h2 className="japanese-text">AI考察レポート</h2>
+
       {report.executive_summary.length > 0 && (
-        <section className={cardStyles.summaryPanel} aria-label="重要結論">
-          <div className={cardStyles.sectionHeader}>
-            <span className="material-symbols-outlined" aria-hidden="true">verified</span>
-            <h3 className="japanese-text">重要結論</h3>
-          </div>
-          <div className={cardStyles.summaryList}>
-            {report.executive_summary.map((item, index) => (
-              <p key={`${item}-${index}`} className="japanese-text">
-                <b>{String(index + 1).padStart(2, '0')}</b>
-                <span>{item}</span>
-              </p>
-            ))}
-          </div>
+        <section className={cardStyles.markdownReportSection} aria-label="重要結論">
+          <h3 className="japanese-text">重要結論</h3>
+          {report.executive_summary.slice(0, 3).map((item, index) => (
+            <p key={`${item}-${index}`} className="japanese-text">{item}</p>
+          ))}
         </section>
       )}
 
       {report.evidence_table.length > 0 && (
-        <section className={cardStyles.metricSection} aria-label="根拠テーブル">
-          <div className={cardStyles.sectionHeader}>
-            <span className="material-symbols-outlined" aria-hidden="true">dataset</span>
-            <h3 className="japanese-text">根拠テーブル</h3>
-          </div>
-          <div className={cardStyles.evidenceTable}>
-            <div className={cardStyles.tableHead}>主張</div>
-            <div className={cardStyles.tableHead}>指標</div>
-            <div className={cardStyles.tableHead}>値</div>
-            <div className={cardStyles.tableHead}>根拠</div>
-            {report.evidence_table.map((row, index) => (
-              <div key={`${row.claim}-${row.value}-${index}`} className={cardStyles.tableRow}>
-                <p className="japanese-text">{row.claim || '-'}</p>
-                <strong>{row.metric || '-'}</strong>
-                <span>{row.value || '-'}</span>
-                <p className="japanese-text">{[row.period, row.source, row.confidence].filter(Boolean).join(' / ') || '-'}</p>
-              </div>
-            ))}
+        <section className={cardStyles.markdownReportSection} aria-label="根拠テーブル">
+          <h3 className="japanese-text">根拠テーブル</h3>
+          <div className={cardStyles.simpleTableWrap}>
+            <table className={cardStyles.simpleEvidenceTable}>
+              <thead>
+                <tr>
+                  <th>chart_id</th>
+                  <th>グラフ/主張</th>
+                  <th>指標</th>
+                  <th>値</th>
+                  <th>期間</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.evidence_table.slice(0, 6).map((row, index) => (
+                  <tr key={`${row.source}-${row.metric}-${row.value}-${index}`}>
+                    <td translate="no">{row.source || '-'}</td>
+                    <td className="japanese-text">{row.claim || '-'}</td>
+                    <td>{row.metric || '-'}</td>
+                    <td><strong>{row.value || '-'}</strong></td>
+                    <td>{row.period || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
-      <ReferencedChartsReport groups={relevantCharts} />
-
       {report.interpretation.length > 0 && (
-        <section className={cardStyles.factPanel} aria-label="読み解き">
-          <div className={cardStyles.sectionHeader}>
-            <span className="material-symbols-outlined" aria-hidden="true">manage_search</span>
-            <h3 className="japanese-text">読み解き</h3>
-          </div>
-          {report.interpretation.map((item, index) => (
+        <section className={cardStyles.markdownReportSection} aria-label="読み解き">
+          <h3 className="japanese-text">読み解き</h3>
+          {report.interpretation.slice(0, 4).map((item, index) => (
             <p key={`${item}-${index}`} className="japanese-text">{item}</p>
           ))}
         </section>
       )}
 
       {report.hypotheses.length > 0 && (
-        <section className={cardStyles.inferencePanel} aria-label="仮説と不足データ">
-          <div className={cardStyles.sectionHeader}>
-            <span className="material-symbols-outlined" aria-hidden="true">psychology_alt</span>
-            <h3 className="japanese-text">仮説と不足データ</h3>
-          </div>
-          {report.hypotheses.map((item, index) => (
+        <section className={cardStyles.markdownReportSection} aria-label="仮説と不足データ">
+          <h3 className="japanese-text">仮説と不足データ</h3>
+          {report.hypotheses.slice(0, 3).map((item, index) => (
             <p key={`${item.hypothesis}-${index}`} className="japanese-text">
-              {[item.hypothesis, item.evidence, item.missing_data].filter(Boolean).join(' / ')}
+              <strong>仮説:</strong> {item.hypothesis || '未記載'}
+              {item.missing_data ? ` / 確認するデータ: ${item.missing_data}` : ''}
             </p>
           ))}
         </section>
       )}
 
       {report.actions.length > 0 && (
-        <section className={cardStyles.actionTableSection} aria-label="優先施策">
-          <div className={cardStyles.sectionHeader}>
-            <span className="material-symbols-outlined" aria-hidden="true">task_alt</span>
-            <h3 className="japanese-text">優先施策</h3>
-          </div>
-          <div className={cardStyles.actionTable}>
-            {report.actions.map((row, index) => (
-              <div key={`${row.priority}-${row.action}-${index}`} className={cardStyles.actionRow}>
-                <b>{row.priority || `P${index}`}</b>
-                <div>
-                  <strong className="japanese-text">{row.action || '施策未指定'}</strong>
-                  <p className="japanese-text">{row.rationale || '根拠は根拠テーブルを参照'}</p>
-                </div>
-                <span className="japanese-text">検証指標</span>
-                <em className="japanese-text">{row.expected_metric || '未取得/不明'}</em>
-              </div>
+        <section className={cardStyles.markdownReportSection} aria-label="次に見ること">
+          <h3 className="japanese-text">次に見ること</h3>
+          <ol className={cardStyles.simpleActionList}>
+            {report.actions.slice(0, 3).map((row, index) => (
+              <li key={`${row.priority}-${row.action}-${index}`} className="japanese-text">
+                <strong>{row.priority || `P${index}`}: {row.action || '確認項目'}</strong>
+                {row.rationale && <span>{row.rationale}</span>}
+                {row.expected_metric && <em>見る指標: {row.expected_metric}</em>}
+              </li>
             ))}
-          </div>
+          </ol>
         </section>
       )}
 
       {report.limitations.length > 0 && (
-        <section className={cardStyles.missingBand} aria-label="制約">
-          <div className={cardStyles.sectionHeader}>
-            <span className="material-symbols-outlined" aria-hidden="true">error</span>
-            <h3 className="japanese-text">制約・判断保留</h3>
-          </div>
-          <div className={cardStyles.missingList}>
-            {report.limitations.map((item, index) => (
-              <span key={`${item}-${index}`} className="japanese-text">{item}</span>
-            ))}
-          </div>
+        <section className={cardStyles.markdownReportSection} aria-label="制約">
+          <h3 className="japanese-text">制約・判断保留</h3>
+          {report.limitations.slice(0, 4).map((item, index) => (
+            <p key={`${item}-${index}`} className="japanese-text">{item}</p>
+          ))}
         </section>
       )}
 
       {report.review_status && (
-        <section className={cardStyles.reviewBand} aria-label="レビュー状態">
-          <span className="material-symbols-outlined" aria-hidden="true">rule</span>
+        <section className={cardStyles.simpleReview} aria-label="レビュー状態">
           <strong className="japanese-text">Review: {report.review_status.verdict || 'checked'}</strong>
           {report.review_status.notes?.length > 0 && (
             <span className="japanese-text">{report.review_status.notes.join(' / ')}</span>
           )}
-        </section>
-      )}
-
-      {relevantCharts.length > 0 && (
-        <section className={cardStyles.chartChipSection} aria-label="関連グラフチップ">
-          <span className={cardStyles.chartChipLabel}>関連グラフ</span>
-          <div className={cardStyles.chartChips}>
-            {relevantCharts.map((group, index) => (
-              <span key={chartChipKey(group, index)} className={`${cardStyles.chartChip} japanese-text`}>
-                <span className="material-symbols-outlined" aria-hidden="true">monitoring</span>
-                {group.title || group.label || 'グラフ'}
-              </span>
-            ))}
-          </div>
         </section>
       )}
     </div>
@@ -437,7 +286,6 @@ function isStructuredReportV2(report) {
 export default function InsightTurnCard({
   turn = {},
   size = 'normal',
-  chartGroups,
   insightMeta,
 }) {
   const { userPrompt = '', userTimestamp, aiContent = '', aiTimestamp, isError } = turn
@@ -447,9 +295,6 @@ export default function InsightTurnCard({
   const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
   const hasStructuredV2Report = isStructuredReportV2(derivedReport)
 
-  const relevantCharts = Array.isArray(chartGroups) && chartGroups.length > 0
-    ? matchRelevantCharts(renderContent, chartGroups, { limit: 3 })
-    : []
   const operationalCards = extractOperationalInsightCards(renderContent)
 
   return (
@@ -475,7 +320,7 @@ export default function InsightTurnCard({
 
       {derivedReport ? (
         hasStructuredV2Report ? (
-          <StructuredInsightReport report={derivedReport} relevantCharts={relevantCharts} />
+          <StructuredInsightReport report={derivedReport} />
         ) : (
           <InsightHtmlReport report={derivedReport} />
         )
@@ -506,7 +351,6 @@ export default function InsightTurnCard({
         <InsightReportSections
           content={renderContent}
           operationalCards={operationalCards}
-          relevantCharts={relevantCharts}
         />
       )}
 
@@ -529,7 +373,6 @@ export default function InsightTurnCard({
             <h3 className="japanese-text">AIによる考察回答</h3>
           </div>
           <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
-          {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
         </div>
       )}
     </article>
