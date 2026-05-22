@@ -13743,13 +13743,13 @@ insight-report JSON の必須キー:
     chart_summary = ""
     if chart_evidence_pack and data_source == "bq":
         try:
-            from web.app.bq_chart_builder import summarize_chart_evidence_pack_for_ai
+            from .bq_chart_builder import summarize_chart_evidence_pack_for_ai
             chart_summary = summarize_chart_evidence_pack_for_ai(chart_evidence_pack)
         except Exception:
             chart_summary = ""
     elif ai_chart_context and data_source == "bq":
         try:
-            from web.app.bq_chart_builder import summarize_chart_groups_for_ai
+            from .bq_chart_builder import summarize_chart_groups_for_ai
             chart_summary = summarize_chart_groups_for_ai(ai_chart_context)
         except Exception:
             chart_summary = ""  # エラー時はスキップ
@@ -13875,7 +13875,7 @@ insight-report JSON の必須キー:
         ):
             data_evidence_output = _build_data_evidence_agent_notes(chart_evidence_pack, data_availability, query_text=user_prompt_for_matching)
             text = _build_review_safe_insight_report(chart_evidence_pack, [], data_availability=data_availability, query_text=user_prompt_for_matching)
-            from web.app.bq_chart_builder import validate_ai_insight_output
+            from .bq_chart_builder import validate_ai_insight_output
             review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
             agent_trace.extend([
                 {
@@ -14048,7 +14048,7 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
             text = await _run_ai(prompt, temperature)
         review_result = None
         if workflow == "multi_agent_v1" or report_contract_version == "insight_report_v2":
-            from web.app.bq_chart_builder import validate_ai_insight_output
+            from .bq_chart_builder import validate_ai_insight_output
             review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
             if not review_result.get("ok"):
                 if workflow == "multi_agent_v1":

@@ -25,34 +25,49 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for Vercel deploy
+      - name: Wait for frontend deploy
         run: sleep 90
 
       - name: Check frontend
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' https://insight-studio-chi.vercel.app/)
-          if [ "$status" != "200" ]; then
-            echo "::error::Frontend returned HTTP $status"
-            exit 1
-          fi
-          echo "Frontend OK ($status)"
+          for attempt in $(seq 1 20); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://insight-studio-chi.vercel.app/)
+            if [ "$status" = "200" ]; then
+              echo "Frontend OK ($status)"
+              exit 0
+            fi
+            echo "Frontend not ready yet (attempt $attempt/20, HTTP $status)"
+            sleep 15
+          done
+          echo "::error::Frontend did not become healthy"
+          exit 1
 
       - name: Check ML API via Vercel proxy
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 \
-            https://insight-studio-chi.vercel.app/api/ml/health)
-          if [ "$status" != "200" ]; then
-            echo "::error::ML API proxy returned HTTP $status"
-            exit 1
-          fi
-          echo "ML API proxy OK ($status)"
+          for attempt in $(seq 1 40); do
+            response=$(curl -sf --max-time 45 https://insight-studio-chi.vercel.app/api/ml/health || true)
+            commit=$(echo "$response" | jq -r '.commit // .version // ""' 2>/dev/null || true)
+            if [ "$commit" = "$GITHUB_SHA" ]; then
+              echo "ML API proxy OK at commit $commit"
+              exit 0
+            fi
+            echo "ML API waiting for $GITHUB_SHA (attempt $attempt/40, current=${commit:-none})"
+            sleep 30
+          done
+          echo "::error::ML API did not deploy commit $GITHUB_SHA"
+          exit 1
 
       - name: Check Ads API via Vercel proxy
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 \
-            https://insight-studio-chi.vercel.app/api/ads/health)
-          if [ "$status" != "200" ]; then
-            echo "::error::Ads API proxy returned HTTP $status"
-            exit 1
-          fi
-          echo "Ads API proxy OK ($status)"
+          for attempt in $(seq 1 40); do
+            response=$(curl -sf --max-time 45 https://insight-studio-chi.vercel.app/api/ads/health || true)
+            commit=$(echo "$response" | jq -r '.commit // .version // ""' 2>/dev/null || true)
+            if [ "$commit" = "$GITHUB_SHA" ]; then
+              echo "Ads API proxy OK at commit $commit"
+              exit 0
+            fi
+            echo "Ads API waiting for $GITHUB_SHA (attempt $attempt/40, current=${commit:-none})"
+            sleep 30
+          done
+          echo "::error::Ads API did not deploy commit $GITHUB_SHA"
+          exit 1

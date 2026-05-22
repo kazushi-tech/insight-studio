@@ -38,9 +38,12 @@ services:
   - type: web
     name: market-lens-ai
     runtime: python
-    rootDir: backends/market-lens-ai
-    buildCommand: pip install -r requirements.txt
-    startCommand: bash start.sh
+    # The unified backend imports ../ads-insights at runtime. Keep the Render
+    # service rooted at the repository so ads-insights-only commits also trigger
+    # a production backend deploy.
+    rootDir: .
+    buildCommand: cd backends/market-lens-ai && pip install -r requirements.txt
+    startCommand: cd backends/market-lens-ai && bash start.sh
     healthCheckPath: /api/ml/health
     envVars:
       # --- market-lens-ai 設定 ---
