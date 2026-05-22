@@ -3,7 +3,7 @@ import UserPromptPill from './UserPromptPill'
 import InsightChartPanel from './InsightChartPanel'
 import InsightHtmlReport from './InsightHtmlReport'
 import InsightSummaryHero from './InsightSummaryHero'
-import { matchRelevantCharts } from '../../../utils/adsReports'
+import { getChartEvidenceReference, matchRelevantCharts } from '../../../utils/adsReports'
 import { extractInsightMeta, extractInsightReport, extractOperationalInsightCards } from '../../../utils/adsResponse'
 import styles from './AiExplorerV2.module.css'
 import cardStyles from './InsightTurnCard.module.css'
@@ -96,6 +96,100 @@ function chartChipKey(group, index) {
   const period = group?.periodTag || group?.period || group?.dateRange || group?.range || ''
   const stableId = group?.id || group?.key || group?.metricKey || group?.sourceKey || ''
   return `${title}-${period}-${stableId}-${index}`
+}
+
+function toFiniteChartNumber(value) {
+  if (value == null || value === '') return null
+  const numeric = Number(String(value).replace(/,/g, '').replace(/[%％]$/, '').trim())
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+function formatChartValue(value) {
+  const numeric = toFiniteChartNumber(value)
+  if (numeric == null) return String(value ?? '-')
+  return new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 2 }).format(numeric)
+}
+
+function getChartSnapshot(group) {
+  const labels = Array.isArray(group?.labels) ? group.labels : []
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  const rows = datasets.slice(0, 3).map((dataset) => {
+    const data = Array.isArray(dataset?.data) ? dataset.data : []
+    const validPoints = data
+      .map((value, index) => ({
+        value: toFiniteChartNumber(value),
+        rawValue: value,
+        label: labels[index] ?? `#${index + 1}`,
+      }))
+      .filter((point) => point.value != null)
+    const latest = validPoints[validPoints.length - 1] ?? null
+    const max = validPoints.reduce((best, point) => (!best || point.value > best.value ? point : best), null)
+    return {
+      label: dataset?.label || 'データ',
+      latest,
+      max,
+      count: validPoints.length,
+    }
+  }).filter((row) => row.count > 0)
+
+  return {
+    labelCount: labels.length,
+    seriesCount: datasets.length,
+    rows,
+  }
+}
+
+function ReferencedChartsReport({ groups }) {
+  const list = Array.isArray(groups) ? groups : []
+  if (list.length === 0) return null
+
+  return (
+    <section className={cardStyles.referencedChartsReport} aria-label="参照した広告グラフ" data-testid="referenced-chart-report">
+      <div className={cardStyles.sectionHeader}>
+        <span className="material-symbols-outlined" aria-hidden="true">monitoring</span>
+        <h3 className="japanese-text">参照した広告グラフ</h3>
+      </div>
+      <div className={cardStyles.referenceCards}>
+        {list.map((group, index) => {
+          const reference = getChartEvidenceReference(group, index)
+          const snapshot = getChartSnapshot(group)
+          return (
+            <article key={chartChipKey(group, index)} className={cardStyles.referenceCard}>
+              <div className={cardStyles.referenceCardHeader}>
+                <span translate="no">{reference.chartId}</span>
+                <strong className="japanese-text">{group.title || reference.title || 'グラフ'}</strong>
+              </div>
+              <div className={cardStyles.referenceMeta}>
+                <span className="japanese-text">{group.chartType || 'chart'}</span>
+                <span className="japanese-text">{reference.periodTag || group._periodTag || '期間未指定'}</span>
+                <span className="japanese-text">{snapshot.seriesCount}系列 / {snapshot.labelCount}点</span>
+              </div>
+              {snapshot.rows.length > 0 && (
+                <div className={cardStyles.referenceMiniTable}>
+                  <div>系列</div>
+                  <div>最新</div>
+                  <div>最大</div>
+                  {snapshot.rows.map((row) => (
+                    <div key={`${reference.chartId}-${row.label}`} className={cardStyles.referenceMiniRow}>
+                      <span className="japanese-text">{row.label}</span>
+                      <b>{row.latest ? `${row.latest.label}: ${formatChartValue(row.latest.rawValue)}` : '-'}</b>
+                      <b>{row.max ? `${row.max.label}: ${formatChartValue(row.max.rawValue)}` : '-'}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          )
+        })}
+      </div>
+      <InsightChartPanel
+        groups={list}
+        defaultExpanded
+        title="グラフ本文"
+        description="AIが根拠として使ったグラフを同じカード内で確認できます。"
+      />
+    </section>
+  )
 }
 
 function InsightReportSections({ content, operationalCards, relevantCharts }) {
@@ -244,6 +338,8 @@ function StructuredInsightReport({ report, relevantCharts }) {
           </div>
         </section>
       )}
+
+      <ReferencedChartsReport groups={relevantCharts} />
 
       {report.interpretation.length > 0 && (
         <section className={cardStyles.factPanel} aria-label="読み解き">
@@ -423,7 +519,6 @@ export default function InsightTurnCard({
             </summary>
             <div className={styles.turnBody}>
               <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
-              {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
             </div>
           </details>
         )
