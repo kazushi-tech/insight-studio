@@ -14200,12 +14200,13 @@ insight-report JSON の必須キー:
 
         async def _run_agent(stage: str, agent_prompt: str, agent_temperature: float = 0.2, max_tokens_override: int = 2048) -> str:
             output = await _run_ai(agent_prompt, agent_temperature, max_tokens_override)
+            contract = _agent_contract_for(stage)
             agent_trace.append(_agent_trace_entry(
                 stage,
                 status="completed",
                 mode="llm_stage",
-                summary=f"{_agent_contract_for(stage)['label']} が役割別LLMステージとして検査しました。",
-                excerpt=output[:900],
+                summary=f"{contract['label']} が役割別LLMステージとして検査しました。",
+                excerpt="検査完了。詳細出力は最終レポートへ反映済みです。",
             ))
             return output
 
