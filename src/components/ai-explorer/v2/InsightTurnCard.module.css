@@ -149,6 +149,169 @@
   color: var(--color-primary);
 }
 
+.evidenceStatusBand {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.85rem 0.95rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 24%, transparent);
+}
+
+.evidenceStatusBand :global(.material-symbols-outlined) {
+  margin-top: 0.1rem;
+  font-size: 1.25rem;
+}
+
+.evidenceStatusBand strong {
+  display: block;
+  color: var(--color-on-surface);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.evidenceStatusBand p {
+  margin: 0.28rem 0 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.76rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.evidenceStatusPass {
+  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
+.evidenceStatusPass :global(.material-symbols-outlined) {
+  color: var(--color-primary);
+}
+
+.evidenceStatusWarn {
+  background: color-mix(in srgb, var(--color-error, #dc2626) 5%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--color-error, #dc2626) 26%, transparent);
+}
+
+.evidenceStatusWarn :global(.material-symbols-outlined) {
+  color: var(--color-error, #dc2626);
+}
+
+.agentTracePanel {
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
+  border-radius: 8px;
+  background: var(--color-surface-container-lowest);
+  overflow: hidden;
+}
+
+.agentTracePanel summary {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  color: var(--color-on-surface);
+}
+
+.agentTracePanel summary::marker {
+  color: var(--color-primary);
+}
+
+.agentTracePanel summary :global(.material-symbols-outlined) {
+  color: var(--color-primary);
+  font-size: 1.2rem;
+}
+
+.agentTracePanel summary span {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.agentTracePanel summary strong {
+  color: var(--color-on-surface);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.agentTracePanel summary em {
+  color: var(--color-on-surface-variant);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.agentTraceList {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0 1rem 1rem;
+}
+
+.agentTraceItem {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 16%, transparent);
+  background: var(--color-surface-container-low);
+}
+
+.agentTraceHead {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.agentTraceHead b {
+  display: grid;
+  place-items: center;
+  min-height: 1.55rem;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 0.72rem;
+}
+
+.agentTraceHead strong {
+  display: block;
+  color: var(--color-on-surface);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.agentTraceHead span,
+.agentTraceItem p {
+  color: var(--color-on-surface-variant);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.agentTraceHead mark {
+  min-width: 0;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  font-size: 0.66rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.agentTraceHead mark[data-mode="deterministic_fallback"] {
+  background: color-mix(in srgb, #d7a528 14%, transparent);
+  color: #8a5a00;
+}
+
+.agentTraceItem p {
+  margin: 0;
+}
+
+.agentTraceIssue {
+  color: var(--color-error, #b91c1c) !important;
+  font-weight: 800;
+}
+
 .metricSection,
 .summaryPanel,
 .factPanel,

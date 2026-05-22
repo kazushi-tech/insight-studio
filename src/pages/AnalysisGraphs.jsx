@@ -23,7 +23,7 @@ import {
   selectChartGroupsForPrompt,
 } from '../utils/adsReports'
 import { analyzeChartReadability } from '../utils/chartReadability'
-import { extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
+import { extractInsightMeta, extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import {
   groupChartsByTheme,
@@ -444,26 +444,6 @@ function formatRawTableValue(value) {
   return value
 }
 
-function formatAgentTrace(trace) {
-  if (!Array.isArray(trace) || trace.length === 0) return ''
-  const rows = trace
-    .filter((item) => item && typeof item === 'object')
-    .map((item) => {
-      const stage = String(item.stage ?? '').replace(/\|/g, '/')
-      const status = String(item.status ?? '').replace(/\|/g, '/')
-      const excerpt = String(item.excerpt ?? '').replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 100)
-      return `| ${stage} | ${status} | ${excerpt || '完了'} |`
-    })
-  if (rows.length === 0) return ''
-  return [
-    '',
-    '## エージェント実行ログ',
-    '| Agent | Status | 反映内容 |',
-    '| --- | --- | --- |',
-    ...rows,
-  ].join('\n')
-}
-
 function stripInsightJsonFences(markdown) {
   return String(markdown ?? '')
     .replace(/```insight-report\s*[\s\S]*?```/g, '')
@@ -605,6 +585,38 @@ function InlineStructuredReport({ report, markdown }) {
         </details>
       )}
     </div>
+  )
+}
+
+function InlineAgentTracePanel({ trace = [] }) {
+  const items = Array.isArray(trace) ? trace.filter((item) => item && typeof item === 'object') : []
+  if (items.length === 0) return null
+  return (
+    <details className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3" data-testid="ads-graph-agent-trace-panel">
+      <summary className="cursor-pointer text-xs font-bold text-primary japanese-text">
+        複数ステージAIレビュー（{items.length}つの役割で順番に検査）
+      </summary>
+      <div className="mt-3 space-y-2">
+        {items.map((item, index) => (
+          <div key={`${item.stage}-${index}`} className="rounded-lg bg-surface-container-low p-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-black text-on-surface">{item.label || item.stage}</p>
+              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[10px] font-black text-primary">
+                {item.mode || 'unknown'}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-5 text-on-surface-variant japanese-text">
+              {item.summary || item.excerpt || '検査完了'}
+            </p>
+            {Array.isArray(item.checks) && item.checks.length > 0 && (
+              <p className="mt-1 text-[10px] leading-5 text-on-surface-variant japanese-text">
+                確認: {item.checks.slice(0, 4).join(' / ')}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </details>
   )
 }
 
@@ -1202,6 +1214,7 @@ function GraphAiQuestionRail({
   const [inlineQuestion, setInlineQuestion] = useState('')
   const [inlineAnswer, setInlineAnswer] = useState('')
   const [inlineReport, setInlineReport] = useState(null)
+  const [inlineAgentTrace, setInlineAgentTrace] = useState([])
   const [inlineStatus, setInlineStatus] = useState('')
   const [inlineLoading, setInlineLoading] = useState(false)
   const prompts = topInsights.length > 0
@@ -1258,6 +1271,7 @@ function GraphAiQuestionRail({
     setInlineStatus('右カラムで考察中…')
     setInlineAnswer('')
     setInlineReport(null)
+    setInlineAgentTrace([])
     try {
       const inlineEvidenceGroups = pickInlineQuestionGroups(
         prompt,
@@ -1317,14 +1331,13 @@ function GraphAiQuestionRail({
       const data = await neonGenerate(payload, analysisKey)
       const normalized = normalizeAdsPayload(data)
       const baseText = getAdsText(data) ?? getAdsText(normalized)
-      const traceMarkdown = formatAgentTrace(data?.agent_trace ?? normalized?.agent_trace)
       const report = extractInsightReport(baseText)
+      const meta = extractInsightMeta(baseText)
       const cleanedBaseText = stripInsightJsonFences(baseText)
-      const text = traceMarkdown && !String(cleanedBaseText ?? '').includes('エージェント実行ログ')
-        ? `${cleanedBaseText}\n${traceMarkdown}`
-        : cleanedBaseText
-      if (!text) throw new Error('AI応答本文を取得できませんでした。')
+      const text = cleanedBaseText || (report ? '構造化AI考察を表示します。' : '')
+      if (!text && !report) throw new Error('AI応答本文を取得できませんでした。')
       setInlineReport(report)
+      setInlineAgentTrace(data?.agent_trace ?? normalized?.agent_trace ?? report?.agent_trace ?? meta?.agent_trace ?? [])
       setInlineAnswer(text)
       setInlineStatus('右カラムで回答しました。広い画面で続ける場合はAI考察を開けます。')
     } catch (e) {
@@ -1444,7 +1457,7 @@ function GraphAiQuestionRail({
             </p>
           )}
           {inlineAnswer && (
-            <GraphInlineAnswer answer={inlineAnswer} report={inlineReport} />
+            <GraphInlineAnswer answer={inlineAnswer} report={inlineReport} agentTrace={inlineAgentTrace} />
           )}
         </div>
       </div>
@@ -1452,8 +1465,9 @@ function GraphAiQuestionRail({
   )
 }
 
-function GraphInlineAnswer({ answer, report: providedReport }) {
+function GraphInlineAnswer({ answer, report: providedReport, agentTrace = [] }) {
   const report = providedReport ?? extractInsightReport(answer)
+  const trace = agentTrace.length > 0 ? agentTrace : report?.agent_trace
   const renderContent = report?._strippedMarkdown ?? answer
 
   return (
@@ -1462,7 +1476,10 @@ function GraphInlineAnswer({ answer, report: providedReport }) {
       data-testid="graph-ai-inline-answer"
     >
       {report ? (
-        <InlineStructuredReport report={report} markdown={renderContent} />
+        <>
+          <InlineStructuredReport report={report} markdown={renderContent} />
+          <InlineAgentTracePanel trace={trace} />
+        </>
       ) : (
         <MarkdownRenderer content={answer} variant="ai-insight" size="normal" />
       )}

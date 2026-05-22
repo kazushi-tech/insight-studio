@@ -291,6 +291,65 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText('CV / CVR')).not.toBeInTheDocument()
   })
 
+  it('renders evidence status and agent trace for insight-report v2', () => {
+    const agentTrace = [
+      {
+        stage: 'data_evidence_agent',
+        label: 'Data Evidence Agent',
+        status: 'completed',
+        mode: 'deterministic_fallback',
+        summary: 'chart_id と数値を照合しました。',
+        checks: ['chart_id抽出', '根拠数値抽出'],
+        issues: [],
+        excerpt: 'chart_01',
+      },
+      {
+        stage: 'senior_adops_reviewer_agent',
+        label: 'Senior AdOps Reviewer Agent',
+        status: 'completed',
+        mode: 'llm_stage',
+        summary: '実務確認順を検査しました。',
+        checks: ['実務妥当性'],
+        issues: [],
+        excerpt: 'P0/P1/P2',
+      },
+    ]
+    const aiContent = [
+      '```insight-report',
+      JSON.stringify({
+        version: 'insight_report_v2',
+        executive_summary: ['5/7はchart_01でPV数328です'],
+        evidence_table: [
+          { claim: 'PV分析 — 日別推移 の PV数 は 5/7 に 328 です', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'high' },
+        ],
+        interpretation: ['初心者向けにPV数を見ます。', 'シニア広告運用観点で流入元を確認します。'],
+        hypotheses: [{ hypothesis: '流入増の仮説', evidence: 'chart_01', missing_data: '広告費' }],
+        actions: [{ priority: 'P0', action: '流入元を確認', rationale: 'PV数328', expected_metric: 'PV数' }],
+        limitations: ['CPA、ROAS、CTRは未取得'],
+        review_status: {
+          verdict: 'pass',
+          notes: ['8つの役割で順番に検査', '数値照合済み'],
+          blocking_issues: [],
+          checked_items: ['chart_id', '値', '期間'],
+          unsupported_kpis: ['CPA', 'ROAS', 'CTR'],
+          evidence_consistency: { chart_id_checked: true },
+        },
+        agent_trace: agentTrace,
+      }),
+      '```',
+      'chart_01 の PV数 328 を根拠にします。',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('数値照合済み')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('複数ステージAIレビュー')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Data Evidence Agent')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('deterministic_fallback')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('llm_stage')
+  })
+
   it('keeps insight-report v2 compact and avoids inline chart expansion', () => {
     const aiContent = [
       '```insight-report',

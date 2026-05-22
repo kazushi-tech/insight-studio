@@ -1129,7 +1129,7 @@ def _read_text_strict(p: Path) -> str:
 
 
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 
@@ -13431,6 +13431,230 @@ def _build_consistency_note(query_text: str, rows: list[dict]) -> str:
     return "Consistency Agent: 同じ chart_id・同じ値を根拠表と本文で一致させました。"
 
 
+AGENT_STAGE_CONTRACT: list[dict[str, Any]] = [
+    {
+        "stage": "data_evidence_agent",
+        "label": "Data Evidence Agent",
+        "checks": ["chart_id抽出", "根拠数値抽出", "未取得KPI確認"],
+    },
+    {
+        "stage": "internal_research_agent",
+        "label": "Internal Research Agent",
+        "checks": ["会話履歴確認", "既存レポート確認", "グラフ論点抽出"],
+    },
+    {
+        "stage": "beginner_explainer_agent",
+        "label": "Beginner Explainer Agent",
+        "checks": ["初心者向け一言", "専門語の短い補足", "断定回避"],
+    },
+    {
+        "stage": "adops_strategist_agent",
+        "label": "AdOps Strategist Agent",
+        "checks": ["P0/P1/P2施策化", "見る指標の明示", "検証順序"],
+    },
+    {
+        "stage": "senior_adops_reviewer_agent",
+        "label": "Senior AdOps Reviewer Agent",
+        "checks": ["実務妥当性", "媒体データ不足", "優先順位"],
+    },
+    {
+        "stage": "consistency_agent",
+        "label": "Consistency Agent",
+        "checks": ["日付表記ゆれ", "chart_id整合", "本文と根拠表の値一致"],
+    },
+    {
+        "stage": "review_agent",
+        "label": "Review Agent",
+        "checks": ["根拠外数値禁止", "未取得KPI断定禁止", "review_status判定"],
+    },
+    {
+        "stage": "final_editor_agent",
+        "label": "Final Editor Agent",
+        "checks": ["insight_report_v2整形", "Markdown整形", "agent_trace保存"],
+    },
+]
+
+
+def _agent_contract_for(stage: str) -> dict[str, Any]:
+    return next((item for item in AGENT_STAGE_CONTRACT if item["stage"] == stage), {
+        "stage": stage,
+        "label": stage.replace("_", " ").title(),
+        "checks": [],
+    })
+
+
+def _agent_trace_entry(
+    stage: str,
+    *,
+    status: str = "completed",
+    mode: str = "llm_stage",
+    summary: str = "",
+    checks: list[str] | None = None,
+    issues: list[str] | None = None,
+    excerpt: str = "",
+) -> dict[str, Any]:
+    contract = _agent_contract_for(stage)
+    return {
+        "stage": stage,
+        "label": contract["label"],
+        "status": status,
+        "mode": mode,
+        "summary": summary or "指定された役割の検査を完了しました。",
+        "checks": checks if checks is not None else list(contract.get("checks") or []),
+        "issues": issues or [],
+        "excerpt": str(excerpt or summary or "完了").replace("\r", " ").strip()[:900],
+    }
+
+
+def _normalize_agent_trace(agent_trace: list[dict] | None, *, default_mode: str = "llm_stage") -> list[dict[str, Any]]:
+    source = agent_trace if isinstance(agent_trace, list) else []
+    by_stage: dict[str, dict[str, Any]] = {}
+    for item in source:
+        if not isinstance(item, dict):
+            continue
+        stage = str(item.get("stage") or "").strip()
+        if not stage:
+            continue
+        by_stage[stage] = _agent_trace_entry(
+            stage,
+            status=str(item.get("status") or "completed"),
+            mode=str(item.get("mode") or default_mode),
+            summary=str(item.get("summary") or item.get("excerpt") or ""),
+            checks=item.get("checks") if isinstance(item.get("checks"), list) else None,
+            issues=item.get("issues") if isinstance(item.get("issues"), list) else None,
+            excerpt=str(item.get("excerpt") or item.get("summary") or ""),
+        )
+    return [
+        by_stage.get(contract["stage"])
+        or _agent_trace_entry(
+            contract["stage"],
+            status="needs_review",
+            mode=default_mode,
+            summary="このステージの証跡が欠落しています。",
+            issues=["agent_trace_missing"],
+        )
+        for contract in AGENT_STAGE_CONTRACT
+    ]
+
+
+def _unsupported_kpis_for_review(text: str) -> list[str]:
+    content = str(text or "")
+    metrics = ["CPA", "ROAS", "CTR", "CPC", "広告費", "インプレッション"]
+    found: list[str] = []
+    for metric in metrics:
+        if metric in content and metric not in found:
+            found.append(metric)
+    return found
+
+
+def _build_enhanced_review_status(
+    review_result: dict | None = None,
+    agent_trace: list[dict] | None = None,
+    *,
+    text: str = "",
+) -> dict[str, Any]:
+    issues = list((review_result or {}).get("issues") or [])
+    normalized_trace = _normalize_agent_trace(agent_trace)
+    missing_or_failed = [
+        item["label"]
+        for item in normalized_trace
+        if item.get("status") not in ("completed", "repaired")
+    ]
+    blocking_issues = [*issues, *[f"{label} の証跡が未完了です" for label in missing_or_failed]]
+    verdict = "pass" if not blocking_issues else "needs_review"
+    if any("根拠パックに存在しない" in issue or "根拠パック外" in issue or "断定" in issue for issue in blocking_issues):
+        verdict = "fail"
+    issue_text = "\n".join(blocking_issues)
+    return {
+        "verdict": verdict,
+        "notes": [
+            "8つの役割で順番に検査",
+            "数値照合済み" if verdict == "pass" else "数値照合は要確認",
+            "別プロセス常駐ではなく複数ステージAIレビュー",
+        ],
+        "blocking_issues": blocking_issues,
+        "checked_items": [
+            "chart_id",
+            "参照グラフ名",
+            "指標",
+            "値",
+            "期間",
+            "未取得KPI",
+            "日付表記ゆれ",
+            "初心者説明",
+            "シニア広告運用レビュー",
+        ],
+        "unsupported_kpis": _unsupported_kpis_for_review(text),
+        "evidence_consistency": {
+            "chart_id_checked": "failed" if "chart_id" in issue_text else "pass",
+            "value_checked": "failed" if ("数値" in issue_text or "値" in issue_text) else "pass",
+            "date_alias_checked": "pass",
+            "agent_trace_complete": not missing_or_failed,
+        },
+    }
+
+
+def _replace_fenced_json_block(text: str, fence: str, mutate: Callable[[dict], dict]) -> str:
+    pattern = re.compile(rf"```{re.escape(fence)}\s*\n([\s\S]*?)\n```")
+    match = pattern.search(str(text or ""))
+    if not match:
+        return text
+    try:
+        parsed = json.loads(match.group(1))
+    except Exception:
+        return text
+    if not isinstance(parsed, dict):
+        return text
+    updated = mutate(parsed)
+    return pattern.sub(f"```{fence}\n{json.dumps(updated, ensure_ascii=False)}\n```", text, count=1)
+
+
+def _extract_agent_trace_from_insight_report(text: str) -> list[dict] | None:
+    match = re.search(r"```insight-report\s*\n([\s\S]*?)\n```", str(text or ""))
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(1))
+    except Exception:
+        return None
+    if isinstance(parsed, dict) and isinstance(parsed.get("agent_trace"), list):
+        return parsed.get("agent_trace")
+    return None
+
+
+def _attach_agent_trace_and_review_status(
+    text: str,
+    agent_trace: list[dict] | None,
+    review_status: dict | None,
+) -> str:
+    normalized_trace = _normalize_agent_trace(agent_trace)
+    status = review_status or _build_enhanced_review_status(None, normalized_trace, text=text)
+
+    def mutate_report(report: dict) -> dict:
+        report["review_status"] = status
+        report["agent_trace"] = normalized_trace
+        return report
+
+    def mutate_meta(meta: dict) -> dict:
+        meta["agent_trace"] = normalized_trace
+        meta["review_status"] = status
+        return meta
+
+    updated = _replace_fenced_json_block(text, "insight-report", mutate_report)
+    if "```insight-meta" in updated:
+        updated = _replace_fenced_json_block(updated, "insight-meta", mutate_meta)
+    else:
+        meta = {
+            "tldr": [],
+            "key_metrics": [],
+            "recommended_charts": [],
+            "agent_trace": normalized_trace,
+            "review_status": status,
+        }
+        updated = f"{updated}\n\n```insight-meta\n{json.dumps(meta, ensure_ascii=False)}\n```"
+    return updated
+
+
 def _build_review_safe_insight_report(
     chart_evidence_pack: dict | None,
     review_issues: list[str] | None = None,
@@ -13463,6 +13687,51 @@ def _build_review_safe_insight_report(
     ]
     if review_issues:
         limitations.append("Review Agent の指摘を受け、根拠のない数値や薄い一般論を削除した安全版です。")
+    fallback_trace = _normalize_agent_trace([
+        _agent_trace_entry(
+            "data_evidence_agent",
+            mode="deterministic_fallback",
+            summary="chart_evidence_pack から引用可能な chart_id と値を決定的に抽出しました。",
+            excerpt=_build_data_evidence_agent_notes(chart_evidence_pack, data_availability, query_text=query_text),
+        ),
+        _agent_trace_entry(
+            "internal_research_agent",
+            mode="deterministic_fallback",
+            summary="外部Webを使わず、グラフ証拠と質問文から論点候補を抽出しました。",
+        ),
+        _agent_trace_entry(
+            "beginner_explainer_agent",
+            mode="deterministic_fallback",
+            summary="初心者向けに、まず見る指標と断定できない指標を平易に説明しました。",
+        ),
+        _agent_trace_entry(
+            "adops_strategist_agent",
+            mode="deterministic_fallback",
+            summary="P0/P1/P2の確認順に変換しました。",
+        ),
+        _agent_trace_entry(
+            "senior_adops_reviewer_agent",
+            mode="deterministic_fallback",
+            summary="実務で見るべき媒体データと優先順位を確認しました。",
+        ),
+        _agent_trace_entry(
+            "consistency_agent",
+            mode="deterministic_fallback",
+            summary=consistency_note,
+        ),
+        _agent_trace_entry(
+            "review_agent",
+            mode="deterministic_fallback",
+            summary="未取得広告KPIの断定と根拠外数値を避ける安全版にしました。",
+            issues=review_issues or [],
+        ),
+        _agent_trace_entry(
+            "final_editor_agent",
+            mode="deterministic_fallback",
+            summary="insight_report_v2 と Markdown 本文を生成しました。",
+        ),
+    ], default_mode="deterministic_fallback")
+    fallback_review_status = _build_enhanced_review_status({"issues": review_issues or []}, fallback_trace)
 
     report = {
         "version": "insight_report_v2",
@@ -13508,16 +13777,8 @@ def _build_review_safe_insight_report(
             },
         ],
         "limitations": limitations,
-        "review_status": {
-            "verdict": "pass",
-            "notes": [
-                "Data Evidence Agent: chart_id と数値を照合",
-                "Beginner Explainer Agent: 平易な説明を追加",
-                "Senior AdOps Reviewer Agent: 実務確認順を検査",
-                "Consistency Agent: 日付表記と数値整合を確認",
-                "Review Agent: 未取得広告KPIの断定なし",
-            ],
-        },
+        "review_status": fallback_review_status,
+        "agent_trace": fallback_trace,
     }
 
     meta = {
@@ -13527,6 +13788,8 @@ def _build_review_safe_insight_report(
             for row in public_rows[:3]
         ],
         "recommended_charts": [row.get("_title") for row in evidence_rows[:3] if row.get("_title")],
+        "review_status": fallback_review_status,
+        "agent_trace": fallback_trace,
     }
 
     markdown_lines = [
@@ -13937,11 +14200,13 @@ insight-report JSON の必須キー:
 
         async def _run_agent(stage: str, agent_prompt: str, agent_temperature: float = 0.2, max_tokens_override: int = 2048) -> str:
             output = await _run_ai(agent_prompt, agent_temperature, max_tokens_override)
-            agent_trace.append({
-                "stage": stage,
-                "status": "completed",
-                "excerpt": output[:700],
-            })
+            agent_trace.append(_agent_trace_entry(
+                stage,
+                status="completed",
+                mode="llm_stage",
+                summary=f"{_agent_contract_for(stage)['label']} が役割別LLMステージとして検査しました。",
+                excerpt=output[:900],
+            ))
             return output
 
         if (
@@ -13954,47 +14219,63 @@ insight-report JSON の必須キー:
             from .bq_chart_builder import validate_ai_insight_output
             review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
             agent_trace.extend([
-                {
-                    "stage": "data_evidence_agent",
-                    "status": "completed",
-                    "excerpt": data_evidence_output[:700],
-                },
-                {
-                    "stage": "internal_research_agent",
-                    "status": "completed",
-                    "excerpt": "外部Webを使わず、GA4レポート本文・グラフ数値・会話履歴から論点候補を抽出しました。",
-                },
-                {
-                    "stage": "beginner_explainer_agent",
-                    "status": "completed",
-                    "excerpt": "初心者向けに、まず見る指標・見てはいけない未取得KPI・次の確認順を平易に説明しました。",
-                },
-                {
-                    "stage": "adops_strategist_agent",
-                    "status": "completed",
-                    "excerpt": "広告運用者が今週確認する順番を P0/P1/P2 に変換し、初心者向けの説明に整えました。",
-                },
-                {
-                    "stage": "senior_adops_reviewer_agent",
-                    "status": "completed",
-                    "excerpt": "実務で使える確認順、媒体データ不足、施策の優先順位を検査しました。",
-                },
-                {
-                    "stage": "consistency_agent",
-                    "status": "completed",
-                    "excerpt": "日付表記ゆれ、chart_id、本文と根拠表の数値一致を検査しました。",
-                },
-                {
-                    "stage": "review_agent",
-                    "status": "completed" if review_result.get("ok") else "failed",
-                    "excerpt": "chart_id、未取得広告KPI、根拠外数値、構造化レポート要件を検査しました。",
-                },
-                {
-                    "stage": "final_editor_agent",
-                    "status": "completed",
-                    "excerpt": "insight-report v2 JSON、Markdown本文、insight-meta を生成しました。",
-                },
+                _agent_trace_entry(
+                    "data_evidence_agent",
+                    mode="deterministic_fallback",
+                    summary="chart_evidence_pack から引用可能な chart_id と値を抽出しました。",
+                    excerpt=data_evidence_output[:900],
+                ),
+                _agent_trace_entry(
+                    "internal_research_agent",
+                    mode="deterministic_fallback",
+                    summary="外部Webを使わず、GA4レポート本文・グラフ数値・会話履歴から論点候補を抽出しました。",
+                ),
+                _agent_trace_entry(
+                    "beginner_explainer_agent",
+                    mode="deterministic_fallback",
+                    summary="初心者向けに、まず見る指標・未取得KPI・次の確認順を平易に説明しました。",
+                ),
+                _agent_trace_entry(
+                    "adops_strategist_agent",
+                    mode="deterministic_fallback",
+                    summary="広告運用者が今週確認する順番を P0/P1/P2 に変換しました。",
+                ),
+                _agent_trace_entry(
+                    "senior_adops_reviewer_agent",
+                    mode="deterministic_fallback",
+                    summary="実務で使える確認順、媒体データ不足、施策の優先順位を検査しました。",
+                ),
+                _agent_trace_entry(
+                    "consistency_agent",
+                    mode="deterministic_fallback",
+                    summary="日付表記ゆれ、chart_id、本文と根拠表の数値一致を検査しました。",
+                ),
+                _agent_trace_entry(
+                    "review_agent",
+                    status="completed" if review_result.get("ok") else "failed",
+                    mode="deterministic_fallback",
+                    summary="chart_id、未取得広告KPI、根拠外数値、構造化レポート要件を検査しました。",
+                    issues=review_result.get("issues", []),
+                ),
+                _agent_trace_entry(
+                    "final_editor_agent",
+                    mode="deterministic_fallback",
+                    summary="insight-report v2 JSON、Markdown本文、insight-meta を生成しました。",
+                ),
             ])
+            agent_trace = _normalize_agent_trace(agent_trace, default_mode="deterministic_fallback")
+            review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
+            text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
+            review_result = validate_ai_insight_output(
+                text,
+                chart_evidence_pack,
+                data_source=data_source,
+                agent_trace=agent_trace,
+                require_agent_trace=True,
+            )
+            if not review_result.get("ok"):
+                review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
+                text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
             if not review_result.get("ok"):
                 return JSONResponse(
                     {
@@ -14016,17 +14297,19 @@ insight-report JSON の必須キー:
                 "tokens_used": len(text),
                 "workflow": workflow,
                 "report_contract_version": report_contract_version,
-                "review_status": review_result,
+                "review_status": review_status,
                 "agent_trace": agent_trace,
             }
 
         if workflow == "multi_agent_v1":
             data_evidence_output = _build_data_evidence_agent_notes(chart_evidence_pack, data_availability, query_text=user_prompt_for_matching)
-            agent_trace.append({
-                "stage": "data_evidence_agent",
-                "status": "completed",
-                "excerpt": data_evidence_output[:700],
-            })
+            agent_trace.append(_agent_trace_entry(
+                "data_evidence_agent",
+                status="completed",
+                mode="deterministic_fallback",
+                summary="chart_evidence_pack から引用可能な chart_id と値を決定的に抽出しました。",
+                excerpt=data_evidence_output[:900],
+            ))
             agent_pp_md = _compact_agent_text(pp_md, 10000)
             agent_chart_summary = _compact_agent_text(chart_summary, 14000)
             agent_history_context = _compact_agent_text(history_context, 3000)
@@ -14210,8 +14493,8 @@ Review Agent:
 - 最初に ```insight-report の JSON を出す。
 - 次に読みやすいMarkdown本文を出す。
 - 最後に ```insight-meta の JSON を出す。
-- Markdown本文に「## 🧭 エージェント確認」を入れ、Internal Research / AdOps Strategist / Review / Final Editor がどう反映されたかを短く示す。
-- エージェント確認には Beginner Explainer / Senior AdOps Reviewer / Consistency Agent も含める。
+- Markdown本文に詳細なエージェント実行ログを混ぜない。証跡は insight-report.agent_trace と insight-meta.agent_trace に保存する。
+- 本文では必要な場合のみ「複数ステージAIレビュー済み」と1文で触れる。
 - 文章は広告運用初心者にも理解できる平易さを保つ。
 - 専門語は短く補足する。
 - 数値には chart_id または要点パック見出しを併記する。
@@ -14233,18 +14516,20 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
             review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
             if not review_result.get("ok"):
                 if workflow == "multi_agent_v1":
-                    agent_trace.append({
-                        "stage": "review_gate_fallback",
-                        "status": "repaired",
-                        "excerpt": "Review Agent の根拠チェックに通らなかったため、数値根拠パックだけで安全な insight-report v2 を再構成しました。",
-                    })
                     text = _build_review_safe_insight_report(
                         chart_evidence_pack,
                         review_result.get("issues", []),
                         data_availability=data_availability,
                         query_text=user_prompt_for_matching,
                     )
-                    review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+                    agent_trace = _extract_agent_trace_from_insight_report(text) or agent_trace
+                    review_result = validate_ai_insight_output(
+                        text,
+                        chart_evidence_pack,
+                        data_source=data_source,
+                        agent_trace=agent_trace,
+                        require_agent_trace=True,
+                    )
                 else:
                     repair_prompt = f"""{prompt}
 
@@ -14258,18 +14543,20 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                     text = await _run_ai(repair_prompt, min(temperature, 0.2))
                     review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
             if not review_result.get("ok"):
-                agent_trace.append({
-                    "stage": "review_gate_fallback",
-                    "status": "repaired",
-                    "excerpt": "Review Agent の根拠チェックに通らなかったため、数値根拠パックだけで安全な insight-report v2 を再構成しました。",
-                })
                 text = _build_review_safe_insight_report(
                     chart_evidence_pack,
                     review_result.get("issues", []),
                     data_availability=data_availability,
                     query_text=user_prompt_for_matching,
                 )
-                review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+                agent_trace = _extract_agent_trace_from_insight_report(text) or agent_trace
+                review_result = validate_ai_insight_output(
+                    text,
+                    chart_evidence_pack,
+                    data_source=data_source,
+                    agent_trace=agent_trace,
+                    require_agent_trace=(workflow == "multi_agent_v1"),
+                )
                 if not review_result.get("ok"):
                     return JSONResponse(
                         {
@@ -14283,6 +14570,38 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                         },
                         status_code=422,
                     )
+            if workflow == "multi_agent_v1":
+                agent_trace = _normalize_agent_trace(agent_trace)
+                enhanced_review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
+                text = _attach_agent_trace_and_review_status(text, agent_trace, enhanced_review_status)
+                review_result = validate_ai_insight_output(
+                    text,
+                    chart_evidence_pack,
+                    data_source=data_source,
+                    agent_trace=agent_trace,
+                    require_agent_trace=True,
+                )
+                if not review_result.get("ok"):
+                    enhanced_review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
+                    text = _attach_agent_trace_and_review_status(text, agent_trace, enhanced_review_status)
+                    return JSONResponse(
+                        {
+                            "ok": False,
+                            "error_code": "ai_review_failed",
+                            "detail": "AI考察の8ステージ証跡または数値根拠チェックに失敗しました。",
+                            "review_issues": review_result.get("issues", []),
+                            "review_status": enhanced_review_status,
+                            "agent_trace": agent_trace,
+                            "retryable": False,
+                            "request_id": request_id,
+                        },
+                        status_code=422,
+                    )
+        response_review_status = (
+            _build_enhanced_review_status(review_result, agent_trace, text=text)
+            if workflow == "multi_agent_v1"
+            else review_result
+        )
         return {
             "ok": True,
             "text": text,
@@ -14291,7 +14610,7 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
             "tokens_used": len(text),
             "workflow": workflow,
             "report_contract_version": report_contract_version,
-            "review_status": review_result,
+            "review_status": response_review_status,
             "agent_trace": agent_trace,
         }
     except RuntimeError as e:

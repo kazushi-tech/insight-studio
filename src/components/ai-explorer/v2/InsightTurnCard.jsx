@@ -88,6 +88,85 @@ function extractMissingItems(markdown) {
   return [...new Set(matches || [])].slice(0, 5)
 }
 
+function normalizeAgentTrace(trace) {
+  return Array.isArray(trace)
+    ? trace.filter((item) => item && typeof item === 'object')
+    : []
+}
+
+function AgentTracePanel({ trace = [] }) {
+  const items = normalizeAgentTrace(trace)
+  if (items.length === 0) return null
+  const completedCount = items.filter((item) => ['completed', 'repaired'].includes(item.status)).length
+  const usesLlm = items.some((item) => item.mode === 'llm_stage')
+
+  return (
+    <details className={cardStyles.agentTracePanel} data-testid="agent-trace-panel">
+      <summary className="japanese-text">
+        <span className="material-symbols-outlined" aria-hidden="true">account_tree</span>
+        <span>
+          <strong>複数ステージAIレビュー</strong>
+          <em>{items.length}つの役割で順番に検査 / {completedCount}件完了 / {usesLlm ? 'LLM stage含む' : 'deterministic fallback'}</em>
+        </span>
+      </summary>
+      <div className={cardStyles.agentTraceList}>
+        {items.map((item, index) => (
+          <article key={`${item.stage}-${index}`} className={cardStyles.agentTraceItem}>
+            <div className={cardStyles.agentTraceHead}>
+              <b>{index + 1}</b>
+              <div>
+                <strong>{item.label || item.stage}</strong>
+                <span>{item.summary || item.excerpt || '検査完了'}</span>
+              </div>
+              <mark data-mode={item.mode || 'unknown'}>{item.mode || 'unknown'}</mark>
+            </div>
+            {item.checks?.length > 0 && (
+              <p className="japanese-text">確認: {item.checks.slice(0, 4).join(' / ')}</p>
+            )}
+            {item.issues?.length > 0 && (
+              <p className={cardStyles.agentTraceIssue}>要確認: {item.issues.slice(0, 3).join(' / ')}</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+function EvidenceStatusBand({ report }) {
+  const status = report?.review_status
+  if (!status) return null
+  const verdict = String(status.verdict || 'checked').toLowerCase()
+  const isPass = verdict === 'pass'
+  const evidenceRows = Array.isArray(report?.evidence_table) ? report.evidence_table : []
+  const first = evidenceRows[0] || {}
+  const unsupported = Array.isArray(status.unsupported_kpis) ? status.unsupported_kpis : []
+
+  return (
+    <section
+      className={`${cardStyles.evidenceStatusBand} ${isPass ? cardStyles.evidenceStatusPass : cardStyles.evidenceStatusWarn}`}
+      data-testid="evidence-status-band"
+      aria-label="数値照合状態"
+    >
+      <span className="material-symbols-outlined" aria-hidden="true">{isPass ? 'verified' : 'warning'}</span>
+      <div>
+        <strong className="japanese-text">{isPass ? '数値照合済み' : '数値照合は要確認'}</strong>
+        <p className="japanese-text">
+          {[
+            first.source ? `chart_id: ${first.source}` : '',
+            first.claim ? `参照: ${first.claim}` : '',
+            first.metric ? `指標: ${first.metric}` : '',
+            first.value ? `値: ${first.value}` : '',
+            first.period ? `期間: ${first.period}` : '',
+            `Review: ${status.verdict || 'checked'}`,
+            unsupported.length > 0 ? `未取得KPI: ${unsupported.join(' / ')}` : '',
+          ].filter(Boolean).join(' / ')}
+        </p>
+      </div>
+    </section>
+  )
+}
+
 function InsightReportSections({ content, operationalCards }) {
   const metricRows = extractMetricRows(content)
   const observations = collectMarkdownBullets(content, ['観測', '事実', '現状', '指標'], 4)
@@ -182,6 +261,7 @@ function StructuredInsightReport({ report }) {
   return (
     <div className={cardStyles.markdownReport} data-testid="insight-report-v2">
       <h2 className="japanese-text">AI考察レポート</h2>
+      <EvidenceStatusBand report={report} />
 
       {report.executive_summary.length > 0 && (
         <section className={cardStyles.markdownReportSection} aria-label="重要結論">
@@ -273,8 +353,13 @@ function StructuredInsightReport({ report }) {
           {report.review_status.notes?.length > 0 && (
             <span className="japanese-text">{report.review_status.notes.join(' / ')}</span>
           )}
+          {report.review_status.blocking_issues?.length > 0 && (
+            <span className="japanese-text">要確認: {report.review_status.blocking_issues.join(' / ')}</span>
+          )}
         </section>
       )}
+
+      <AgentTracePanel trace={report.agent_trace} />
     </div>
   )
 }
@@ -292,6 +377,10 @@ export default function InsightTurnCard({
 
   const derivedReport = extractInsightReport(aiContent)
   const derivedMeta = insightMeta ?? extractInsightMeta(aiContent)
+  const agentTrace = normalizeAgentTrace(turn.agentTrace ?? derivedReport?.agent_trace ?? derivedMeta?.agent_trace)
+  if (derivedReport && agentTrace.length > 0 && (!derivedReport.agent_trace || derivedReport.agent_trace.length === 0)) {
+    derivedReport.agent_trace = agentTrace
+  }
   const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
   const hasStructuredV2Report = isStructuredReportV2(derivedReport)
 

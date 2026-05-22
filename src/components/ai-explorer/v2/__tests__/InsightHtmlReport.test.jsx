@@ -41,4 +41,43 @@ describe('InsightHtmlReport', () => {
     const { container } = render(<InsightHtmlReport report={{}} />)
     expect(container).toBeEmptyDOMElement()
   })
+
+  it('renders insight_report_v2 with evidence status and agent trace', () => {
+    render(
+      <InsightHtmlReport
+        report={{
+          version: 'insight_report_v2',
+          executive_summary: ['5/7はPV数328です'],
+          evidence_table: [
+            { claim: 'PV分析 — 日別推移', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'high' },
+          ],
+          interpretation: ['PV数を中心に見ます。'],
+          hypotheses: [{ hypothesis: '流入増の仮説', evidence: 'chart_01', missing_data: '広告費' }],
+          actions: [{ priority: 'P0', action: '流入元を確認', rationale: 'PV数328', expected_metric: 'PV数' }],
+          limitations: ['CPA、ROAS、CTRは未取得'],
+          review_status: {
+            verdict: 'pass',
+            notes: ['8つの役割で順番に検査'],
+            unsupported_kpis: ['CPA', 'ROAS', 'CTR'],
+          },
+          agent_trace: [
+            {
+              stage: 'data_evidence_agent',
+              label: 'Data Evidence Agent',
+              status: 'completed',
+              mode: 'deterministic_fallback',
+              summary: 'chart_id と数値を照合しました。',
+              checks: ['chart_id抽出'],
+              issues: [],
+              excerpt: 'chart_01',
+            },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('AI考察レポート')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Data Evidence Agent')
+  })
 })
