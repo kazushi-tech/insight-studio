@@ -1059,6 +1059,35 @@ def _extract_insight_report_json(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
+def _strip_agent_trace_for_validation(text: str) -> str:
+    """Remove verbose trace payloads before checking user-facing claims."""
+    pattern = re.compile(r"```(insight-report|insight-meta)\s*\n([\s\S]*?)\n```")
+
+    def _replace(match: re.Match) -> str:
+        fence = match.group(1)
+        try:
+            parsed = json.loads(match.group(2))
+        except Exception:
+            return match.group(0)
+        if not isinstance(parsed, dict):
+            return match.group(0)
+        if "agent_trace" in parsed:
+            parsed = dict(parsed)
+            parsed["agent_trace"] = [
+                {
+                    "stage": str(item.get("stage") or ""),
+                    "label": str(item.get("label") or ""),
+                    "status": str(item.get("status") or ""),
+                    "mode": str(item.get("mode") or ""),
+                }
+                for item in parsed.get("agent_trace") or []
+                if isinstance(item, dict)
+            ]
+        return f"```{fence}\n{json.dumps(parsed, ensure_ascii=False)}\n```"
+
+    return pattern.sub(_replace, str(text or ""))
+
+
 REQUIRED_AGENT_TRACE_STAGES = [
     "data_evidence_agent",
     "internal_research_agent",
@@ -1081,6 +1110,7 @@ def validate_ai_insight_output(
     """AI最終文の危険な数値/広告KPI混入を軽量検査する。"""
     issues: list[str] = []
     content = str(text or "")
+    claim_content = _strip_agent_trace_for_validation(content)
     evidence_terms, evidence_labels = _collect_evidence_terms(evidence_pack)
     evidence_chart_ids = _collect_evidence_chart_ids(evidence_pack)
     insight_report = _extract_insight_report_json(content)
@@ -1089,11 +1119,11 @@ def validate_ai_insight_output(
     forbidden_metrics = ["CTR", "CPA", "CPC", "ROAS", "広告費", "インプレッション"]
     if data_source in ("bq", "cross"):
         for metric in forbidden_metrics:
-            if metric not in content or metric in evidence_labels:
+            if metric not in claim_content or metric in evidence_labels:
                 continue
             unsafe_mentions = []
-            for match in re.finditer(re.escape(metric), content):
-                context = content[max(0, match.start() - 48):match.end() + 48]
+            for match in re.finditer(re.escape(metric), claim_content):
+                context = claim_content[max(0, match.start() - 48):match.end() + 48]
                 safe_context = any(word in context for word in [
                     "未取得",
                     "不明",
@@ -1110,9 +1140,12 @@ def validate_ai_insight_output(
                     "必要なデータ",
                     "不足",
                     "missing_data",
+                    "unsupported_kpis",
+                    "未取得KPI",
+                    "入力にない",
                 ])
-                nearby_value_after_metric = content[match.end():match.end() + 24]
-                nearby_value_before_metric = content[max(0, match.start() - 24):match.start()]
+                nearby_value_after_metric = claim_content[match.end():match.end() + 24]
+                nearby_value_before_metric = claim_content[max(0, match.start() - 24):match.start()]
                 has_metric_value = (
                     re.search(r"^\s*[:：はが]?\s*\d[\d,]*(?:\.\d+)?\s*(?:円|%|％|件|pt)?", nearby_value_after_metric)
                     or re.search(r"\d[\d,]*(?:\.\d+)?\s*(?:円|%|％|件|pt)?\s*$", nearby_value_before_metric)
@@ -1126,7 +1159,7 @@ def validate_ai_insight_output(
     if evidence_terms:
         unsupported: list[str] = []
         pattern = re.compile(r"(?<![A-Za-z0-9_])(\d[\d,]*(?:\.\d+)?)(?:\s*(?:%|％|件|人|回|円|セッション|PV|pt))")
-        for match in pattern.finditer(content):
+        for match in pattern.finditer(claim_content):
             raw = match.group(1)
             compact = raw.replace(",", "")
             if compact in {"0", "1", "2", "3"}:

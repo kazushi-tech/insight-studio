@@ -3,6 +3,7 @@ V3.9 軽量テスト: グラフ要約関数とプロンプト拡張の検証
 """
 
 import sys
+import json
 from pathlib import Path
 
 # プロジェクトルートをパスに追加
@@ -326,6 +327,41 @@ chart_01_test のセッション 200 を根拠にします。
         }
         for stage in REQUIRED_AGENT_TRACE_STAGES
     ]
+    result = validate_ai_insight_output(text, pack, data_source="bq", agent_trace=trace, require_agent_trace=True)
+    assert result["ok"] is True
+
+
+def test_validate_ai_insight_output_ignores_verbose_agent_trace_claims():
+    from web.app.bq_chart_builder import REQUIRED_AGENT_TRACE_STAGES, validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "series": [
+                    {"label": "PV数", "points": [{"label": "5/7", "value": 328}]},
+                ],
+            }
+        ]
+    }
+    trace = [
+        {
+            "stage": stage,
+            "label": stage,
+            "status": "completed",
+            "mode": "llm_stage" if stage != "data_evidence_agent" else "deterministic_fallback",
+            "summary": "検査完了",
+            "checks": ["確認"],
+            "issues": [],
+            "excerpt": "内部検査では5回確認し、CPA 3000円のような未採用案も棄却しました。",
+        }
+        for stage in REQUIRED_AGENT_TRACE_STAGES
+    ]
+    text = f"""```insight-report
+{{"version":"insight_report_v2","executive_summary":["5/7はPV数328です"],"evidence_table":[{{"claim":"PV分析","metric":"PV数","value":"328","period":"5/7","source":"chart_01_test","confidence":"high"}}],"interpretation":["初心者にも分かるように確認します。","Senior AdOps ReviewerとConsistency Agentが確認しました。"],"hypotheses":[{{"hypothesis":"流入増の仮説","evidence":"chart_01_test","missing_data":"広告費"}}],"actions":[{{"priority":"P0","action":"確認","rationale":"PV数328","expected_metric":"PV数"}}],"limitations":["CPA、ROAS、CTRは未取得"],"review_status":{{"verdict":"pass","notes":["初心者説明","Senior AdOps Reviewer","Consistency Agent"],"unsupported_kpis":["CPA","ROAS","CTR"]}},"agent_trace":{json.dumps(trace, ensure_ascii=False)}}}
+```
+chart_01_test の PV数 328 を根拠にします。CPA、ROAS、CTRは未取得です。
+"""
     result = validate_ai_insight_output(text, pack, data_source="bq", agent_trace=trace, require_agent_trace=True)
     assert result["ok"] is True
 
