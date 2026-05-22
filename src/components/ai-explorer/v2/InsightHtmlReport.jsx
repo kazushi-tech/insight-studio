@@ -44,8 +44,189 @@ function ReportItemList({ title, icon, items, tone = 'default', compact = false 
   )
 }
 
+function EvidenceStatusBand({ report }) {
+  const status = report?.review_status
+  if (!status) return null
+  const verdict = String(status.verdict || 'checked').toLowerCase()
+  const isPass = verdict === 'pass'
+  const evidenceRows = Array.isArray(report?.evidence_table) ? report.evidence_table : []
+  const first = evidenceRows[0] || {}
+  const unsupported = Array.isArray(status.unsupported_kpis) ? status.unsupported_kpis : []
+
+  return (
+    <section
+      className={`${cardStyles.evidenceStatusBand} ${isPass ? cardStyles.evidenceStatusPass : cardStyles.evidenceStatusWarn}`}
+      data-testid="evidence-status-band"
+      aria-label="数値照合状態"
+    >
+      <span className="material-symbols-outlined" aria-hidden="true">{isPass ? 'verified' : 'warning'}</span>
+      <div>
+        <strong className="japanese-text">{isPass ? '数値照合済み' : '数値照合は要確認'}</strong>
+        <p className="japanese-text">
+          {[
+            first.source ? `chart_id: ${first.source}` : '',
+            first.claim ? `参照: ${first.claim}` : '',
+            first.metric ? `指標: ${first.metric}` : '',
+            first.value ? `値: ${first.value}` : '',
+            first.period ? `期間: ${first.period}` : '',
+            `Review: ${status.verdict || 'checked'}`,
+            unsupported.length > 0 ? `未取得KPI: ${unsupported.join(' / ')}` : '',
+          ].filter(Boolean).join(' / ')}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+function AgentTracePanel({ trace = [] }) {
+  const items = Array.isArray(trace) ? trace.filter((item) => item && typeof item === 'object') : []
+  if (items.length === 0) return null
+  const completedCount = items.filter((item) => ['completed', 'repaired'].includes(item.status)).length
+  const usesLlm = items.some((item) => item.mode === 'llm_stage')
+
+  return (
+    <details className={cardStyles.agentTracePanel} data-testid="agent-trace-panel">
+      <summary className="japanese-text">
+        <span className="material-symbols-outlined" aria-hidden="true">account_tree</span>
+        <span>
+          <strong>複数ステージAIレビュー</strong>
+          <em>{items.length}つの役割で順番に検査 / {completedCount}件完了 / {usesLlm ? 'LLM stage含む' : 'deterministic fallback'}</em>
+        </span>
+      </summary>
+      <div className={cardStyles.agentTraceList}>
+        {items.map((item, index) => (
+          <article key={`${item.stage}-${index}`} className={cardStyles.agentTraceItem}>
+            <div className={cardStyles.agentTraceHead}>
+              <b>{index + 1}</b>
+              <div>
+                <strong>{item.label || item.stage}</strong>
+                <span>{item.summary || item.excerpt || '検査完了'}</span>
+              </div>
+              <mark data-mode={item.mode || 'unknown'}>{item.mode || 'unknown'}</mark>
+            </div>
+            {Array.isArray(item.checks) && item.checks.length > 0 && (
+              <p className="japanese-text">確認: {item.checks.slice(0, 4).join(' / ')}</p>
+            )}
+            {Array.isArray(item.issues) && item.issues.length > 0 && (
+              <p className={cardStyles.agentTraceIssue}>要確認: {item.issues.slice(0, 3).join(' / ')}</p>
+            )}
+          </article>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+function InsightReportV2({ report }) {
+  const summary = Array.isArray(report.executive_summary) ? report.executive_summary : []
+  const evidenceRows = Array.isArray(report.evidence_table) ? report.evidence_table : []
+  const interpretation = Array.isArray(report.interpretation) ? report.interpretation : []
+  const hypotheses = Array.isArray(report.hypotheses) ? report.hypotheses : []
+  const actions = Array.isArray(report.actions) ? report.actions : []
+  const limitations = Array.isArray(report.limitations) ? report.limitations : []
+
+  return (
+    <section className={cardStyles.markdownReport} data-testid="insight-report-v2" aria-label="AI考察レポート">
+      <h2 className="japanese-text">AI考察レポート</h2>
+      <EvidenceStatusBand report={report} />
+
+      {hasItems(summary) && (
+        <section className={cardStyles.markdownReportSection}>
+          <h3 className="japanese-text">重要結論</h3>
+          {summary.slice(0, 4).map((line, index) => (
+            <p key={`summary-${index}`} className="japanese-text"><strong>{index + 1}.</strong> {line}</p>
+          ))}
+        </section>
+      )}
+
+      {hasItems(evidenceRows) && (
+        <section className={cardStyles.markdownReportSection}>
+          <h3 className="japanese-text">根拠テーブル</h3>
+          <div className={cardStyles.simpleTableWrap}>
+            <table className={cardStyles.simpleEvidenceTable}>
+              <thead>
+                <tr>
+                  <th>chart_id</th>
+                  <th>指標</th>
+                  <th>値</th>
+                  <th>期間</th>
+                  <th>根拠</th>
+                </tr>
+              </thead>
+              <tbody>
+                {evidenceRows.slice(0, 8).map((row, index) => (
+                  <tr key={`evidence-${index}`}>
+                    <td>{row.source || '-'}</td>
+                    <td>{row.metric || '-'}</td>
+                    <td><strong>{row.value || '-'}</strong></td>
+                    <td>{row.period || '-'}</td>
+                    <td className="japanese-text">{row.claim || row.confidence || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {hasItems(interpretation) && (
+        <section className={cardStyles.markdownReportSection}>
+          <h3 className="japanese-text">読み解き</h3>
+          {interpretation.slice(0, 4).map((line, index) => (
+            <p key={`interpretation-${index}`} className="japanese-text">{line}</p>
+          ))}
+        </section>
+      )}
+
+      {hasItems(hypotheses) && (
+        <section className={cardStyles.markdownReportSection}>
+          <h3 className="japanese-text">仮説と不足データ</h3>
+          {hypotheses.slice(0, 4).map((item, index) => (
+            <p key={`hypothesis-${index}`} className="japanese-text">
+              <strong>{item.hypothesis || '仮説'}:</strong> {[item.evidence, item.missing_data ? `不足: ${item.missing_data}` : ''].filter(Boolean).join(' / ')}
+            </p>
+          ))}
+        </section>
+      )}
+
+      {hasItems(actions) && (
+        <section className={cardStyles.markdownReportSection}>
+          <h3 className="japanese-text">優先施策</h3>
+          <ol className={cardStyles.simpleActionList}>
+            {actions.slice(0, 5).map((item, index) => (
+              <li key={`action-${index}`} className="japanese-text">
+                <strong>{item.priority || `P${index}`}: {item.action}</strong>
+                {[item.rationale, item.expected_metric ? `見る指標: ${item.expected_metric}` : ''].filter(Boolean).join(' / ')}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {hasItems(limitations) && (
+        <section className={cardStyles.markdownReportSection}>
+          <h3 className="japanese-text">制約</h3>
+          {limitations.slice(0, 4).map((line, index) => (
+            <p key={`limitation-${index}`} className="japanese-text">{line}</p>
+          ))}
+        </section>
+      )}
+
+      <AgentTracePanel trace={report.agent_trace} />
+    </section>
+  )
+}
+
 export default function InsightHtmlReport({ report, compact = false }) {
   if (!report) return null
+
+  if (
+    report.version === 'insight_report_v2' ||
+    hasItems(report.executive_summary) ||
+    hasItems(report.evidence_table)
+  ) {
+    return <InsightReportV2 report={report} />
+  }
 
   const metricCards = Array.isArray(report.metric_cards) ? report.metric_cards : []
   const findings = Array.isArray(report.findings) ? report.findings : []

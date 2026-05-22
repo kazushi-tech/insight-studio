@@ -313,8 +313,15 @@ export function extractInsightReport(markdown) {
         ? {
             verdict: String(parsed.review_status.verdict ?? '').trim(),
             notes: normalizeStringArray(parsed.review_status.notes),
+            blocking_issues: normalizeStringArray(parsed.review_status.blocking_issues),
+            checked_items: normalizeStringArray(parsed.review_status.checked_items),
+            unsupported_kpis: normalizeStringArray(parsed.review_status.unsupported_kpis),
+            evidence_consistency: isPlainObject(parsed.review_status.evidence_consistency)
+              ? parsed.review_status.evidence_consistency
+              : null,
           }
         : null,
+      agent_trace: normalizeAgentTrace(parsed.agent_trace),
     }
 
     const hasContent =
@@ -407,12 +414,25 @@ export function extractInsightMeta(markdown) {
   const recommended_charts = Array.isArray(parsed.recommended_charts)
     ? parsed.recommended_charts.filter((c) => typeof c === 'string')
     : []
-  if (tldr.length === 0 && key_metrics.length === 0 && recommended_charts.length === 0) {
+  const agent_trace = normalizeAgentTrace(parsed.agent_trace)
+  const review_status = parsed.review_status && typeof parsed.review_status === 'object'
+    ? {
+        verdict: String(parsed.review_status.verdict ?? '').trim(),
+        notes: normalizeStringArray(parsed.review_status.notes),
+        blocking_issues: normalizeStringArray(parsed.review_status.blocking_issues),
+        checked_items: normalizeStringArray(parsed.review_status.checked_items),
+        unsupported_kpis: normalizeStringArray(parsed.review_status.unsupported_kpis),
+        evidence_consistency: isPlainObject(parsed.review_status.evidence_consistency)
+          ? parsed.review_status.evidence_consistency
+          : null,
+      }
+    : null
+  if (tldr.length === 0 && key_metrics.length === 0 && recommended_charts.length === 0 && agent_trace.length === 0) {
     return null
   }
   // Strip the fenced block from the markdown so MarkdownRenderer doesn't render it
   const strippedMarkdown = stripInsightBlocks(markdown)
-  return { tldr, key_metrics, recommended_charts, _strippedMarkdown: strippedMarkdown }
+  return { tldr, key_metrics, recommended_charts, agent_trace, review_status, _strippedMarkdown: strippedMarkdown }
 }
 
 function normalizeStringArray(value) {
@@ -425,6 +445,23 @@ function normalizeObjectArray(value) {
   return Array.isArray(value)
     ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
     : []
+}
+
+function normalizeAgentTrace(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      stage: String(item.stage ?? '').trim(),
+      label: String(item.label ?? item.stage ?? '').trim(),
+      status: String(item.status ?? '').trim(),
+      mode: String(item.mode ?? '').trim(),
+      summary: String(item.summary ?? item.excerpt ?? '').trim(),
+      checks: normalizeStringArray(item.checks),
+      issues: normalizeStringArray(item.issues),
+      excerpt: String(item.excerpt ?? '').trim(),
+    }))
+    .filter((item) => item.stage || item.label)
 }
 
 const OPERATIONAL_CARD_DEFS = [

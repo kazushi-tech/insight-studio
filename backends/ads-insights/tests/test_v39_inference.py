@@ -291,6 +291,45 @@ def test_review_safe_report_is_professional_and_beginner_readable():
     assert validate_ai_insight_output(text, pack, data_source="bq")["ok"] is True
 
 
+def test_validate_ai_insight_output_requires_full_agent_trace_when_requested():
+    from web.app.bq_chart_builder import REQUIRED_AGENT_TRACE_STAGES, validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "series": [
+                    {"label": "セッション", "points": [{"label": "5/3", "value": 200}]},
+                ],
+            }
+        ]
+    }
+    text = """```insight-report
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["初心者にも分かるように確認します。","Senior AdOps ReviewerとConsistency Agentが確認しました。"],"hypotheses":[{"hypothesis":"流入増の仮説","evidence":"chart_01_test","missing_data":"広告費"}],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費は未取得","Consistency Agent: 日付と数値を確認"],"review_status":{"verdict":"pass","notes":["初心者説明","Senior AdOps Reviewer","Consistency Agent"]}}
+```
+chart_01_test のセッション 200 を根拠にします。
+"""
+    missing = validate_ai_insight_output(text, pack, data_source="bq", agent_trace=[], require_agent_trace=True)
+    assert missing["ok"] is False
+    assert any("agent_trace" in issue for issue in missing["issues"])
+
+    trace = [
+        {
+            "stage": stage,
+            "label": stage,
+            "status": "completed",
+            "mode": "deterministic_fallback",
+            "summary": "検査完了",
+            "checks": ["確認"],
+            "issues": [],
+            "excerpt": "検査完了",
+        }
+        for stage in REQUIRED_AGENT_TRACE_STAGES
+    ]
+    result = validate_ai_insight_output(text, pack, data_source="bq", agent_trace=trace, require_agent_trace=True)
+    assert result["ok"] is True
+
+
 def test_load_bq_system_prompt_with_inference():
     """inference_hintが正しく連結されるかテスト"""
     import json

@@ -160,26 +160,6 @@ function LegacyAssistantMessage({ message, fontSize }) {
   )
 }
 
-function formatAgentTrace(trace) {
-  if (!Array.isArray(trace) || trace.length === 0) return ''
-  const rows = trace
-    .filter((item) => item && typeof item === 'object')
-    .map((item) => {
-      const stage = String(item.stage ?? '').replace(/\|/g, '/')
-      const status = String(item.status ?? '').replace(/\|/g, '/')
-      const excerpt = String(item.excerpt ?? '').replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 120)
-      return `| ${stage} | ${status} | ${excerpt || '完了'} |`
-    })
-  if (rows.length === 0) return ''
-  return [
-    '',
-    '## エージェント実行ログ',
-    '| Agent | Status | 反映内容 |',
-    '| --- | --- | --- |',
-    ...rows,
-  ].join('\n')
-}
-
 export default function AiExplorer() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -527,15 +507,13 @@ export default function AiExplorer() {
       }
 
       const baseAiContent = getAdsText(data) ?? getAdsText(normalized)
-      const traceMarkdown = formatAgentTrace(data?.agent_trace ?? normalized?.agent_trace)
-      const aiContent = traceMarkdown && !String(baseAiContent ?? '').includes('エージェント実行ログ')
-        ? `${baseAiContent}\n${traceMarkdown}`
-        : baseAiContent
+      const agentTrace = data?.agent_trace ?? normalized?.agent_trace ?? []
+      const aiContent = baseAiContent
       if (!aiContent) {
         throw new Error('AI 応答本文を取得できませんでした。')
       }
 
-      const assistantMessage = { role: 'assistant', text: aiContent }
+      const assistantMessage = { role: 'assistant', text: aiContent, agentTrace }
       const completedMessages = [...nextMessages, assistantMessage]
       setMessages(completedMessages)
       addEntry({

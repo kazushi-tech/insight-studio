@@ -1059,13 +1059,33 @@ def _extract_insight_report_json(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, data_source: str = "bq") -> dict:
+REQUIRED_AGENT_TRACE_STAGES = [
+    "data_evidence_agent",
+    "internal_research_agent",
+    "beginner_explainer_agent",
+    "adops_strategist_agent",
+    "senior_adops_reviewer_agent",
+    "consistency_agent",
+    "review_agent",
+    "final_editor_agent",
+]
+
+
+def validate_ai_insight_output(
+    text: str,
+    evidence_pack: dict | None = None,
+    data_source: str = "bq",
+    agent_trace: list[dict] | None = None,
+    require_agent_trace: bool = False,
+) -> dict:
     """AI最終文の危険な数値/広告KPI混入を軽量検査する。"""
     issues: list[str] = []
     content = str(text or "")
     evidence_terms, evidence_labels = _collect_evidence_terms(evidence_pack)
     evidence_chart_ids = _collect_evidence_chart_ids(evidence_pack)
     insight_report = _extract_insight_report_json(content)
+    if agent_trace is None and insight_report and isinstance(insight_report.get("agent_trace"), list):
+        agent_trace = insight_report.get("agent_trace")
     forbidden_metrics = ["CTR", "CPA", "CPC", "ROAS", "広告費", "インプレッション"]
     if data_source in ("bq", "cross"):
         for metric in forbidden_metrics:
@@ -1074,7 +1094,30 @@ def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, dat
             unsafe_mentions = []
             for match in re.finditer(re.escape(metric), content):
                 context = content[max(0, match.start() - 48):match.end() + 48]
-                if any(word in context for word in ["未取得", "不明", "含まれない", "断定しない", "追加データ", "必要", "不足", "確認", "missing_data"]):
+                safe_context = any(word in context for word in [
+                    "未取得",
+                    "不明",
+                    "含まれない",
+                    "取得できていない",
+                    "断定しない",
+                    "断定できない",
+                    "分からない",
+                    "わからない",
+                    "必要",
+                    "追加で必要",
+                    "追加データ",
+                    "追加連携",
+                    "必要なデータ",
+                    "不足",
+                    "missing_data",
+                ])
+                nearby_value_after_metric = content[match.end():match.end() + 24]
+                nearby_value_before_metric = content[max(0, match.start() - 24):match.start()]
+                has_metric_value = (
+                    re.search(r"^\s*[:：はが]?\s*\d[\d,]*(?:\.\d+)?\s*(?:円|%|％|件|pt)?", nearby_value_after_metric)
+                    or re.search(r"\d[\d,]*(?:\.\d+)?\s*(?:円|%|％|件|pt)?\s*$", nearby_value_before_metric)
+                )
+                if safe_context and not has_metric_value:
                     continue
                 unsafe_mentions.append(metric)
             if unsafe_mentions:
@@ -1133,12 +1176,45 @@ def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, dat
         if sum(1 for marker in quality_markers if marker in content) < 2:
             issues.append("初心者説明・シニアレビュー・整合性確認の記述が不足しています。")
 
+    if require_agent_trace:
+        if not isinstance(agent_trace, list) or not agent_trace:
+            issues.append("agent_trace がありません。")
+        else:
+            stages = {
+                str(item.get("stage") or "")
+                for item in agent_trace
+                if isinstance(item, dict)
+            }
+            missing_stages = [stage for stage in REQUIRED_AGENT_TRACE_STAGES if stage not in stages]
+            if missing_stages:
+                issues.append("agent_trace の必須ステージが不足しています: " + ", ".join(missing_stages))
+            for item in agent_trace:
+                if not isinstance(item, dict):
+                    continue
+                stage = str(item.get("stage") or "")
+                missing_keys = [
+                    key for key in ["stage", "label", "status", "mode", "summary", "checks", "issues", "excerpt"]
+                    if key not in item
+                ]
+                if missing_keys:
+                    issues.append(f"agent_trace.{stage or 'unknown'} のキーが不足しています: " + ", ".join(missing_keys))
+                if item.get("mode") not in ("llm_stage", "deterministic_fallback"):
+                    issues.append(f"agent_trace.{stage or 'unknown'} の mode が不正です。")
+                if item.get("status") not in ("completed", "repaired"):
+                    issues.append(f"agent_trace.{stage or 'unknown'} が未完了です。")
+
     required_markers = ["```insight-report", "evidence_table", "actions", "limitations"]
     missing_markers = [marker for marker in required_markers if marker not in content]
     if missing_markers:
         issues.append("insight_report_v2 の必須要素が不足しています: " + ", ".join(missing_markers))
 
+    verdict = "pass" if len(issues) == 0 else "needs_review"
+    if any("根拠パックに存在しない" in issue or "根拠パック外" in issue or "存在しない広告KPI" in issue for issue in issues):
+        verdict = "fail"
+
     return {
         "ok": len(issues) == 0,
+        "verdict": verdict,
         "issues": issues,
+        "blocking_issues": issues,
     }
