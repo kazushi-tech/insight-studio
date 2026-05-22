@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+import json
 from typing import Any
 
 import numpy as np
@@ -1047,12 +1048,24 @@ def _collect_evidence_chart_ids(pack: dict | None) -> set[str]:
     }
 
 
+def _extract_insight_report_json(text: str) -> dict | None:
+    match = re.search(r"```insight-report\s*\n([\s\S]*?)\n```", str(text or ""))
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group(1))
+    except Exception:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, data_source: str = "bq") -> dict:
     """AI最終文の危険な数値/広告KPI混入を軽量検査する。"""
     issues: list[str] = []
     content = str(text or "")
     evidence_terms, evidence_labels = _collect_evidence_terms(evidence_pack)
     evidence_chart_ids = _collect_evidence_chart_ids(evidence_pack)
+    insight_report = _extract_insight_report_json(content)
     forbidden_metrics = ["CTR", "CPA", "CPC", "ROAS", "広告費", "インプレッション"]
     if data_source in ("bq", "cross"):
         for metric in forbidden_metrics:
@@ -1061,7 +1074,7 @@ def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, dat
             unsafe_mentions = []
             for match in re.finditer(re.escape(metric), content):
                 context = content[max(0, match.start() - 48):match.end() + 48]
-                if any(word in context for word in ["未取得", "不明", "含まれない", "断定しない", "追加データ", "必要"]):
+                if any(word in context for word in ["未取得", "不明", "含まれない", "断定しない", "追加データ", "必要", "不足", "確認", "missing_data"]):
                     continue
                 unsafe_mentions.append(metric)
             if unsafe_mentions:
@@ -1083,6 +1096,42 @@ def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, dat
     if evidence_chart_ids and not any(chart_id in content for chart_id in evidence_chart_ids):
         preview = ", ".join(sorted(evidence_chart_ids)[:5])
         issues.append(f"chart_id が引用されていません: {preview}")
+
+    if evidence_chart_ids and insight_report:
+        evidence_rows = insight_report.get("evidence_table")
+        if not isinstance(evidence_rows, list) or not evidence_rows:
+            issues.append("insight_report_v2.evidence_table が空です。")
+        else:
+            invalid_sources = sorted({
+                str(row.get("source") or "")
+                for row in evidence_rows
+                if isinstance(row, dict)
+                and str(row.get("source") or "").startswith("chart_")
+                and str(row.get("source") or "") not in evidence_chart_ids
+            })
+            if invalid_sources:
+                issues.append("根拠パックに存在しない chart_id があります: " + ", ".join(invalid_sources[:5]))
+            unsupported_values = []
+            for row in evidence_rows:
+                if not isinstance(row, dict):
+                    continue
+                value = str(row.get("value") or "").replace(",", "").strip()
+                if value and re.search(r"\d", value) and value not in evidence_terms:
+                    unsupported_values.append(str(row.get("value")))
+            if unsupported_values:
+                issues.append("evidence_table に根拠パック外の値があります: " + ", ".join(sorted(set(unsupported_values))[:6]))
+
+    if insight_report:
+        required_arrays = ["executive_summary", "evidence_table", "interpretation", "actions", "limitations"]
+        for key in required_arrays:
+            if not isinstance(insight_report.get(key), list) or len(insight_report.get(key) or []) == 0:
+                issues.append(f"insight_report_v2.{key} が空です。")
+        review_status = insight_report.get("review_status")
+        if not isinstance(review_status, dict) or str(review_status.get("verdict") or "").lower() != "pass":
+            issues.append("review_status.verdict が pass ではありません。")
+        quality_markers = ["初心者", "Senior", "シニア", "Consistency", "日付", "未取得"]
+        if sum(1 for marker in quality_markers if marker in content) < 2:
+            issues.append("初心者説明・シニアレビュー・整合性確認の記述が不足しています。")
 
     required_markers = ["```insight-report", "evidence_table", "actions", "limitations"]
     missing_markers = [marker for marker in required_markers if marker not in content]

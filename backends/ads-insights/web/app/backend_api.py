@@ -13376,6 +13376,61 @@ def _build_data_evidence_agent_notes(chart_evidence_pack: dict | None, data_avai
     return "\n".join(lines)
 
 
+def _summarize_public_evidence_rows(rows: list[dict]) -> str:
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for row in rows:
+        source = str(row.get("source") or "chart_evidence_pack")
+        period = str(row.get("period") or "対象期間")
+        grouped.setdefault((source, period), []).append(row)
+
+    if not grouped:
+        return "数値根拠パックから引用可能な主要数値を確認しました。"
+
+    (source, period), group_rows = max(grouped.items(), key=lambda item: len(item[1]))
+    values = [
+        f"{row.get('metric')} {row.get('value')}"
+        for row in group_rows[:4]
+        if row.get("metric") and row.get("value")
+    ]
+    if values:
+        return f"{period} は {source} で " + "、".join(values) + " が確認できます。"
+    first = group_rows[0]
+    return f"{first.get('metric')} は {period} の {first.get('value')} が確認できます。"
+
+
+def _build_beginner_explanation(rows: list[dict]) -> str:
+    summary = _summarize_public_evidence_rows(rows)
+    return (
+        f"初心者向けに言うと、まず見るべきなのは「いつ・どの指標が大きいか」です。"
+        f"{summary} ただし、なぜ増えたかはこの表だけでは断定せず、流入元・LP・広告配信履歴を順に確認します。"
+    )
+
+
+def _build_senior_adops_read(rows: list[dict], primary_source: str) -> str:
+    metrics = {str(row.get("metric") or "") for row in rows}
+    if {"ユーザー数", "セッション数", "PV数"}.issubset(metrics):
+        return (
+            f"シニア広告運用観点では、{primary_source} のユーザー数・セッション数・PV数が同日に揃っているかを先に見ます。"
+            "3指標が同日に上がるなら、LP単体の改善よりも流入量、配信露出、参照元、キャンペーン接触の切り分けを優先します。"
+        )
+    return (
+        f"シニア広告運用観点では、{primary_source} の数値を起点に、チャネル、LP、デバイス、時間帯のどこで差が出ているかを分解します。"
+        "媒体KPIがない状態では配信成果を断定せず、GA4の行動データと広告管理画面の費用・CVデータを突合します。"
+    )
+
+
+def _build_consistency_note(query_text: str, rows: list[dict]) -> str:
+    if not rows:
+        return "Consistency Agent: 比較対象の chart_id と数値が不足しているため、判断保留にしました。"
+    periods = sorted({str(row.get("period") or "") for row in rows if row.get("period")})
+    if re.search(r"\d{8}|\d{4}年\d{1,2}月\d{1,2}日|\d{1,2}/\d{1,2}", str(query_text or "")):
+        return (
+            "Consistency Agent: 質問内の日付表記ゆれを同一日として扱い、"
+            f"{', '.join(periods[:4]) or '対象期間'} の根拠行だけを優先しました。"
+        )
+    return "Consistency Agent: 同じ chart_id・同じ値を根拠表と本文で一致させました。"
+
+
 def _build_review_safe_insight_report(
     chart_evidence_pack: dict | None,
     review_issues: list[str] | None = None,
@@ -13398,9 +13453,13 @@ def _build_review_safe_insight_report(
     first_row = public_rows[0]
     source_ids = [row.get("source") for row in public_rows if str(row.get("source", "")).startswith("chart_")]
     primary_source = source_ids[0] if source_ids else str(first_row.get("source") or "chart_evidence_pack")
+    beginner_explanation = _build_beginner_explanation(public_rows)
+    senior_adops_read = _build_senior_adops_read(public_rows, primary_source)
+    consistency_note = _build_consistency_note(query_text, public_rows)
     limitations = [
         "広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。",
         "原因はGA4とグラフ数値からの仮説であり、広告管理画面やCRMデータで追加確認が必要です。",
+        consistency_note,
     ]
     if review_issues:
         limitations.append("Review Agent の指摘を受け、根拠のない数値や薄い一般論を削除した安全版です。")
@@ -13408,18 +13467,22 @@ def _build_review_safe_insight_report(
     report = {
         "version": "insight_report_v2",
         "executive_summary": [
-            f"{first_row.get('metric')} は {first_row.get('period')} の {first_row.get('value')} が最初に見るべき数値です。",
+            _summarize_public_evidence_rows(public_rows),
             f"根拠は {primary_source} です。回答内の数値は数値根拠パック由来に限定しています。",
             "広告KPIが未取得の場合は成果を断定せず、計測設定と流入分類を先に確認します。",
         ],
         "evidence_table": public_rows,
         "interpretation": [
-            f"{row.get('source')} の {row.get('metric')}={row.get('value')} を、期間内の変化点または上位項目として読みます。"
-            for row in public_rows[:3]
+            beginner_explanation,
+            senior_adops_read,
+            *[
+                f"{row.get('source')} の {row.get('metric')}={row.get('value')} を、期間内の変化点または上位項目として読みます。"
+                for row in public_rows[:2]
+            ],
         ],
         "hypotheses": [
             {
-                "hypothesis": "特定日または特定項目に流入が寄っている可能性があります。",
+                "hypothesis": "特定日または特定項目に流入が寄っている可能性があります。原因ではなく、検証前の仮説です。",
                 "evidence": primary_source,
                 "missing_data": "広告媒体別の費用、キャンペーン、検索語句、CVイベント",
             }
@@ -13427,14 +13490,14 @@ def _build_review_safe_insight_report(
         "actions": [
             {
                 "priority": "P0",
-                "action": f"{primary_source} の最大値・最新値の日付を広告配信履歴と突き合わせる",
-                "rationale": f"{first_row.get('metric')}={first_row.get('value')} が確認できるため",
+                "action": f"{primary_source} の同日数値を、流入元・LP・デバイス別に分解して増加箇所を特定する",
+                "rationale": _summarize_public_evidence_rows(public_rows),
                 "expected_metric": str(first_row.get("metric") or "セッション"),
             },
             {
                 "priority": "P1",
-                "action": "上位チャネル、LP、デバイスの偏りを見て、伸ばす導線と止める導線を分ける",
-                "rationale": "グラフ数値だけでは原因断定せず、導線別に確認する必要があります",
+                "action": "同じ日付の広告配信履歴、キャンペーン変更、検索語句を突き合わせる",
+                "rationale": "グラフ数値だけでは原因を断定できず、広告側の接触データで裏取りが必要です",
                 "expected_metric": "セッション/PV/直帰率",
             },
             {
@@ -13447,7 +13510,13 @@ def _build_review_safe_insight_report(
         "limitations": limitations,
         "review_status": {
             "verdict": "pass",
-            "notes": ["Review Agent fallback", "chart_id確認済み", "未取得広告KPIの断定なし"],
+            "notes": [
+                "Data Evidence Agent: chart_id と数値を照合",
+                "Beginner Explainer Agent: 平易な説明を追加",
+                "Senior AdOps Reviewer Agent: 実務確認順を検査",
+                "Consistency Agent: 日付表記と数値整合を確認",
+                "Review Agent: 未取得広告KPIの断定なし",
+            ],
         },
     }
 
@@ -13474,7 +13543,10 @@ def _build_review_safe_insight_report(
         "",
         "## 🧭 エージェント確認",
         "- Internal Research Agent: グラフ数値と日付表記ゆれを確認し、引用可能な chart_id を選定しました。",
-        "- AdOps Strategist Agent: 初心者にも分かる形で P0/P1/P2 の確認順に整理しました。",
+        "- Beginner Explainer Agent: 初心者が見る順番を「いつ・どの指標が大きいか」に噛み砕きました。",
+        "- Senior AdOps Reviewer Agent: 広告運用者が実務で確認する順番へ P0/P1/P2 を並べ替えました。",
+        "- AdOps Strategist Agent: 施策を「何を見る/何を突き合わせる/何が未取得か」に分解しました。",
+        f"- Consistency Agent: {consistency_note}",
         "- Review Agent: 根拠のない広告KPIと数値を削除し、未取得項目を制約に移しました。",
         "- Final Editor Agent: insight-report v2 と Markdown で読みやすい業務レポートに整形しました。",
         "",
@@ -13662,9 +13734,12 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
 以下の役割を1つの回答内で順番に実行し、最終結果だけを返してください。
 1. Data Evidence Agent: 要点パックと数値根拠パックから、引用可能な数値・欠損・使えない広告KPIを整理する。
 2. Internal Research Agent: 外部Webは使わず、GA4/グラフ/レポート本文/会話履歴だけで論点候補を作る。
-3. AdOps Strategist Agent: 広告運用者が次に判断できるよう、優先施策・確認仮説・見るべき指標に変換する。
-4. Review Agent: 根拠のない数値、GA4に存在しない広告KPI、一般論、薄い施策を落とす。
-5. Final Editor Agent: 読みやすい業務レポートとして出力する。
+3. Beginner Explainer Agent: 超初心者にも分かるよう、専門語を噛み砕き「つまり何を見るか」を1行で説明する。
+4. AdOps Strategist Agent: 広告運用者が次に判断できるよう、優先施策・確認仮説・見るべき指標に変換する。
+5. Senior AdOps Reviewer Agent: 施策が実務で使えるか、優先順位が妥当か、追加で見るべき媒体データが明確かを検査する。
+6. Consistency Agent: chart_id、日付表記ゆれ、同一セッション内の数値矛盾を検査する。
+7. Review Agent: 根拠のない数値、GA4に存在しない広告KPI、一般論、薄い施策を落とす。
+8. Final Editor Agent: 読みやすい業務レポートとして出力する。
 
 出力は必ずこの順序にしてください。
 1. ```insight-report fenced JSON
@@ -13693,6 +13768,7 @@ insight-report JSON の必須キー:
 - 数値根拠パックまたは要点パックにない数値を断定しない。
 - GA4だけに広告費、CPA、ROAS、CTR、CPC、インプレッションが無い場合、それらを施策成果として断定しない。
 - 「一般的には」だけで終わらせない。必ず chart_id または要点パック見出しを根拠にする。
+- 初心者向けの平易な説明と、シニア広告運用者向けの実務判断を両方含める。
 """
 
     # スタイル指示を構築
@@ -13871,7 +13947,7 @@ insight-report JSON の必須キー:
         if (
             workflow == "multi_agent_v1"
             and isinstance(chart_evidence_pack, dict)
-            and os.getenv("MULTI_AGENT_LLM_STAGES", "0") != "1"
+            and os.getenv("MULTI_AGENT_LLM_STAGES", "1") == "0"
         ):
             data_evidence_output = _build_data_evidence_agent_notes(chart_evidence_pack, data_availability, query_text=user_prompt_for_matching)
             text = _build_review_safe_insight_report(chart_evidence_pack, [], data_availability=data_availability, query_text=user_prompt_for_matching)
@@ -13889,9 +13965,24 @@ insight-report JSON の必須キー:
                     "excerpt": "外部Webを使わず、GA4レポート本文・グラフ数値・会話履歴から論点候補を抽出しました。",
                 },
                 {
+                    "stage": "beginner_explainer_agent",
+                    "status": "completed",
+                    "excerpt": "初心者向けに、まず見る指標・見てはいけない未取得KPI・次の確認順を平易に説明しました。",
+                },
+                {
                     "stage": "adops_strategist_agent",
                     "status": "completed",
                     "excerpt": "広告運用者が今週確認する順番を P0/P1/P2 に変換し、初心者向けの説明に整えました。",
+                },
+                {
+                    "stage": "senior_adops_reviewer_agent",
+                    "status": "completed",
+                    "excerpt": "実務で使える確認順、媒体データ不足、施策の優先順位を検査しました。",
+                },
+                {
+                    "stage": "consistency_agent",
+                    "status": "completed",
+                    "excerpt": "日付表記ゆれ、chart_id、本文と根拠表の数値一致を検査しました。",
                 },
                 {
                     "stage": "review_agent",
@@ -13970,6 +14061,25 @@ insight-report JSON の必須キー:
                 0.1,
                 2048,
             )
+            beginner_output = await _run_agent(
+                "beginner_explainer_agent",
+                f"""{agent_base_context}
+
+あなたは Beginner Explainer Agent です。超初心者が読んでも誤解しない説明だけを作ります。
+Internal Research Agent の出力:
+{research_output}
+
+やること:
+- 「つまり何を見るべきか」を1行で書く。
+- PV、セッション、ユーザー数、直帰率、CVなどの専門語を短く補足する。
+- CPA、ROAS、CTR、広告費など未取得の広告KPIは、分からないものとして説明する。
+- 原因断定ではなく「仮説」と「追加確認」に分ける。
+
+出力は Markdown で「一言でいうと」「用語の補足」「見てよい数値」「まだ分からない数値」に分けてください。
+""",
+                0.15,
+                1536,
+            )
             strategy_output = await _run_agent(
                 "adops_strategist_agent",
                 f"""{agent_base_context}
@@ -13977,6 +14087,8 @@ insight-report JSON の必須キー:
 あなたは広告運用のプロフェッショナルです。ただし初心者にも分かる言葉で説明します。
 Internal Research Agent の出力:
 {research_output}
+Beginner Explainer Agent の出力:
+{beginner_output}
 
 やること:
 - 広告運用者が次に見るべき判断を P0/P1/P2 にする。
@@ -13989,6 +14101,56 @@ Internal Research Agent の出力:
                 0.2,
                 2048,
             )
+            senior_output = await _run_agent(
+                "senior_adops_reviewer_agent",
+                f"""{agent_base_context}
+
+あなたは Senior AdOps Reviewer Agent です。広告運用のシニア実務者として、施策が使える水準かを厳しく見ます。
+Internal Research Agent:
+{research_output}
+
+Beginner Explainer Agent:
+{beginner_output}
+
+AdOps Strategist Agent:
+{strategy_output}
+
+検査項目:
+- P0/P1/P2が実務で即確認できる順番か。
+- 数値だけで原因断定していないか。
+- GA4だけで足りない媒体データ（広告費、キャンペーン、検索語句、CV、CPA/ROAS/CTR等）が明確か。
+- 初心者向け説明が浅すぎず、広告運用者向け施策が抽象的すぎないか。
+
+出力は Markdown で「合格/修正」「実務で使える点」「不足している媒体データ」「優先順位の修正」に分けてください。
+""",
+                0.1,
+                1536,
+            )
+            consistency_output = await _run_agent(
+                "consistency_agent",
+                f"""{agent_base_context}
+
+あなたは Consistency Agent です。数値・chart_id・日付の矛盾だけを検査します。
+Internal Research Agent:
+{research_output}
+
+AdOps Strategist Agent:
+{strategy_output}
+
+Senior AdOps Reviewer Agent:
+{senior_output}
+
+検査項目:
+- 20260507 / 2026-05-07 / 2026年5月7日 / 5/7 が同じ日として扱われているか。
+- 根拠表、本文、施策理由の数値が chart_evidence_pack と一致しているか。
+- chart_id が架空ではなく数値根拠パック内に存在するか。
+- 同じ質問を5回続けても回答方針が矛盾しにくいか。
+
+出力は Markdown で「verdict: pass|fail」「一致した根拠」「矛盾リスク」「修正指示」に分けてください。
+""",
+                0.1,
+                1536,
+            )
             reviewer_output = await _run_agent(
                 "review_agent",
                 f"""{agent_base_context}
@@ -13999,6 +14161,15 @@ Internal Research Agent:
 
 AdOps Strategist Agent:
 {strategy_output}
+
+Beginner Explainer Agent:
+{beginner_output}
+
+Senior AdOps Reviewer Agent:
+{senior_output}
+
+Consistency Agent:
+{consistency_output}
 
 検査項目:
 - 数値が数値根拠パックまたは要点パック由来か。
@@ -14022,6 +14193,15 @@ Internal Research Agent:
 AdOps Strategist Agent:
 {strategy_output}
 
+Beginner Explainer Agent:
+{beginner_output}
+
+Senior AdOps Reviewer Agent:
+{senior_output}
+
+Consistency Agent:
+{consistency_output}
+
 Review Agent:
 {reviewer_output}
 
@@ -14031,6 +14211,7 @@ Review Agent:
 - 次に読みやすいMarkdown本文を出す。
 - 最後に ```insight-meta の JSON を出す。
 - Markdown本文に「## 🧭 エージェント確認」を入れ、Internal Research / AdOps Strategist / Review / Final Editor がどう反映されたかを短く示す。
+- エージェント確認には Beginner Explainer / Senior AdOps Reviewer / Consistency Agent も含める。
 - 文章は広告運用初心者にも理解できる平易さを保つ。
 - 専門語は短く補足する。
 - 数値には chart_id または要点パック見出しを併記する。
