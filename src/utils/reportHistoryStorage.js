@@ -13,7 +13,7 @@ const QUERY_TYPE_LABELS = {
   search: '検索クエリ',
   landing: 'LP流入',
   user_attr: 'ユーザー属性',
-  auction_proxy: 'オークション',
+  auction_proxy: '流入影響',
 }
 
 export function storageKeyForCase(caseId) {

@@ -86,6 +86,178 @@ def test_summarize_empty():
     print("[OK] test_summarize_empty passed")
 
 
+def test_summarize_chart_evidence_pack_for_ai():
+    """structured evidence pack がAI向け要約に展開されるかテスト"""
+    from web.app.bq_chart_builder import summarize_chart_evidence_pack_for_ai
+
+    pack = {
+        "version": "chart_evidence_pack_v1",
+        "scope_label": "2026-05",
+        "chart_count": 1,
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "title": "LP分析 — 日別推移",
+                "chart_type": "line",
+                "period_tag": "2026-05",
+                "series": [
+                    {
+                        "label": "/a",
+                        "latest": {"label": "5/3", "value": 200},
+                        "max": {"label": "5/3", "value": 200},
+                        "min": {"label": "5/1", "value": 100},
+                        "total": 450,
+                        "change_from_first": {"absolute": 100, "percent": 100.0},
+                        "notable_swings": [{"from_label": "5/2", "to_label": "5/3", "percent": 33.3}],
+                    }
+                ],
+                "ranking_top": [{"series_label": "/a", "label": "5/3", "value": 200}],
+            }
+        ],
+    }
+
+    result = summarize_chart_evidence_pack_for_ai(pack)
+    assert "数値根拠パック" in result
+    assert "chart_01_test" in result
+    assert "最新=5/3 200" in result
+    assert "初回比=100 (+100.0%)" in result
+
+
+def test_validate_ai_insight_output_rejects_unsupported_numbers_and_forbidden_kpi():
+    """根拠パック外の数値とGA4未取得広告KPIを検知する"""
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "title": "セッション推移",
+                "series": [{"label": "セッション", "latest": {"label": "5/3", "value": 200}}],
+            }
+        ]
+    }
+    text = """```insight-report
+{"version":"insight_report_v2","executive_summary":["悪い例"],"evidence_table":[],"interpretation":[],"hypotheses":[],"actions":[],"limitations":[]}
+```
+CPAが1,000円で、セッションは999件です。
+"""
+
+    result = validate_ai_insight_output(text, pack, data_source="bq")
+    assert result["ok"] is False
+    assert any("CPA" in issue for issue in result["issues"])
+    assert any("999" in issue for issue in result["issues"])
+
+
+def test_validate_ai_insight_output_accepts_evidence_numbers():
+    """根拠パック内の数値だけなら通過する"""
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "title": "セッション推移",
+                "series": [{"label": "セッション", "latest": {"label": "5/3", "value": 200}}],
+            }
+        ]
+    }
+    text = """```insight-report
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["200を根拠に確認"],"hypotheses":[],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費は未取得"]}
+```
+chart_01_test のセッション 200 を根拠にします。
+"""
+
+    result = validate_ai_insight_output(text, pack, data_source="bq")
+    assert result["ok"] is True
+
+
+def test_validate_ai_insight_output_requires_chart_id_when_evidence_pack_exists():
+    """数値根拠パックがある場合は chart_id なし回答を落とす"""
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "title": "セッション推移",
+                "series": [{"label": "セッション", "latest": {"label": "5/3", "value": 200}}],
+            }
+        ]
+    }
+    text = """```insight-report
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"根拠パック","confidence":"high"}],"interpretation":["200を根拠に確認"],"hypotheses":[],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費は未取得"]}
+```
+セッション 200 を根拠にします。
+"""
+
+    result = validate_ai_insight_output(text, pack, data_source="bq")
+    assert result["ok"] is False
+    assert any("chart_id" in issue for issue in result["issues"])
+
+
+def test_validate_ai_insight_output_allows_grouped_missing_ad_kpis():
+    """未取得と明記した広告KPIリストは危険な断定として扱わない"""
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "title": "セッション推移",
+                "series": [{"label": "セッション", "latest": {"label": "5/3", "value": 200}}],
+            }
+        ]
+    }
+    text = """```insight-report
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["200を根拠に確認"],"hypotheses":[],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。"]}
+```
+chart_01_test のセッション 200 を根拠にします。広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。
+"""
+
+    result = validate_ai_insight_output(text, pack, data_source="bq")
+    assert result["ok"] is True
+
+
+def test_review_safe_report_resolves_date_aliases():
+    """20260507 と 2026年5月7日 を同じ日付根拠として扱う"""
+    from web.app.backend_api import _build_review_safe_insight_report
+
+    pack = {
+        "scope_label": "2026-05",
+        "charts": [
+            {
+                "chart_id": "chart_02_date",
+                "title": "流入分析 — 日別推移",
+                "series": [
+                    {
+                        "label": "セッション",
+                        "points": [
+                            {
+                                "label": "5/7",
+                                "rawLabel": "20260507",
+                                "aliases": ["20260507", "2026-05-07", "2026/5/7", "2026年5月7日", "5/7"],
+                                "value": 114,
+                            }
+                        ],
+                        "latest": {"label": "5/7", "value": 114},
+                        "max": {"label": "5/7", "value": 114},
+                    }
+                ],
+            }
+        ],
+    }
+
+    compact = _build_review_safe_insight_report(pack, query_text="20260507 のPV数が上がった理由は？")
+    japanese = _build_review_safe_insight_report(pack, query_text="2026年5月7日のPV数が上がった理由は？")
+
+    assert "chart_02_date" in compact
+    assert "5/7" in compact
+    assert "114" in compact
+    assert "chart_02_date" in japanese
+    assert "5/7" in japanese
+    assert "114" in japanese
+
+
 def test_load_bq_system_prompt_with_inference():
     """inference_hintが正しく連結されるかテスト"""
     import json
@@ -129,6 +301,9 @@ def run_all_tests():
         test_summarize_line_chart,
         test_summarize_bar_chart,
         test_summarize_empty,
+        test_summarize_chart_evidence_pack_for_ai,
+        test_validate_ai_insight_output_rejects_unsupported_numbers_and_forbidden_kpi,
+        test_validate_ai_insight_output_accepts_evidence_numbers,
         test_load_bq_system_prompt_with_inference,
         test_inference_hint_in_system_prompt,
     ]

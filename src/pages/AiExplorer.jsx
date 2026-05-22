@@ -11,10 +11,12 @@ import { useUserProfile } from '../contexts/UserProfileContext'
 import { useReportHistory } from '../contexts/ReportHistoryContext'
 import {
   buildAiChartContext,
+  buildChartEvidencePack,
   buildAnalysisInstructions,
   buildAdsFallbackReportBundle,
   extractMarkdownSummary,
   regenerateAdsReportBundle,
+  selectChartGroupsForPrompt,
 } from '../utils/adsReports'
 import { extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
@@ -140,6 +142,26 @@ function LegacyAssistantMessage({ message, fontSize }) {
       </div>
     </div>
   )
+}
+
+function formatAgentTrace(trace) {
+  if (!Array.isArray(trace) || trace.length === 0) return ''
+  const rows = trace
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => {
+      const stage = String(item.stage ?? '').replace(/\|/g, '/')
+      const status = String(item.status ?? '').replace(/\|/g, '/')
+      const excerpt = String(item.excerpt ?? '').replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 120)
+      return `| ${stage} | ${status} | ${excerpt || '完了'} |`
+    })
+  if (rows.length === 0) return ''
+  return [
+    '',
+    '## エージェント実行ログ',
+    '| Agent | Status | 反映内容 |',
+    '| --- | --- | --- |',
+    ...rows,
+  ].join('\n')
 }
 
 export default function AiExplorer() {
@@ -370,9 +392,15 @@ export default function AiExplorer() {
     () => buildAiChartContext(reportBundle?.chartGroups ?? []),
     [reportBundle?.chartGroups],
   )
+  const chartEvidencePack = useMemo(
+    () => buildChartEvidencePack(reportBundle?.chartGroups ?? [], {
+      scopeLabel: (setupState?.periods ?? []).join(' / ') || 'AI考察 全グラフ',
+    }),
+    [reportBundle?.chartGroups, setupState?.periods],
+  )
 
   const promptDisabled =
-    !isAdsAuthenticated || !hasAnalysisKey || !reportBundle?.reportMd || loading || (reportLoading && !reportBundle?.reportMd)
+    !isAdsAuthenticated || !reportBundle?.reportMd || loading || (reportLoading && !reportBundle?.reportMd)
 
   async function handleSend(text) {
     const prompt = (text ?? input).trim()
@@ -402,10 +430,17 @@ export default function AiExplorer() {
         `---\n${prompt}`,
       ].filter(Boolean).join('\n\n')
 
-      const isFirstMessage = messages.length === 0
-      const packContext = isFirstMessage
+      const isWithinStableSessionWindow = messages.length < 10
+      const packContext = isWithinStableSessionWindow
         ? reportBundle.reportMd
         : extractMarkdownSummary(reportBundle.reportMd) || reportBundle.reportMd
+      const promptChartGroups = selectChartGroupsForPrompt(reportBundle?.chartGroups ?? [], prompt, {
+        maxGroups: 36,
+      })
+      const promptEvidencePack = buildChartEvidencePack(promptChartGroups, {
+        scopeLabel: chartEvidencePack?.scope_label || 'AI考察 全グラフ',
+        maxCharts: 36,
+      }) || chartEvidencePack
 
       const neonPayload = {
         mode: 'question',
@@ -413,6 +448,7 @@ export default function AiExplorer() {
         provider: analysisProvider || 'anthropic',
         temperature: messages.length === 0 ? 0.3 : 0.6,
         message: enrichedPrompt,
+        user_prompt: prompt,
         point_pack_md: packContext,
         style_reference: '',
         style_preset: 'mixed',
@@ -421,7 +457,19 @@ export default function AiExplorer() {
         missing_reason: reportBundle?.missingReason || '',
         bq_query_types: setupState?.queryTypes ?? [],
         conversation_history: toConversationHistory(nextMessages),
+        workflow: 'multi_agent_v1',
+        report_contract_version: 'insight_report_v2',
         ai_chart_context: chartContext,
+        chart_evidence_pack: promptEvidencePack,
+        active_chart_scope: {
+          label: promptEvidencePack?.scope_label || 'AI考察 全グラフ',
+          chart_ids: promptEvidencePack?.charts?.map((chart) => chart.chart_id) ?? [],
+        },
+        session_policy: {
+          turn_index: Math.floor(messages.length / 2) + 1,
+          keep_full_context_until_turn: 5,
+          date_alias_handling: '20260130 / 2026-01-30 / 2026年1月30日 / 1/30 を同じ日として扱う',
+        },
       }
 
       const controller = new AbortController()
@@ -462,7 +510,11 @@ export default function AiExplorer() {
         throw new Error(data?.error || normalized?.error || 'AI 考察の生成に失敗しました。')
       }
 
-      const aiContent = getAdsText(data) ?? getAdsText(normalized)
+      const baseAiContent = getAdsText(data) ?? getAdsText(normalized)
+      const traceMarkdown = formatAgentTrace(data?.agent_trace ?? normalized?.agent_trace)
+      const aiContent = traceMarkdown && !String(baseAiContent ?? '').includes('エージェント実行ログ')
+        ? `${baseAiContent}\n${traceMarkdown}`
+        : baseAiContent
       if (!aiContent) {
         throw new Error('AI 応答本文を取得できませんでした。')
       }
@@ -641,7 +693,7 @@ export default function AiExplorer() {
       {!hasAnalysisKey && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">Gemini または Claude の分析用 API キーが未設定です。設定画面から設定してください。</span>
+          <span className="japanese-text">ブラウザ保存の分析用 API キーは未設定です。バックエンド側にキーが設定済みなら、このまま送信できます。</span>
         </div>
       )}
         {reportError && (

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import numpy as np
@@ -408,6 +409,17 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
         finite_bounce = [v for v in bounce_pct if v is not None]
         if len(finite_bounce) > 1 and len(set(finite_bounce)) == 1:
             bounce_meta["warnings"] = [*bounce_meta.get("warnings", []), "flat_series"]
+        bounce_rows = []
+        for _, row in top.iterrows():
+            sessions = None if pd.isna(row.get("sessions")) else int(row.get("sessions", 0))
+            bounce_sessions = None if pd.isna(row.get("bounce_sessions")) else int(row.get("bounce_sessions", 0))
+            bounce_rate = None if pd.isna(row.get("bounce_rate")) else round(float(row.get("bounce_rate", 0)) * 100, 1)
+            bounce_rows.append({
+                "label": str(row.get("short_page", row.get("landing_page", ""))),
+                "sessions": sessions,
+                "bounceSessions": bounce_sessions,
+                "bounceRate": bounce_rate,
+            })
         groups.append(_with_meta({
             "title": f"LP分析 — 直帰率上位{len(top)}LP",
             "chartType": "bar_horizontal",
@@ -419,6 +431,7 @@ def _build_landing(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c1["border"],
                 "borderWidth": 1,
             }],
+            "rows": bounce_rows,
         }, bounce_meta))
 
     # V3.3: 上位LPの日別セッション推移
@@ -662,7 +675,7 @@ def _build_auction_proxy(df: pd.DataFrame) -> list[dict]:
     labels_ch = ch_agg["channel_group"].astype(str).tolist()
     c0 = _color(0)
     groups.append({
-        "title": "オークション圧 — チャネル別セッション構成",
+        "title": "流入の競合影響チェック（推定） — チャネル別セッション構成",
         "chartType": "bar_horizontal",
         "labels": labels_ch,
         "datasets": [{
@@ -684,7 +697,7 @@ def _build_auction_proxy(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c["border"], "backgroundColor": c["bg"],
                 "tension": 0.3, "fill": False,
             })
-        groups.append({"title": "オークション圧 — 日別チャネル推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
+        groups.append({"title": "流入の競合影響チェック（推定） — 日別チャネル推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
 
     return groups
 
@@ -883,3 +896,200 @@ def summarize_chart_groups_for_ai(groups: list[dict]) -> str:
 
     summary_lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     return "\n".join(summary_lines)
+
+
+def _as_number(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, str):
+            value = value.strip().replace(",", "").replace("%", "")
+        number = float(value)
+    except Exception:
+        return None
+    if pd.isna(number):
+        return None
+    return number
+
+
+def _fmt_ai_number(value: Any) -> str:
+    number = _as_number(value)
+    if number is None:
+        return "未取得"
+    if abs(number) >= 1000:
+        return f"{number:,.0f}"
+    if float(number).is_integer():
+        return f"{number:.0f}"
+    return f"{number:,.2f}".rstrip("0").rstrip(".")
+
+
+def summarize_chart_evidence_pack_for_ai(pack: dict | None) -> str:
+    """chart_evidence_pack をAIが引用しやすいMarkdownに圧縮する。"""
+    if not isinstance(pack, dict):
+        return ""
+    charts = pack.get("charts") if isinstance(pack.get("charts"), list) else []
+    if not charts:
+        return ""
+
+    lines = [
+        "━━━ 数値根拠パック（AI回答で引用可能なグラフ数値）━━━",
+        f"- evidence_version: {pack.get('version', 'chart_evidence_pack_v1')}",
+        f"- scope: {pack.get('scope_label') or '全グラフ'}",
+        f"- chart_count: {pack.get('chart_count', len(charts))}",
+        "",
+    ]
+
+    for chart in charts[:24]:
+        chart_id = chart.get("chart_id") or "chart_unknown"
+        title = chart.get("title") or "不明なグラフ"
+        chart_type = chart.get("chart_type") or chart.get("chartType") or "unknown"
+        period = chart.get("period_tag") or chart.get("_periodTag") or ""
+        lines.append(f"## {chart_id}: {title}")
+        lines.append(f"- type: {chart_type}{f' / period: {period}' if period else ''}")
+        if chart.get("selection_label"):
+            lines.append(f"- selection: {chart.get('selection_label')}")
+
+        for series in (chart.get("series") or [])[:8]:
+            label = series.get("label") or "データ"
+            latest = series.get("latest") or {}
+            max_point = series.get("max") or {}
+            min_point = series.get("min") or {}
+            total = series.get("total")
+            details = []
+            if latest:
+                aliases = latest.get("aliases") or []
+                alias_text = f" aliases={','.join(map(str, aliases[:4]))}" if aliases else ""
+                details.append(f"最新={latest.get('label', '?')} {_fmt_ai_number(latest.get('value'))}{alias_text}")
+            if max_point:
+                aliases = max_point.get("aliases") or []
+                alias_text = f" aliases={','.join(map(str, aliases[:4]))}" if aliases else ""
+                details.append(f"最大={max_point.get('label', '?')} {_fmt_ai_number(max_point.get('value'))}{alias_text}")
+            if min_point:
+                details.append(f"最小={min_point.get('label', '?')} {_fmt_ai_number(min_point.get('value'))}")
+            if total is not None:
+                details.append(f"合計={_fmt_ai_number(total)}")
+            change = series.get("change_from_first")
+            if isinstance(change, dict) and change.get("percent") is not None:
+                details.append(
+                    f"初回比={_fmt_ai_number(change.get('absolute'))} ({float(change.get('percent')):+.1f}%)"
+                )
+            lines.append(f"- {label}: " + " / ".join(details))
+
+            swings = series.get("notable_swings") or []
+            if swings:
+                swing_text = []
+                for swing in swings[:3]:
+                    percent = _as_number(swing.get("percent"))
+                    if percent is None:
+                        continue
+                    swing_text.append(
+                        f"{swing.get('from_label', '?')}→{swing.get('to_label', '?')} {percent:+.1f}%"
+                    )
+                if swing_text:
+                    lines.append(f"  - 急変動: {', '.join(swing_text)}")
+
+        ranking = chart.get("ranking_top") or []
+        if ranking:
+            top_text = [
+                f"{item.get('series_label', 'データ')}:{item.get('label', '?')}({_fmt_ai_number(item.get('value'))})"
+                for item in ranking[:5]
+            ]
+            lines.append(f"- ranking_top: {', '.join(top_text)}")
+
+        if chart.get("missing_values"):
+            lines.append(f"- missing_values: {chart.get('missing_values')}")
+        lines.append("")
+
+    lines.append("※ 回答で数値を使う場合は、上記 chart_id または要点パック見出しを根拠として併記すること。")
+    lines.append("※ 日付表記は 20260130 / 2026-01-30 / 2026年1月30日 / 1/30 を同じ日として正規化して解釈すること。")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    return "\n".join(lines)
+
+
+def _collect_evidence_terms(pack: dict | None) -> tuple[set[str], str]:
+    if not isinstance(pack, dict):
+        return set(), ""
+    terms: set[str] = set()
+    label_text: list[str] = []
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in {"label", "title", "metric", "series_label", "selection_label"} and child:
+                    label_text.append(str(child))
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+        else:
+            number = _as_number(value)
+            if number is None:
+                return
+            terms.add(_fmt_ai_number(number).replace(",", ""))
+            terms.add(_fmt_ai_number(number))
+            if abs(number) < 1000:
+                terms.add(f"{number:.1f}".rstrip("0").rstrip("."))
+
+    walk(pack)
+    return terms, " ".join(label_text)
+
+
+def _collect_evidence_chart_ids(pack: dict | None) -> set[str]:
+    if not isinstance(pack, dict):
+        return set()
+    charts = pack.get("charts")
+    if not isinstance(charts, list):
+        return set()
+    return {
+        str(chart.get("chart_id"))
+        for chart in charts
+        if isinstance(chart, dict) and chart.get("chart_id")
+    }
+
+
+def validate_ai_insight_output(text: str, evidence_pack: dict | None = None, data_source: str = "bq") -> dict:
+    """AI最終文の危険な数値/広告KPI混入を軽量検査する。"""
+    issues: list[str] = []
+    content = str(text or "")
+    evidence_terms, evidence_labels = _collect_evidence_terms(evidence_pack)
+    evidence_chart_ids = _collect_evidence_chart_ids(evidence_pack)
+    forbidden_metrics = ["CTR", "CPA", "CPC", "ROAS", "広告費", "インプレッション"]
+    if data_source in ("bq", "cross"):
+        for metric in forbidden_metrics:
+            if metric not in content or metric in evidence_labels:
+                continue
+            unsafe_mentions = []
+            for match in re.finditer(re.escape(metric), content):
+                context = content[max(0, match.start() - 48):match.end() + 48]
+                if any(word in context for word in ["未取得", "不明", "含まれない", "断定しない", "追加データ", "必要"]):
+                    continue
+                unsafe_mentions.append(metric)
+            if unsafe_mentions:
+                issues.append(f"GA4根拠に存在しない広告KPIに言及しています: {metric}")
+
+    if evidence_terms:
+        unsupported: list[str] = []
+        pattern = re.compile(r"(?<![A-Za-z0-9_])(\d[\d,]*(?:\.\d+)?)(?:\s*(?:%|％|件|人|回|円|セッション|PV|pt))")
+        for match in pattern.finditer(content):
+            raw = match.group(1)
+            compact = raw.replace(",", "")
+            if compact in {"0", "1", "2", "3"}:
+                continue
+            if compact not in evidence_terms and raw not in evidence_terms:
+                unsupported.append(match.group(0))
+        if unsupported:
+            issues.append("数値根拠パックに存在しない数値があります: " + ", ".join(sorted(set(unsupported))[:6]))
+
+    if evidence_chart_ids and not any(chart_id in content for chart_id in evidence_chart_ids):
+        preview = ", ".join(sorted(evidence_chart_ids)[:5])
+        issues.append(f"chart_id が引用されていません: {preview}")
+
+    required_markers = ["```insight-report", "evidence_table", "actions", "limitations"]
+    missing_markers = [marker for marker in required_markers if marker not in content]
+    if missing_markers:
+        issues.append("insight_report_v2 の必須要素が不足しています: " + ", ".join(missing_markers))
+
+    return {
+        "ok": len(issues) == 0,
+        "issues": issues,
+    }

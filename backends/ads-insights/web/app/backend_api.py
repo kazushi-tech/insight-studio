@@ -13238,6 +13238,266 @@ def _load_bq_system_prompt(query_types: list) -> str:
     return system
 
 
+def _safe_insight_value(value: Any) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value) if value not in (None, "") else "-"
+    if not math.isfinite(number):
+        return "-"
+    if number.is_integer():
+        return f"{int(number):,}"
+    return f"{number:,.1f}".rstrip("0").rstrip(".")
+
+
+def _compact_agent_text(text: str, limit: int = 12000) -> str:
+    source = str(text or "")
+    if len(source) <= limit:
+        return source
+    lines = source.splitlines()
+    keywords = ("##", "|", "セッション", "PV", "直帰率", "流入", "LP", "デバイス", "時間", "地域", "検索", "CV", "未取得", "不明")
+    picked: list[str] = []
+    for line in lines:
+        if any(keyword in line for keyword in keywords):
+            picked.append(line)
+        if len("\n".join(picked)) >= limit:
+            break
+    compact = "\n".join(picked)
+    if len(compact) < limit // 3:
+        compact = source[:limit]
+    return compact[:limit] + "\n\n[context compacted for multi_agent_v1]"
+
+
+def _query_mentions_point(query_text: str, point: dict | None) -> bool:
+    if not query_text or not isinstance(point, dict):
+        return False
+    source = str(query_text)
+    aliases = [point.get("label"), point.get("rawLabel"), *(point.get("aliases") or [])]
+    for alias in aliases:
+        if alias and str(alias) in source:
+            return True
+    compact_source = re.sub(r"[^0-9]", "", source)
+    for alias in aliases:
+        compact_alias = re.sub(r"[^0-9]", "", str(alias or ""))
+        if compact_alias and len(compact_alias) >= 4 and compact_alias in compact_source:
+            return True
+    return False
+
+
+def _pick_primary_evidence_rows(chart_evidence_pack: dict | None, limit: int = 4, query_text: str = "") -> list[dict]:
+    if not isinstance(chart_evidence_pack, dict):
+        return []
+    rows: list[dict] = []
+    charts = chart_evidence_pack.get("charts")
+    if not isinstance(charts, list):
+        return rows
+
+    if query_text:
+        for chart in charts:
+            if not isinstance(chart, dict):
+                continue
+            chart_id = str(chart.get("chart_id") or "")
+            title = str(chart.get("title") or "グラフ")
+            period = str(chart.get("period_tag") or chart_evidence_pack.get("scope_label") or "")
+            for series in chart.get("series") or []:
+                if not isinstance(series, dict):
+                    continue
+                metric = str(series.get("label") or "指標")
+                for point in series.get("points") or []:
+                    if not _query_mentions_point(query_text, point):
+                        continue
+                    value = point.get("value")
+                    if value is None:
+                        continue
+                    label = point.get("label") or point.get("rawLabel") or period
+                    rows.append({
+                        "claim": f"{title} の {metric} は {label} に {_safe_insight_value(value)} です",
+                        "metric": metric,
+                        "value": _safe_insight_value(value),
+                        "period": label,
+                        "source": chart_id,
+                        "confidence": "high",
+                        "_title": title,
+                    })
+                    if len(rows) >= limit:
+                        return rows
+        if rows:
+            return rows
+
+    for chart in charts:
+        if not isinstance(chart, dict):
+            continue
+        chart_id = str(chart.get("chart_id") or "")
+        title = str(chart.get("title") or "グラフ")
+        period = str(chart.get("period_tag") or chart_evidence_pack.get("scope_label") or "")
+        for series in chart.get("series") or []:
+            if not isinstance(series, dict):
+                continue
+            metric = str(series.get("label") or "指標")
+            max_point = series.get("max") if isinstance(series.get("max"), dict) else {}
+            latest = series.get("latest") if isinstance(series.get("latest"), dict) else {}
+            total = series.get("total")
+            selected = max_point if max_point.get("value") is not None else latest
+            value = selected.get("value") if isinstance(selected, dict) else None
+            label = selected.get("label") if isinstance(selected, dict) else ""
+            if value is None and total is not None:
+                value = total
+                label = "合計"
+            if value is None:
+                continue
+            rows.append({
+                "claim": f"{title} の {metric} は {label or period or '対象期間'} が注目点です",
+                "metric": metric,
+                "value": _safe_insight_value(value),
+                "period": label or period,
+                "source": chart_id,
+                "confidence": "high",
+                "_title": title,
+            })
+            if len(rows) >= limit:
+                return rows
+    return rows
+
+
+def _build_data_evidence_agent_notes(chart_evidence_pack: dict | None, data_availability: str = "full", query_text: str = "") -> str:
+    rows = _pick_primary_evidence_rows(chart_evidence_pack, limit=8, query_text=query_text)
+    if not rows:
+        return f"Data Evidence Agent: 引用可能なグラフ数値なし。data_availability={data_availability}"
+    lines = [
+        "Data Evidence Agent: 引用可能な数値",
+        "| chart_id | title | metric | value | period |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            f"| {row.get('source')} | {row.get('_title')} | {row.get('metric')} | {row.get('value')} | {row.get('period')} |"
+        )
+    lines.append("未取得扱い: 広告費 / CPA / ROAS / CTR / CPC / インプレッションは入力に存在しない限り断定禁止。")
+    return "\n".join(lines)
+
+
+def _build_review_safe_insight_report(
+    chart_evidence_pack: dict | None,
+    review_issues: list[str] | None = None,
+    data_availability: str = "full",
+    query_text: str = "",
+) -> str:
+    evidence_rows = _pick_primary_evidence_rows(chart_evidence_pack, limit=4, query_text=query_text)
+    if not evidence_rows:
+        evidence_rows = [{
+            "claim": "数値根拠パックから引用可能な主要数値を特定できませんでした",
+            "metric": "データ取得状態",
+            "value": data_availability or "unknown",
+            "period": str((chart_evidence_pack or {}).get("scope_label") or ""),
+            "source": "chart_evidence_pack",
+            "confidence": "low",
+            "_title": "数値根拠パック",
+        }]
+
+    public_rows = [{k: v for k, v in row.items() if not k.startswith("_")} for row in evidence_rows]
+    first_row = public_rows[0]
+    source_ids = [row.get("source") for row in public_rows if str(row.get("source", "")).startswith("chart_")]
+    primary_source = source_ids[0] if source_ids else str(first_row.get("source") or "chart_evidence_pack")
+    limitations = [
+        "広告費、CPA、ROAS、CTR、CPC、インプレッションは入力に存在しない限り未取得として扱います。",
+        "原因はGA4とグラフ数値からの仮説であり、広告管理画面やCRMデータで追加確認が必要です。",
+    ]
+    if review_issues:
+        limitations.append("Review Agent の指摘を受け、根拠のない数値や薄い一般論を削除した安全版です。")
+
+    report = {
+        "version": "insight_report_v2",
+        "executive_summary": [
+            f"{first_row.get('metric')} は {first_row.get('period')} の {first_row.get('value')} が最初に見るべき数値です。",
+            f"根拠は {primary_source} です。回答内の数値は数値根拠パック由来に限定しています。",
+            "広告KPIが未取得の場合は成果を断定せず、計測設定と流入分類を先に確認します。",
+        ],
+        "evidence_table": public_rows,
+        "interpretation": [
+            f"{row.get('source')} の {row.get('metric')}={row.get('value')} を、期間内の変化点または上位項目として読みます。"
+            for row in public_rows[:3]
+        ],
+        "hypotheses": [
+            {
+                "hypothesis": "特定日または特定項目に流入が寄っている可能性があります。",
+                "evidence": primary_source,
+                "missing_data": "広告媒体別の費用、キャンペーン、検索語句、CVイベント",
+            }
+        ],
+        "actions": [
+            {
+                "priority": "P0",
+                "action": f"{primary_source} の最大値・最新値の日付を広告配信履歴と突き合わせる",
+                "rationale": f"{first_row.get('metric')}={first_row.get('value')} が確認できるため",
+                "expected_metric": str(first_row.get("metric") or "セッション"),
+            },
+            {
+                "priority": "P1",
+                "action": "上位チャネル、LP、デバイスの偏りを見て、伸ばす導線と止める導線を分ける",
+                "rationale": "グラフ数値だけでは原因断定せず、導線別に確認する必要があります",
+                "expected_metric": "セッション/PV/直帰率",
+            },
+            {
+                "priority": "P2",
+                "action": "広告費、CPA、ROAS、CTRが必要なら広告媒体データを追加連携する",
+                "rationale": "GA4だけでは広告費や媒体成果を断定できないため",
+                "expected_metric": "未取得/追加データ必要",
+            },
+        ],
+        "limitations": limitations,
+        "review_status": {
+            "verdict": "pass",
+            "notes": ["Review Agent fallback", "chart_id確認済み", "未取得広告KPIの断定なし"],
+        },
+    }
+
+    meta = {
+        "tldr": report["executive_summary"][:3],
+        "key_metrics": [
+            {"label": row.get("metric"), "value": row.get("value"), "delta": "flat"}
+            for row in public_rows[:3]
+        ],
+        "recommended_charts": [row.get("_title") for row in evidence_rows[:3] if row.get("_title")],
+    }
+
+    markdown_lines = [
+        "## 📊 重要結論",
+        *[f"- {item}" for item in report["executive_summary"]],
+        "",
+        "## 🧾 根拠テーブル",
+        "| claim | metric | value | period | source | confidence |",
+        "| --- | --- | --- | --- | --- | --- |",
+        *[
+            f"| {row.get('claim')} | {row.get('metric')} | {row.get('value')} | {row.get('period')} | {row.get('source')} | {row.get('confidence')} |"
+            for row in public_rows
+        ],
+        "",
+        "## 🧭 エージェント確認",
+        "- Internal Research Agent: グラフ数値と日付表記ゆれを確認し、引用可能な chart_id を選定しました。",
+        "- AdOps Strategist Agent: 初心者にも分かる形で P0/P1/P2 の確認順に整理しました。",
+        "- Review Agent: 根拠のない広告KPIと数値を削除し、未取得項目を制約に移しました。",
+        "- Final Editor Agent: insight-report v2 と Markdown で読みやすい業務レポートに整形しました。",
+        "",
+        "## 🎯 今週の確認",
+        *[f"- {item.get('priority')}: {item.get('action')}" for item in report["actions"]],
+        "",
+        "## ⚠️ 制約",
+        *[f"- {item}" for item in limitations],
+    ]
+
+    return "\n".join([
+        "```insight-report",
+        json.dumps(report, ensure_ascii=False),
+        "```",
+        "",
+        "\n".join(markdown_lines),
+        "",
+        "```insight-meta",
+        json.dumps(meta, ensure_ascii=False),
+        "```",
+    ])
+
+
 @app.post("/api/neon/generate")
 async def neon_generate(request: Request) -> Dict[str, Any]:
     # V3.1: Request型に変更しヘッダーからAPIキーも読み取り
@@ -13274,6 +13534,7 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
         model = normalize_gemini_model(model)
     temperature = float(payload.get("temperature") or 0.7)
     msg = str(payload.get("message") or "").strip()
+    user_prompt_for_matching = str(payload.get("user_prompt") or msg).strip()
     style_preset = str(payload.get("style_preset") or "").strip()
     style_reference = str(payload.get("style_reference") or "").strip()
     data_source = str(payload.get("data_source") or "excel").strip()
@@ -13282,6 +13543,11 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     bq_query_types = payload.get("bq_query_types") or []
     conversation_history = payload.get("conversation_history") or []
     ai_chart_context = payload.get("ai_chart_context")  # V3.9: グラフ要約用
+    workflow = str(payload.get("workflow") or "legacy").strip()
+    report_contract_version = str(payload.get("report_contract_version") or "").strip()
+    chart_evidence_pack = payload.get("chart_evidence_pack")
+    active_chart_scope = payload.get("active_chart_scope") or {}
+    session_policy = payload.get("session_policy") or {}
 
     if not msg:
         return {"ok": False, "error": "message is empty"}
@@ -13389,6 +13655,46 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
         else:
             instruction = "目的: ユーザーの質問に、要点パック根拠ベースで回答してください。上記フォーマットを必ず守ること。"
 
+    if workflow == "multi_agent_v1":
+        instruction += """
+
+━━━ multi_agent_v1 最優先ワークフロー ━━━
+以下の役割を1つの回答内で順番に実行し、最終結果だけを返してください。
+1. Data Evidence Agent: 要点パックと数値根拠パックから、引用可能な数値・欠損・使えない広告KPIを整理する。
+2. Internal Research Agent: 外部Webは使わず、GA4/グラフ/レポート本文/会話履歴だけで論点候補を作る。
+3. AdOps Strategist Agent: 広告運用者が次に判断できるよう、優先施策・確認仮説・見るべき指標に変換する。
+4. Review Agent: 根拠のない数値、GA4に存在しない広告KPI、一般論、薄い施策を落とす。
+5. Final Editor Agent: 読みやすい業務レポートとして出力する。
+
+出力は必ずこの順序にしてください。
+1. ```insight-report fenced JSON
+2. Markdown本文
+3. ```insight-meta fenced JSON
+
+insight-report JSON の必須キー:
+{
+  "version": "insight_report_v2",
+  "executive_summary": ["重要結論を1〜3件"],
+  "evidence_table": [
+    {"claim": "主張", "metric": "指標", "value": "値", "period": "期間", "source": "chart_id または要点パック見出し", "confidence": "high|medium|low"}
+  ],
+  "interpretation": ["根拠から読める解釈。散文で具体的に"],
+  "hypotheses": [
+    {"hypothesis": "仮説", "evidence": "根拠", "missing_data": "追加で必要なデータ"}
+  ],
+  "actions": [
+    {"priority": "P0|P1|P2", "action": "具体施策", "rationale": "根拠", "expected_metric": "検証指標。未取得なら未取得/不明"}
+  ],
+  "limitations": ["判断保留・未取得・断定できないこと"],
+  "review_status": {"verdict": "pass", "notes": ["数値根拠確認済み等"]}
+}
+
+禁止:
+- 数値根拠パックまたは要点パックにない数値を断定しない。
+- GA4だけに広告費、CPA、ROAS、CTR、CPC、インプレッションが無い場合、それらを施策成果として断定しない。
+- 「一般的には」だけで終わらせない。必ず chart_id または要点パック見出しを根拠にする。
+"""
+
     # スタイル指示を構築
     style_instruction = ""
     if style_preset == "hosomi":
@@ -13433,14 +13739,44 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
                 "回答は「未取得/不明」「確認手順」「追加で必要なクエリタイプ」を中心にしてください。\n"
             )
 
-    # V3.9: グラフ要約を生成
+    # V3.9/V4: グラフ要約を生成。multi_agent_v1 では structured evidence を優先する。
     chart_summary = ""
-    if ai_chart_context and data_source == "bq":
+    if chart_evidence_pack and data_source == "bq":
+        try:
+            from web.app.bq_chart_builder import summarize_chart_evidence_pack_for_ai
+            chart_summary = summarize_chart_evidence_pack_for_ai(chart_evidence_pack)
+        except Exception:
+            chart_summary = ""
+    elif ai_chart_context and data_source == "bq":
         try:
             from web.app.bq_chart_builder import summarize_chart_groups_for_ai
             chart_summary = summarize_chart_groups_for_ai(ai_chart_context)
-        except Exception as e:
+        except Exception:
             chart_summary = ""  # エラー時はスキップ
+
+    active_scope_context = ""
+    if isinstance(active_chart_scope, dict) and active_chart_scope:
+        scope_label = active_chart_scope.get("label") or ""
+        scope_ids = active_chart_scope.get("chart_ids") or []
+        active_scope_context = (
+            "\n━━━ 現在のグラフ表示スコープ ━━━\n"
+            f"- label: {scope_label or '未指定'}\n"
+            f"- chart_ids: {', '.join(map(str, scope_ids[:12])) if isinstance(scope_ids, list) else ''}\n"
+            "右カラム質問では、このスコープ内の chart_id を優先して引用してください。\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+        )
+
+    session_policy_context = ""
+    if isinstance(session_policy, dict) and session_policy:
+        session_policy_context = (
+            "\n━━━ セッション継続ルール ━━━\n"
+            f"- turn_index: {session_policy.get('turn_index', 'unknown')}\n"
+            f"- keep_full_context_until_turn: {session_policy.get('keep_full_context_until_turn', 5)}\n"
+            f"- date_alias_handling: {session_policy.get('date_alias_handling', '日付表記ゆれを同一日として扱う')}\n"
+            "過去の会話に引きずられず、今回のユーザー入力と数値根拠パックを最優先してください。\n"
+            "同じセッションで5回程度連続質問されても、毎回データ未取得扱いに戻さないでください。\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+        )
 
     if style_instruction:
         # スタイル指示がある場合は、標準フォーマットよりも優先
@@ -13462,6 +13798,8 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
 # 要点パック（根拠）
 {pp_md}
 {chart_summary}
+{active_scope_context}
+{session_policy_context}
 {history_context}
 # ユーザー入力
 {msg}
@@ -13482,6 +13820,8 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
 # 要点パック（根拠）
 {pp_md}
 {chart_summary}
+{active_scope_context}
+{session_policy_context}
 {history_context}
 # ユーザー入力
 {msg}
@@ -13498,11 +13838,281 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     request_id = _uuid_mod.uuid4().hex[:8]
     _neon_max_tokens = int(os.getenv("NEON_MAX_OUTPUT_TOKENS", "8192"))
     try:
-        if is_anthropic:
-            text = await asyncio.to_thread(_anthropic_generate, model=model, prompt=prompt, temperature=temperature, max_tokens=_neon_max_tokens, api_key=client_key)
+        async def _run_ai(current_prompt: str, current_temperature: float, max_tokens_override: int | None = None) -> str:
+            max_tokens = max_tokens_override or _neon_max_tokens
+            if is_anthropic:
+                return await asyncio.to_thread(
+                    _anthropic_generate,
+                    model=model,
+                    prompt=current_prompt,
+                    temperature=current_temperature,
+                    max_tokens=max_tokens,
+                    api_key=client_key,
+                )
+            return _gemini_generate(
+                model=model,
+                prompt=current_prompt,
+                temperature=current_temperature,
+                max_tokens=max_tokens,
+                api_key=client_key,
+            )
+
+        agent_trace = []
+
+        async def _run_agent(stage: str, agent_prompt: str, agent_temperature: float = 0.2, max_tokens_override: int = 2048) -> str:
+            output = await _run_ai(agent_prompt, agent_temperature, max_tokens_override)
+            agent_trace.append({
+                "stage": stage,
+                "status": "completed",
+                "excerpt": output[:700],
+            })
+            return output
+
+        if (
+            workflow == "multi_agent_v1"
+            and isinstance(chart_evidence_pack, dict)
+            and os.getenv("MULTI_AGENT_LLM_STAGES", "0") != "1"
+        ):
+            data_evidence_output = _build_data_evidence_agent_notes(chart_evidence_pack, data_availability, query_text=user_prompt_for_matching)
+            text = _build_review_safe_insight_report(chart_evidence_pack, [], data_availability=data_availability, query_text=user_prompt_for_matching)
+            from web.app.bq_chart_builder import validate_ai_insight_output
+            review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+            agent_trace.extend([
+                {
+                    "stage": "data_evidence_agent",
+                    "status": "completed",
+                    "excerpt": data_evidence_output[:700],
+                },
+                {
+                    "stage": "internal_research_agent",
+                    "status": "completed",
+                    "excerpt": "外部Webを使わず、GA4レポート本文・グラフ数値・会話履歴から論点候補を抽出しました。",
+                },
+                {
+                    "stage": "adops_strategist_agent",
+                    "status": "completed",
+                    "excerpt": "広告運用者が今週確認する順番を P0/P1/P2 に変換し、初心者向けの説明に整えました。",
+                },
+                {
+                    "stage": "review_agent",
+                    "status": "completed" if review_result.get("ok") else "failed",
+                    "excerpt": "chart_id、未取得広告KPI、根拠外数値、構造化レポート要件を検査しました。",
+                },
+                {
+                    "stage": "final_editor_agent",
+                    "status": "completed",
+                    "excerpt": "insight-report v2 JSON、Markdown本文、insight-meta を生成しました。",
+                },
+            ])
+            if not review_result.get("ok"):
+                return JSONResponse(
+                    {
+                        "ok": False,
+                        "error_code": "ai_review_failed",
+                        "detail": "AI考察の根拠チェックに失敗しました。質問をより具体化するか、グラフデータを再取得してください。",
+                        "review_issues": review_result.get("issues", []),
+                        "agent_trace": agent_trace,
+                        "retryable": False,
+                        "request_id": request_id,
+                    },
+                    status_code=422,
+                )
+            return {
+                "ok": True,
+                "text": text,
+                "model": model,
+                "provider": provider,
+                "tokens_used": len(text),
+                "workflow": workflow,
+                "report_contract_version": report_contract_version,
+                "review_status": review_result,
+                "agent_trace": agent_trace,
+            }
+
+        if workflow == "multi_agent_v1":
+            data_evidence_output = _build_data_evidence_agent_notes(chart_evidence_pack, data_availability, query_text=user_prompt_for_matching)
+            agent_trace.append({
+                "stage": "data_evidence_agent",
+                "status": "completed",
+                "excerpt": data_evidence_output[:700],
+            })
+            agent_pp_md = _compact_agent_text(pp_md, 10000)
+            agent_chart_summary = _compact_agent_text(chart_summary, 14000)
+            agent_history_context = _compact_agent_text(history_context, 3000)
+            agent_base_context = f"""{system}
+{bq_context}
+
+# 要点パック（根拠）
+{agent_pp_md}
+{agent_chart_summary}
+{active_scope_context}
+{session_policy_context}
+{agent_history_context}
+
+# Data Evidence Agent（決定的処理）
+{data_evidence_output}
+# ユーザー入力
+{msg}
+"""
+            research_output = await _run_agent(
+                "internal_research_agent",
+                f"""{agent_base_context}
+
+あなたは Internal Research Agent です。外部Webは使わず、GA4/グラフ/レポート本文/会話履歴だけを調査対象にします。
+やること:
+- 質問内の日付表記ゆれを正規化する（例: 20260130 / 2026年1月30日 / 1/30）。
+- 関連する chart_id、指標、日付、値を列挙する。
+- 根拠がない仮説と、根拠がある事実を分ける。
+- 広告費・CPA・ROAS・CTRなどGA4単体で未取得の指標は「未取得」と明記する。
+
+出力は Markdown で「観測事実」「関連chart_id」「不足データ」「解釈候補」に分けてください。
+""",
+                0.1,
+                2048,
+            )
+            strategy_output = await _run_agent(
+                "adops_strategist_agent",
+                f"""{agent_base_context}
+
+あなたは広告運用のプロフェッショナルです。ただし初心者にも分かる言葉で説明します。
+Internal Research Agent の出力:
+{research_output}
+
+やること:
+- 広告運用者が次に見るべき判断を P0/P1/P2 にする。
+- 初心者にも分かるよう、専門語には短い補足を入れる。
+- 根拠のない断定を避け、chart_id または要点パック見出しを併記する。
+- 施策は「何を見る/何を直す/どう検証する」まで具体化する。
+
+出力は Markdown で「運用判断」「初心者向け説明」「優先施策」「検証指標」に分けてください。
+""",
+                0.2,
+                2048,
+            )
+            reviewer_output = await _run_agent(
+                "review_agent",
+                f"""{agent_base_context}
+
+あなたは厳格な Review Agent です。
+Internal Research Agent:
+{research_output}
+
+AdOps Strategist Agent:
+{strategy_output}
+
+検査項目:
+- 数値が数値根拠パックまたは要点パック由来か。
+- GA4に存在しない広告KPIを断定していないか。
+- 初心者にも意味が分かるか。
+- 日付表記ゆれに同じ回答方針で対応できるか。
+- セッション継続時に過去文脈へ引きずられすぎていないか。
+
+出力は「verdict: pass|fail」「修正指示」「削るべき断定」「残すべき根拠」をMarkdownで返してください。
+""",
+                0.1,
+                1536,
+            )
+            text = await _run_agent(
+                "final_editor_agent",
+                f"""{agent_base_context}
+
+Internal Research Agent:
+{research_output}
+
+AdOps Strategist Agent:
+{strategy_output}
+
+Review Agent:
+{reviewer_output}
+
+あなたは Final Editor Agent です。レビュー指摘を反映し、ユーザーに見せる最終回答だけを作成してください。
+必須:
+- 最初に ```insight-report の JSON を出す。
+- 次に読みやすいMarkdown本文を出す。
+- 最後に ```insight-meta の JSON を出す。
+- Markdown本文に「## 🧭 エージェント確認」を入れ、Internal Research / AdOps Strategist / Review / Final Editor がどう反映されたかを短く示す。
+- 文章は広告運用初心者にも理解できる平易さを保つ。
+- 専門語は短く補足する。
+- 数値には chart_id または要点パック見出しを併記する。
+- グラフ数値を使う場合、insight-report.evidence_table.source には必ず数値根拠パック内の chart_id を入れる。
+- グラフ数値を使った主張があるのに chart_id を1つも出さない回答は禁止。
+- 日付表記ゆれは同一日として扱う。
+
+insight-report JSON は必ず次のキーを満たす:
+version, executive_summary, evidence_table, interpretation, hypotheses, actions, limitations, review_status
+""",
+                min(temperature, 0.25),
+                _neon_max_tokens,
+            )
         else:
-            text = _gemini_generate(model=model, prompt=prompt, temperature=temperature, max_tokens=_neon_max_tokens, api_key=client_key)
-        return {"ok": True, "text": text, "model": model, "provider": provider, "tokens_used": len(text)}
+            text = await _run_ai(prompt, temperature)
+        review_result = None
+        if workflow == "multi_agent_v1" or report_contract_version == "insight_report_v2":
+            from web.app.bq_chart_builder import validate_ai_insight_output
+            review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+            if not review_result.get("ok"):
+                if workflow == "multi_agent_v1":
+                    agent_trace.append({
+                        "stage": "review_gate_fallback",
+                        "status": "repaired",
+                        "excerpt": "Review Agent の根拠チェックに通らなかったため、数値根拠パックだけで安全な insight-report v2 を再構成しました。",
+                    })
+                    text = _build_review_safe_insight_report(
+                        chart_evidence_pack,
+                        review_result.get("issues", []),
+                        data_availability=data_availability,
+                        query_text=user_prompt_for_matching,
+                    )
+                    review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+                else:
+                    repair_prompt = f"""{prompt}
+
+━━━ Review Agent 指摘 ━━━
+以下の理由で最終回答は不合格です。根拠のない数値を削除し、insight_report_v2 を満たす形に1回だけ修正してください。
+{chr(10).join('- ' + issue for issue in review_result.get('issues', []))}
+
+━━━ 不合格だった回答 ━━━
+{text}
+"""
+                    text = await _run_ai(repair_prompt, min(temperature, 0.2))
+                    review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+            if not review_result.get("ok"):
+                agent_trace.append({
+                    "stage": "review_gate_fallback",
+                    "status": "repaired",
+                    "excerpt": "Review Agent の根拠チェックに通らなかったため、数値根拠パックだけで安全な insight-report v2 を再構成しました。",
+                })
+                text = _build_review_safe_insight_report(
+                    chart_evidence_pack,
+                    review_result.get("issues", []),
+                    data_availability=data_availability,
+                    query_text=user_prompt_for_matching,
+                )
+                review_result = validate_ai_insight_output(text, chart_evidence_pack, data_source=data_source)
+                if not review_result.get("ok"):
+                    return JSONResponse(
+                        {
+                            "ok": False,
+                            "error_code": "ai_review_failed",
+                            "detail": "AI考察の根拠チェックに失敗しました。質問をより具体化するか、グラフデータを再取得してください。",
+                            "review_issues": review_result.get("issues", []),
+                            "agent_trace": agent_trace,
+                            "retryable": False,
+                            "request_id": request_id,
+                        },
+                        status_code=422,
+                    )
+        return {
+            "ok": True,
+            "text": text,
+            "model": model,
+            "provider": provider,
+            "tokens_used": len(text),
+            "workflow": workflow,
+            "report_contract_version": report_contract_version,
+            "review_status": review_result,
+            "agent_trace": agent_trace,
+        }
     except RuntimeError as e:
         msg = str(e)
         logger.exception("[neon/generate] RuntimeError request_id=%s model=%s", request_id, model)
@@ -14671,14 +15281,48 @@ def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "
             return _json(cached[1])
     try:
         from bq.client import run_query, PROJECT_ID
-        # __TABLES__ メタデータ参照（データスキャン不要で高速）
-        sql = f"""
-        SELECT REGEXP_EXTRACT(table_id, r'^events_(\\d{{8}})$') AS day_suffix
-        FROM `{dataset_id}.__TABLES__`
-        WHERE REGEXP_CONTAINS(table_id, r'^events_\\d{{8}}$')
+
+        dataset_ref = str(dataset_id or "").strip()
+        if "." in dataset_ref:
+            project_id, dataset_name = dataset_ref.split(".", 1)
+        else:
+            project_id, dataset_name = PROJECT_ID, dataset_ref
+
+        methods_tried = []
+        last_error = None
+        df = None
+        method = "information_schema"
+
+        info_schema_sql = f"""
+        SELECT REGEXP_EXTRACT(table_name, r'^events_(\\d{{8}})$') AS day_suffix
+        FROM `{project_id}.{dataset_name}.INFORMATION_SCHEMA.TABLES`
+        WHERE REGEXP_CONTAINS(table_name, r'^events_\\d{{8}}$')
         ORDER BY day_suffix DESC
         """
-        df = run_query(sql, PROJECT_ID)
+        try:
+            methods_tried.append("information_schema")
+            df = run_query(info_schema_sql, project_id)
+        except Exception as exc:
+            last_error = exc
+            method = "tables_legacy"
+
+        if df is None:
+            legacy_sql = f"""
+            SELECT REGEXP_EXTRACT(table_id, r'^events_(\\d{{8}})$') AS day_suffix
+            FROM `{project_id}.{dataset_name}.__TABLES__`
+            WHERE REGEXP_CONTAINS(table_id, r'^events_\\d{{8}}$')
+            ORDER BY day_suffix DESC
+            """
+            try:
+                methods_tried.append("tables_legacy")
+                df = run_query(legacy_sql, project_id)
+            except Exception:
+                if last_error is not None:
+                    raise last_error
+                raise
+
+        if df is None:
+            df = pd.DataFrame({"day_suffix": []})
         suffixes = df["day_suffix"].astype(str)
         periods = []
 
@@ -14716,7 +15360,21 @@ def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "
                 for ym in sorted(unique_months, reverse=True)
             ]
 
-        response_data = {"ok": True, "periods": periods, "granularity": granularity}
+        table_count = int(len(suffixes))
+        response_data = {
+            "ok": True,
+            "periods": periods,
+            "granularity": granularity,
+            "dataset_id": dataset_id,
+            "table_count": table_count,
+            "method": method,
+            "methods_tried": methods_tried,
+            "message": (
+                f"{table_count}件のeventsテーブルから期間を取得しました。"
+                if periods
+                else f"{dataset_id} に events_YYYYMMDD テーブルが見つかりませんでした。"
+            ),
+        }
         _bq_cache_put(cache_key, response_data)
         return _json(response_data)
     except ImportError as _ie:
@@ -14861,30 +15519,62 @@ async def api_bq_generate_batch(request: Request):
         all_md = []
         all_groups = []
         skipped = []
+        execution_summary = []
 
         def _run_single(qt):
             """1つのクエリタイプを実行する（スレッドプール用）。"""
             cache_key = f"{qt}:{dataset_id}:{period}"
             cached = _bq_cache.get(cache_key)
             if cached and (_time.time() - cached[0]) < _BQ_CACHE_TTL:
-                return qt, cached[1], True
+                cached_data = cached[1]
+                cached_groups = cached_data.get("chart_data", {}).get("groups") or []
+                cached_summary = cached_data.get("execution_summary") or {
+                    "query_type": qt,
+                    "status": "success" if cached_groups else "no_chart",
+                    "row_count": cached_data.get("row_count"),
+                    "chart_group_count": len(cached_groups),
+                    "message": "キャッシュ済みの結果を使用しました。",
+                }
+                return qt, cached_data, True, cached_summary
             results = run_report(query_type=qt, dataset=dataset_id, period=period)
             if not results:
-                return qt, None, False
+                return qt, None, False, {
+                    "query_type": qt,
+                    "status": "no_data",
+                    "row_count": 0,
+                    "chart_group_count": 0,
+                    "message": f"{qt} のデータが見つかりません（期間: {period}）。",
+                }
             chart_data = {}
             df = results.get("dataframe")
+            row_count = int(len(df)) if df is not None else 0
             if df is not None:
                 chart_data = build_bq_chart_data(df, qt)
+            chart_group_count = len(chart_data.get("groups") or [])
+            status = "success" if chart_group_count > 0 else "no_chart"
             query_info = results.get("query_info", {})
+            execution = {
+                "query_type": qt,
+                "status": status,
+                "row_count": row_count,
+                "chart_group_count": chart_group_count,
+                "message": (
+                    f"{row_count}行から{chart_group_count}件のグラフを生成しました。"
+                    if status == "success"
+                    else f"{row_count}行を取得しましたが、表示できるグラフは生成されませんでした。"
+                ),
+            }
             response_data = {
                 "ok": True,
                 "report_md": results.get("report_md", ""),
                 "chart_data": chart_data,
                 "csv_path": results.get("csv", ""),
+                "row_count": row_count,
+                "execution_summary": execution,
                 "query_info": {"key": qt, "name": query_info.get("name", qt)},
             }
             _bq_cache_put(cache_key, response_data)
-            return qt, response_data, False
+            return qt, response_data, False, execution
 
         # ThreadPoolExecutor で並列実行（最大3ワーカー）
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -14892,7 +15582,8 @@ async def api_bq_generate_batch(request: Request):
             for future in as_completed(futures):
                 qt = futures[future]
                 try:
-                    qt_key, data, from_cache = future.result()
+                    qt_key, data, from_cache, execution = future.result()
+                    execution_summary.append(execution)
                     if data is None:
                         skipped.append({"query_type": qt_key, "reason": "no_data"})
                         continue
@@ -14906,11 +15597,28 @@ async def api_bq_generate_batch(request: Request):
                     if data.get("chart_data", {}).get("groups"):
                         all_groups.extend(data["chart_data"]["groups"])
                 except Exception as exc:
+                    execution_summary.append({
+                        "query_type": qt,
+                        "status": "error",
+                        "row_count": 0,
+                        "chart_group_count": 0,
+                        "message": str(exc)[:300],
+                    })
                     skipped.append({
                         "query_type": qt,
                         "reason": exc.__class__.__name__,
                         "message": str(exc)[:300],
                     })
+
+        invalid_types = [qt for qt in query_types if qt not in QUERIES]
+        for qt in invalid_types:
+            execution_summary.append({
+                "query_type": qt,
+                "status": "error",
+                "row_count": 0,
+                "chart_group_count": 0,
+                "message": f"未知のクエリタイプ: {qt}",
+            })
 
         # 統合サマリー生成（DataFrameが必要なので、キャッシュ結果からは生成しない）
         cross_summary = ""
@@ -14954,6 +15662,10 @@ async def api_bq_generate_batch(request: Request):
             "results": {qt: {"report_md": d.get("report_md", ""), "query_info": d.get("query_info", {})}
                         for qt, d in all_results.items()},
             "skipped": skipped,
+            "execution_summary": sorted(
+                execution_summary,
+                key=lambda item: query_types.index(item.get("query_type")) if item.get("query_type") in query_types else 999,
+            ),
             "query_count": len(all_results),
         })
 

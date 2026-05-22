@@ -117,7 +117,7 @@ export function extractTopInsights(chartGroups = []) {
       ? 'observed'
       : /需要|推計|推定|機会/i.test(title)
       ? 'derived'
-      : /オークション|競合|benchmark/i.test(title)
+      : /オークション|競合|流入の競合影響|benchmark/i.test(title)
       ? 'proxy'
       : 'observed'
 

@@ -266,6 +266,7 @@ export function extractInsightReport(markdown) {
   if (!markdown || typeof markdown !== 'string') return null
   const match = markdown.match(/```insight-report\s*\n([\s\S]*?)\n```/)
   if (!match) return null
+
   let parsed
   try {
     parsed = JSON.parse(match[1])
@@ -273,6 +274,59 @@ export function extractInsightReport(markdown) {
     return null
   }
   if (!isPlainObject(parsed)) return null
+
+  const hasV2Shape = [
+    'executive_summary',
+    'evidence_table',
+    'interpretation',
+    'hypotheses',
+    'limitations',
+    'review_status',
+  ].some((key) => Object.prototype.hasOwnProperty.call(parsed, key))
+
+  if (hasV2Shape) {
+    const report = {
+      version: typeof parsed.version === 'string' ? parsed.version : 'insight_report_v2',
+      executive_summary: normalizeStringArray(parsed.executive_summary),
+      evidence_table: normalizeObjectArray(parsed.evidence_table).map((row) => ({
+        claim: String(row.claim ?? row.finding ?? '').trim(),
+        metric: String(row.metric ?? '').trim(),
+        value: String(row.value ?? '').trim(),
+        period: String(row.period ?? '').trim(),
+        source: String(row.source ?? row.chart_id ?? '').trim(),
+        confidence: String(row.confidence ?? '').trim(),
+      })).filter((row) => row.claim || row.metric || row.value),
+      interpretation: normalizeStringArray(parsed.interpretation),
+      hypotheses: normalizeObjectArray(parsed.hypotheses).map((item) => ({
+        hypothesis: String(item.hypothesis ?? item.summary ?? '').trim(),
+        evidence: String(item.evidence ?? '').trim(),
+        missing_data: String(item.missing_data ?? item.required_data ?? '').trim(),
+      })).filter((item) => item.hypothesis || item.evidence || item.missing_data),
+      actions: normalizeObjectArray(parsed.actions).map((item) => ({
+        priority: String(item.priority ?? '').trim(),
+        action: String(item.action ?? item.task ?? '').trim(),
+        rationale: String(item.rationale ?? item.reason ?? '').trim(),
+        expected_metric: String(item.expected_metric ?? item.expectedKpi ?? '').trim(),
+      })).filter((item) => item.priority || item.action || item.rationale),
+      limitations: normalizeStringArray(parsed.limitations),
+      review_status: parsed.review_status && typeof parsed.review_status === 'object'
+        ? {
+            verdict: String(parsed.review_status.verdict ?? '').trim(),
+            notes: normalizeStringArray(parsed.review_status.notes),
+          }
+        : null,
+    }
+
+    const hasContent =
+      report.executive_summary.length > 0 ||
+      report.evidence_table.length > 0 ||
+      report.interpretation.length > 0 ||
+      report.hypotheses.length > 0 ||
+      report.actions.length > 0 ||
+      report.limitations.length > 0
+
+    return hasContent ? { ...report, _strippedMarkdown: stripInsightBlocks(markdown) } : null
+  }
 
   const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
   const metric_cards = normalizeMetricCards(parsed.metric_cards)
@@ -359,6 +413,18 @@ export function extractInsightMeta(markdown) {
   // Strip the fenced block from the markdown so MarkdownRenderer doesn't render it
   const strippedMarkdown = stripInsightBlocks(markdown)
   return { tldr, key_metrics, recommended_charts, _strippedMarkdown: strippedMarkdown }
+}
+
+function normalizeStringArray(value) {
+  return Array.isArray(value)
+    ? value.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim())
+    : []
+}
+
+function normalizeObjectArray(value) {
+  return Array.isArray(value)
+    ? value.filter((item) => item && typeof item === 'object' && !Array.isArray(item))
+    : []
 }
 
 const OPERATIONAL_CARD_DEFS = [

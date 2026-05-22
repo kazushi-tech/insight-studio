@@ -28,6 +28,28 @@ export function pickChartGroups(result, periodTag) {
   return groups.map((group) => normalizeChartGroupShape({ ...group, _periodTag: periodTag }))
 }
 
+export function pickExecutionSummary(result, periodTag) {
+  const summary = Array.isArray(result?.execution_summary)
+    ? result.execution_summary
+    : result?.execution_summary
+      ? [result.execution_summary]
+      : []
+
+  return summary
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      periodTag,
+      query_type: item.query_type ?? item.queryType ?? '',
+      queryType: item.query_type ?? item.queryType ?? '',
+      status: item.status ?? 'unknown',
+      row_count: Number.isFinite(Number(item.row_count)) ? Number(item.row_count) : null,
+      rowCount: Number.isFinite(Number(item.row_count ?? item.rowCount)) ? Number(item.row_count ?? item.rowCount) : null,
+      chart_group_count: Number.isFinite(Number(item.chart_group_count)) ? Number(item.chart_group_count) : 0,
+      chartGroupCount: Number.isFinite(Number(item.chart_group_count ?? item.chartGroupCount)) ? Number(item.chart_group_count ?? item.chartGroupCount) : 0,
+      message: item.message ?? '',
+    }))
+}
+
 export function getChartPeriodTags(chartGroups = []) {
   return [...new Set(chartGroups.map((group) => group?._periodTag).filter(Boolean))]
 }
@@ -100,6 +122,12 @@ function inferRankingSelectionLabel(group) {
   return ''
 }
 
+function normalizeFriendlyChartTitle(title) {
+  return String(title ?? '')
+    .replace(/オークション圧分析/g, '流入の競合影響チェック（推定）')
+    .replace(/オークション圧/g, '流入の競合影響チェック（推定）')
+}
+
 function normalizeTrendTitle(group, selectionLabel) {
   const title = String(group?.title ?? '')
   if (!selectionLabel || !title.includes('日別推移')) return title
@@ -124,17 +152,21 @@ function normalizeRankingTitle(group, selectionLabel) {
 }
 
 export function normalizeChartGroupShape(group = {}) {
+  const groupForTitle = {
+    ...group,
+    title: normalizeFriendlyChartTitle(group?.title ?? ''),
+  }
   const inferredSelectionLabel =
-    group?.selectionLabel ||
-    group?.metadata?.selectionLabel ||
-    inferTrendSelectionLabel(group) ||
-    inferRankingSelectionLabel(group)
-  const originalTitle = String(group?.title ?? '')
-  const trendTitle = normalizeTrendTitle(group, inferredSelectionLabel)
+    groupForTitle?.selectionLabel ||
+    groupForTitle?.metadata?.selectionLabel ||
+    inferTrendSelectionLabel(groupForTitle) ||
+    inferRankingSelectionLabel(groupForTitle)
+  const originalTitle = String(groupForTitle?.title ?? '')
+  const trendTitle = normalizeTrendTitle(groupForTitle, inferredSelectionLabel)
   const finalTitle =
     trendTitle !== originalTitle
       ? trendTitle
-      : normalizeRankingTitle(group, inferredSelectionLabel)
+      : normalizeRankingTitle(groupForTitle, inferredSelectionLabel)
   const rawLabels = Array.isArray(group?.labels) ? group.labels : []
   const rawDatasets = Array.isArray(group?.datasets) ? group.datasets : []
   const maxDataLength = rawDatasets.reduce(
@@ -189,7 +221,7 @@ export function normalizeChartGroupShape(group = {}) {
 
   return {
     ...group,
-    title: finalTitle,
+    title: normalizeFriendlyChartTitle(finalTitle),
     selectionLabel: inferredSelectionLabel,
     labels,
     datasets,
@@ -474,6 +506,297 @@ export function buildAiChartContext(chartGroups = []) {
     )
 }
 
+function hashStableText(text) {
+  const source = String(text ?? '')
+  let hash = 0
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) - hash) + source.charCodeAt(index)
+    hash |= 0
+  }
+  return Math.abs(hash).toString(36)
+}
+
+function formatEvidenceLabel(label) {
+  const text = String(label ?? '').trim()
+  const compactDate = text.match(/^(\d{4})[-/]?(\d{2})[-/]?(\d{2})$/)
+  if (compactDate) return `${Number(compactDate[2])}/${Number(compactDate[3])}`
+  return text
+}
+
+function buildDateAliases(label) {
+  const text = String(label ?? '').trim()
+  const match = text.match(/^(\d{4})[-/]?(\d{2})[-/]?(\d{2})$/)
+  if (!match) return text ? [text] : []
+  const [, year, month, day] = match
+  const m = Number(month)
+  const d = Number(day)
+  return [
+    `${year}${month}${day}`,
+    `${year}-${month}-${day}`,
+    `${year}/${m}/${d}`,
+    `${year}年${m}月${d}日`,
+    `${m}/${d}`,
+  ]
+}
+
+function normalizeForPromptMatch(value) {
+  return String(value ?? '').toLowerCase()
+}
+
+function compactDigits(value) {
+  return String(value ?? '').replace(/[^0-9]/g, '')
+}
+
+function extractPromptMatchTokens(prompt) {
+  const source = String(prompt ?? '')
+  const tokens = new Set()
+  const compactTokens = new Set()
+
+  function addDate(year, month, day) {
+    const y = String(year)
+    const m = String(month).padStart(2, '0')
+    const d = String(day).padStart(2, '0')
+    const aliases = buildDateAliases(`${y}${m}${d}`)
+    aliases.forEach((alias) => {
+      tokens.add(normalizeForPromptMatch(alias))
+      const compact = compactDigits(alias)
+      if (compact.length >= 4) compactTokens.add(compact)
+    })
+  }
+
+  for (const match of source.matchAll(/(\d{4})年(\d{1,2})月(\d{1,2})日/g)) {
+    addDate(match[1], match[2], match[3])
+  }
+  for (const match of source.matchAll(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/g)) {
+    addDate(match[1], match[2], match[3])
+  }
+  for (const match of source.matchAll(/\b(\d{4})(\d{2})(\d{2})\b/g)) {
+    addDate(match[1], match[2], match[3])
+  }
+  for (const match of source.matchAll(/(?:^|[^\d])(\d{1,2})\/(\d{1,2})(?:[^\d]|$)/g)) {
+    const alias = `${Number(match[1])}/${Number(match[2])}`
+    tokens.add(alias)
+    compactTokens.add(compactDigits(alias))
+  }
+
+  return { tokens, compactTokens }
+}
+
+function chartGroupSearchText(group) {
+  const normalized = normalizeChartGroupShape(group)
+  const parts = [
+    normalized.title,
+    normalized._periodTag,
+    normalized.periodTag,
+    normalized.queryType,
+    normalized.selectionLabel,
+    ...(Array.isArray(normalized.labels) ? normalized.labels : []),
+    ...(Array.isArray(normalized.datasets) ? normalized.datasets.map((dataset) => dataset?.label) : []),
+  ].filter(Boolean)
+
+  const dateAliases = parts.flatMap((part) => buildDateAliases(part))
+  const text = [...parts, ...dateAliases].map(normalizeForPromptMatch).join(' ')
+  const compact = [...parts, ...dateAliases].map(compactDigits).filter(Boolean).join(' ')
+  return { text, compact, normalized }
+}
+
+function scoreChartGroupForPrompt(prompt, group) {
+  const source = normalizeForPromptMatch(prompt)
+  const { tokens, compactTokens } = extractPromptMatchTokens(prompt)
+  const { text, compact } = chartGroupSearchText(group)
+  let score = 0
+
+  for (const token of tokens) {
+    if (token && text.includes(token)) score += 100
+  }
+  for (const token of compactTokens) {
+    if (token && token.length >= 4 && compact.includes(token)) score += 100
+  }
+
+  const keywordPairs = [
+    ['流入', /流入|チャネル|organic|referral|direct|social/i],
+    ['チャネル', /流入|チャネル|organic|referral|direct|social/i],
+    ['pv', /pv|ページビュー|ユーザー|セッション/i],
+    ['PV', /pv|ページビュー|ユーザー|セッション/i],
+    ['セッション', /pv|ページビュー|ユーザー|セッション/i],
+    ['検索', /検索|クエリ/i],
+    ['lp', /lp|ランディング|ページ/i],
+    ['LP', /lp|ランディング|ページ/i],
+    ['デバイス', /デバイス|os|ブラウザ/i],
+    ['地域', /地域|都道府県|市区町村/i],
+  ]
+
+  for (const [keyword, pattern] of keywordPairs) {
+    if (source.includes(normalizeForPromptMatch(keyword)) && pattern.test(text)) score += 20
+  }
+
+  return score
+}
+
+export function selectChartGroupsForPrompt(chartGroups = [], prompt = '', options = {}) {
+  if (!Array.isArray(chartGroups) || chartGroups.length === 0) return []
+  const maxGroups = Number.isFinite(Number(options.maxGroups)) ? Number(options.maxGroups) : 36
+  const fallbackOnNoMatch = options.fallbackOnNoMatch !== false
+  const scored = chartGroups
+    .map((group, index) => ({ group, index, score: scoreChartGroupForPrompt(prompt, group) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+
+  if (scored.length === 0) return fallbackOnNoMatch ? chartGroups.slice(0, maxGroups) : []
+  return scored.slice(0, maxGroups).map((item) => item.group)
+}
+
+function buildSeriesEvidence(dataset, labels) {
+  const data = Array.isArray(dataset?.data) ? dataset.data : []
+  const points = data.map((value, index) => {
+    const numeric = toFiniteNumber(value)
+    const rawLabel = labels[index] ?? `#${index + 1}`
+    return {
+      index,
+      label: formatEvidenceLabel(rawLabel),
+      rawLabel,
+      aliases: buildDateAliases(rawLabel),
+      value: numeric,
+    }
+  })
+  const validPoints = points.filter((point) => point.value != null)
+  const missingCount = points.length - validPoints.length
+  if (validPoints.length === 0) {
+    return {
+      label: dataset?.label ?? 'データ',
+      point_count: points.length,
+      missing_count: missingCount,
+      points: [],
+      latest: null,
+      first: null,
+      total: null,
+      average: null,
+      max: null,
+      min: null,
+      change_from_first: null,
+      notable_swings: [],
+      top_points: [],
+    }
+  }
+
+  const total = validPoints.reduce((sum, point) => sum + point.value, 0)
+  const first = validPoints[0]
+  const latest = validPoints[validPoints.length - 1]
+  const max = validPoints.reduce((best, point) => (point.value > best.value ? point : best), validPoints[0])
+  const min = validPoints.reduce((best, point) => (point.value < best.value ? point : best), validPoints[0])
+  const changeFromFirst = first.value === 0
+    ? null
+    : {
+        from_label: first.label,
+        to_label: latest.label,
+        absolute: latest.value - first.value,
+        percent: ((latest.value - first.value) / first.value) * 100,
+      }
+
+  const notableSwings = []
+  for (let index = 1; index < validPoints.length; index += 1) {
+    const previous = validPoints[index - 1]
+    const current = validPoints[index]
+    if (previous.value === 0) continue
+    const percent = ((current.value - previous.value) / previous.value) * 100
+    if (Math.abs(percent) >= 30) {
+      notableSwings.push({
+        from_label: previous.label,
+        to_label: current.label,
+        from_value: previous.value,
+        to_value: current.value,
+        percent,
+      })
+    }
+  }
+
+  const topPoints = [...validPoints]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
+    .map(({ label, rawLabel, aliases, value }) => ({ label, rawLabel, aliases, value }))
+
+  return {
+    label: dataset?.label ?? 'データ',
+    point_count: points.length,
+    missing_count: missingCount,
+    points: validPoints.map(({ label, rawLabel, aliases, value }) => ({ label, rawLabel, aliases, value })),
+    latest: { label: latest.label, rawLabel: latest.rawLabel, aliases: latest.aliases, value: latest.value },
+    first: { label: first.label, rawLabel: first.rawLabel, aliases: first.aliases, value: first.value },
+    total,
+    average: total / validPoints.length,
+    max: { label: max.label, rawLabel: max.rawLabel, aliases: max.aliases, value: max.value },
+    min: { label: min.label, rawLabel: min.rawLabel, aliases: min.aliases, value: min.value },
+    change_from_first: changeFromFirst,
+    notable_swings: notableSwings
+      .sort((a, b) => Math.abs(b.percent) - Math.abs(a.percent))
+      .slice(0, 5),
+    top_points: topPoints,
+  }
+}
+
+export function buildChartEvidencePack(chartGroups = [], options = {}) {
+  if (!Array.isArray(chartGroups) || chartGroups.length === 0) return null
+
+  const scopeLabel = options.scopeLabel ?? ''
+  const maxCharts = Number.isFinite(Number(options.maxCharts)) ? Number(options.maxCharts) : 24
+  const contextGroups = chartGroups
+    .map(normalizeChartGroupShape)
+    .filter(isMeaningfulChartGroup)
+    .slice(0, maxCharts)
+
+  if (contextGroups.length === 0) return null
+
+  const charts = contextGroups.map((group, index) => {
+    const title = getChartGroupTitle(group, index)
+    const periodTag = group?._periodTag ?? group?.periodTag ?? ''
+    const labels = Array.isArray(group?.labels) ? group.labels : []
+    const series = (Array.isArray(group?.datasets) ? group.datasets : [])
+      .map((dataset) => buildSeriesEvidence(dataset, labels))
+      .filter((item) => item.point_count > 0)
+    const missingValues = series.reduce((sum, item) => sum + item.missing_count, 0)
+    const finiteValues = series.reduce((sum, item) => sum + Math.max(0, item.point_count - item.missing_count), 0)
+    const rankingTop = series.flatMap((item) =>
+      item.top_points.slice(0, 5).map((point) => ({
+        series_label: item.label,
+        label: point.label,
+        rawLabel: point.rawLabel,
+        value: point.value,
+      })),
+    )
+
+    return {
+      chart_id: `chart_${String(index + 1).padStart(2, '0')}_${hashStableText(`${title}:${periodTag}`)}`,
+      title,
+      chart_type: group?.chartType ?? 'line',
+      period_tag: periodTag,
+      query_type: group?.queryType ?? group?.metadata?.queryType ?? '',
+      selection_label: group?.selectionLabel ?? group?.metadata?.selectionLabel ?? '',
+      label_count: labels.length,
+      series_count: series.length,
+      missing_values: missingValues,
+      finite_values: finiteValues,
+      series,
+      ranking_top: rankingTop
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8),
+      warnings: Array.isArray(group?.warnings) ? group.warnings : [],
+    }
+  }).filter((chart) => chart.series.length > 0)
+
+  if (charts.length === 0) return null
+
+  return {
+    version: 'chart_evidence_pack_v1',
+    scope_label: scopeLabel,
+    generated_at: new Date().toISOString(),
+    chart_count: charts.length,
+    total_series_count: charts.reduce((sum, chart) => sum + chart.series_count, 0),
+    total_finite_values: charts.reduce((sum, chart) => sum + chart.finite_values, 0),
+    total_missing_values: charts.reduce((sum, chart) => sum + chart.missing_values, 0),
+    charts,
+  }
+}
+
 export async function generateBatchWithRetry(payload) {
   for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
@@ -502,12 +825,14 @@ export function buildAdsReportBundle({ setupState, results }) {
     const result = resultsByPeriod.get(periodTag) ?? results[index] ?? {}
     const reportMd = pickReportMarkdown(result)
     const chartGroups = pickChartGroups(result, periodTag)
+    const executionSummary = pickExecutionSummary(result, periodTag)
 
     return {
       periodTag,
       label: periodTag,
       reportMd,
       chartGroups,
+      executionSummary,
       raw: result,
     }
   })
@@ -538,6 +863,7 @@ export function buildAdsReportBundle({ setupState, results }) {
     reportMd: reportMd || fallbackReportMd,
     chartGroups: periodReports.flatMap((item) => item.chartGroups),
     periodReports,
+    executionSummary: periodReports.flatMap((item) => item.executionSummary),
     results,
     generatedAt: new Date().toISOString(),
   }

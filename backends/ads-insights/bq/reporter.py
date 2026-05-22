@@ -609,7 +609,7 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
     elif query_type == "auction_proxy":
         # V3.3: 推定オークション圧分析
         lines.append("## 主要KPIサマリー")
-        lines.append("*注意: これはGA4データからの推定値です。実際のオークションデータにはGoogle Ads連携が必要です。*")
+        lines.append("*注意: これはGA4の流入データから見た推定です。実際の広告オークションデータにはGoogle Ads連携が必要です。*")
         lines.append("")
         # チャネルグループ別合計
         ch_agg = df.groupby("channel_group", as_index=False).agg({"sessions": "sum"}).sort_values("sessions", ascending=False)
@@ -722,7 +722,7 @@ def generate_cross_summary(results: dict[str, dict]) -> str:
         "pv": "PV分析", "traffic": "流入分析", "cv": "CV分析",
         "search": "検索クエリ", "anomaly": "異常検知", "landing": "LP分析",
         "device": "デバイス", "hourly": "時間帯", "user_attr": "ユーザー属性",
-        "engagement": "エンゲージメント", "auction_proxy": "オークション圧（推定）",
+        "engagement": "エンゲージメント", "auction_proxy": "流入の競合影響（推定）",
     }
     for qt, data in results.items():
         df = data.get("dataframe")

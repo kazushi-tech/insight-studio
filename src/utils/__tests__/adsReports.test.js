@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildAdsReportBundle,
+  buildChartEvidencePack,
   getDisplayChartGroups,
   matchRelevantCharts,
   normalizeChartGroupShape,
+  pickExecutionSummary,
+  selectChartGroupsForPrompt,
 } from '../adsReports'
 import { analyzeChartReadability, shortenChartLabel } from '../chartReadability'
 
@@ -227,6 +230,17 @@ describe('chart group normalization', () => {
     expect(normalized.labels).toHaveLength(15)
   })
 
+  it('renames old auction-pressure chart titles into operator-friendly wording', () => {
+    const normalized = normalizeChartGroupShape(makeGroup({
+      title: 'オークション圧 — 日別チャネル推移',
+      chartType: 'line',
+      labels: ['20260501'],
+      datasets: [{ label: 'organic', data: [120] }],
+    }))
+
+    expect(normalized.title).toBe('流入の競合影響チェック（推定） — 日別チャネル推移')
+  })
+
   it('classifies crowded line charts as focused lines', () => {
     const group = makeGroup({
       title: 'LP分析 — セッション数上位5LPの日別推移',
@@ -275,5 +289,134 @@ describe('chart group normalization', () => {
 
   it('shortens long LP URLs for custom legends', () => {
     expect(shortenChartLabel('https://example.com/a/very/long/landing/page/path?utm=1', 24)).toMatch(/…$/)
+  })
+})
+
+describe('BQ execution summary', () => {
+  it('keeps backend query execution status in the report bundle', () => {
+    const bundle = buildAdsReportBundle({
+      setupState: {
+        datasetId: 'analytics_123',
+        periods: ['2026-05'],
+        queryTypes: ['search', 'landing'],
+      },
+      results: [{
+        period: '2026-05',
+        report_md: '# May',
+        execution_summary: [
+          { query_type: 'search', status: 'success', row_count: 7, chart_group_count: 2, message: 'ok' },
+          { query_type: 'landing', status: 'no_data', row_count: 0, chart_group_count: 0, message: 'empty' },
+        ],
+        chart_data: { groups: [makeGroup({ title: '検索クエリ', labels: ['a'], datasets: [{ label: 'v', data: [1] }] })] },
+      }],
+    })
+
+    expect(bundle.executionSummary).toEqual([
+      expect.objectContaining({ periodTag: '2026-05', queryType: 'search', status: 'success', rowCount: 7, chartGroupCount: 2 }),
+      expect.objectContaining({ periodTag: '2026-05', queryType: 'landing', status: 'no_data', rowCount: 0, chartGroupCount: 0 }),
+    ])
+  })
+
+  it('normalizes a single execution_summary object', () => {
+    expect(pickExecutionSummary({
+      execution_summary: { query_type: 'pv', status: 'no_chart', row_count: 5, chart_group_count: 0 },
+    }, '2026-05')).toEqual([
+      expect.objectContaining({ periodTag: '2026-05', queryType: 'pv', status: 'no_chart', rowCount: 5, chartGroupCount: 0 }),
+    ])
+  })
+})
+
+describe('buildChartEvidencePack', () => {
+  it('builds deterministic evidence for multi-series daily trends', () => {
+    const pack = buildChartEvidencePack([
+      makeGroup({
+        title: 'LP分析 — セッション数上位3LPの日別推移',
+        chartType: 'line',
+        labels: ['20260501', '20260502', '20260503'],
+        datasets: [
+          { label: '/a', data: [100, 150, 90] },
+          { label: '/b', data: [50, null, 200] },
+          { label: '/c', data: [10, 10, 10] },
+        ],
+        _periodTag: '2026-05',
+      }),
+    ], { scopeLabel: '2026-05' })
+
+    expect(pack.version).toBe('chart_evidence_pack_v1')
+    expect(pack.scope_label).toBe('2026-05')
+    expect(pack.charts).toHaveLength(1)
+    expect(pack.charts[0].chart_id).toMatch(/^chart_01_/)
+    expect(pack.charts[0].series_count).toBe(3)
+    expect(pack.charts[0].missing_values).toBe(1)
+    expect(pack.charts[0].series[0].latest).toEqual({
+      label: '5/3',
+      rawLabel: '20260503',
+      aliases: ['20260503', '2026-05-03', '2026/5/3', '2026年5月3日', '5/3'],
+      value: 90,
+    })
+    expect(pack.charts[0].series[0].points).toEqual([
+      expect.objectContaining({ label: '5/1', rawLabel: '20260501', value: 100 }),
+      expect.objectContaining({ label: '5/2', rawLabel: '20260502', value: 150 }),
+      expect.objectContaining({ label: '5/3', rawLabel: '20260503', value: 90 }),
+    ])
+    expect(pack.charts[0].series[0].max).toEqual({
+      label: '5/2',
+      rawLabel: '20260502',
+      aliases: ['20260502', '2026-05-02', '2026/5/2', '2026年5月2日', '5/2'],
+      value: 150,
+    })
+    expect(pack.charts[0].series[0].total).toBe(340)
+    expect(pack.charts[0].series[0].notable_swings.length).toBeGreaterThan(0)
+  })
+
+  it('keeps ranking top values and missing values in the evidence pack', () => {
+    const pack = buildChartEvidencePack([
+      makeGroup({
+        title: '検索クエリ — 上位4語',
+        chartType: 'bar_horizontal',
+        labels: ['alpha', 'beta', 'gamma', 'delta'],
+        datasets: [{ label: '検索回数', data: [40, 10, '', 30] }],
+      }),
+    ])
+
+    expect(pack.charts[0].ranking_top.slice(0, 2)).toEqual([
+      expect.objectContaining({ series_label: '検索回数', label: 'alpha', value: 40 }),
+      expect.objectContaining({ series_label: '検索回数', label: 'delta', value: 30 }),
+    ])
+    expect(pack.total_missing_values).toBe(1)
+  })
+})
+
+describe('selectChartGroupsForPrompt', () => {
+  it('keeps the date-specific chart even when it is beyond the default evidence limit', () => {
+    const groups = Array.from({ length: 30 }, (_, index) => {
+      const day = String(30 - index).padStart(2, '0')
+      return makeGroup({
+        title: 'PV分析 — 日別推移',
+        labels: [`202605${day}`],
+        datasets: [{ label: 'PV数', data: [100 + index] }],
+        _periodTag: `2026-05-${day}`,
+      })
+    })
+
+    const selected = selectChartGroupsForPrompt(groups, '2026年5月7日のPV数を説明してください', {
+      maxGroups: 6,
+    })
+    const pack = buildChartEvidencePack(selected, { maxCharts: 6 })
+
+    expect(pack.charts.some((chart) =>
+      chart.series.some((series) =>
+        series.points.some((point) => point.rawLabel === '20260507'),
+      ),
+    )).toBe(true)
+  })
+
+  it('prioritizes traffic charts when the prompt asks about flow analysis', () => {
+    const selected = selectChartGroupsForPrompt([
+      makeGroup({ title: 'PV分析 — 日別推移', labels: ['20260521'], datasets: [{ label: 'PV数', data: [10] }] }),
+      makeGroup({ title: '流入分析 — チャネル別セッション構成', labels: ['organic'], datasets: [{ label: 'セッション', data: [83] }] }),
+    ], '流入分析のグラフから見るべき数値を教えて', { maxGroups: 1 })
+
+    expect(selected[0].title).toContain('流入分析')
   })
 })

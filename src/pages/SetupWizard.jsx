@@ -17,7 +17,7 @@ const QUERY_TYPES = [
   { id: 'hourly', icon: 'schedule', label: '時間帯分析', desc: '成果が出やすい曜日や時間帯の傾向を把握。', color: 'text-amber-500' },
   { id: 'user_attr', icon: 'group', label: 'ユーザー属性', desc: '年齢・性別・地域などのデモグラフィック情報。', color: 'text-pink-500' },
   { id: 'engagement', icon: 'timer', label: 'エンゲージメント時間', desc: 'サイト滞在時間やユーザーの熱量を測定。', color: 'text-teal-500' },
-  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: 'オークション圧分析', desc: '競合他社の入札動向と表示機会損失を分析。', color: 'text-rose-500' },
+  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: '流入の競合影響チェック（推定）', desc: 'GA4の流入構成から、有料流入への偏りやチャネル依存を確認します。', color: 'text-rose-500' },
 ]
 
 const STEPS = ['クエリタイプ選択', '期間選択', 'レポート生成']

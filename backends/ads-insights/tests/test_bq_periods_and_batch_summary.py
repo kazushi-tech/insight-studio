@@ -1,0 +1,133 @@
+"""BQ periods and generate_batch execution summary regressions."""
+
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+os.environ.setdefault("APP_PASSWORD", "test-secret-pw-42")
+os.environ.setdefault("JWT_SECRET", "test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+os.environ.setdefault("DATA_PROVIDER", "mock")
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import bq.client as bq_client  # noqa: E402
+import bq.queries as bq_queries  # noqa: E402
+import bq.reporter as bq_reporter  # noqa: E402
+from web.app import backend_api as api  # noqa: E402
+
+
+def _json_body(response):
+    return json.loads(response.body.decode("utf-8"))
+
+
+def test_bq_periods_prefers_information_schema(monkeypatch):
+    calls = []
+
+    def fake_run_query(sql, project_id):
+        calls.append((sql, project_id))
+        assert "INFORMATION_SCHEMA.TABLES" in sql
+        return pd.DataFrame({"day_suffix": ["20260520", "20260501", "20260430"]})
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_client, "PROJECT_ID", "demo-project")
+    monkeypatch.setattr(bq_client, "run_query", fake_run_query)
+
+    body = _json_body(api.api_bq_periods(dataset_id="analytics_123", granularity="monthly", fresh=True))
+
+    assert body["ok"] is True
+    assert body["method"] == "information_schema"
+    assert body["table_count"] == 3
+    assert [item["period_tag"] for item in body["periods"]] == ["2026-05", "2026-04"]
+    assert len(calls) == 1
+
+
+def test_bq_periods_empty_returns_diagnostics_without_manual_period(monkeypatch):
+    def fake_run_query(sql, project_id):
+        return pd.DataFrame({"day_suffix": []})
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_client, "PROJECT_ID", "demo-project")
+    monkeypatch.setattr(bq_client, "run_query", fake_run_query)
+
+    body = _json_body(api.api_bq_periods(dataset_id="analytics_123", granularity="monthly", fresh=True))
+
+    assert body["ok"] is True
+    assert body["periods"] == []
+    assert body["table_count"] == 0
+    assert "2026-05" not in json.dumps(body, ensure_ascii=False)
+    assert body["dataset_id"] == "analytics_123"
+
+
+def test_bq_periods_falls_back_to_qualified_tables(monkeypatch):
+    calls = []
+
+    def fake_run_query(sql, project_id):
+        calls.append(sql)
+        if "INFORMATION_SCHEMA.TABLES" in sql:
+            raise RuntimeError("info schema unavailable")
+        assert "`demo-project.analytics_123.__TABLES__`" in sql
+        return pd.DataFrame({"day_suffix": ["20260501"]})
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_client, "PROJECT_ID", "demo-project")
+    monkeypatch.setattr(bq_client, "run_query", fake_run_query)
+
+    body = _json_body(api.api_bq_periods(dataset_id="analytics_123", granularity="monthly", fresh=True))
+
+    assert body["method"] == "tables_legacy"
+    assert body["periods"][0]["period_tag"] == "2026-05"
+    assert len(calls) == 2
+
+
+class _FakeRequest:
+    def __init__(self, body):
+        self._body = body
+
+    async def json(self):
+        return self._body
+
+
+def test_generate_batch_returns_execution_summary_for_every_query(monkeypatch):
+    def fake_run_report(query_type, dataset, period):
+        if query_type == "search":
+            return {
+                "report_md": "# Search",
+                "dataframe": pd.DataFrame({
+                    "search_term": ["alpha", "beta"],
+                    "search_count": [3, 1],
+                    "unique_searchers": [2, 1],
+                    "event_date": ["2026-05-01", "2026-05-02"],
+                }),
+                "query_info": {"name": "Search"},
+            }
+        if query_type == "traffic":
+            return None
+        return {
+            "report_md": "# Empty chart",
+            "dataframe": pd.DataFrame({"value": [1, 2, 3]}),
+            "query_info": {"name": "Other"},
+        }
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_queries, "QUERIES", {"search": {}, "traffic": {}, "custom_no_chart": {}})
+    monkeypatch.setattr(bq_reporter, "run_report", fake_run_report)
+
+    body = _json_body(asyncio.run(api.api_bq_generate_batch(_FakeRequest({
+        "query_types": ["search", "traffic", "custom_no_chart"],
+        "dataset_id": "analytics_123",
+        "period": "2026-05",
+    }))))
+
+    summary = {item["query_type"]: item for item in body["execution_summary"]}
+    assert summary["search"]["status"] == "success"
+    assert summary["search"]["row_count"] == 2
+    assert summary["search"]["chart_group_count"] >= 1
+    assert summary["traffic"]["status"] == "no_data"
+    assert summary["custom_no_chart"]["status"] == "no_chart"
+    assert set(summary) == {"search", "traffic", "custom_no_chart"}
