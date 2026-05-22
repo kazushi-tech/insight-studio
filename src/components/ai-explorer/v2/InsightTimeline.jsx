@@ -151,7 +151,7 @@ export default function InsightTimeline({
           <div className={`${styles.banner} ${styles.bannerWarning}`}>
             <span className="material-symbols-outlined" aria-hidden="true">warning</span>
             <span className="japanese-text">
-              Gemini または Claude の分析用 API キーが未設定です。設定画面から設定してください。
+              ブラウザ保存の分析用 API キーは未設定です。バックエンド側にキーが設定済みなら、このまま送信できます。
             </span>
           </div>
         )}
@@ -259,6 +259,22 @@ export default function InsightTimeline({
                 {prompt.title}
               </button>
             ))}
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className={styles.composerTools}>
+            <button
+              type="button"
+              className={`${styles.composerToolButton} japanese-text`}
+              onClick={() => onClearChat?.()}
+              disabled={loading}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: '0.875rem' }}>
+                delete_sweep
+              </span>
+              チャット消去
+            </button>
           </div>
         )}
 

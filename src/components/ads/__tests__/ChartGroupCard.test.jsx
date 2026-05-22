@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ChartGroupCard from '../ChartGroupCard'
 
@@ -11,27 +11,6 @@ vi.mock('../../../contexts/ThemeContext', () => ({
 }))
 
 describe('ChartGroupCard', () => {
-  it('opens chart content by default and collapses from the card header', () => {
-    render(
-      <ChartGroupCard
-        group={{
-          title: 'LP分析 — 直帰率上位4LP',
-          chartType: 'bar_horizontal',
-          labels: ['/a', '/b', '/c', '/d'],
-          datasets: [{ label: '直帰率 (%)', data: [100, 100, 100, 100] }],
-        }}
-      />,
-    )
-
-    const header = screen.getByTitle('グラフを閉じる')
-    expect(header).toHaveAttribute('aria-expanded', 'true')
-
-    fireEvent.click(header)
-
-    expect(screen.getByTitle('グラフを開く')).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByText(/展開すると診断カードと詳細表を確認できます/)).toBeInTheDocument()
-  })
-
   it('shows coverage and warning metadata in the card header', () => {
     render(
       <ChartGroupCard
@@ -83,30 +62,9 @@ describe('ChartGroupCard', () => {
     )
 
     expect(screen.getAllByText('比較差なし').length).toBeGreaterThan(0)
-    expect(screen.getByText('すべて同じ値のため、棒グラフ比較は表示しません')).toBeInTheDocument()
+    expect(screen.getByText('ランディングページ比較（直帰率）')).toBeInTheDocument()
+    expect(screen.getByText('比較有用性: 低い')).toBeInTheDocument()
     expect(screen.getByText('平均ページ/セッション')).toBeInTheDocument()
-  })
-
-  it('renders long horizontal bar charts as a compact ranking table', () => {
-    render(
-      <ChartGroupCard
-        group={{
-          title: 'LP分析 — セッション数 Top 20',
-          chartType: 'bar_horizontal',
-          labels: Array.from({ length: 12 }, (_, index) => `/lp/${index + 1}`),
-          datasets: [
-            {
-              label: 'セッション',
-              data: Array.from({ length: 12 }, (_, index) => 120 - index * 6),
-            },
-          ],
-        }}
-      />,
-    )
-
-    expect(screen.getAllByText('順位表で表示').length).toBeGreaterThan(0)
-    expect(screen.getByText('上位ランキングで読む')).toBeInTheDocument()
-    expect(screen.getByText('/lp/1')).toBeInTheDocument()
   })
 
   it('renders a low-sample state instead of a search trend line chart', () => {
@@ -127,11 +85,12 @@ describe('ChartGroupCard', () => {
       />,
     )
 
-    expect(screen.getByText('検索回数が少ないため、日別トレンド化しません')).toBeInTheDocument()
-    expect(screen.getByText('全期間まとめで確認')).toBeInTheDocument()
+    expect(screen.getByText('この期間の検索イベントは3件です')).toBeInTheDocument()
+    expect(screen.getByText('発生日の点表示')).toBeInTheDocument()
+    expect(screen.getByText('raw count 表示')).toBeInTheDocument()
   })
 
-  it('marks crowded line charts as focused when collapsed', () => {
+  it('marks crowded line charts as small multiple trends when collapsed', () => {
     render(
       <ChartGroupCard
         group={{
@@ -147,7 +106,104 @@ describe('ChartGroupCard', () => {
       />,
     )
 
-    expect(screen.getByText('主系列を強調')).toBeInTheDocument()
+    expect(screen.getByText('系列別推移')).toBeInTheDocument()
     expect(screen.getByTitle('グラフを開く')).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('renders a doughnut chart with always-visible color legend', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: '流入分析 — チャネル別セッション構成',
+          chartType: 'doughnut',
+          labels: ['organic', 'direct', 'referral'],
+          datasets: [{ label: 'セッション構成比', data: [979, 670, 10] }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('構成比')).toBeInTheDocument()
+    expect(screen.getByText('項目とカラー')).toBeInTheDocument()
+    expect(screen.getAllByText('organic').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('direct').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('referral').length).toBeGreaterThan(0)
+  })
+
+  it('puts multi-series line legends below the full-width chart', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: '日別チャネル推移',
+          chartType: 'line',
+          labels: ['2026-05-01', '2026-05-02', '2026-05-03'],
+          datasets: [
+            { label: 'PV', data: [100, 160, 120] },
+            { label: 'セッション', data: [80, 120, 95] },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('凡例 / 読みどころ')).toBeInTheDocument()
+    expect(screen.getByText('比較系列')).toBeInTheDocument()
+    expect(screen.getByText('最大日')).toBeInTheDocument()
+    expect(screen.queryByText(/ピーク /)).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('trend-point')).toHaveLength(6)
+    expect(screen.getByText('凡例クリックで系列を非表示')).toBeInTheDocument()
+
+    const sessionLegend = screen.getByRole('button', { name: /セッション/ })
+    fireEvent.click(sessionLegend)
+
+    expect(within(sessionLegend).getByText('非表示中')).toBeInTheDocument()
+  })
+
+  it('switches three or more daily line series to small multiple trends instead of crowded trend lines', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: '日別チャネル推移',
+          chartType: 'line',
+          labels: ['2026-05-01', '2026-05-02', '2026-05-03'],
+          datasets: [
+            { label: 'one', data: [100, 160, 120] },
+            { label: 'two', data: [80, 120, 95] },
+            { label: 'three', data: [40, 42, 38] },
+            { label: 'four', data: [20, 24, 21] },
+            { label: 'five', data: [10, 12, 11] },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('系列別推移')).toBeInTheDocument()
+    expect(screen.getByText('3系列以上は重ねず、選択系列の大きな推移で形と値を読み分けます。')).toBeInTheDocument()
+    expect(screen.getByText('系列フォーカス推移')).toBeInTheDocument()
+    expect(screen.getAllByTestId('small-multiple-trend-row')).toHaveLength(5)
+    expect(screen.getAllByTestId('focused-trend-point')).toHaveLength(3)
+    fireEvent.mouseEnter(screen.getAllByTestId('focused-trend-point')[0])
+    expect(screen.getAllByText('100').length).toBeGreaterThan(0)
+    expect(screen.queryByTestId('heatmap-data-cell')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('series-summary-bar-row')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('trend-point')).not.toBeInTheDocument()
+  })
+
+  it('shows persistent hover details on ranking bar charts', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: '検索クエリ — 検索回数上位3語',
+          chartType: 'bar_horizontal',
+          labels: ['alpha', 'beta', 'gamma'],
+          datasets: [{ label: '検索回数', data: [100, 60, 20] }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('横棒比較')).toBeInTheDocument()
+    expect(screen.getByText('1位 / シェア 55.6%')).toBeInTheDocument()
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: /2位 beta 60/ }))
+
+    expect(screen.getByText('2位 / シェア 33.3%')).toBeInTheDocument()
   })
 })

@@ -5,12 +5,21 @@
   margin: 1rem 0 1.35rem;
 }
 
+.structuredReport {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 1rem 0 1.35rem;
+}
+
 .metricSection,
+.summaryPanel,
 .factPanel,
 .inferencePanel,
 .missingBand,
 .actionTableSection,
-.chartChipSection {
+.chartChipSection,
+.reviewBand {
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--color-outline-variant) 28%, transparent);
   background: var(--color-surface-container-lowest);
@@ -47,6 +56,11 @@
   grid-template-columns: minmax(140px, 0.8fr) minmax(110px, 0.6fr) minmax(0, 2fr);
 }
 
+.evidenceTable {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(110px, 0.55fr) minmax(105px, 0.5fr) minmax(180px, 1fr);
+}
+
 .tableHead {
   padding: 0.65rem 0.85rem;
   background: var(--color-surface-container-low);
@@ -79,6 +93,53 @@
 
 .tableRow p {
   color: var(--color-on-surface-variant);
+}
+
+.emptyTableNote {
+  grid-column: 1 / -1;
+  padding: 0.9rem 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-outline-variant) 16%, transparent);
+}
+
+.emptyTableNote p {
+  margin: 0;
+  color: var(--color-on-surface-variant);
+  font-size: 0.83rem;
+  line-height: 1.55;
+}
+
+.summaryPanel {
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-primary) 5%, var(--color-surface-container-lowest));
+  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
+}
+
+.summaryList {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.summaryList p {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  margin: 0;
+  color: var(--color-on-surface);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.summaryList b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 0.75rem;
 }
 
 .splitGrid {
@@ -243,6 +304,27 @@
 
 .chartChip :global(.material-symbols-outlined) {
   font-size: 1rem;
+}
+
+.reviewBand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.8rem 1rem;
+  background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface-container-lowest));
+  color: var(--color-on-surface-variant);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.reviewBand :global(.material-symbols-outlined) {
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.reviewBand strong {
+  color: var(--color-primary);
+  font-size: 0.82rem;
 }
 
 .longFormHeader {
@@ -551,8 +633,35 @@
   font-size: 1rem;
 }
 
+.markdownDetails {
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant) 22%, transparent);
+  border-radius: 1rem;
+  background: var(--color-surface-container-lowest);
+  overflow: hidden;
+}
+
+.markdownDetails summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.markdownDetails summary::marker {
+  color: var(--color-primary);
+}
+
+.markdownDetails :global(.material-symbols-outlined) {
+  font-size: 1.1rem;
+}
+
 @media (max-width: 1023px) {
   .metricTable,
+  .evidenceTable,
   .splitGrid,
   .actionRow,
   .htmlReportMetricGrid,

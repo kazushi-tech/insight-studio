@@ -242,4 +242,51 @@ describe('InsightTurnCard', () => {
     expect(screen.getByText('今週やる施策')).toBeInTheDocument()
     expect(screen.getByText('期待KPI')).toBeInTheDocument()
   })
+
+  it('does not promote missing ad KPIs into the auto metric table', () => {
+    const aiContent = [
+      '## 制約',
+      '- CPA、CVR、ROAS、広告費はGA4入力に含まれないため未取得です。',
+      '## 観測事実',
+      '- セッションは200件です。',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByText('根拠指標テーブル')).toBeInTheDocument()
+    expect(screen.queryByText('CPA')).not.toBeInTheDocument()
+    expect(screen.queryByText('CVR')).not.toBeInTheDocument()
+    expect(screen.getByText('セッション')).toBeInTheDocument()
+  })
+
+  it('renders insight-report v2 as a structured evidence report without KPI fallbacks', () => {
+    const aiContent = [
+      '```insight-report',
+      JSON.stringify({
+        version: 'insight_report_v2',
+        executive_summary: ['5/3のセッションが最大です'],
+        evidence_table: [
+          { claim: 'LP /a が最大', metric: 'セッション', value: '200', period: '5/3', source: 'chart_01', confidence: 'high' },
+        ],
+        interpretation: ['LP /a の伸びを優先して確認します。'],
+        hypotheses: [{ hypothesis: '検索流入増の可能性', evidence: 'chart_01', missing_data: 'source/medium別内訳' }],
+        actions: [{ priority: 'P0', action: 'LP /a の流入元を確認', rationale: '最大値が出ている', expected_metric: 'セッション' }],
+        limitations: ['広告費は未取得'],
+        review_status: { verdict: 'pass', notes: ['数値根拠確認済み'] },
+      }),
+      '```',
+      '',
+      '## 本文',
+      'chart_01 のセッション 200 を根拠にします。',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByText('重要結論')).toBeInTheDocument()
+    expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
+    expect(screen.getByText('LP /a の流入元を確認')).toBeInTheDocument()
+    expect(screen.queryByText('CPA / ROAS')).not.toBeInTheDocument()
+    expect(screen.queryByText('CV / CVR')).not.toBeInTheDocument()
+  })
 })

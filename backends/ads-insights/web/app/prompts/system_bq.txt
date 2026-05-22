@@ -12,6 +12,8 @@ BigQueryから取得したGA4（Google Analytics 4）のウェブ解析データ
   - 例: 「都市別データは user_attr クエリタイプで取得できます。BQ分析画面で user_attr を選択して再実行してください」
 - **広告KPI（CTR, CPA, CPC, CVR, 広告費, インプレッション等）はこのGA4データに含まれない。存在しない指標には絶対に言及しないこと**
 - **データ取得状態が fallback / missing / partial の場合**: 冒頭で「現時点ではBigQueryデータが未取得または暫定」と明記し、数値の増減・精密な優先順位・CVR/CPA等を断定しない。回答は確認手順、追加取得すべきクエリタイプ、判断保留の理由を中心にすること
+- `chart_evidence_pack` または「数値根拠パック」が提示された場合、グラフ数値の引用はその中の `chart_id` / 指標 / 値を優先し、根拠IDを併記すること
+- `insight_report_v2` が要求された場合、最終回答は `insight-report` fenced JSON、読みやすいMarkdown本文、`insight-meta` fenced JSON の順で返すこと
 
 ━━━ 類推観点（変動原因の仮説立案時に参照）━━━
 外的要因から変動原因を推測する際は、以下の観点を参考にすること：

@@ -221,7 +221,7 @@ describe('extractInsightReport', () => {
     expect(report._strippedMarkdown).toBe('## 本文\n通常の説明')
   })
 
-  it('returns null when all report fields are empty after normalization', () => {
+  it('returns null when all legacy report fields are empty after normalization', () => {
     const md = [
       '```insight-report',
       JSON.stringify({
@@ -236,5 +236,41 @@ describe('extractInsightReport', () => {
       '```',
     ].join('\n')
     expect(extractInsightReport(md)).toBeNull()
+  })
+
+  it('parses insight-report v2 and strips the fenced block', () => {
+    const md = [
+      '```insight-report',
+      JSON.stringify({
+        version: 'insight_report_v2',
+        executive_summary: ['5/3にセッションが最大'],
+        evidence_table: [
+          { claim: 'セッション増加', metric: 'セッション', value: '200', period: '5/3', source: 'chart_01', confidence: 'high' },
+        ],
+        interpretation: ['LP /b が伸びています。'],
+        hypotheses: [{ hypothesis: '流入増の可能性', evidence: 'chart_01', missing_data: 'source/medium別内訳' }],
+        actions: [{ priority: 'P0', action: 'LP /b の流入元を確認', rationale: '最大値が出ている', expected_metric: 'セッション' }],
+        limitations: ['広告費は未取得'],
+        review_status: { verdict: 'pass', notes: ['数値根拠確認済み'] },
+      }),
+      '```',
+      '',
+      '## Markdown本文',
+    ].join('\n')
+
+    const report = extractInsightReport(md)
+    expect(report).not.toBeNull()
+    expect(report.executive_summary).toEqual(['5/3にセッションが最大'])
+    expect(report.evidence_table[0]).toEqual(expect.objectContaining({
+      claim: 'セッション増加',
+      source: 'chart_01',
+    }))
+    expect(report.actions[0].priority).toBe('P0')
+    expect(report._strippedMarkdown).toContain('## Markdown本文')
+    expect(report._strippedMarkdown).not.toContain('insight-report')
+  })
+
+  it('returns null for malformed insight-report JSON', () => {
+    expect(extractInsightReport('```insight-report\n{ invalid }\n```')).toBeNull()
   })
 })

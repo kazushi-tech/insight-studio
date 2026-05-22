@@ -382,8 +382,8 @@ QUERIES = {
         "template": _ENGAGEMENT_TEMPLATE,
     },
     "auction_proxy": {
-        "name": "オークション圧分析（推定）",
-        "description": "有料/自然流入バランスとチャネル集中度（GA4ベース推定値）",
+        "name": "流入の競合影響チェック（推定）",
+        "description": "有料/自然流入バランスとチャネル集中度（GA4ベース推定値。実際の広告オークションデータではありません）",
         "template": _AUCTION_PROXY_TEMPLATE,
     },
 }

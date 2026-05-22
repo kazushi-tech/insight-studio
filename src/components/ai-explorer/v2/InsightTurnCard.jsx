@@ -19,6 +19,8 @@ import cardStyles from './InsightTurnCard.module.css'
  * the hero is hidden and the original content is rendered as before.
  */
 const ACTION_LABELS = ['P0', 'P1', 'P2']
+const FORBIDDEN_AD_METRIC_PATTERN = /(CVR|CPA|CTR|CPC|ROAS|広告費|インプレッション)/i
+const UNKNOWN_OR_LIMITATION_PATTERN = /(未取得|不明|含まれない|断定しない|存在しない|追加データ|必要|要確認)/i
 
 function cleanText(value) {
   return String(value || '').replace(/\*\*/g, '').replace(/^[\s\-・]+/, '').trim()
@@ -69,14 +71,12 @@ function extractActionRows(markdown, operationalCards) {
 function extractMetricRows(markdown) {
   const source = String(markdown || '')
   const metricPattern = /(PV|セッション|直帰率|CVR|CPA|CTR|CPC|ROAS|CV|売上|広告費)[^。\n|]{0,50}/gi
-  const rows = [...new Set(source.match(metricPattern) || [])].slice(0, 4)
+  const rows = [...new Set(source.match(metricPattern) || [])]
+    .filter((row) => !(FORBIDDEN_AD_METRIC_PATTERN.test(row) && UNKNOWN_OR_LIMITATION_PATTERN.test(row)))
+    .slice(0, 4)
 
   if (rows.length === 0) {
-    return [
-      ['CV / CVR', '本文参照', 'コンバージョン定義と取得状況を確認'],
-      ['CPA / ROAS', '本文参照', '広告費と売上の紐づき確認'],
-      ['流入チャネル', '本文参照', 'チャネル別の差分を見る'],
-    ]
+    return []
   }
 
   return rows.map((row) => {
@@ -116,13 +116,17 @@ function InsightReportSections({ content, operationalCards, relevantCharts }) {
           <div className={cardStyles.tableHead}>指標</div>
           <div className={cardStyles.tableHead}>変化</div>
           <div className={cardStyles.tableHead}>読み取り</div>
-          {metricRows.map(([metric, delta, note]) => (
+          {metricRows.length > 0 ? metricRows.map(([metric, delta, note]) => (
             <div key={`${metric}-${note}`} className={cardStyles.tableRow}>
               <strong>{metric}</strong>
               <span>{delta}</span>
               <p className="japanese-text">{note}</p>
             </div>
-          ))}
+          )) : (
+            <div className={cardStyles.emptyTableNote}>
+              <p className="japanese-text">回答本文から根拠指標を自動抽出できませんでした。下の本文で明示された数値だけを確認してください。</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -153,7 +157,7 @@ function InsightReportSections({ content, operationalCards, relevantCharts }) {
           <h3 className="japanese-text">未取得データ</h3>
         </div>
         <div className={cardStyles.missingList}>
-          {(missingItems.length > 0 ? missingItems : ['CVデータ', 'チャネル別CVR', '広告費 / CPA']).map((item) => (
+          {(missingItems.length > 0 ? missingItems : ['回答内で未取得/不明と明記された項目を確認']).map((item) => (
             <span key={item} className="japanese-text">{item}</span>
           ))}
         </div>
@@ -196,6 +200,144 @@ function InsightReportSections({ content, operationalCards, relevantCharts }) {
   )
 }
 
+function StructuredInsightReport({ report, relevantCharts }) {
+  if (!report) return null
+
+  return (
+    <div className={cardStyles.structuredReport} data-testid="insight-report-v2">
+      {report.executive_summary.length > 0 && (
+        <section className={cardStyles.summaryPanel} aria-label="重要結論">
+          <div className={cardStyles.sectionHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">verified</span>
+            <h3 className="japanese-text">重要結論</h3>
+          </div>
+          <div className={cardStyles.summaryList}>
+            {report.executive_summary.map((item, index) => (
+              <p key={`${item}-${index}`} className="japanese-text">
+                <b>{String(index + 1).padStart(2, '0')}</b>
+                <span>{item}</span>
+              </p>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {report.evidence_table.length > 0 && (
+        <section className={cardStyles.metricSection} aria-label="根拠テーブル">
+          <div className={cardStyles.sectionHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">dataset</span>
+            <h3 className="japanese-text">根拠テーブル</h3>
+          </div>
+          <div className={cardStyles.evidenceTable}>
+            <div className={cardStyles.tableHead}>主張</div>
+            <div className={cardStyles.tableHead}>指標</div>
+            <div className={cardStyles.tableHead}>値</div>
+            <div className={cardStyles.tableHead}>根拠</div>
+            {report.evidence_table.map((row, index) => (
+              <div key={`${row.claim}-${row.value}-${index}`} className={cardStyles.tableRow}>
+                <p className="japanese-text">{row.claim || '-'}</p>
+                <strong>{row.metric || '-'}</strong>
+                <span>{row.value || '-'}</span>
+                <p className="japanese-text">{[row.period, row.source, row.confidence].filter(Boolean).join(' / ') || '-'}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {report.interpretation.length > 0 && (
+        <section className={cardStyles.factPanel} aria-label="読み解き">
+          <div className={cardStyles.sectionHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">manage_search</span>
+            <h3 className="japanese-text">読み解き</h3>
+          </div>
+          {report.interpretation.map((item, index) => (
+            <p key={`${item}-${index}`} className="japanese-text">{item}</p>
+          ))}
+        </section>
+      )}
+
+      {report.hypotheses.length > 0 && (
+        <section className={cardStyles.inferencePanel} aria-label="仮説と不足データ">
+          <div className={cardStyles.sectionHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">psychology_alt</span>
+            <h3 className="japanese-text">仮説と不足データ</h3>
+          </div>
+          {report.hypotheses.map((item, index) => (
+            <p key={`${item.hypothesis}-${index}`} className="japanese-text">
+              {[item.hypothesis, item.evidence, item.missing_data].filter(Boolean).join(' / ')}
+            </p>
+          ))}
+        </section>
+      )}
+
+      {report.actions.length > 0 && (
+        <section className={cardStyles.actionTableSection} aria-label="優先施策">
+          <div className={cardStyles.sectionHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">task_alt</span>
+            <h3 className="japanese-text">優先施策</h3>
+          </div>
+          <div className={cardStyles.actionTable}>
+            {report.actions.map((row, index) => (
+              <div key={`${row.priority}-${row.action}-${index}`} className={cardStyles.actionRow}>
+                <b>{row.priority || `P${index}`}</b>
+                <div>
+                  <strong className="japanese-text">{row.action || '施策未指定'}</strong>
+                  <p className="japanese-text">{row.rationale || '根拠は根拠テーブルを参照'}</p>
+                </div>
+                <span className="japanese-text">検証指標</span>
+                <em className="japanese-text">{row.expected_metric || '未取得/不明'}</em>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {report.limitations.length > 0 && (
+        <section className={cardStyles.missingBand} aria-label="制約">
+          <div className={cardStyles.sectionHeader}>
+            <span className="material-symbols-outlined" aria-hidden="true">error</span>
+            <h3 className="japanese-text">制約・判断保留</h3>
+          </div>
+          <div className={cardStyles.missingList}>
+            {report.limitations.map((item, index) => (
+              <span key={`${item}-${index}`} className="japanese-text">{item}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {report.review_status && (
+        <section className={cardStyles.reviewBand} aria-label="レビュー状態">
+          <span className="material-symbols-outlined" aria-hidden="true">rule</span>
+          <strong className="japanese-text">Review: {report.review_status.verdict || 'checked'}</strong>
+          {report.review_status.notes?.length > 0 && (
+            <span className="japanese-text">{report.review_status.notes.join(' / ')}</span>
+          )}
+        </section>
+      )}
+
+      {relevantCharts.length > 0 && (
+        <section className={cardStyles.chartChipSection} aria-label="関連グラフチップ">
+          <span className={cardStyles.chartChipLabel}>関連グラフ</span>
+          <div className={cardStyles.chartChips}>
+            {relevantCharts.map((group, index) => (
+              <span key={chartChipKey(group, index)} className={`${cardStyles.chartChip} japanese-text`}>
+                <span className="material-symbols-outlined" aria-hidden="true">monitoring</span>
+                {group.title || group.label || 'グラフ'}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+function isStructuredReportV2(report) {
+  return Array.isArray(report?.executive_summary) || Array.isArray(report?.evidence_table)
+}
+
 export default function InsightTurnCard({
   turn = {},
   size = 'normal',
@@ -207,6 +349,7 @@ export default function InsightTurnCard({
   const derivedReport = extractInsightReport(aiContent)
   const derivedMeta = insightMeta ?? extractInsightMeta(aiContent)
   const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
+  const hasStructuredV2Report = isStructuredReportV2(derivedReport)
 
   const relevantCharts = Array.isArray(chartGroups) && chartGroups.length > 0
     ? matchRelevantCharts(renderContent, chartGroups, { limit: 3 })
@@ -235,7 +378,11 @@ export default function InsightTurnCard({
       <UserPromptPill content={userPrompt} timestamp={userTimestamp} />
 
       {derivedReport ? (
-        <InsightHtmlReport report={derivedReport} />
+        hasStructuredV2Report ? (
+          <StructuredInsightReport report={derivedReport} relevantCharts={relevantCharts} />
+        ) : (
+          <InsightHtmlReport report={derivedReport} />
+        )
       ) : derivedMeta ? (
         <InsightSummaryHero meta={derivedMeta} />
       ) : null}
@@ -269,13 +416,15 @@ export default function InsightTurnCard({
 
       {derivedReport ? (
         renderContent && (
-          <details className={`${styles.turnBody} ${cardStyles.longFormDetails}`}>
-            <summary className={cardStyles.longFormSummary}>
+          <details className={cardStyles.markdownDetails}>
+            <summary className="japanese-text">
               <span className="material-symbols-outlined" aria-hidden="true">article</span>
-              <span className="japanese-text">詳細なAI回答を開く</span>
+              詳細なAI回答を開く
             </summary>
-            <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
-            {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
+            <div className={styles.turnBody}>
+              <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
+              {relevantCharts.length > 0 && <InsightChartPanel groups={relevantCharts} />}
+            </div>
           </details>
         )
       ) : (

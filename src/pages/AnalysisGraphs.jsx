@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
+import MarkdownRenderer from '../components/MarkdownRenderer'
 import SourceBadge from '../components/ads/SourceBadge'
 import ExcelImportBanner from '../components/ads/ExcelImportBanner'
 import ExcelImportPreview from '../components/ads/ExcelImportPreview'
 import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
 import AiContextRail from '../components/ai-assistant/AiContextRail'
-import InsightHtmlReport from '../components/ai-explorer/v2/InsightHtmlReport'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
@@ -16,9 +16,13 @@ import {
   getDisplayChartGroups,
   regenerateAdsReportBundle,
   buildAiChartContext,
+  buildChartEvidencePack,
   buildAnalysisInstructions,
   normalizeChartGroupShape,
+  extractMarkdownSummary,
+  selectChartGroupsForPrompt,
 } from '../utils/adsReports'
+import { analyzeChartReadability } from '../utils/chartReadability'
 import { extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import {
@@ -52,7 +56,118 @@ const ADS_QUERY_LABELS = {
   hourly: '時間帯分析',
   user_attr: 'ユーザー属性',
   engagement: 'エンゲージメント時間',
-  auction_proxy: 'オークション圧分析',
+  auction_proxy: '流入の競合影響チェック（推定）',
+}
+
+const QUERY_STATUS_STYLES = {
+  success: {
+    label: 'グラフ反映済み',
+    className: 'border-primary/15 bg-primary/[0.045]',
+    valueClassName: 'text-primary',
+  },
+  no_chart: {
+    label: '取得済み / グラフ0件',
+    className: 'border-amber-200 bg-amber-50/60',
+    valueClassName: 'text-amber-700',
+  },
+  no_data: {
+    label: 'データ0件',
+    className: 'border-outline-variant/25 bg-surface-container-low',
+    valueClassName: 'text-on-surface-variant',
+  },
+  error: {
+    label: 'エラー',
+    className: 'border-error/25 bg-error-container/50',
+    valueClassName: 'text-error',
+  },
+  unknown: {
+    label: '実行結果未取得',
+    className: 'border-outline-variant/25 bg-surface-container-low',
+    valueClassName: 'text-on-surface-variant',
+  },
+}
+
+function summarizeQueryExecution(selectedQueryTypes, executionSummary = [], chartGroups = []) {
+  const statusRank = { success: 4, no_chart: 3, no_data: 2, error: 1, unknown: 0 }
+  return selectedQueryTypes.map((queryType) => {
+    const entries = executionSummary.filter((entry) => (entry.queryType || entry.query_type) === queryType)
+    if (entries.length === 0) {
+      const legacyChartCount = chartGroups.filter((group) => (group?.queryType || group?.metadata?.queryType) === queryType).length
+      if (legacyChartCount > 0) {
+        return {
+          queryType,
+          status: 'success',
+          rowCount: null,
+          chartGroupCount: legacyChartCount,
+          message: 'チャートメタデータから反映を確認しました。再取得後は行数も表示されます。',
+        }
+      }
+      return { queryType, status: 'unknown', rowCount: null, chartGroupCount: 0, message: 'バックエンド実行結果がまだありません。' }
+    }
+
+    const status = entries
+      .map((entry) => entry.status || 'unknown')
+      .sort((a, b) => (statusRank[b] ?? 0) - (statusRank[a] ?? 0))[0] || 'unknown'
+    const chartGroupCount = entries.reduce((sum, entry) => sum + Number(entry.chartGroupCount ?? entry.chart_group_count ?? 0), 0)
+    const rowValues = entries
+      .map((entry) => entry.rowCount ?? entry.row_count)
+      .filter((value) => Number.isFinite(Number(value)))
+      .map(Number)
+    const rowCount = rowValues.length > 0 ? rowValues.reduce((sum, value) => sum + value, 0) : null
+    const message = entries.map((entry) => entry.message).filter(Boolean)[0] || ''
+
+    return { queryType, status, rowCount, chartGroupCount, message }
+  })
+}
+
+function QueryCoverageSummary({ setupState, reportBundle, filteredGroups, periodLabel }) {
+  const selectedQueryTypes = setupState?.queryTypes ?? []
+  if (selectedQueryTypes.length === 0) return null
+
+  const summaries = summarizeQueryExecution(selectedQueryTypes, reportBundle?.executionSummary ?? [], filteredGroups)
+
+  return (
+    <section className="rounded-xl border border-primary/15 bg-surface-container-lowest p-5 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-primary">
+            <span className="material-symbols-outlined text-base" aria-hidden="true">fact_check</span>
+            反映状況
+          </span>
+          <h3 className="mt-2 text-xl font-extrabold text-on-surface japanese-text">選択クエリと表示期間グラフの対応</h3>
+          <p className="mt-1 text-sm leading-6 text-on-surface-variant japanese-text">
+            バックエンドの実行結果ごとに、取得行数・グラフ件数・0件/エラーを切り分けます。
+          </p>
+        </div>
+        <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-3 text-right">
+          <p className="text-[10px] font-black tracking-[0.12em] text-on-surface-variant">表示対象</p>
+          <p className="mt-1 text-sm font-black text-primary japanese-text">{periodLabel}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {summaries.map(({ queryType, status, rowCount, chartGroupCount, message }) => {
+          const style = QUERY_STATUS_STYLES[status] ?? QUERY_STATUS_STYLES.unknown
+          return (
+            <div key={queryType} className={`rounded-xl border px-4 py-3 ${style.className}`}>
+              <p className="text-sm font-black text-on-surface japanese-text">{ADS_QUERY_LABELS[queryType] ?? queryType}</p>
+              <p className={`mt-2 text-2xl font-black tabular-nums ${style.valueClassName}`}>
+                {chartGroupCount}件
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-on-surface-variant">
+                {style.label}{rowCount != null ? ` / ${rowCount.toLocaleString('ja-JP')}行` : ''}
+              </p>
+              {message && <p className="mt-2 line-clamp-2 text-[10px] font-bold leading-4 text-on-surface-variant">{message}</p>}
+            </div>
+          )
+        })}
+      </div>
+
+      <p className="mt-3 text-xs font-bold text-on-surface-variant japanese-text">
+        現在表示中: {filteredGroups.length}グラフ。少ない場合でも「未取得」「データ0件」「グラフ生成0件」「エラー」を分けて確認できます。
+      </p>
+    </section>
+  )
 }
 
 /* ── Evidence Type styles ── */
@@ -313,6 +428,170 @@ function formatRawTableValue(value) {
   return value
 }
 
+function formatAgentTrace(trace) {
+  if (!Array.isArray(trace) || trace.length === 0) return ''
+  const rows = trace
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => {
+      const stage = String(item.stage ?? '').replace(/\|/g, '/')
+      const status = String(item.status ?? '').replace(/\|/g, '/')
+      const excerpt = String(item.excerpt ?? '').replace(/\s+/g, ' ').replace(/\|/g, '/').slice(0, 100)
+      return `| ${stage} | ${status} | ${excerpt || '完了'} |`
+    })
+  if (rows.length === 0) return ''
+  return [
+    '',
+    '## エージェント実行ログ',
+    '| Agent | Status | 反映内容 |',
+    '| --- | --- | --- |',
+    ...rows,
+  ].join('\n')
+}
+
+function stripInsightJsonFences(markdown) {
+  return String(markdown ?? '')
+    .replace(/```insight-report\s*[\s\S]*?```/g, '')
+    .replace(/```insight-meta\s*[\s\S]*?```/g, '')
+    .trim()
+}
+
+function pickInlineQuestionGroups(prompt, allGroups = [], fallbackGroups = []) {
+  const selected = selectChartGroupsForPrompt(allGroups, prompt, { maxGroups: 12, fallbackOnNoMatch: false })
+  if (selected.length > 0) {
+    return selected.map(normalizeChartGroupShape)
+  }
+  const text = String(prompt ?? '')
+  const normalizedAllGroups = Array.isArray(allGroups)
+    ? allGroups.map(normalizeChartGroupShape)
+    : []
+  const directMatches = normalizedAllGroups.filter((group) => {
+    const title = String(group?.title ?? '')
+    const selection = String(group?.selectionLabel ?? group?.metadata?.selectionLabel ?? '')
+    return (title && text.includes(title)) || (selection && text.includes(selection))
+  })
+  if (directMatches.length > 0) return directMatches
+
+  const themeHints = [
+    ['流入の競合影響チェック（推定）', ['流入分析', '流入の競合影響', 'チャネル', '参照元', 'organic', 'direct', 'referral']],
+    ['PV分析', ['PV分析', 'PV数', 'ページビュー']],
+    ['LP分析', ['LP分析', 'ランディング', 'LP']],
+    ['デバイス分析', ['デバイス分析', 'デバイス', 'OS']],
+    ['時間帯分析', ['時間帯分析', '時間帯', '何時']],
+    ['異常検知', ['異常検知', '異常', 'Z-score']],
+    ['検索クエリ', ['検索クエリ', '検索語句', 'クエリ']],
+  ]
+  const matchedTheme = themeHints.find(([, hints]) => hints.some((hint) => text.includes(hint)))
+  if (matchedTheme) {
+    const [themeLabel] = matchedTheme
+    const themeMatches = normalizedAllGroups.filter((group) => String(group?.title ?? '').includes(themeLabel))
+    if (themeMatches.length > 0) return themeMatches
+  }
+
+  return Array.isArray(fallbackGroups) && fallbackGroups.length > 0
+    ? fallbackGroups.map(normalizeChartGroupShape)
+    : normalizedAllGroups
+}
+
+function InlineStructuredReport({ report, markdown }) {
+  if (!report) return null
+  const summary = report.executive_summary?.slice(0, 3) ?? []
+  const evidence = report.evidence_table?.slice(0, 5) ?? []
+  const actions = report.actions?.slice(0, 3) ?? []
+  const limitations = report.limitations?.slice(0, 3) ?? []
+  const reviewVerdict = report.review_status?.verdict || 'checked'
+  const detailMarkdown = String(markdown ?? '').trim()
+
+  return (
+    <div data-testid="ads-graph-inline-report-v2" className="space-y-3">
+      {summary.length > 0 && (
+        <section className="rounded-xl border border-primary/15 bg-primary/[0.045] p-3">
+          <p className="mb-2 text-[10px] font-black tracking-[0.14em] text-primary">重要結論</p>
+          <div className="space-y-2">
+            {summary.map((item, index) => (
+              <p key={`${item}-${index}`} className="grid grid-cols-[1.65rem_1fr] gap-2 text-xs leading-6 text-on-surface japanese-text">
+                <b className="grid size-6 place-items-center rounded-lg bg-primary text-[10px] text-on-primary">{index + 1}</b>
+                <span>{item}</span>
+              </p>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {evidence.length > 0 && (
+        <section className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black tracking-[0.14em] text-on-surface-variant">
+            <span className="material-symbols-outlined text-sm text-primary" aria-hidden="true">dataset</span>
+            根拠テーブル
+          </p>
+          <div className="space-y-2">
+            {evidence.map((row, index) => (
+              <div key={`${row.source}-${row.metric}-${index}`} className="rounded-lg bg-surface-container-low p-2.5">
+                <p className="text-xs font-bold leading-5 text-on-surface japanese-text">{row.claim || '-'}</p>
+                <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                  <span className="rounded-md bg-surface-container-lowest px-2 py-1 text-on-surface-variant">
+                    指標: <b className="text-primary">{row.metric || '-'}</b>
+                  </span>
+                  <span className="rounded-md bg-surface-container-lowest px-2 py-1 text-on-surface-variant">
+                    値: <b className="text-primary">{row.value || '-'}</b>
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-on-surface-variant japanese-text">
+                  {[row.period, row.source, row.confidence].filter(Boolean).join(' / ') || '-'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {actions.length > 0 && (
+        <section className="rounded-xl border border-primary/15 bg-surface-container-lowest p-3">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black tracking-[0.14em] text-on-surface-variant">
+            <span className="material-symbols-outlined text-sm text-primary" aria-hidden="true">task_alt</span>
+            優先施策
+          </p>
+          <div className="space-y-2">
+            {actions.map((row, index) => (
+              <div key={`${row.priority}-${row.action}-${index}`} className="grid grid-cols-[2.1rem_1fr] gap-2 rounded-lg bg-surface-container-low p-2.5">
+                <b className="grid size-8 place-items-center rounded-lg bg-primary text-[11px] text-on-primary">
+                  {row.priority || `P${index}`}
+                </b>
+                <div>
+                  <p className="text-xs font-bold leading-5 text-on-surface japanese-text">{row.action || '施策未指定'}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-on-surface-variant japanese-text">{row.rationale || row.expected_metric || '根拠テーブルを参照'}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {(limitations.length > 0 || reviewVerdict) && (
+        <section className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-3">
+          <p className="mb-2 flex items-center gap-1.5 text-[10px] font-black tracking-[0.14em] text-on-surface-variant">
+            <span className="material-symbols-outlined text-sm text-primary" aria-hidden="true">rule</span>
+            Review Agent: {reviewVerdict}
+          </p>
+          {limitations.map((item, index) => (
+            <p key={`${item}-${index}`} className="text-[11px] leading-5 text-on-surface-variant japanese-text">
+              {item}
+            </p>
+          ))}
+        </section>
+      )}
+
+      {detailMarkdown && (
+        <details className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3">
+          <summary className="cursor-pointer text-xs font-bold text-primary japanese-text">詳細Markdownを開く</summary>
+          <div className="mt-3 text-xs leading-6 text-on-surface japanese-text">
+            <MarkdownRenderer content={detailMarkdown} variant="ai-insight" size="normal" />
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
+
 /* ── Graph Section (Accordion for analyst) ── */
 function GraphSection({ theme, isOpen, onToggle, viewMode }) {
   const summary = useMemo(() => computeThemeSummary(theme.groups), [theme.groups])
@@ -363,10 +642,18 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
           <div className="grid grid-cols-1 gap-8">
             {theme.groups.map((group, groupIndex) => {
               const normalizedGroup = normalizeChartGroupShape(group)
+              const readability = analyzeChartReadability(normalizedGroup, normalizedGroup.chartType)
+              const shouldStayOpen =
+                readability.recommendedDisplayMode === 'flat_diagnostic' ||
+                readability.recommendedDisplayMode === 'low_sample_table' ||
+                readability.recommendedDisplayMode === 'focused_line' ||
+                normalizedGroup.chartType === 'bar_horizontal'
+              const shouldCollapse =
+                !shouldStayOpen && (groupIndex >= 2 || (normalizedGroup.labels?.length ?? 0) > 12)
               return (
                 <ChartGroupCard
                   key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
-                  group={{ ...normalizedGroup, defaultCollapsed: false }}
+                  group={{ ...normalizedGroup, defaultCollapsed: shouldCollapse }}
                 />
               )
             })}
@@ -887,8 +1174,8 @@ function GraphAiQuestionRail({
   activeScopeLabel,
   setupState,
   reportBundle,
+  scopedChartGroups,
   isAdsAuthenticated,
-  hasAnalysisKey,
   analysisKey,
   analysisProvider,
   onThemeChange,
@@ -898,6 +1185,7 @@ function GraphAiQuestionRail({
 }) {
   const [inlineQuestion, setInlineQuestion] = useState('')
   const [inlineAnswer, setInlineAnswer] = useState('')
+  const [inlineReport, setInlineReport] = useState(null)
   const [inlineStatus, setInlineStatus] = useState('')
   const [inlineLoading, setInlineLoading] = useState(false)
   const prompts = topInsights.length > 0
@@ -945,10 +1233,6 @@ function GraphAiQuestionRail({
       setInlineStatus('考察スタジオへのログインが必要です。')
       return
     }
-    if (!hasAnalysisKey) {
-      setInlineStatus('分析用APIキーが必要です。設定後に質問できます。')
-      return
-    }
     if (!reportBundle?.reportMd) {
       setInlineStatus('先に分析データを取得してください。')
       return
@@ -957,7 +1241,23 @@ function GraphAiQuestionRail({
     setInlineLoading(true)
     setInlineStatus('右カラムで考察中…')
     setInlineAnswer('')
+    setInlineReport(null)
     try {
+      const inlineEvidenceGroups = pickInlineQuestionGroups(
+        prompt,
+        reportBundle?.chartGroups ?? [],
+        scopedChartGroups ?? [],
+      )
+      const hasPromptMatchedScope =
+        inlineEvidenceGroups.length > 0 &&
+        inlineEvidenceGroups.length !== (scopedChartGroups?.length ?? 0)
+      const inlineScopeLabel = hasPromptMatchedScope
+        ? `質問に一致: ${inlineEvidenceGroups[0]?.title || '関連グラフ'}`
+        : (activeScopeLabel || '広告グラフ 表示中')
+      const inlineEvidencePack = buildChartEvidencePack(inlineEvidenceGroups, {
+        scopeLabel: inlineScopeLabel,
+        maxCharts: 12,
+      })
       const analysisInstructions = buildAnalysisInstructions(
         setupState?.queryTypes ?? [],
         setupState?.periods ?? [],
@@ -971,10 +1271,12 @@ function GraphAiQuestionRail({
           analysisInstructions,
           GRAPH_AI_HTML_REPORT_INSTRUCTIONS,
           `対象期間: ${activeScopeLabel}`,
+          `根拠範囲: ${inlineScopeLabel}`,
           `右カラムのグラフ確認中の質問です。回答は広告運用者向けに、根拠グラフ・読むべき指標・次の一手を短く示してください。`,
           `---\n${prompt}`,
         ].filter(Boolean).join('\n\n'),
-        point_pack_md: reportBundle.reportMd,
+        user_prompt: prompt,
+        point_pack_md: extractMarkdownSummary(reportBundle.reportMd) || reportBundle.reportMd,
         style_reference: '',
         style_preset: 'mixed',
         data_source: 'bq',
@@ -982,12 +1284,31 @@ function GraphAiQuestionRail({
         missing_reason: reportBundle?.missingReason || '',
         bq_query_types: setupState?.queryTypes ?? [],
         conversation_history: [],
-        ai_chart_context: buildAiChartContext(reportBundle?.chartGroups ?? []),
+        workflow: 'multi_agent_v1',
+        report_contract_version: 'insight_report_v2',
+        ai_chart_context: buildAiChartContext(inlineEvidenceGroups),
+        chart_evidence_pack: inlineEvidencePack,
+        active_chart_scope: {
+          label: inlineScopeLabel,
+          chart_ids: inlineEvidencePack?.charts?.map((chart) => chart.chart_id) ?? [],
+        },
+        session_policy: {
+          turn_index: 1,
+          keep_full_context_until_turn: 5,
+          date_alias_handling: '20260130 / 2026-01-30 / 2026年1月30日 / 1/30 を同じ日として扱う',
+        },
       }
       const data = await neonGenerate(payload, analysisKey)
       const normalized = normalizeAdsPayload(data)
-      const text = getAdsText(data) ?? getAdsText(normalized)
+      const baseText = getAdsText(data) ?? getAdsText(normalized)
+      const traceMarkdown = formatAgentTrace(data?.agent_trace ?? normalized?.agent_trace)
+      const report = extractInsightReport(baseText)
+      const cleanedBaseText = stripInsightJsonFences(baseText)
+      const text = traceMarkdown && !String(cleanedBaseText ?? '').includes('エージェント実行ログ')
+        ? `${cleanedBaseText}\n${traceMarkdown}`
+        : cleanedBaseText
       if (!text) throw new Error('AI応答本文を取得できませんでした。')
+      setInlineReport(report)
       setInlineAnswer(text)
       setInlineStatus('右カラムで回答しました。広い画面で続ける場合はAI考察を開けます。')
     } catch (e) {
@@ -1001,7 +1322,7 @@ function GraphAiQuestionRail({
   return (
     <aside
       data-testid="ads-graph-ai-rail"
-      className="block self-start rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm 2xl:sticky 2xl:top-24 2xl:max-h-[calc(100vh-7rem)] 2xl:overflow-y-auto 2xl:overscroll-contain"
+      className="fixed right-4 top-20 z-20 block w-[min(360px,calc(100vw-2rem))] max-h-[calc(100vh-6rem)] self-start overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm xl:right-6 xl:top-24 xl:max-h-[calc(100vh-7rem)] 2xl:right-[calc((100vw-1440px)/2+1.5rem)]"
     >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
@@ -1014,7 +1335,7 @@ function GraphAiQuestionRail({
             onClick={onToggleCollapsed}
             aria-label="AIグラフチャットを閉じる"
             title="AIグラフチャットを閉じる"
-            className="grid size-10 place-items-center rounded-full bg-primary text-on-primary transition hover:opacity-85"
+            className="grid size-10 place-items-center rounded-full bg-primary text-on-primary transition hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
           >
             <span className="material-symbols-outlined text-lg" aria-hidden="true">right_panel_close</span>
           </button>
@@ -1024,7 +1345,7 @@ function GraphAiQuestionRail({
         </p>
       </div>
 
-      <div className="p-5 grid gap-5 lg:grid-cols-3 2xl:block 2xl:space-y-5">
+      <div className="space-y-5 p-5">
         <div className="grid gap-2 text-xs">
           <span className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2">
             <b className="text-on-surface-variant">対象期間</b>
@@ -1107,7 +1428,7 @@ function GraphAiQuestionRail({
             </p>
           )}
           {inlineAnswer && (
-            <GraphInlineAnswer answer={inlineAnswer} />
+            <GraphInlineAnswer answer={inlineAnswer} report={inlineReport} />
           )}
         </div>
       </div>
@@ -1115,8 +1436,8 @@ function GraphAiQuestionRail({
   )
 }
 
-function GraphInlineAnswer({ answer }) {
-  const report = extractInsightReport(answer)
+function GraphInlineAnswer({ answer, report: providedReport }) {
+  const report = providedReport ?? extractInsightReport(answer)
   const renderContent = report?._strippedMarkdown ?? answer
 
   return (
@@ -1125,19 +1446,9 @@ function GraphInlineAnswer({ answer }) {
       data-testid="graph-ai-inline-answer"
     >
       {report ? (
-        <>
-          <InsightHtmlReport report={report} compact />
-          {renderContent && (
-            <details className="mt-3 border-t border-outline-variant/20 pt-2">
-              <summary className="cursor-pointer text-xs font-black text-primary japanese-text">
-                詳細回答を開く
-              </summary>
-              <div className="mt-2 whitespace-pre-wrap">{renderContent}</div>
-            </details>
-          )}
-        </>
+        <InlineStructuredReport report={report} markdown={renderContent} />
       ) : (
-        <div className="whitespace-pre-wrap">{answer}</div>
+        <MarkdownRenderer content={answer} variant="ai-insight" size="normal" />
       )}
     </div>
   )
@@ -1152,7 +1463,6 @@ export default function AnalysisGraphs() {
     isAdsAuthenticated,
     analysisKey,
     analysisProvider,
-    hasAnalysisKey,
   } = useAuth()
   const { setupState, reportBundle, setReportBundle, resetSetup } = useAdsSetup()
   const [loading, setLoading] = useState(false)
@@ -1288,11 +1598,16 @@ export default function AnalysisGraphs() {
   const hasGraphData = filteredGroups.length > 0
   const hasCreativeData = creativeRefs.length > 0
   const hasDetailReport = refinedInsights.length > 0
+  const visibleSections = useMemo(() => SECTIONS.filter((section) => {
+    if (section.id === 'creative') return hasCreativeData
+    if (section.id === 'detail-report') return hasDetailReport
+    return true
+  }), [hasCreativeData, hasDetailReport])
   const adsRailStatus = loading ? '取得中' : isFallbackReport ? '暫定' : hasGraphData ? 'グラフ表示中' : 'データ待ち'
   const graphsLayoutClassName = hasGraphData
-    ? `space-y-10 2xl:grid ${
-        isAiRailCollapsed ? '2xl:grid-cols-[minmax(0,1fr)_72px]' : '2xl:grid-cols-[minmax(0,1fr)_360px]'
-      } 2xl:items-start 2xl:gap-8 2xl:space-y-0`
+    ? `space-y-10 xl:grid ${
+        isAiRailCollapsed ? 'xl:grid-cols-[minmax(0,1fr)_72px]' : 'xl:grid-cols-[minmax(0,1fr)_360px]'
+      } xl:items-start xl:gap-8 xl:space-y-0`
     : ''
 
   /* ── Handlers ── */
@@ -1504,7 +1819,7 @@ export default function AnalysisGraphs() {
 
         {/* ═══ 3. LOCAL SECTION NAV ═══ */}
         <nav className="flex gap-8 border-b border-outline-variant/15 pb-2">
-          {SECTIONS.map((sec) => (
+          {visibleSections.map((sec) => (
             <button
               key={sec.id}
               onClick={() => scrollToSection(sec.id)}
@@ -1599,6 +1914,13 @@ export default function AnalysisGraphs() {
                     </div>
                   </div>
 
+                  <QueryCoverageSummary
+                    setupState={setupState}
+                    reportBundle={reportBundle}
+                    filteredGroups={filteredGroups}
+                    periodLabel={activeScopeLabel}
+                  />
+
                   {keyCharts.length > 0 && (
                     <div className="grid grid-cols-1 gap-8">
                       {keyCharts.map((group, idx) => (
@@ -1668,8 +1990,8 @@ export default function AnalysisGraphs() {
               activeScopeLabel={activeScopeLabel}
               setupState={setupState}
               reportBundle={reportBundle}
+              scopedChartGroups={filteredGroups}
               isAdsAuthenticated={isAdsAuthenticated}
-              hasAnalysisKey={hasAnalysisKey}
               analysisKey={analysisKey}
               analysisProvider={analysisProvider}
               onThemeChange={setActiveTheme}
@@ -1681,10 +2003,10 @@ export default function AnalysisGraphs() {
         </div>
 
         {/* ═══ 6. CREATIVE SECTION ═══ */}
-        <section id="section-creative" className="scroll-mt-24 mt-16 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-extrabold text-primary japanese-text">クリエイティブ分析</h2>
-            {hasCreativeData && (
+        {hasCreativeData && (
+          <section id="section-creative" className="scroll-mt-24 mt-16 space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-extrabold text-primary japanese-text">クリエイティブ分析</h2>
               <div className="flex gap-2">
                 {CREATIVE_FILTERS.map((f) => (
                   <button
@@ -1700,10 +2022,8 @@ export default function AnalysisGraphs() {
                   </button>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
 
-          {hasCreativeData ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredCreatives.slice(0, 9).map((ref, idx) =>
                 ref.imageUrl
@@ -1711,20 +2031,12 @@ export default function AnalysisGraphs() {
                   : <TextAdCard key={`text-${idx}`} adRef={ref} index={idx} />
               )}
             </div>
-          ) : (
-            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
-              <span className="material-symbols-outlined text-5xl text-outline-variant">palette</span>
-              <h3 className="text-lg font-bold japanese-text">クリエイティブデータなし</h3>
-              <p className="text-sm text-on-surface-variant japanese-text">
-                月次Excelを取り込むとテキスト広告・バナー広告のパフォーマンスが表示されます。
-              </p>
-            </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* ═══ 7. DETAILED REPORT SECTION ═══ */}
-        <section id="section-detail-report" className="scroll-mt-24 mt-16 space-y-6">
-          {hasDetailReport ? (
+        {hasDetailReport && (
+          <section id="section-detail-report" className="scroll-mt-24 mt-16 space-y-6">
             <div className="bg-surface-container-lowest p-8 rounded-xl ghost-border space-y-8">
               <div className="flex items-center gap-4">
                 <span className="material-symbols-outlined text-primary text-3xl">description</span>
@@ -1790,16 +2102,8 @@ export default function AnalysisGraphs() {
                 </div>
               </div>
             </div>
-          ) : !loading && (
-            <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
-              <span className="material-symbols-outlined text-5xl text-outline-variant">description</span>
-              <h3 className="text-lg font-bold japanese-text">詳細レポートがまだありません</h3>
-              <p className="text-sm text-on-surface-variant japanese-text">
-                レポート生成後に観測事実・要因仮説・推奨施策が表示されます。
-              </p>
-            </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* Empty state when no data at all */}
         {!loading && !error && !hasGraphData && excelState !== 'applied' && (
