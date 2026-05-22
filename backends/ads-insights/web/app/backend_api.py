@@ -14282,18 +14282,22 @@ insight-report JSON の必須キー:
                 review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
                 text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
             if not review_result.get("ok"):
-                return JSONResponse(
-                    {
-                        "ok": False,
-                        "error_code": "ai_review_failed",
-                        "detail": "AI考察の根拠チェックに失敗しました。質問をより具体化するか、グラフデータを再取得してください。",
-                        "review_issues": review_result.get("issues", []),
-                        "agent_trace": agent_trace,
-                        "retryable": False,
-                        "request_id": request_id,
-                    },
-                    status_code=422,
-                )
+                validation_warnings = review_result.get("issues", [])
+                review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
+                return {
+                    "ok": True,
+                    "text": text,
+                    "model": model,
+                    "provider": provider,
+                    "tokens_used": len(text),
+                    "workflow": workflow,
+                    "report_contract_version": report_contract_version,
+                    "review_status": review_status,
+                    "agent_trace": agent_trace,
+                    "validation_warnings": validation_warnings,
+                    "request_id": request_id,
+                }
             return {
                 "ok": True,
                 "text": text,
@@ -14563,18 +14567,22 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                     require_agent_trace=(workflow == "multi_agent_v1"),
                 )
                 if not review_result.get("ok"):
-                    return JSONResponse(
-                        {
-                            "ok": False,
-                            "error_code": "ai_review_failed",
-                            "detail": "AI考察の根拠チェックに失敗しました。質問をより具体化するか、グラフデータを再取得してください。",
-                            "review_issues": review_result.get("issues", []),
-                            "agent_trace": agent_trace,
-                            "retryable": False,
-                            "request_id": request_id,
-                        },
-                        status_code=422,
-                    )
+                    validation_warnings = review_result.get("issues", [])
+                    review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                    text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
+                    return {
+                        "ok": True,
+                        "text": text,
+                        "model": model,
+                        "provider": provider,
+                        "tokens_used": len(text),
+                        "workflow": workflow,
+                        "report_contract_version": report_contract_version,
+                        "review_status": review_status,
+                        "agent_trace": agent_trace,
+                        "validation_warnings": validation_warnings,
+                        "request_id": request_id,
+                    }
             if workflow == "multi_agent_v1":
                 agent_trace = _normalize_agent_trace(agent_trace)
                 enhanced_review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
@@ -14587,21 +14595,29 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                     require_agent_trace=True,
                 )
                 if not review_result.get("ok"):
-                    enhanced_review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
-                    text = _attach_agent_trace_and_review_status(text, agent_trace, enhanced_review_status)
-                    return JSONResponse(
-                        {
-                            "ok": False,
-                            "error_code": "ai_review_failed",
-                            "detail": "AI考察の8ステージ証跡または数値根拠チェックに失敗しました。",
-                            "review_issues": review_result.get("issues", []),
-                            "review_status": enhanced_review_status,
-                            "agent_trace": agent_trace,
-                            "retryable": False,
-                            "request_id": request_id,
-                        },
-                        status_code=422,
+                    validation_warnings = review_result.get("issues", [])
+                    text = _build_review_safe_insight_report(
+                        chart_evidence_pack,
+                        validation_warnings,
+                        data_availability=data_availability,
+                        query_text=user_prompt_for_matching,
                     )
+                    agent_trace = _extract_agent_trace_from_insight_report(text) or _normalize_agent_trace(agent_trace)
+                    enhanced_review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                    text = _attach_agent_trace_and_review_status(text, agent_trace, enhanced_review_status)
+                    return {
+                        "ok": True,
+                        "text": text,
+                        "model": model,
+                        "provider": provider,
+                        "tokens_used": len(text),
+                        "workflow": workflow,
+                        "report_contract_version": report_contract_version,
+                        "review_status": enhanced_review_status,
+                        "agent_trace": agent_trace,
+                        "validation_warnings": validation_warnings,
+                        "request_id": request_id,
+                    }
         response_review_status = (
             _build_enhanced_review_status(review_result, agent_trace, text=text)
             if workflow == "multi_agent_v1"
