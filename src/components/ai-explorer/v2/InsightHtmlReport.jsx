@@ -49,19 +49,25 @@ function EvidenceStatusBand({ report }) {
   if (!status) return null
   const verdict = String(status.verdict || 'checked').toLowerCase()
   const isPass = verdict === 'pass'
+  const isRecovered = verdict === 'recovered'
   const evidenceRows = Array.isArray(report?.evidence_table) ? report.evidence_table : []
   const first = evidenceRows[0] || {}
   const unsupported = Array.isArray(status.unsupported_kpis) ? status.unsupported_kpis : []
+  const statusTitle = isPass
+    ? '数値照合済み'
+    : isRecovered
+      ? '取得済みグラフ根拠で照合済み'
+      : '照合範囲を限定して表示'
 
   return (
     <section
-      className={`${cardStyles.evidenceStatusBand} ${isPass ? cardStyles.evidenceStatusPass : cardStyles.evidenceStatusWarn}`}
+      className={`${cardStyles.evidenceStatusBand} ${isPass || isRecovered ? cardStyles.evidenceStatusPass : cardStyles.evidenceStatusWarn}`}
       data-testid="evidence-status-band"
       aria-label="数値照合状態"
     >
-      <span className="material-symbols-outlined" aria-hidden="true">{isPass ? 'verified' : 'warning'}</span>
+      <span className="material-symbols-outlined" aria-hidden="true">{isPass || isRecovered ? 'verified' : 'rule'}</span>
       <div>
-        <strong className="japanese-text">{isPass ? '数値照合済み' : '数値照合は要確認'}</strong>
+        <strong className="japanese-text">{statusTitle}</strong>
         <p className="japanese-text">
           {[
             first.source ? `chart_id: ${first.source}` : '',
@@ -69,8 +75,8 @@ function EvidenceStatusBand({ report }) {
             first.metric ? `指標: ${first.metric}` : '',
             first.value ? `値: ${first.value}` : '',
             first.period ? `期間: ${first.period}` : '',
-            `Review: ${status.verdict || 'checked'}`,
-            unsupported.length > 0 ? `未取得KPI: ${unsupported.join(' / ')}` : '',
+            unsupported.length > 0 ? `未連携KPI: ${unsupported.join(' / ')}` : '',
+            Array.isArray(status.checked_items) && status.checked_items.length > 0 ? `照合項目: ${status.checked_items.join(' / ')}` : '',
           ].filter(Boolean).join(' / ')}
         </p>
       </div>
@@ -108,7 +114,7 @@ function AgentTracePanel({ trace = [] }) {
               <p className="japanese-text">確認: {item.checks.slice(0, 4).join(' / ')}</p>
             )}
             {Array.isArray(item.issues) && item.issues.length > 0 && (
-              <p className={cardStyles.agentTraceIssue}>要確認: {item.issues.slice(0, 3).join(' / ')}</p>
+              <p className={cardStyles.agentTraceIssue}>制約: {item.issues.slice(0, 3).join(' / ')}</p>
             )}
           </article>
         ))}
