@@ -403,6 +403,44 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(escapedReportJson)).not.toBeInTheDocument()
   })
 
+  it('hides malformed internal insight-report artifacts instead of rendering raw JSON cards', () => {
+    const malformedArtifact =
+      '## 原因\n\n' +
+      '{"schema": "ads_ai", "version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で ユーザー数 273、セッション数 308、PV数 328 が確認できます。"], "evidence_table": [{"claim": "PV分析 — 日別推移 の ユーザー数 は 5/7 に 273 です", "metric": "ユーザー数", "value": "273", "period": "5/7", "source": "chart_01"}], "limitations": ["CPA、ROAS、CTRは未取得"], "agent_trace": [{"stage": "data_evidence_agent", "excerpt": "Data Evidence Agent: 引用可能な数値\n\n' +
+      '{"version": "insight_report_v2", "bad": true}' +
+      '"}]}\n\n' +
+      '## 次に見るべき数値\n\n' +
+      '{"version": "insight_report_v2", "agent_trace": [{"stage": "review_agent"}]}'
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent: malformedArtifact }} />)
+
+    expect(screen.getByTestId('insight-report-artifact-hidden')).toBeInTheDocument()
+    expect(screen.queryByTestId('operational-insight-cards')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('insight-report-flow')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('markdown-renderer')).not.toBeInTheDocument()
+    expect(screen.queryByText(/\{"version"/)).not.toBeInTheDocument()
+  })
+
+  it('hides malformed insight-report fenced blocks that cannot be parsed', () => {
+    const aiContent = '## レポート\n\n```insight-report\n{ invalid json }\n```\n\nこの行も内部ブロックに付随するため表示しない'
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-report-artifact-hidden')).toBeInTheDocument()
+    expect(screen.queryByTestId('markdown-renderer')).not.toBeInTheDocument()
+    expect(screen.queryByText(/invalid json/)).not.toBeInTheDocument()
+  })
+
+  it('does not hide normal prose that mentions agent_trace without a JSON key', () => {
+    const aiContent = '## 調査メモ\nagent_trace という語を説明していますが、内部JSONではありません。'
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    const md = screen.getByTestId('markdown-renderer')
+    expect(md.textContent).toContain('agent_trace という語を説明')
+    expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
+  })
+
   it('keeps insight-report v2 compact and avoids inline chart expansion', () => {
     const aiContent = [
       '```insight-report',

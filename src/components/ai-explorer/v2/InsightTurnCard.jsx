@@ -94,6 +94,13 @@ function normalizeAgentTrace(trace) {
     : []
 }
 
+function hasInsightReportArtifact(content) {
+  const source = String(content || '')
+  return /\\?"version\\?"\s*:\s*\\?"insight_report_v2\\?"/.test(source) ||
+    /\\?"agent_trace\\?"\s*:/.test(source) ||
+    /```insight-report\s*\n/i.test(source)
+}
+
 function AgentTracePanel({ trace = [] }) {
   const items = normalizeAgentTrace(trace)
   if (items.length === 0) return null
@@ -383,8 +390,10 @@ export default function InsightTurnCard({
   }
   const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
   const hasStructuredV2Report = isStructuredReportV2(derivedReport)
+  const shouldHideRawArtifact = !derivedReport && hasInsightReportArtifact(renderContent)
+  const fallbackContent = shouldHideRawArtifact ? '' : renderContent
 
-  const operationalCards = extractOperationalInsightCards(renderContent)
+  const operationalCards = shouldHideRawArtifact ? [] : extractOperationalInsightCards(renderContent)
 
   return (
     <article
@@ -436,9 +445,9 @@ export default function InsightTurnCard({
         </div>
       )}
 
-      {!derivedReport && !isError && renderContent && (
+      {!derivedReport && !isError && fallbackContent && (
         <InsightReportSections
-          content={renderContent}
+          content={fallbackContent}
           operationalCards={operationalCards}
         />
       )}
@@ -461,7 +470,13 @@ export default function InsightTurnCard({
             <span className="material-symbols-outlined" aria-hidden="true">article</span>
             <h3 className="japanese-text">AIによる考察回答</h3>
           </div>
-          <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
+          {fallbackContent ? (
+            <MarkdownRenderer content={fallbackContent} variant="ai-insight" size={size} />
+          ) : (
+            <p className="japanese-text text-sm text-on-surface-variant" data-testid="insight-report-artifact-hidden">
+              内部確認データは非表示にしました。次回生成時は根拠テーブルとして整形表示されます。
+            </p>
+          )}
         </div>
       )}
     </article>
