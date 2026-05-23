@@ -292,7 +292,9 @@ function recoverMalformedInsightReport(markdown) {
 
   const rest = source.slice(start)
   const agentTraceMatch = rest.match(/,\s*\\?"agent_trace\\?"\s*:/)
-  if (!agentTraceMatch || agentTraceMatch.index == null) return null
+  if (!agentTraceMatch || agentTraceMatch.index == null) {
+    return recoverMalformedInsightReportFromText(source, start)
+  }
 
   const raw = rest.slice(0, agentTraceMatch.index).replace(/,\s*$/, '') + '}'
   const normalizedRaw = raw.includes('\\"') ? unescapeStructuralJsonQuotes(raw) : raw
@@ -339,7 +341,8 @@ function recoverMalformedInsightReportFromText(source, start) {
 
 function extractMalformedEvidenceRows(text) {
   const rows = []
-  const lines = String(text || '').split(/\r?\n/)
+  const normalizedText = String(text || '').replace(/\\n/g, '\n')
+  const lines = normalizedText.split(/\r?\n/)
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) continue

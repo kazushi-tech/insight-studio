@@ -379,6 +379,16 @@ describe('extractInsightReport', () => {
     expect(report.agent_trace).toHaveLength(0)
   })
 
+  it('recovers table rows even when malformed artifacts have no agent_trace key', () => {
+    const aiContent = '{"version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で PV数 328 が確認できます。", "\\n| chart_id | title | metric | value | period |\\n| --- | --- | --- | --- | --- |\\n| chart_01 | PV分析 — 日別推移 | PV数 | 328 | 5/7 |\\n未取得扱い: CPA / ROAS / CTR は入力に存在しない限り断定禁止。"]'
+
+    const report = extractInsightReport(aiContent)
+
+    expect(report).not.toBeNull()
+    expect(report.evidence_table[0]).toMatchObject({ source: 'chart_01', metric: 'PV数', value: '328' })
+    expect(report.limitations.join(' ')).toContain('CPA')
+  })
+
   it('returns null for malformed insight-report JSON', () => {
     expect(extractInsightReport('```insight-report\n{ invalid }\n```')).toBeNull()
   })
