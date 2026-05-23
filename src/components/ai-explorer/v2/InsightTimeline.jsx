@@ -111,9 +111,12 @@ export default function InsightTimeline({
 
   const turns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
 
-  // Pending turn = trailing user prompt without an assistant reply (loading).
-  const pendingTurn = turns.length > 0 && turns[turns.length - 1].pending ? turns[turns.length - 1] : null
-  const completedTurns = pendingTurn ? turns.slice(0, -1) : turns
+  // Pending turn = trailing user prompt without an assistant reply.
+  // Only render it while a request is actively loading; restored drafts can
+  // otherwise leave a permanent skeleton after reload.
+  const danglingPendingTurn = turns.length > 0 && turns[turns.length - 1].pending ? turns[turns.length - 1] : null
+  const pendingTurn = loading ? danglingPendingTurn : null
+  const completedTurns = danglingPendingTurn ? turns.slice(0, -1) : turns
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
