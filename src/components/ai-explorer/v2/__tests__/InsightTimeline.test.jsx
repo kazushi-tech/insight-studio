@@ -102,6 +102,15 @@ describe('InsightTimeline', () => {
     expect(screen.getByText('考察を生成中です… ✨')).toBeInTheDocument()
   })
 
+  it('does not keep a stale pending skeleton when loading is false', () => {
+    const messages = [{ role: 'user', text: '前回リロード時に残った質問' }]
+    render(<InsightTimeline {...baseProps} messages={messages} loading={false} />)
+
+    expect(screen.queryByRole('status', { name: '考察を生成中' })).not.toBeInTheDocument()
+    expect(screen.queryByText('考察を生成中です… ✨')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('insight-turn-card')).not.toBeInTheDocument()
+  })
+
   it('shows the composer placeholder text', () => {
     render(<InsightTimeline {...baseProps} />)
     expect(

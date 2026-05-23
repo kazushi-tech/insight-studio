@@ -115,6 +115,14 @@ function isAssistantMessage(message) {
   return message?.role === 'assistant' || message?.role === 'ai'
 }
 
+function removeTrailingPendingUserMessage(items) {
+  if (!Array.isArray(items)) return []
+  const normalized = items.filter((m) => m && typeof m.role === 'string' && typeof m.text === 'string')
+  if (normalized.length === 0) return []
+  const last = normalized[normalized.length - 1]
+  return isAssistantMessage(last) ? normalized : normalized.slice(0, -1)
+}
+
 function toConversationHistory(messages) {
   return messages.slice(-6).map((message) => ({
     role: isAssistantMessage(message) ? 'assistant' : 'user',
@@ -182,9 +190,7 @@ export default function AiExplorer() {
   const [messages, setMessages] = useState(() => {
     const draft = getDraft('ai-explorer')
     if (!draft || !Array.isArray(draft.messages)) return []
-    return draft.messages
-      .filter((m) => m && typeof m.role === 'string' && typeof m.text === 'string')
-      .slice(-50)
+    return removeTrailingPendingUserMessage(draft.messages).slice(-50)
   })
   const [loading, setLoading] = useState(false)
   const [reportLoading, setReportLoading] = useState(false)
@@ -228,7 +234,7 @@ export default function AiExplorer() {
   useEffect(() => {
     clearTimeout(draftTimerRef.current)
     draftTimerRef.current = setTimeout(() => {
-      setDraft('ai-explorer', { messages: messages.slice(-50), contextMode })
+      setDraft('ai-explorer', { messages: removeTrailingPendingUserMessage(messages).slice(-50), contextMode })
     }, 500)
     return () => clearTimeout(draftTimerRef.current)
   }, [messages, contextMode, setDraft])
