@@ -403,7 +403,7 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(escapedReportJson)).not.toBeInTheDocument()
   })
 
-  it('hides malformed internal insight-report artifacts instead of rendering raw JSON cards', () => {
+  it('recovers malformed internal insight-report artifacts instead of rendering raw JSON cards', () => {
     const malformedArtifact =
       '## 原因\n\n' +
       '{"schema": "ads_ai", "version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で ユーザー数 273、セッション数 308、PV数 328 が確認できます。"], "evidence_table": [{"claim": "PV分析 — 日別推移 の ユーザー数 は 5/7 に 273 です", "metric": "ユーザー数", "value": "273", "period": "5/7", "source": "chart_01"}], "limitations": ["CPA、ROAS、CTRは未取得"], "agent_trace": [{"stage": "data_evidence_agent", "excerpt": "Data Evidence Agent: 引用可能な数値\n\n' +
@@ -414,7 +414,11 @@ describe('InsightTurnCard', () => {
 
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent: malformedArtifact }} />)
 
-    expect(screen.getByTestId('insight-report-artifact-hidden')).toBeInTheDocument()
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('CPA、ROAS、CTRは未取得')
+    expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
     expect(screen.queryByTestId('operational-insight-cards')).not.toBeInTheDocument()
     expect(screen.queryByTestId('insight-report-flow')).not.toBeInTheDocument()
     expect(screen.queryByTestId('markdown-renderer')).not.toBeInTheDocument()

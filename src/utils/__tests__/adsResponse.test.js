@@ -340,6 +340,23 @@ describe('extractInsightReport', () => {
     expect(report._strippedMarkdown).toBe('## 原因\n\n\n\n## 次に見るべき数値')
   })
 
+  it('recovers malformed insight-report v2 JSON by dropping broken agent_trace payloads', () => {
+    const aiContent =
+      '## 原因\n\n' +
+      '{"schema": "ads_ai", "version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で ユーザー数 273、セッション数 308、PV数 328 が確認できます。"], "evidence_table": [{"claim": "PV分析 — 日別推移 の PV数 は 5/7 に 328 です", "metric": "PV数", "value": "328", "period": "5/7", "source": "chart_01"}], "limitations": ["CPA、ROAS、CTRは未取得"], "agent_trace": [{"stage": "data_evidence_agent", "excerpt": "broken nested json\n\n' +
+      '{"version": "insight_report_v2", "bad": true}' +
+      '"}]}'
+
+    const report = extractInsightReport(aiContent)
+
+    expect(report).not.toBeNull()
+    expect(report.executive_summary[0]).toContain('ユーザー数 273')
+    expect(report.evidence_table[0]).toMatchObject({ metric: 'PV数', value: '328', source: 'chart_01' })
+    expect(report.limitations).toContain('CPA、ROAS、CTRは未取得')
+    expect(report.agent_trace).toHaveLength(0)
+    expect(report._strippedMarkdown).toBe('')
+  })
+
   it('returns null for malformed insight-report JSON', () => {
     expect(extractInsightReport('```insight-report\n{ invalid }\n```')).toBeNull()
   })
