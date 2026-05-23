@@ -80,4 +80,31 @@ describe('InsightHtmlReport', () => {
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Data Evidence Agent')
   })
+
+  it('treats recovered insight_report_v2 evidence as automatically checked in the UI', () => {
+    render(
+      <InsightHtmlReport
+        report={{
+          version: 'insight_report_v2',
+          executive_summary: ['5/7はchart_01でPV数328です'],
+          evidence_table: [
+            { claim: 'PV分析 — 日別推移 の PV数 は 5/7 に 328 です', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'グラフ実測値' },
+          ],
+          interpretation: ['取得済みグラフ根拠に限定して読みます。'],
+          actions: [{ priority: 'P0', action: '流入元を確認', rationale: 'PV数328', expected_metric: 'source / medium' }],
+          limitations: ['CPA、ROAS、CTRは未連携'],
+          review_status: {
+            verdict: 'recovered',
+            notes: ['取得済みグラフ根拠で照合'],
+            checked_items: ['chart_id', 'metric', 'value', 'period'],
+            unsupported_kpis: ['CPA', 'ROAS', 'CTR'],
+          },
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('取得済みグラフ根拠で照合済み')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('未連携KPI: CPA / ROAS / CTR')
+    expect(screen.getByTestId('evidence-status-band')).not.toHaveTextContent('数値照合は要確認')
+  })
 })
