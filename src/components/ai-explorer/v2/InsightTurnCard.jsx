@@ -110,6 +110,7 @@ function extractPromptNumbers(prompt) {
     if (!token) continue
     const numeric = Number(token)
     if (Number.isInteger(numeric) && numeric >= 1900 && numeric <= 2099) continue
+    if (Math.abs(numeric) < 10) continue
     values.add(token)
   }
   return values
@@ -143,9 +144,10 @@ function recoverEvidenceRowsFromCharts(userPrompt, chartGroups) {
 
   const dateTokens = buildDateTokens(userPrompt)
   const pack = buildChartEvidencePack(chartGroups, { scopeLabel: 'AI考察 復旧表示', maxCharts: 36 })
-  const rows = []
+  const chartCandidates = []
 
   for (const chart of pack?.charts || []) {
+    const rows = []
     for (const series of chart.series || []) {
       for (const point of series.points || []) {
         const value = normalizeNumberToken(point.value)
@@ -160,7 +162,20 @@ function recoverEvidenceRowsFromCharts(userPrompt, chartGroups) {
         })
       }
     }
+    if (rows.length > 0) chartCandidates.push({ chart, rows })
   }
+
+  if (chartCandidates.length === 0) return []
+  const maxRows = Math.max(...chartCandidates.map((item) => item.rows.length))
+  const selectedCharts = chartCandidates
+    .filter((item) => (maxRows >= 2 ? item.rows.length === maxRows : item.rows.length > 0))
+    .slice(0, 3)
+  const rows = selectedCharts.flatMap((item, chartIndex) =>
+    item.rows.map((row) => ({
+      ...row,
+      source: `chart_${String(chartIndex + 1).padStart(2, '0')}`,
+    })),
+  )
 
   const seen = new Set()
   return rows.filter((row) => {

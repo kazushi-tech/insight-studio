@@ -445,6 +445,20 @@ describe('InsightTurnCard', () => {
         { label: 'セッション数', data: [308] },
         { label: 'PV数', data: [328] },
       ],
+    }, {
+      title: '異常検知 — メトリクス推移',
+      chartType: 'line',
+      labels: ['20260507'],
+      datasets: [
+        { label: 'PV', data: [328] },
+      ],
+    }, {
+      title: 'LP分析 — セッション数上位5LPの日別推移',
+      chartType: 'line',
+      labels: ['20260507'],
+      datasets: [
+        { label: 'www.petabit.co.jp/news/2026/8900/', data: [5] },
+      ],
     }]
     const aiContent = '```insight-report\n{ invalid json with "version": "insight_report_v2" }\n```'
     const userPrompt = '2026年5月7日のPV数328、セッション数308、ユーザー数273が上がった理由を、根拠テーブル・chart_id・未取得KPIの扱い・Agent確認つきで考察してください。'
@@ -460,6 +474,8 @@ describe('InsightTurnCard', () => {
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('308')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
+    expect(screen.queryByText('www.petabit.co.jp/news/2026/8900/')).not.toBeInTheDocument()
+    expect(screen.queryByText('chart_02')).not.toBeInTheDocument()
     expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
     expect(screen.queryByText(/invalid json/)).not.toBeInTheDocument()
   })
