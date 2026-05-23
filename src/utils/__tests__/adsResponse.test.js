@@ -357,6 +357,28 @@ describe('extractInsightReport', () => {
     expect(report._strippedMarkdown).toBe('')
   })
 
+  it('recovers evidence rows from malformed markdown-table report artifacts', () => {
+    const aiContent = [
+      '{"version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で ユーザー数 273、セッション数 308、PV数 328 が確認できます。", "根拠は chart 表です',
+      '| chart_id | title | metric | value | period |',
+      '| --- | --- | --- | --- | --- |',
+      '| chart_01 | PV分析 — 日別推移 | ユーザー数 | 273 | 5/7 |',
+      '| chart_01 | PV分析 — 日別推移 | セッション数 | 308 | 5/7 |',
+      '| chart_01 | PV分析 — 日別推移 | PV数 | 328 | 5/7 |',
+      '未取得扱い: 広告費 / CPA / ROAS / CTR / CPC / インプレッションは入力に存在しない限り断定禁止。", "agent_trace": [{"stage": "data_evidence_agent", "excerpt": "broken"}]}',
+    ].join('\n')
+
+    const report = extractInsightReport(aiContent)
+
+    expect(report).not.toBeNull()
+    expect(report.executive_summary[0]).toContain('ユーザー数 273')
+    expect(report.evidence_table).toHaveLength(3)
+    expect(report.evidence_table[2]).toMatchObject({ source: 'chart_01', metric: 'PV数', value: '328', period: '5/7' })
+    expect(report.limitations.join(' ')).toContain('CPA')
+    expect(report.review_status.verdict).toBe('recovered')
+    expect(report.agent_trace).toHaveLength(0)
+  })
+
   it('returns null for malformed insight-report JSON', () => {
     expect(extractInsightReport('```insight-report\n{ invalid }\n```')).toBeNull()
   })
