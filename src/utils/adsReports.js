@@ -572,6 +572,40 @@ function extractPromptMatchTokens(prompt) {
   return { tokens, compactTokens }
 }
 
+function normalizeNumericToken(value) {
+  const raw = String(value ?? '').replace(/,/g, '').trim()
+  if (!raw) return ''
+  const number = Number(raw)
+  if (!Number.isFinite(number)) return ''
+  if (Number.isInteger(number)) return String(number)
+  return String(number).replace(/\.0+$/, '')
+}
+
+function extractPromptValueTokens(prompt) {
+  const source = String(prompt ?? '')
+  const values = new Set()
+  for (const match of source.matchAll(/\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?/g)) {
+    const normalized = normalizeNumericToken(match[0])
+    if (!normalized || normalized.length < 2) continue
+    const numeric = Number(normalized)
+    if (Number.isInteger(numeric) && numeric >= 1900 && numeric <= 2099) continue
+    values.add(normalized)
+  }
+  return values
+}
+
+function collectChartValueTokens(group) {
+  const normalized = normalizeChartGroupShape(group)
+  const values = new Set()
+  for (const dataset of Array.isArray(normalized.datasets) ? normalized.datasets : []) {
+    for (const value of Array.isArray(dataset?.data) ? dataset.data : []) {
+      const token = normalizeNumericToken(value)
+      if (token) values.add(token)
+    }
+  }
+  return values
+}
+
 function chartGroupSearchText(group) {
   const normalized = normalizeChartGroupShape(group)
   const parts = [
@@ -594,6 +628,8 @@ function scoreChartGroupForPrompt(prompt, group) {
   const source = normalizeForPromptMatch(prompt)
   const { tokens, compactTokens } = extractPromptMatchTokens(prompt)
   const { text, compact } = chartGroupSearchText(group)
+  const promptValues = extractPromptValueTokens(prompt)
+  const chartValues = collectChartValueTokens(group)
   let score = 0
 
   for (const token of tokens) {
@@ -601,6 +637,9 @@ function scoreChartGroupForPrompt(prompt, group) {
   }
   for (const token of compactTokens) {
     if (token && token.length >= 4 && compact.includes(token)) score += 100
+  }
+  for (const value of promptValues) {
+    if (chartValues.has(value)) score += 120
   }
 
   const keywordPairs = [

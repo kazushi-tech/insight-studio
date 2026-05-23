@@ -420,4 +420,29 @@ describe('selectChartGroupsForPrompt', () => {
 
     expect(selected[0].title).toContain('流入分析')
   })
+
+  it('prioritizes the chart whose values match the prompt numbers', () => {
+    const selected = selectChartGroupsForPrompt([
+      makeGroup({
+        title: '異常検知 — メトリクス推移',
+        labels: ['20260507'],
+        datasets: [
+          { label: 'ユーザー', data: [167] },
+          { label: 'セッション', data: [193] },
+          { label: 'PV', data: [328] },
+        ],
+      }),
+      makeGroup({
+        title: 'PV分析 — 日別推移',
+        labels: ['20260507'],
+        datasets: [
+          { label: 'ユーザー数', data: [273] },
+          { label: 'セッション数', data: [308] },
+          { label: 'PV数', data: [328] },
+        ],
+      }),
+    ], '2026年5月7日のPV数328、セッション数308、ユーザー数273を説明して', { maxGroups: 1 })
+
+    expect(selected[0].title).toContain('PV分析')
+  })
 })
