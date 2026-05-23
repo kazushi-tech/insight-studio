@@ -77,8 +77,10 @@ describe('InsightHtmlReport', () => {
     )
 
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('AI考察レポート')
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Data Evidence Agent')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('数値根拠の確認')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('自動照合')
+    expect(screen.getByTestId('agent-trace-panel')).not.toHaveTextContent('Data Evidence Agent')
   })
 
   it('treats recovered insight_report_v2 evidence as automatically checked in the UI', () => {
@@ -105,6 +107,7 @@ describe('InsightHtmlReport', () => {
 
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('取得済みグラフ根拠で照合済み')
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('未連携KPI: CPA / ROAS / CTR')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('確認した項目: グラフ / 指標 / 値 / 期間')
     expect(screen.getByTestId('evidence-status-band')).not.toHaveTextContent('数値照合は要確認')
   })
 })
