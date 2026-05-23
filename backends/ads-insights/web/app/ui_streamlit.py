@@ -78,7 +78,7 @@ if not pps:
     st.sidebar.warning("compare/ に point-pack.md が見つかりません")
 pp = st.sidebar.selectbox("point-pack", options=pps, index=0 if pps else None)
 
-model = st.sidebar.selectbox("model", options=["gemini-3.5-flash", "gemini-2.5-flash"], index=0)
+model = st.sidebar.selectbox("model", options=["gemini-3.1-flash-lite"], index=0)
 temperature = st.sidebar.slider("temperature", min_value=0.0, max_value=1.0, value=0.7, step=0.05)
 message = st.sidebar.text_area("message（任意）", value="", height=120)
 

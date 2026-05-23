@@ -16,7 +16,7 @@ from .gemini_budget import (
 
 logger = logging.getLogger("market-lens.gemini")
 
-_DEFAULT_MODEL = normalize_gemini_model(os.getenv("GEMINI_ANALYSIS_MODEL", "gemini-3.5-flash"))
+_DEFAULT_MODEL = normalize_gemini_model(os.getenv("GEMINI_ANALYSIS_MODEL", "gemini-3.1-flash-lite"))
 _DEFAULT_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "8192"))
 _DEFAULT_TEMPERATURE = float(os.getenv("GEMINI_TEMPERATURE", "0.2"))
 

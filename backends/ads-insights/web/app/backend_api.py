@@ -1430,7 +1430,7 @@ async def api_gemini_budget_smoke_test(request: Request):
             status_code=403,
         )
 
-    model = normalize_gemini_model(payload.get("model") or "gemini-3.5-flash")
+    model = normalize_gemini_model(payload.get("model") or "gemini-3.1-flash-lite")
     prompt = (
         "Insight Studio Gemini budget smoke test. "
         "Reply with exactly this text only: OK"
@@ -3765,7 +3765,7 @@ async def generate_insights(request: Request):
 
     point_pack_path = payload.get("point_pack_path") or payload.get("pointPackPath") or payload.get("path")
     message = payload.get("message") or ""
-    model = normalize_gemini_model(payload.get("model") or os.getenv("GEMINI_MODEL", "gemini-3.5-flash"))
+    model = normalize_gemini_model(payload.get("model") or os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite"))
     temperature = payload.get("temperature", 0.7)
     gemini_api_key = payload.get("gemini_api_key") or payload.get("apiKey")
 
@@ -11089,7 +11089,7 @@ async def api_chat(request: Request):
 
 
 
-    model = "gemini-3.5-flash"
+    model = "gemini-3.1-flash-lite"
 
 
 
@@ -13867,7 +13867,7 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     # Expected payload:
     # { mode: "question|improve|risk|numbers", model, temperature, message, point_pack_path? point_pack_md?, style_preset?, style_reference?, provider? }
     mode = str(payload.get("mode") or "question")
-    default_model = "claude-sonnet-4-20250514" if is_anthropic else "gemini-3.5-flash"
+    default_model = "claude-sonnet-4-20250514" if is_anthropic else "gemini-3.1-flash-lite"
     model = str(payload.get("model") or default_model)
     if not is_anthropic:
         model = normalize_gemini_model(model)

@@ -19,11 +19,11 @@ class TestReportContainsUsage:
                 prompt_tokens=100,
                 completion_tokens=200,
                 total_tokens=300,
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
             ),
         )
         md = generate_report(result, "## Analysis\nSome analysis.")
-        assert "gemini-3.1-flash-lite-preview" in md
+        assert "gemini-3.1-flash-lite" in md
 
     def test_prompt_token_count_in_report(self):
         result = ScanResult(
@@ -34,7 +34,7 @@ class TestReportContainsUsage:
                 prompt_tokens=50,
                 completion_tokens=150,
                 total_tokens=200,
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
             ),
         )
         md = generate_report(result, "")
@@ -49,7 +49,7 @@ class TestReportContainsUsage:
                 prompt_tokens=50,
                 completion_tokens=150,
                 total_tokens=200,
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
             ),
         )
         md = generate_report(result, "")
@@ -64,7 +64,7 @@ class TestReportContainsUsage:
                 prompt_tokens=50,
                 completion_tokens=150,
                 total_tokens=200,
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
             ),
         )
         md = generate_report(result, "")

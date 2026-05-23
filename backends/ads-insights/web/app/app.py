@@ -571,7 +571,7 @@ def main() -> None:
     with col_chat:
         st.markdown("## チャット（API）")
         provider = st.selectbox("プロバイダ", ["Gemini", "ローカル"], index=0, key="chat_provider")
-        model_name = st.text_input("モデル名", value="gemini-3.5-flash", key="chat_model")
+        model_name = st.text_input("モデル名", value="gemini-3.1-flash-lite", key="chat_model")
 
         msgs: List[Dict[str, str]] = st.session_state.get("chat_messages", [])
 

@@ -11,11 +11,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-GEMINI_35_FLASH_INPUT_USD_PER_1M = 1.50
-GEMINI_35_FLASH_OUTPUT_USD_PER_1M = 9.00
-GEMINI_35_FLASH_MODEL = "gemini-3.5-flash"
+GEMINI_FLASH_LITE_INPUT_USD_PER_1M = 0.25
+GEMINI_FLASH_LITE_OUTPUT_USD_PER_1M = 1.50
+GEMINI_FLASH_LITE_MODEL = "gemini-3.1-flash-lite"
 LEGACY_GEMINI_FLASH_MODELS = {
     "gemini-3-flash-preview",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-3.5-flash",
 }
 DEFAULT_MONTHLY_BUDGET_USD = 18.0
 DEFAULT_USD_JPY = 159.0
@@ -33,9 +35,14 @@ def is_gemini_model(model: str | None) -> bool:
 
 def normalize_gemini_model(model: str | None) -> str:
     normalized = str(model or "").strip()
-    if normalized.lower() in LEGACY_GEMINI_FLASH_MODELS:
-        return GEMINI_35_FLASH_MODEL
-    return normalized or GEMINI_35_FLASH_MODEL
+    lowered = normalized.lower()
+    if not normalized:
+        return GEMINI_FLASH_LITE_MODEL
+    if lowered == GEMINI_FLASH_LITE_MODEL:
+        return GEMINI_FLASH_LITE_MODEL
+    if lowered in LEGACY_GEMINI_FLASH_MODELS or lowered.startswith("gemini"):
+        return GEMINI_FLASH_LITE_MODEL
+    return normalized
 
 
 def current_month_key(now: datetime | None = None) -> str:
@@ -67,8 +74,8 @@ def estimate_text_tokens(text: str | None) -> int:
 
 def calculate_cost_usd(input_tokens: int, output_tokens: int) -> float:
     return (
-        max(0, int(input_tokens)) * GEMINI_35_FLASH_INPUT_USD_PER_1M
-        + max(0, int(output_tokens)) * GEMINI_35_FLASH_OUTPUT_USD_PER_1M
+        max(0, int(input_tokens)) * GEMINI_FLASH_LITE_INPUT_USD_PER_1M
+        + max(0, int(output_tokens)) * GEMINI_FLASH_LITE_OUTPUT_USD_PER_1M
     ) / 1_000_000
 
 
@@ -283,9 +290,9 @@ def _summary_payload(
         "error": error,
         "events": recent_events,
         "pricing": {
-            "model": "gemini-3.5-flash",
-            "input_usd_per_1m": GEMINI_35_FLASH_INPUT_USD_PER_1M,
-            "output_usd_per_1m": GEMINI_35_FLASH_OUTPUT_USD_PER_1M,
+            "model": GEMINI_FLASH_LITE_MODEL,
+            "input_usd_per_1m": GEMINI_FLASH_LITE_INPUT_USD_PER_1M,
+            "output_usd_per_1m": GEMINI_FLASH_LITE_OUTPUT_USD_PER_1M,
         },
     }
 

@@ -408,7 +408,7 @@ export function runAdsGeminiBudgetSmokeTest(apiKey) {
       headers: {
         ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
       },
-      body: JSON.stringify({ model: 'gemini-3.5-flash' }),
+      body: JSON.stringify({ model: 'gemini-3.1-flash-lite' }),
       timeout: 120000,
     })
   }
@@ -417,7 +417,7 @@ export function runAdsGeminiBudgetSmokeTest(apiKey) {
     headers: {
       ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
     },
-    body: JSON.stringify({ model: 'gemini-3.5-flash' }),
+    body: JSON.stringify({ model: 'gemini-3.1-flash-lite' }),
     suppressAuthErrorHandler: true,
     timeout: 120000,
   })
