@@ -25,6 +25,35 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect deploy surfaces
+        id: surfaces
+        run: |
+          before="${{ github.event.before }}"
+          if git cat-file -e "$before^{commit}" 2>/dev/null; then
+            base="$before"
+          else
+            base="HEAD^"
+          fi
+
+          changed="$(git diff --name-only "$base" "$GITHUB_SHA" || true)"
+          echo "$changed"
+
+          ml_commit_required=false
+          ads_commit_required=false
+          if echo "$changed" | grep -Eq '^(backends/market-lens-ai/|render\.yaml$)'; then
+            ml_commit_required=true
+          fi
+          if echo "$changed" | grep -Eq '^(backends/ads-insights/|render\.yaml$)'; then
+            ads_commit_required=true
+          fi
+
+          echo "ml_commit_required=$ml_commit_required" >> "$GITHUB_OUTPUT"
+          echo "ads_commit_required=$ads_commit_required" >> "$GITHUB_OUTPUT"
+
       - name: Wait for frontend deploy
         run: sleep 90
 
@@ -51,10 +80,14 @@ jobs:
               echo "ML API proxy OK at commit $commit"
               exit 0
             fi
+            if [ "${{ steps.surfaces.outputs.ml_commit_required }}" != "true" ] && [ -n "$commit" ]; then
+              echo "ML API proxy OK at existing commit $commit"
+              exit 0
+            fi
             echo "ML API waiting for $GITHUB_SHA (attempt $attempt/40, current=${commit:-none})"
             sleep 30
           done
-          echo "::error::ML API did not deploy commit $GITHUB_SHA"
+          echo "::error::ML API did not become healthy for this release"
           exit 1
 
       - name: Check Ads API via Vercel proxy
@@ -66,8 +99,12 @@ jobs:
               echo "Ads API proxy OK at commit $commit"
               exit 0
             fi
+            if [ "${{ steps.surfaces.outputs.ads_commit_required }}" != "true" ] && [ -n "$commit" ]; then
+              echo "Ads API proxy OK at existing commit $commit"
+              exit 0
+            fi
             echo "Ads API waiting for $GITHUB_SHA (attempt $attempt/40, current=${commit:-none})"
             sleep 30
           done
-          echo "::error::Ads API did not deploy commit $GITHUB_SHA"
+          echo "::error::Ads API did not become healthy for this release"
           exit 1
