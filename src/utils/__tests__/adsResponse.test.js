@@ -312,6 +312,34 @@ describe('extractInsightReport', () => {
     expect(report._strippedMarkdown).toBe('## 原因\n\n\n\n## 次に見るべき数値')
   })
 
+  it('extracts escaped embedded insight-report v2 JSON from rendered markdown text', () => {
+    const reportJson = JSON.stringify({
+      version: 'insight_report_v2',
+      executive_summary: ['5/7はchart_01でユーザー数273、セッション数308、PV数328です'],
+      evidence_table: [
+        { claim: 'PV分析 — 日別推移 の ユーザー数 は 5/7 に 273 です', metric: 'ユーザー数', value: '273', period: '5/7', source: 'chart_01', confidence: 'high' },
+      ],
+      interpretation: ['原因は仮説として扱います。'],
+      limitations: ['CPA、ROAS、CTRは未取得'],
+      review_status: { verdict: 'pass', notes: ['数値照合済み'] },
+      agent_trace: [
+        {
+          stage: 'data_evidence_agent',
+          status: 'completed',
+          excerpt: '根拠表\n| chart_id | value |\n| chart_01 | 328 |',
+        },
+      ],
+    })
+    const escapedReportJson = reportJson.replace(/"/g, '\\"')
+    const report = extractInsightReport(`## 原因\n\n${escapedReportJson}\n\n## 次に見るべき数値\n\n${escapedReportJson}`)
+
+    expect(report).not.toBeNull()
+    expect(report.executive_summary[0]).toContain('308')
+    expect(report.evidence_table[0]).toEqual(expect.objectContaining({ source: 'chart_01', value: '273' }))
+    expect(report.agent_trace).toHaveLength(1)
+    expect(report._strippedMarkdown).toBe('## 原因\n\n\n\n## 次に見るべき数値')
+  })
+
   it('returns null for malformed insight-report JSON', () => {
     expect(extractInsightReport('```insight-report\n{ invalid }\n```')).toBeNull()
   })

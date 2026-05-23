@@ -198,18 +198,81 @@ function collectJsonObjects(markdown) {
   return objects
 }
 
+function countBackslashesBefore(source, index) {
+  let count = 0
+  for (let cursor = index - 1; cursor >= 0 && source[cursor] === '\\'; cursor -= 1) {
+    count += 1
+  }
+  return count
+}
+
+function unescapeStructuralJsonQuotes(raw) {
+  return String(raw || '').replace(/(^|[^\\])\\"/g, '$1"')
+}
+
+function collectEscapedJsonObjects(markdown) {
+  const source = String(markdown || '')
+  const objects = []
+  let start = -1
+  let depth = 0
+  let inString = false
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]
+    const slashCount = char === '"' ? countBackslashesBefore(source, index) : 0
+    const isStructuralQuote = char === '"' && slashCount === 1
+
+    if (isStructuralQuote) {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+      continue
+    }
+
+    if (char !== '}' || depth === 0) continue
+
+    depth -= 1
+    if (depth !== 0 || start < 0) continue
+
+    const raw = source.slice(start, index + 1)
+    try {
+      const parsed = JSON.parse(unescapeStructuralJsonQuotes(raw))
+      objects.push({ raw, parsed, start, end: index + 1 })
+    } catch {
+      // Ignore escaped text that only looks like JSON.
+    }
+    start = -1
+  }
+
+  return objects
+}
+
 function findEmbeddedInsightReport(markdown) {
-  return collectJsonObjects(markdown).find(({ parsed }) => looksLikeInsightReportV2(parsed)) || null
+  return [
+    ...collectJsonObjects(markdown),
+    ...collectEscapedJsonObjects(markdown),
+  ].find(({ parsed }) => looksLikeInsightReportV2(parsed)) || null
 }
 
 function stripEmbeddedInsightReports(markdown) {
   const source = String(markdown || '')
-  const objects = collectJsonObjects(source).filter(({ parsed }) => looksLikeInsightReportV2(parsed))
+  const objects = [
+    ...collectJsonObjects(source),
+    ...collectEscapedJsonObjects(source),
+  ].filter(({ parsed }) => looksLikeInsightReportV2(parsed))
+    .sort((a, b) => a.start - b.start)
   if (objects.length === 0) return source
 
   let cursor = 0
   let stripped = ''
   objects.forEach(({ start, end }) => {
+    if (start < cursor) return
     stripped += source.slice(cursor, start)
     cursor = end
   })
@@ -351,10 +414,14 @@ export function extractInsightReport(markdown) {
   const rawCandidate = match ? match[1] : embedded?.raw ?? markdown.trim()
 
   let parsed
-  try {
-    parsed = JSON.parse(rawCandidate)
-  } catch {
-    return null
+  if (embedded && !match) {
+    parsed = embedded.parsed
+  } else {
+    try {
+      parsed = JSON.parse(rawCandidate)
+    } catch {
+      return null
+    }
   }
   if (!isPlainObject(parsed)) return null
 
