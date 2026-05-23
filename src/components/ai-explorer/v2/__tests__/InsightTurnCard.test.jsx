@@ -378,6 +378,31 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(reportJson)).not.toBeInTheDocument()
   })
 
+  it('renders escaped embedded insight-report v2 JSON as a structured report', () => {
+    const reportJson = JSON.stringify({
+      version: 'insight_report_v2',
+      executive_summary: ['5/7はchart_01でユーザー数273、セッション数308、PV数328です'],
+      evidence_table: [
+        { claim: 'PV分析 — 日別推移 の ユーザー数 は 5/7 に 273 です', metric: 'ユーザー数', value: '273', period: '5/7', source: 'chart_01', confidence: 'high' },
+      ],
+      interpretation: ['初心者向けにPV、セッション、ユーザーを分けて確認します。'],
+      actions: [{ priority: 'P0', action: '流入元を確認', rationale: '3指標が同日に増加', expected_metric: 'PV数' }],
+      limitations: ['CPA、ROAS、CTRは未取得'],
+      review_status: { verdict: 'pass', notes: ['数値照合済み'], unsupported_kpis: ['CPA', 'ROAS', 'CTR'] },
+      agent_trace: [{ stage: 'review_agent', label: 'Review Agent', status: 'completed', mode: 'deterministic_fallback', summary: '数値照合済み' }],
+    })
+    const escapedReportJson = reportJson.replace(/"/g, '\\"')
+    const aiContent = `## 原因\n\n${escapedReportJson}\n\n## 次に見るべき数値\n\n${escapedReportJson}`
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Review Agent')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
+    expect(screen.queryByText(escapedReportJson)).not.toBeInTheDocument()
+  })
+
   it('keeps insight-report v2 compact and avoids inline chart expansion', () => {
     const aiContent = [
       '```insight-report',
