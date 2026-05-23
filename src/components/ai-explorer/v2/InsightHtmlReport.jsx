@@ -70,18 +70,36 @@ function EvidenceStatusBand({ report }) {
         <strong className="japanese-text">{statusTitle}</strong>
         <p className="japanese-text">
           {[
-            first.source ? `chart_id: ${first.source}` : '',
+            first.source ? `参照グラフ: ${first.source}` : '',
             first.claim ? `参照: ${first.claim}` : '',
             first.metric ? `指標: ${first.metric}` : '',
             first.value ? `値: ${first.value}` : '',
             first.period ? `期間: ${first.period}` : '',
             unsupported.length > 0 ? `未連携KPI: ${unsupported.join(' / ')}` : '',
-            Array.isArray(status.checked_items) && status.checked_items.length > 0 ? `照合項目: ${status.checked_items.join(' / ')}` : '',
+            Array.isArray(status.checked_items) && status.checked_items.length > 0 ? '確認した項目: グラフ / 指標 / 値 / 期間' : '',
           ].filter(Boolean).join(' / ')}
         </p>
       </div>
     </section>
   )
+}
+
+function formatAgentLabel(item) {
+  const key = String(item?.stage || item?.label || '').toLowerCase()
+  if (key.includes('data_evidence') || key.includes('data evidence')) return '数値根拠の確認'
+  if (key.includes('beginner') || key.includes('explanation')) return '表現の整理'
+  if (key.includes('senior') || key.includes('adops')) return '運用観点の確認'
+  if (key.includes('unsupported') || key.includes('kpi_guard')) return '未連携KPIの確認'
+  if (key.includes('final') || key.includes('consistency') || key.includes('review')) return '整合性チェック'
+  return item?.label || item?.stage || '確認項目'
+}
+
+function formatAgentMode(mode) {
+  const value = String(mode || '').toLowerCase()
+  if (value === 'llm_stage') return 'AI確認'
+  if (value === 'deterministic_fallback') return '自動照合'
+  if (value === 'unknown' || !value) return '確認済み'
+  return '確認済み'
 }
 
 function AgentTracePanel({ trace = [] }) {
@@ -95,8 +113,8 @@ function AgentTracePanel({ trace = [] }) {
       <summary className="japanese-text">
         <span className="material-symbols-outlined" aria-hidden="true">account_tree</span>
         <span>
-          <strong>複数ステージAIレビュー</strong>
-          <em>{items.length}つの役割で順番に検査 / {completedCount}件完了 / {usesLlm ? 'LLM stage含む' : 'deterministic fallback'}</em>
+          <strong>根拠と整合性の確認</strong>
+          <em>{items.length}項目を確認 / {completedCount}件完了 / {usesLlm ? 'AI確認を含む' : '自動照合済み'}</em>
         </span>
       </summary>
       <div className={cardStyles.agentTraceList}>
@@ -105,10 +123,10 @@ function AgentTracePanel({ trace = [] }) {
             <div className={cardStyles.agentTraceHead}>
               <b>{index + 1}</b>
               <div>
-                <strong>{item.label || item.stage}</strong>
+                <strong>{formatAgentLabel(item)}</strong>
                 <span>{item.summary || item.excerpt || '検査完了'}</span>
               </div>
-              <mark data-mode={item.mode || 'unknown'}>{item.mode || 'unknown'}</mark>
+              <mark data-mode={item.mode || 'unknown'}>{formatAgentMode(item.mode)}</mark>
             </div>
             {Array.isArray(item.checks) && item.checks.length > 0 && (
               <p className="japanese-text">確認: {item.checks.slice(0, 4).join(' / ')}</p>
@@ -152,7 +170,7 @@ function InsightReportV2({ report }) {
             <table className={cardStyles.simpleEvidenceTable}>
               <thead>
                 <tr>
-                  <th>chart_id</th>
+                  <th>根拠ID</th>
                   <th>指標</th>
                   <th>値</th>
                   <th>期間</th>

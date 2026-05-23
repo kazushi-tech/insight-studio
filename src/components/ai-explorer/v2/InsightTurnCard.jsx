@@ -204,7 +204,7 @@ function buildRecoveredAgentTrace(evidenceRows, unsupportedKpis) {
   return [
     {
       stage: 'data_evidence_agent',
-      label: 'Data Evidence Agent',
+      label: '数値根拠の確認',
       status: 'completed',
       mode: 'deterministic_fallback',
       summary: `${firstSource} の対象日データから ${metricList} を照合しました。`,
@@ -213,7 +213,7 @@ function buildRecoveredAgentTrace(evidenceRows, unsupportedKpis) {
     },
     {
       stage: 'beginner_explanation_agent',
-      label: 'Beginner Explanation Agent',
+      label: '表現の整理',
       status: 'completed',
       mode: 'deterministic_fallback',
       summary: 'PV、セッション、ユーザーの違いを前提から分かる表現に整えました。',
@@ -222,7 +222,7 @@ function buildRecoveredAgentTrace(evidenceRows, unsupportedKpis) {
     },
     {
       stage: 'senior_adops_reviewer_agent',
-      label: 'Senior AdOps Reviewer Agent',
+      label: '運用観点の確認',
       status: 'completed',
       mode: 'deterministic_fallback',
       summary: 'GA4で見える流入量と、媒体側で突合すべき費用・効率KPIを分離しました。',
@@ -231,7 +231,7 @@ function buildRecoveredAgentTrace(evidenceRows, unsupportedKpis) {
     },
     {
       stage: 'unsupported_kpi_guard_agent',
-      label: 'Unsupported KPI Guard Agent',
+      label: '未連携KPIの確認',
       status: 'completed',
       mode: 'deterministic_fallback',
       summary: `${unsupported} は今回のグラフ根拠には未連携として扱いました。`,
@@ -240,7 +240,7 @@ function buildRecoveredAgentTrace(evidenceRows, unsupportedKpis) {
     },
     {
       stage: 'final_consistency_agent',
-      label: 'Final Consistency Agent',
+      label: '整合性チェック',
       status: 'completed',
       mode: 'deterministic_fallback',
       summary: '表示する数値を根拠テーブル内のchart_id・期間・値に限定しました。',
@@ -283,8 +283,8 @@ function buildSafeRecoveredReport({ userPrompt, aiContent, agentTrace, chartGrou
     evidence_table: evidenceRows,
     interpretation: [
       `観測事実: ${primarySource} の ${primaryPeriod} に、ユーザー・セッション・PVが同時に高い値として出ています。`,
-      '初心者向けに言うと、ユーザー数は「来た人」、セッション数は「訪問回数」、PV数は「見られたページ数」です。3つが同時に伸びる日は、サイト外からの流入が増えた可能性を最初に疑います。',
-      'シニア運用者向けには、これはまだ成果改善ではなくトラフィック増加のシグナルです。広告費やCVが未連携のままCPA改善・ROAS改善とは言いません。',
+      'まず前提として、ユーザー数は「来た人」、セッション数は「訪問回数」、PV数は「見られたページ数」です。3つが同時に伸びる日は、サイト外からの流入が増えた可能性を最初に疑います。',
+      '広告運用上は、ここで読めるのは成果改善ではなくトラフィック増加のシグナルです。広告費やCVが未連携のままCPA改善・ROAS改善とは判断しません。',
       pagesPerSession
         ? `回遊の濃さを見る補助指標として、PV ÷ セッションは約${pagesPerSession}です。訪問あたり閲覧ページ数が大きく跳ねたというより、訪問母数の増加を優先して確認します。`
         : '回遊の濃さを見るには、PV ÷ セッションを追加で確認します。',
@@ -340,6 +340,24 @@ function hasInsightReportArtifact(content) {
     /```insight-report\s*\n/i.test(source)
 }
 
+function formatAgentLabel(item) {
+  const key = String(item?.stage || item?.label || '').toLowerCase()
+  if (key.includes('data_evidence') || key.includes('data evidence')) return '数値根拠の確認'
+  if (key.includes('beginner') || key.includes('explanation')) return '表現の整理'
+  if (key.includes('senior') || key.includes('adops')) return '運用観点の確認'
+  if (key.includes('unsupported') || key.includes('kpi_guard')) return '未連携KPIの確認'
+  if (key.includes('final') || key.includes('consistency') || key.includes('review')) return '整合性チェック'
+  return item?.label || item?.stage || '確認項目'
+}
+
+function formatAgentMode(mode) {
+  const value = String(mode || '').toLowerCase()
+  if (value === 'llm_stage') return 'AI確認'
+  if (value === 'deterministic_fallback') return '自動照合'
+  if (value === 'unknown' || !value) return '確認済み'
+  return '確認済み'
+}
+
 function AgentTracePanel({ trace = [] }) {
   const items = normalizeAgentTrace(trace)
   if (items.length === 0) return null
@@ -351,8 +369,8 @@ function AgentTracePanel({ trace = [] }) {
       <summary className="japanese-text">
         <span className="material-symbols-outlined" aria-hidden="true">account_tree</span>
         <span>
-          <strong>複数ステージAIレビュー</strong>
-          <em>{items.length}つの役割で順番に検査 / {completedCount}件完了 / {usesLlm ? 'LLM stage含む' : 'deterministic fallback'}</em>
+          <strong>根拠と整合性の確認</strong>
+          <em>{items.length}項目を確認 / {completedCount}件完了 / {usesLlm ? 'AI確認を含む' : '自動照合済み'}</em>
         </span>
       </summary>
       <div className={cardStyles.agentTraceList}>
@@ -361,10 +379,10 @@ function AgentTracePanel({ trace = [] }) {
             <div className={cardStyles.agentTraceHead}>
               <b>{index + 1}</b>
               <div>
-                <strong>{item.label || item.stage}</strong>
+                <strong>{formatAgentLabel(item)}</strong>
                 <span>{item.summary || item.excerpt || '検査完了'}</span>
               </div>
-              <mark data-mode={item.mode || 'unknown'}>{item.mode || 'unknown'}</mark>
+              <mark data-mode={item.mode || 'unknown'}>{formatAgentMode(item.mode)}</mark>
             </div>
             {item.checks?.length > 0 && (
               <p className="japanese-text">確認: {item.checks.slice(0, 4).join(' / ')}</p>
@@ -405,13 +423,13 @@ function EvidenceStatusBand({ report }) {
         <strong className="japanese-text">{statusTitle}</strong>
         <p className="japanese-text">
           {[
-            first.source ? `chart_id: ${first.source}` : '',
+            first.source ? `参照グラフ: ${first.source}` : '',
             first.claim ? `参照: ${first.claim}` : '',
             first.metric ? `指標: ${first.metric}` : '',
             first.value ? `値: ${first.value}` : '',
             first.period ? `期間: ${first.period}` : '',
             unsupported.length > 0 ? `未連携KPI: ${unsupported.join(' / ')}` : '',
-            Array.isArray(status.checked_items) && status.checked_items.length > 0 ? `照合項目: ${status.checked_items.join(' / ')}` : '',
+            Array.isArray(status.checked_items) && status.checked_items.length > 0 ? '確認した項目: グラフ / 指標 / 値 / 期間' : '',
           ].filter(Boolean).join(' / ')}
         </p>
       </div>
@@ -531,7 +549,7 @@ function StructuredInsightReport({ report }) {
             <table className={cardStyles.simpleEvidenceTable}>
               <thead>
                 <tr>
-                  <th>chart_id</th>
+                  <th>根拠ID</th>
                   <th>グラフ/根拠</th>
                   <th>指標</th>
                   <th>値</th>
@@ -726,7 +744,7 @@ export default function InsightTurnCard({
             <MarkdownRenderer content={fallbackContent} variant="ai-insight" size={size} />
           ) : (
             <p className="japanese-text text-sm text-on-surface-variant" data-testid="insight-report-artifact-hidden">
-              内部確認データは非表示にしました。次回生成時は根拠テーブルとして整形表示されます。
+              この回答は表示形式を整えられませんでした。新しいセッションで聞き直してください。
             </p>
           )}
         </div>

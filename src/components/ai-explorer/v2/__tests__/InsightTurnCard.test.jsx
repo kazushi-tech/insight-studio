@@ -322,7 +322,7 @@ describe('InsightTurnCard', () => {
         evidence_table: [
           { claim: 'PV分析 — 日別推移 の PV数 は 5/7 に 328 です', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'high' },
         ],
-        interpretation: ['初心者向けにPV数を見ます。', 'シニア広告運用観点で流入元を確認します。'],
+        interpretation: ['まず前提としてPV数を見ます。', '広告運用上は流入元を確認します。'],
         hypotheses: [{ hypothesis: '流入増の仮説', evidence: 'chart_01', missing_data: '広告費' }],
         actions: [{ priority: 'P0', action: '流入元を確認', rationale: 'PV数328', expected_metric: 'PV数' }],
         limitations: ['CPA、ROAS、CTRは未取得'],
@@ -343,11 +343,13 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('数値照合済み')
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('複数ステージAIレビュー')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Data Evidence Agent')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('deterministic_fallback')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('llm_stage')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('根拠と整合性の確認')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('数値根拠の確認')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('自動照合')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('AI確認')
+    expect(screen.getByTestId('agent-trace-panel')).not.toHaveTextContent('deterministic_fallback')
+    expect(screen.getByTestId('agent-trace-panel')).not.toHaveTextContent('llm_stage')
   })
 
   it('renders embedded raw insight-report v2 JSON as a structured report', () => {
@@ -359,7 +361,7 @@ describe('InsightTurnCard', () => {
         { claim: 'PV分析 — 日別推移 の セッション数 は 5/7 に 308 です', metric: 'セッション数', value: '308', period: '5/7', source: 'chart_01', confidence: 'high' },
         { claim: 'PV分析 — 日別推移 の PV数 は 5/7 に 328 です', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'high' },
       ],
-      interpretation: ['初心者向けにPV、セッション、ユーザーを分けて確認します。'],
+      interpretation: ['まず前提としてPV、セッション、ユーザーを分けて確認します。'],
       hypotheses: [{ hypothesis: '流入増の可能性', evidence: 'chart_01', missing_data: '広告媒体別データ' }],
       actions: [{ priority: 'P0', action: '流入元を確認', rationale: '3指標が同日に増加', expected_metric: 'PV数' }],
       limitations: ['CPA、ROAS、CTRは未取得'],
@@ -371,8 +373,8 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Review Agent')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('整合性チェック')
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.queryByText(reportJson)).not.toBeInTheDocument()
@@ -385,7 +387,7 @@ describe('InsightTurnCard', () => {
       evidence_table: [
         { claim: 'PV分析 — 日別推移 の ユーザー数 は 5/7 に 273 です', metric: 'ユーザー数', value: '273', period: '5/7', source: 'chart_01', confidence: 'high' },
       ],
-      interpretation: ['初心者向けにPV、セッション、ユーザーを分けて確認します。'],
+      interpretation: ['まず前提としてPV、セッション、ユーザーを分けて確認します。'],
       actions: [{ priority: 'P0', action: '流入元を確認', rationale: '3指標が同日に増加', expected_metric: 'PV数' }],
       limitations: ['CPA、ROAS、CTRは未取得'],
       review_status: { verdict: 'pass', notes: ['数値照合済み'], unsupported_kpis: ['CPA', 'ROAS', 'CTR'] },
@@ -397,8 +399,8 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Review Agent')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('整合性チェック')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.queryByText(escapedReportJson)).not.toBeInTheDocument()
   })
@@ -461,13 +463,13 @@ describe('InsightTurnCard', () => {
       ],
     }]
     const aiContent = '```insight-report\n{ invalid json with "version": "insight_report_v2" }\n```'
-    const userPrompt = '2026年5月7日のPV数328、セッション数308、ユーザー数273が上がった理由を、根拠テーブル・chart_id・未取得KPIの扱い・Agent確認つきで考察してください。'
+    const userPrompt = '2026年5月7日のPV数328、セッション数308、ユーザー数273が上がった理由を、根拠テーブルと未取得KPIの扱いも含めて考察してください。'
 
     render(<InsightTurnCard turn={{ userPrompt, aiContent }} chartGroups={chartGroups} />)
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('取得済みグラフ根拠で照合済み')
     expect(screen.getByTestId('evidence-status-band')).not.toHaveTextContent('数値照合は要確認')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('ユーザー数')
@@ -476,12 +478,16 @@ describe('InsightTurnCard', () => {
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('308')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('初心者向け')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('シニア運用者向け')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('まず前提として')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('広告運用上は')
+    expect(screen.getByTestId('insight-report-v2')).not.toHaveTextContent('初心者向け')
+    expect(screen.getByTestId('insight-report-v2')).not.toHaveTextContent('シニア運用者向け')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('1セッションあたりPV')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('P3: 媒体管理画面で配信変更履歴を突合する')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Data Evidence Agent')
-    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('Senior AdOps Reviewer Agent')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('数値根拠の確認')
+    expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('運用観点の確認')
+    expect(screen.getByTestId('agent-trace-panel')).not.toHaveTextContent('Data Evidence Agent')
+    expect(screen.getByTestId('agent-trace-panel')).not.toHaveTextContent('Senior AdOps Reviewer Agent')
     expect(screen.queryByText('www.petabit.co.jp/news/2026/8900/')).not.toBeInTheDocument()
     expect(screen.queryByText('chart_02')).not.toBeInTheDocument()
     expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
