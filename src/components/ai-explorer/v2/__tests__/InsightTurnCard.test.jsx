@@ -456,6 +456,17 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(/\{"version"/)).not.toBeInTheDocument()
   })
 
+  it('renders recovered table rows when malformed artifacts omit agent_trace', () => {
+    const aiContent = '{"version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で PV数 328 が確認できます。", "\\n| chart_id | title | metric | value | period |\\n| --- | --- | --- | --- | --- |\\n| chart_01 | PV分析 — 日別推移 | PV数 | 328 | 5/7 |\\n未取得扱い: CPA / ROAS / CTR は入力に存在しない限り断定禁止。"]'
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
+    expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
+  })
+
   it('does not hide normal prose that mentions agent_trace without a JSON key', () => {
     const aiContent = '## 調査メモ\nagent_trace という語を説明していますが、内部JSONではありません。'
 
