@@ -340,7 +340,7 @@ function recoverMalformedInsightReportFromText(source, start) {
 }
 
 function extractMalformedEvidenceRows(text) {
-  const rows = []
+  const rows = extractJsonishEvidenceRows(text)
   const normalizedText = String(text || '').replace(/\\n/g, '\n')
   const lines = normalizedText.split(/\r?\n/)
   for (const line of lines) {
@@ -364,7 +364,45 @@ function extractMalformedEvidenceRows(text) {
       confidence: 'recovered',
     })
   }
-  return rows.slice(0, 8)
+  const seen = new Set()
+  return rows.filter((row) => {
+    const key = [row.source, row.metric, row.value, row.period, row.claim].join('|')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 8)
+}
+
+function extractJsonishEvidenceRows(text) {
+  const normalizedText = String(text || '')
+    .replace(/\\"/g, '"')
+    .replace(/\\n/g, '\n')
+  const blocks = normalizedText.match(/\{[^{}]{0,1800}?"(?:claim|metric|value|period|source|chart_id)"[^{}]{0,1800}?\}/g) || []
+  return blocks
+    .map((block) => {
+      const field = (...keys) => {
+        for (const key of keys) {
+          const match = block.match(new RegExp(`"${key}"\\s*:\\s*"([^"]{1,700})"`))
+          if (match?.[1]) return match[1].trim()
+        }
+        return ''
+      }
+      const claim = field('claim', 'finding')
+      const metric = field('metric')
+      const value = field('value')
+      const period = field('period')
+      const source = field('source', 'chart_id')
+      if (!metric || !value) return null
+      return {
+        claim: claim || [source, metric, value, period].filter(Boolean).join(' / '),
+        metric,
+        value,
+        period,
+        source,
+        confidence: field('confidence') || 'recovered',
+      }
+    })
+    .filter(Boolean)
 }
 
 function extractMalformedLimitations(text) {
