@@ -18,14 +18,17 @@ def _usage_path(monkeypatch) -> Path:
     return TEST_USAGE_PATH
 
 
-def test_calculates_gemini_35_flash_cost() -> None:
-    assert gb.calculate_cost_usd(1_000_000, 1_000_000) == pytest.approx(10.5)
-    assert gb.calculate_cost_usd(100_000, 10_000) == pytest.approx(0.24)
+def test_calculates_gemini_flash_lite_cost() -> None:
+    assert gb.calculate_cost_usd(1_000_000, 1_000_000) == pytest.approx(1.75)
+    assert gb.calculate_cost_usd(100_000, 10_000) == pytest.approx(0.04)
 
 
 def test_normalizes_legacy_flash_preview_model() -> None:
-    assert gb.normalize_gemini_model("gemini-3-flash-preview") == "gemini-3.5-flash"
-    assert gb.normalize_gemini_model("") == "gemini-3.5-flash"
+    assert gb.normalize_gemini_model("gemini-3-flash-preview") == "gemini-3.1-flash-lite"
+    assert gb.normalize_gemini_model("gemini-3.5-flash") == "gemini-3.1-flash-lite"
+    assert gb.normalize_gemini_model("gemini-3.1-flash-lite-preview") == "gemini-3.1-flash-lite"
+    assert gb.normalize_gemini_model("gemini-2.5-flash") == "gemini-3.1-flash-lite"
+    assert gb.normalize_gemini_model("") == "gemini-3.1-flash-lite"
 
 
 def test_blocks_when_projected_monthly_budget_exceeds(monkeypatch) -> None:
@@ -37,7 +40,7 @@ def test_blocks_when_projected_monthly_budget_exceeds(monkeypatch) -> None:
         json.dumps({
             "version": 1,
             "events": [
-                {"month": month, "cost_usd": 17.90, "created_at": "2026-05-20T00:00:00+09:00"}
+                {"month": month, "cost_usd": 17.99, "created_at": "2026-05-20T00:00:00+09:00"}
             ],
         }),
         encoding="utf-8",
@@ -45,7 +48,7 @@ def test_blocks_when_projected_monthly_budget_exceeds(monkeypatch) -> None:
 
     with pytest.raises(gb.GeminiBudgetExceeded):
         gb.assert_gemini_budget_available(
-            model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
             prompt="x" * 20_000,
             max_output_tokens=20_000,
             feature="test",
@@ -89,7 +92,7 @@ def test_corrupt_usage_file_reports_unknown_and_blocks(monkeypatch) -> None:
     assert summary["storage_status"] == "corrupt"
     with pytest.raises(gb.GeminiBudgetExceeded):
         gb.assert_gemini_budget_available(
-            model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
             prompt="hello",
             max_output_tokens=100,
             feature="test",

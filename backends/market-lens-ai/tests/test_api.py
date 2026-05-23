@@ -152,7 +152,7 @@ _SAMPLE_HTML = (
     "<body><h1>Hello</h1></body></html>"
 )
 _MOCK_USAGE = TokenUsage(
-    prompt_tokens=10, completion_tokens=20, total_tokens=30, model="gemini-3.1-flash-lite-preview"
+    prompt_tokens=10, completion_tokens=20, total_tokens=30, model="gemini-3.1-flash-lite"
 )
 
 

@@ -150,10 +150,7 @@ def index() -> Response:
           <div>
             <div class="label" style="margin-bottom:6px">モデル</div>
             <select id="model">
-              <option value="gemini-3.5-flash">gemini-3.5-flash（月$18上限管理）</option>
-              <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite（安い）</option>
-              <option value="gemini-2.5-flash">gemini-2.5-flash（旧）</option>
-              <option value="gemini-2.5-flash-preview-09-2025">gemini-2.5-flash-preview-09-2025</option>
+              <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite（低コスト・月$18上限管理）</option>
             </select>
           </div>
           <div>
@@ -398,7 +395,7 @@ def gen():
     if not pp_md.strip():
         return jsonify({"ok": False, "error": "point_pack_md is empty"}), 400
 
-    model = (j.get("model") or os.getenv("GEMINI_MODEL") or "gemini-3.5-flash").strip()
+    model = (j.get("model") or os.getenv("GEMINI_MODEL") or "gemini-3.1-flash-lite").strip()
     temperature = float(j.get("temperature") if j.get("temperature") is not None else os.getenv("GEMINI_TEMPERATURE", "0.2"))
     use_cache = bool(j.get("use_cache", True))
 
