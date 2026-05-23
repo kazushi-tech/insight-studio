@@ -129,10 +129,92 @@ export function getAdsSections(payload) {
 }
 
 function stripInsightBlocks(markdown) {
-  return String(markdown || '')
+  const withoutFencedBlocks = String(markdown || '')
     .replace(/```insight-report\s*\n[\s\S]*?\n```\s*/g, '')
     .replace(/```insight-meta\s*\n[\s\S]*?\n```\s*/g, '')
-    .trim()
+  return stripEmbeddedInsightReports(withoutFencedBlocks).trim()
+}
+
+function looksLikeInsightReportV2(value) {
+  if (!isPlainObject(value)) return false
+  return [
+    'executive_summary',
+    'evidence_table',
+    'interpretation',
+    'hypotheses',
+    'limitations',
+    'review_status',
+  ].some((key) => Object.prototype.hasOwnProperty.call(value, key))
+}
+
+function collectJsonObjects(markdown) {
+  const source = String(markdown || '')
+  const objects = []
+  let start = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index]
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      continue
+    }
+
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+      continue
+    }
+
+    if (char !== '}' || depth === 0) continue
+
+    depth -= 1
+    if (depth !== 0 || start < 0) continue
+
+    const raw = source.slice(start, index + 1)
+    try {
+      const parsed = JSON.parse(raw)
+      objects.push({ raw, parsed, start, end: index + 1 })
+    } catch {
+      // Ignore non-JSON braces in Markdown prose.
+    }
+    start = -1
+  }
+
+  return objects
+}
+
+function findEmbeddedInsightReport(markdown) {
+  return collectJsonObjects(markdown).find(({ parsed }) => looksLikeInsightReportV2(parsed)) || null
+}
+
+function stripEmbeddedInsightReports(markdown) {
+  const source = String(markdown || '')
+  const objects = collectJsonObjects(source).filter(({ parsed }) => looksLikeInsightReportV2(parsed))
+  if (objects.length === 0) return source
+
+  let cursor = 0
+  let stripped = ''
+  objects.forEach(({ start, end }) => {
+    stripped += source.slice(cursor, start)
+    cursor = end
+  })
+  stripped += source.slice(cursor)
+  return stripped
 }
 
 function normalizeTextArray(value) {
@@ -265,7 +347,8 @@ function normalizeActionItems(value) {
 export function extractInsightReport(markdown) {
   if (!markdown || typeof markdown !== 'string') return null
   const match = markdown.match(/```insight-report\s*\n([\s\S]*?)\n```/)
-  const rawCandidate = match ? match[1] : markdown.trim()
+  const embedded = match ? null : findEmbeddedInsightReport(markdown)
+  const rawCandidate = match ? match[1] : embedded?.raw ?? markdown.trim()
 
   let parsed
   try {
@@ -275,14 +358,7 @@ export function extractInsightReport(markdown) {
   }
   if (!isPlainObject(parsed)) return null
 
-  const hasV2Shape = [
-    'executive_summary',
-    'evidence_table',
-    'interpretation',
-    'hypotheses',
-    'limitations',
-    'review_status',
-  ].some((key) => Object.prototype.hasOwnProperty.call(parsed, key))
+  const hasV2Shape = looksLikeInsightReportV2(parsed)
 
   if (hasV2Shape) {
     const report = {
@@ -332,7 +408,7 @@ export function extractInsightReport(markdown) {
       report.actions.length > 0 ||
       report.limitations.length > 0
 
-    const strippedMarkdown = match ? stripInsightBlocks(markdown) : ''
+    const strippedMarkdown = match || embedded ? stripInsightBlocks(markdown) : ''
     return hasContent ? { ...report, _strippedMarkdown: strippedMarkdown } : null
   }
 
