@@ -254,10 +254,11 @@ function collectEscapedJsonObjects(markdown) {
 }
 
 function findEmbeddedInsightReport(markdown) {
-  return [
+  const validReport = [
     ...collectJsonObjects(markdown),
     ...collectEscapedJsonObjects(markdown),
   ].find(({ parsed }) => looksLikeInsightReportV2(parsed)) || null
+  return validReport || recoverMalformedInsightReport(markdown)
 }
 
 function stripEmbeddedInsightReports(markdown) {
@@ -278,6 +279,30 @@ function stripEmbeddedInsightReports(markdown) {
   })
   stripped += source.slice(cursor)
   return stripped
+}
+
+function recoverMalformedInsightReport(markdown) {
+  const source = String(markdown || '')
+  const versionMatch = source.match(/\\?"version\\?"\s*:\s*\\?"insight_report_v2\\?"/)
+  if (!versionMatch) return null
+
+  const versionIndex = versionMatch.index ?? -1
+  const start = source.lastIndexOf('{', versionIndex)
+  if (start < 0) return null
+
+  const rest = source.slice(start)
+  const agentTraceMatch = rest.match(/,\s*\\?"agent_trace\\?"\s*:/)
+  if (!agentTraceMatch || agentTraceMatch.index == null) return null
+
+  const raw = rest.slice(0, agentTraceMatch.index).replace(/,\s*$/, '') + '}'
+  const normalizedRaw = raw.includes('\\"') ? unescapeStructuralJsonQuotes(raw) : raw
+  try {
+    const parsed = JSON.parse(normalizedRaw)
+    if (!looksLikeInsightReportV2(parsed)) return null
+    return { raw: rest, parsed, start, end: source.length, recovered: true }
+  } catch {
+    return null
+  }
 }
 
 function normalizeTextArray(value) {
@@ -475,7 +500,7 @@ export function extractInsightReport(markdown) {
       report.actions.length > 0 ||
       report.limitations.length > 0
 
-    const strippedMarkdown = match || embedded ? stripInsightBlocks(markdown) : ''
+    const strippedMarkdown = embedded?.recovered ? '' : (match || embedded ? stripInsightBlocks(markdown) : '')
     return hasContent ? { ...report, _strippedMarkdown: strippedMarkdown } : null
   }
 
