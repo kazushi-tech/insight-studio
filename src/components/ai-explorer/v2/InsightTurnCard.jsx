@@ -3,6 +3,7 @@ import UserPromptPill from './UserPromptPill'
 import InsightHtmlReport from './InsightHtmlReport'
 import InsightSummaryHero from './InsightSummaryHero'
 import { extractInsightMeta, extractInsightReport, extractOperationalInsightCards } from '../../../utils/adsResponse'
+import { buildChartEvidencePack } from '../../../utils/adsReports'
 import styles from './AiExplorerV2.module.css'
 import cardStyles from './InsightTurnCard.module.css'
 
@@ -92,6 +93,129 @@ function normalizeAgentTrace(trace) {
   return Array.isArray(trace)
     ? trace.filter((item) => item && typeof item === 'object')
     : []
+}
+
+function normalizeNumberToken(value) {
+  const raw = String(value ?? '').replace(/,/g, '').trim()
+  if (!raw) return ''
+  const number = Number(raw)
+  if (!Number.isFinite(number)) return ''
+  return Number.isInteger(number) ? String(number) : String(number)
+}
+
+function extractPromptNumbers(prompt) {
+  const values = new Set()
+  for (const match of String(prompt || '').matchAll(/\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?/g)) {
+    const token = normalizeNumberToken(match[0])
+    if (!token) continue
+    const numeric = Number(token)
+    if (Number.isInteger(numeric) && numeric >= 1900 && numeric <= 2099) continue
+    values.add(token)
+  }
+  return values
+}
+
+function buildDateTokens(prompt) {
+  const source = String(prompt || '')
+  const tokens = new Set()
+  const add = (month, day) => {
+    const m = Number(month)
+    const d = Number(day)
+    if (!m || !d) return
+    tokens.add(`${m}/${d}`)
+    tokens.add(`${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`)
+  }
+  for (const match of source.matchAll(/(\d{4})年(\d{1,2})月(\d{1,2})日/g)) add(match[2], match[3])
+  for (const match of source.matchAll(/(?:^|[^\d])(\d{1,2})\/(\d{1,2})(?:[^\d]|$)/g)) add(match[1], match[2])
+  return tokens
+}
+
+function pointMatchesPromptDate(point, dateTokens) {
+  if (dateTokens.size === 0) return true
+  const labels = [point?.label, point?.rawLabel, ...(Array.isArray(point?.aliases) ? point.aliases : [])]
+    .map((value) => String(value || ''))
+  return labels.some((label) => dateTokens.has(label))
+}
+
+function recoverEvidenceRowsFromCharts(userPrompt, chartGroups) {
+  const promptNumbers = extractPromptNumbers(userPrompt)
+  if (promptNumbers.size === 0 || !Array.isArray(chartGroups) || chartGroups.length === 0) return []
+
+  const dateTokens = buildDateTokens(userPrompt)
+  const pack = buildChartEvidencePack(chartGroups, { scopeLabel: 'AI考察 復旧表示', maxCharts: 36 })
+  const rows = []
+
+  for (const chart of pack?.charts || []) {
+    for (const series of chart.series || []) {
+      for (const point of series.points || []) {
+        const value = normalizeNumberToken(point.value)
+        if (!promptNumbers.has(value) || !pointMatchesPromptDate(point, dateTokens)) continue
+        rows.push({
+          claim: `${chart.title} の ${series.label} は ${point.label} に ${value} です`,
+          metric: series.label,
+          value,
+          period: point.label,
+          source: chart.chart_id,
+          confidence: 'recovered',
+        })
+      }
+    }
+  }
+
+  const seen = new Set()
+  return rows.filter((row) => {
+    const key = [row.source, row.metric, row.value, row.period].join('|')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 8)
+}
+
+function buildSafeRecoveredReport({ userPrompt, aiContent, agentTrace, chartGroups }) {
+  const evidenceRows = recoverEvidenceRowsFromCharts(userPrompt, chartGroups)
+  if (evidenceRows.length === 0) return null
+  const metrics = evidenceRows.map((row) => `${row.metric} ${row.value}`).join('、')
+  const unsupportedKpis = ['広告費', 'CPA', 'ROAS', 'CTR', 'CPC', 'インプレッション']
+    .filter((kpi) => String(userPrompt || aiContent || '').includes(kpi))
+
+  return {
+    version: 'insight_report_v2',
+    executive_summary: [
+      `${evidenceRows[0].period || '該当日'} は ${evidenceRows[0].source} で ${metrics} が確認できます。内部レポート本文の整形に失敗したため、画面上のグラフ根拠から安全に復旧表示しています。`,
+    ],
+    evidence_table: evidenceRows,
+    interpretation: [
+      'PV、セッション、ユーザーが同じ日に揃って上がっている場合、まず流入量そのものの増加として読みます。',
+      '原因の断定には source / medium、LP、検索クエリ、イベント・広告配信変更の同日確認が必要です。',
+    ],
+    hypotheses: [
+      {
+        hypothesis: '特定チャネルまたは特定LPへの流入増が、同日のPV・セッション・ユーザー増に寄与した可能性があります。',
+        evidence: evidenceRows.map((row) => row.source).filter(Boolean).join(' / '),
+        missing_data: 'source / medium別、LP別、検索クエリ別、広告媒体別の同日内訳',
+      },
+    ],
+    actions: [
+      { priority: 'P0', action: '同日の流入元別セッションを確認', rationale: '3指標が同日に増えているため', expected_metric: 'source / medium別セッション' },
+      { priority: 'P1', action: '伸びたLPと検索クエリを照合', rationale: 'PV増が特定ページ起点かを分けるため', expected_metric: 'LP別セッション / 検索クエリ' },
+      { priority: 'P2', action: '媒体データと配信変更履歴を突合', rationale: 'GA4だけでは広告費・CPA・ROASを断定できないため', expected_metric: '広告費 / CPA / ROAS / CTR' },
+    ],
+    limitations: [
+      '内部AIレポートのJSON整形に失敗したため、表示可能なグラフ根拠に限定して復旧しています。',
+      unsupportedKpis.length > 0
+        ? `${unsupportedKpis.join(' / ')} は入力に存在しない限り判断保留です。`
+        : '広告費 / CPA / ROAS / CTR / CPC / インプレッションは入力に存在しない限り判断保留です。',
+    ],
+    review_status: {
+      verdict: 'recovered',
+      notes: ['chartGroupsから数値復旧', '内部JSON非表示', '追加生成なし'],
+      blocking_issues: [],
+      checked_items: ['chart_id', 'metric', 'value', 'period'],
+      unsupported_kpis: unsupportedKpis,
+    },
+    agent_trace: agentTrace,
+    _strippedMarkdown: '',
+  }
 }
 
 function hasInsightReportArtifact(content) {
@@ -379,6 +503,7 @@ export default function InsightTurnCard({
   turn = {},
   size = 'normal',
   insightMeta,
+  chartGroups = [],
 }) {
   const { userPrompt = '', userTimestamp, aiContent = '', aiTimestamp, isError } = turn
 
@@ -389,8 +514,12 @@ export default function InsightTurnCard({
     derivedReport.agent_trace = agentTrace
   }
   const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
-  const hasStructuredV2Report = isStructuredReportV2(derivedReport)
   const shouldHideRawArtifact = !derivedReport && hasInsightReportArtifact(renderContent)
+  const recoveredReport = shouldHideRawArtifact
+    ? buildSafeRecoveredReport({ userPrompt, aiContent, agentTrace, chartGroups })
+    : null
+  const displayReport = derivedReport ?? recoveredReport
+  const hasStructuredV2Report = isStructuredReportV2(displayReport)
   const fallbackContent = shouldHideRawArtifact ? '' : renderContent
 
   const operationalCards = shouldHideRawArtifact ? [] : extractOperationalInsightCards(renderContent)
@@ -416,17 +545,17 @@ export default function InsightTurnCard({
 
       <UserPromptPill content={userPrompt} timestamp={userTimestamp} />
 
-      {derivedReport ? (
+      {displayReport ? (
         hasStructuredV2Report ? (
-          <StructuredInsightReport report={derivedReport} />
+          <StructuredInsightReport report={displayReport} />
         ) : (
-          <InsightHtmlReport report={derivedReport} />
+          <InsightHtmlReport report={displayReport} />
         )
       ) : derivedMeta ? (
         <InsightSummaryHero meta={derivedMeta} />
       ) : null}
 
-      {!derivedReport && operationalCards.length > 0 && (
+      {!displayReport && operationalCards.length > 0 && (
         <div className={styles.operationalCards} data-testid="operational-insight-cards">
           {operationalCards.map((card) => (
             <section key={card.key} className={styles.operationalCard}>
@@ -445,15 +574,15 @@ export default function InsightTurnCard({
         </div>
       )}
 
-      {!derivedReport && !isError && fallbackContent && (
+      {!displayReport && !isError && fallbackContent && (
         <InsightReportSections
           content={fallbackContent}
           operationalCards={operationalCards}
         />
       )}
 
-      {derivedReport ? (
-        renderContent && (
+      {displayReport ? (
+        derivedReport && renderContent && (
           <details className={cardStyles.markdownDetails}>
             <summary className="japanese-text">
               <span className="material-symbols-outlined" aria-hidden="true">article</span>

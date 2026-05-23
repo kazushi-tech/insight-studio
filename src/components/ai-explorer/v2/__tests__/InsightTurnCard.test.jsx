@@ -435,6 +435,35 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(/invalid json/)).not.toBeInTheDocument()
   })
 
+  it('renders a safe recovered report from chart groups when malformed artifacts cannot be parsed', () => {
+    const chartGroups = [{
+      title: 'PV分析 — 日別推移',
+      chartType: 'line',
+      labels: ['20260507'],
+      datasets: [
+        { label: 'ユーザー数', data: [273] },
+        { label: 'セッション数', data: [308] },
+        { label: 'PV数', data: [328] },
+      ],
+    }]
+    const aiContent = '```insight-report\n{ invalid json with "version": "insight_report_v2" }\n```'
+    const userPrompt = '2026年5月7日のPV数328、セッション数308、ユーザー数273が上がった理由を、根拠テーブル・chart_id・未取得KPIの扱い・Agent確認つきで考察してください。'
+
+    render(<InsightTurnCard turn={{ userPrompt, aiContent }} chartGroups={chartGroups} />)
+
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('chart_id: chart_01')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('ユーザー数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('273')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('セッション数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('308')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
+    expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
+    expect(screen.queryByText(/invalid json/)).not.toBeInTheDocument()
+  })
+
   it('renders recovered table rows from malformed report artifacts', () => {
     const aiContent = [
       '{"version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で ユーザー数 273、セッション数 308、PV数 328 が確認できます。", "根拠は chart 表です',
