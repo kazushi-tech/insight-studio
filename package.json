@@ -14,6 +14,7 @@
     "smoke:discovery:rollout:render-probe": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=1 --pause-ms=0 --min-success-count=1",
     "smoke:discovery:rollout:render-5": "node scripts/discovery-render-rollout-check.mjs --mode=render --attempts=5 --pause-ms=15000 --min-success-count=3",
     "smoke:discovery:rollout:proxy-5": "node scripts/discovery-render-rollout-check.mjs --mode=proxy --attempts=5 --pause-ms=15000 --min-success-count=3",
+    "release:production": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/release-production.ps1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
