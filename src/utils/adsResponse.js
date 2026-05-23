@@ -301,8 +301,80 @@ function recoverMalformedInsightReport(markdown) {
     if (!looksLikeInsightReportV2(parsed)) return null
     return { raw: rest, parsed, start, end: source.length, recovered: true }
   } catch {
+    return recoverMalformedInsightReportFromText(source, start)
+  }
+}
+
+function recoverMalformedInsightReportFromText(source, start) {
+  const text = String(source || '')
+  const executive_summary = []
+  const summaryMatch = text.match(/\\?"executive_summary\\?"\s*:\s*\[\s*\\?"([^"\\]{12,500})/)
+  if (summaryMatch?.[1]) executive_summary.push(summaryMatch[1].trim())
+
+  const evidence_table = extractMalformedEvidenceRows(text)
+  const limitations = extractMalformedLimitations(text)
+
+  if (executive_summary.length === 0 && evidence_table.length === 0 && limitations.length === 0) {
     return null
   }
+
+  return {
+    raw: text.slice(start),
+    parsed: {
+      version: 'insight_report_v2',
+      executive_summary,
+      evidence_table,
+      limitations,
+      review_status: {
+        verdict: 'recovered',
+        notes: ['壊れた内部traceを除外し、ユーザー向け根拠だけを復元'],
+      },
+      agent_trace: [],
+    },
+    start,
+    end: text.length,
+    recovered: true,
+  }
+}
+
+function extractMalformedEvidenceRows(text) {
+  const rows = []
+  const lines = String(text || '').split(/\r?\n/)
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed.startsWith('|') || !trimmed.endsWith('|')) continue
+    if (/^-+\s*\|/.test(trimmed.replace(/^\|/, ''))) continue
+
+    const cells = trimmed.split('|').slice(1, -1).map((cell) => cell.trim())
+    if (cells.length < 5) continue
+    if (cells.some((cell) => /^-+$/.test(cell))) continue
+    if (/chart_id|metric|value|period/i.test(cells.join(' '))) continue
+
+    const [source, title, metric, value, period] = cells
+    if (!/^chart_\d+/i.test(source) || !metric || !value) continue
+    rows.push({
+      claim: [title, metric, value, period].filter(Boolean).join(' / '),
+      metric,
+      value,
+      period,
+      source,
+      confidence: 'recovered',
+    })
+  }
+  return rows.slice(0, 8)
+}
+
+function extractMalformedLimitations(text) {
+  const limitations = []
+  const limitationMatch = String(text || '').match(/未取得扱い[:：]\s*([^"}\]]{4,160})/)
+  if (limitationMatch?.[1]) limitations.push(limitationMatch[1].trim())
+
+  const kpis = ['広告費', 'CPA', 'ROAS', 'CTR', 'CPC', 'インプレッション']
+    .filter((kpi) => text.includes(kpi))
+  if (kpis.length > 0 && /未取得|存在しない|断定禁止/.test(text)) {
+    limitations.push(`${[...new Set(kpis)].join(' / ')} は入力に存在しないため判断保留`)
+  }
+  return [...new Set(limitations)].slice(0, 4)
 }
 
 function normalizeTextArray(value) {

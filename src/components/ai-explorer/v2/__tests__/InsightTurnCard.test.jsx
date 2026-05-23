@@ -435,6 +435,27 @@ describe('InsightTurnCard', () => {
     expect(screen.queryByText(/invalid json/)).not.toBeInTheDocument()
   })
 
+  it('renders recovered table rows from malformed report artifacts', () => {
+    const aiContent = [
+      '{"version": "insight_report_v2", "executive_summary": ["5/7 は chart_01 で ユーザー数 273、セッション数 308、PV数 328 が確認できます。", "根拠は chart 表です',
+      '| chart_id | title | metric | value | period |',
+      '| --- | --- | --- | --- | --- |',
+      '| chart_01 | PV分析 — 日別推移 | ユーザー数 | 273 | 5/7 |',
+      '| chart_01 | PV分析 — 日別推移 | セッション数 | 308 | 5/7 |',
+      '| chart_01 | PV分析 — 日別推移 | PV数 | 328 | 5/7 |',
+      '未取得扱い: 広告費 / CPA / ROAS / CTR / CPC / インプレッションは入力に存在しない限り断定禁止。", "agent_trace": [{"stage": "data_evidence_agent", "excerpt": "broken"}]}',
+    ].join('\n')
+
+    render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
+
+    expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
+    expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
+    expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
+    expect(screen.queryByText(/\{"version"/)).not.toBeInTheDocument()
+  })
+
   it('does not hide normal prose that mentions agent_trace without a JSON key', () => {
     const aiContent = '## 調査メモ\nagent_trace という語を説明していますが、内部JSONではありません。'
 
