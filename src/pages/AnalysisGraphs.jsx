@@ -1481,7 +1481,10 @@ function GraphInlineAnswer({ answer, report: providedReport, agentTrace = [] }) 
           <InlineAgentTracePanel trace={trace} />
         </>
       ) : (
-        <MarkdownRenderer content={answer} variant="ai-insight" size="normal" />
+        <>
+          <MarkdownRenderer content={answer} variant="ai-insight" size="normal" />
+          <InlineAgentTracePanel trace={trace} />
+        </>
       )}
     </div>
   )
