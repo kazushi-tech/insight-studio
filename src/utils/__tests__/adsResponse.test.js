@@ -270,6 +270,27 @@ describe('extractInsightReport', () => {
     expect(report._strippedMarkdown).not.toContain('insight-report')
   })
 
+  it('parses raw insight-report v2 JSON responses', () => {
+    const report = extractInsightReport(JSON.stringify({
+      version: 'insight_report_v2',
+      executive_summary: ['5/7はPV数328です'],
+      evidence_table: [
+        { claim: 'PV上昇', metric: 'PV数', value: '328', period: '5/7', source: 'chart_01', confidence: 'high' },
+      ],
+      interpretation: ['根拠数値だけで確認します。'],
+      actions: [{ priority: 'P0', action: '流入元を確認', rationale: 'PV増加', expected_metric: 'PV数' }],
+      limitations: ['CPAは未取得'],
+      review_status: { verdict: 'pass', notes: ['数値照合済み'] },
+      agent_trace: [{ stage: 'review_agent', status: 'completed', summary: '確認完了' }],
+    }))
+
+    expect(report).not.toBeNull()
+    expect(report.executive_summary).toEqual(['5/7はPV数328です'])
+    expect(report.evidence_table[0]).toEqual(expect.objectContaining({ value: '328', source: 'chart_01' }))
+    expect(report.agent_trace).toHaveLength(1)
+    expect(report._strippedMarkdown).toBe('')
+  })
+
   it('returns null for malformed insight-report JSON', () => {
     expect(extractInsightReport('```insight-report\n{ invalid }\n```')).toBeNull()
   })

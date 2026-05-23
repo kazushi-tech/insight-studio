@@ -265,11 +265,11 @@ function normalizeActionItems(value) {
 export function extractInsightReport(markdown) {
   if (!markdown || typeof markdown !== 'string') return null
   const match = markdown.match(/```insight-report\s*\n([\s\S]*?)\n```/)
-  if (!match) return null
+  const rawCandidate = match ? match[1] : markdown.trim()
 
   let parsed
   try {
-    parsed = JSON.parse(match[1])
+    parsed = JSON.parse(rawCandidate)
   } catch {
     return null
   }
@@ -332,7 +332,8 @@ export function extractInsightReport(markdown) {
       report.actions.length > 0 ||
       report.limitations.length > 0
 
-    return hasContent ? { ...report, _strippedMarkdown: stripInsightBlocks(markdown) } : null
+    const strippedMarkdown = match ? stripInsightBlocks(markdown) : ''
+    return hasContent ? { ...report, _strippedMarkdown: strippedMarkdown } : null
   }
 
   const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : ''
@@ -363,7 +364,7 @@ export function extractInsightReport(markdown) {
     actions,
     evidence,
     recommended_charts,
-    _strippedMarkdown: stripInsightBlocks(markdown),
+    _strippedMarkdown: match ? stripInsightBlocks(markdown) : '',
   }
 }
 
