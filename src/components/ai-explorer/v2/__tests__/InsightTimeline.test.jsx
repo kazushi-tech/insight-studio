@@ -117,4 +117,16 @@ describe('InsightTimeline', () => {
       screen.getByPlaceholderText('データに対する質問や分析したい仮説を入力してください…'),
     ).toBeInTheDocument()
   })
+
+  it('does not show only the old format error for legacy saved sessions', () => {
+    const messages = [
+      { role: 'user', text: '5月のPV最大日は？' },
+      { role: 'assistant', text: 'この回答は表示形式を整えられませんでした。新しいセッションで聞き直してください。' },
+    ]
+    render(<InsightTimeline {...baseProps} messages={messages} />)
+
+    expect(screen.getByText(/古い形式の回答です/)).toBeInTheDocument()
+    expect(screen.getByText(/再生成してください/)).toBeInTheDocument()
+    expect(screen.queryByText(/^この回答は表示形式を整えられませんでした。新しいセッションで聞き直してください。$/)).not.toBeInTheDocument()
+  })
 })

@@ -39,6 +39,19 @@ const DEFAULT_QUICK_PROMPTS = [
   },
 ]
 
+const LEGACY_FORMAT_ERROR_TEXT = 'この回答は表示形式を整えられませんでした。'
+
+function normalizeLegacyAssistantMessageText(text) {
+  const value = String(text ?? '')
+  if (!value.includes(LEGACY_FORMAT_ERROR_TEXT)) return value
+  return [
+    '## 古い形式の回答です',
+    '',
+    'このセッションには、以前のAI回答形式で保存された壊れた回答が残っています。',
+    'セッションをクリアするか、同じ質問を再試行して再生成してください。',
+  ].join('\n')
+}
+
 function groupMessagesIntoTurns(messages) {
   if (!Array.isArray(messages)) return []
   const turns = []
@@ -54,12 +67,20 @@ function groupMessagesIntoTurns(messages) {
       }
       pendingUser = { text: message.text ?? '', timestamp: message.timestamp }
     } else if (role === 'assistant') {
+      const isLegacyFormatError = String(message.text ?? '').includes(LEGACY_FORMAT_ERROR_TEXT)
       turns.push({
         userPrompt: pendingUser?.text ?? '',
         userTimestamp: pendingUser?.timestamp,
-        aiContent: message.text ?? '',
+        aiContent: normalizeLegacyAssistantMessageText(message.text),
         aiTimestamp: message.timestamp,
         isError: !!message.isError,
+        fallbackNotice: message.fallbackNotice,
+        legacyFormatError: isLegacyFormatError,
+        caveats: Array.isArray(message.caveats) ? message.caveats : [],
+        analysisContext: message.analysisContext,
+        parseStatus: message.parseStatus,
+        fallbackUsed: message.fallbackUsed,
+        agentTrace: message.agentTrace,
       })
       pendingUser = null
     }
@@ -96,6 +117,7 @@ export default function InsightTimeline({
   isAdsAuthenticated,
   handleRefreshReport,
   hasAnalysisKey = true,
+  onRetryPrompt,
   quickPrompts = DEFAULT_QUICK_PROMPTS,
   reportError,
   reportBundle,
@@ -229,7 +251,13 @@ export default function InsightTimeline({
           ) : (
             <>
               {completedTurns.map((turn, idx) => (
-                <InsightTurnCard key={idx} turn={turn} size={fontSize} chartGroups={chartGroups} />
+                <InsightTurnCard
+                  key={idx}
+                  turn={turn}
+                  size={fontSize}
+                  chartGroups={chartGroups}
+                  onRetry={onRetryPrompt ? () => onRetryPrompt(turn.userPrompt) : undefined}
+                />
               ))}
               {(pendingTurn || loading) && (
                 <LoadingSkeleton

@@ -1,5 +1,9 @@
 const BASE = '/api/ads'
-const ADS_DIRECT_BASE = 'https://market-lens-ai.onrender.com/api/ads'
+const ADS_BACKEND_ORIGIN = 'https://ads-insights-9q5s.onrender.com'
+const ADS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api/ads`
+export const AI_GENERATE_ENDPOINT = '/api/insights/neon/generate'
+const INSIGHTS_BASE = '/api/insights'
+const INSIGHTS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api/insights`
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 
@@ -123,6 +127,7 @@ function isBackendConfigAuthError(status, body = {}) {
 
 async function request(path, options = {}) {
   const {
+    neutralApi = false,
     direct = false,
     directStrategy = 'verified',
     allowProxyFallback = true,
@@ -141,22 +146,23 @@ async function request(path, options = {}) {
 
   const didSendAuth = Boolean(headers.get('Authorization'))
 
-  let base = BASE
+  let base = neutralApi ? INSIGHTS_BASE : BASE
+  const directBase = neutralApi ? INSIGHTS_DIRECT_BASE : ADS_DIRECT_BASE
   const shouldUseDirect = direct && !SHOULD_FORCE_PROXY
   if (shouldUseDirect) {
     if (directStrategy === 'optimistic') {
-      base = ADS_DIRECT_BASE
+      base = directBase
     } else {
       const ready = await ensureDirectAdsBackend()
       base = ready || !allowProxyFallback
-        ? ADS_DIRECT_BASE
-        : BASE
+        ? directBase
+        : neutralApi ? INSIGHTS_BASE : BASE
     }
   }
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
-  const usingDirectBackend = shouldUseDirect && base === ADS_DIRECT_BASE
+  const usingDirectBackend = shouldUseDirect && base === directBase
 
   let res
   try {
@@ -173,6 +179,7 @@ async function request(path, options = {}) {
       }
       return request(path, {
         direct,
+        neutralApi,
         directStrategy: 'verified',
         allowProxyFallback,
         skipAuth,
@@ -207,6 +214,7 @@ async function request(path, options = {}) {
     _directReady = false
     return request(path, {
       direct,
+      neutralApi,
       directStrategy: 'verified',
       allowProxyFallback,
       skipAuth,
@@ -360,7 +368,7 @@ export function generateInsights(payload) {
   })
 }
 
-/** POST /api/neon/generate — Point Pack ベース AI考察 */
+/** POST /api/insights/neon/generate — Point Pack ベース AI考察 */
 export function neonGenerate(payload, apiKey) {
   const isGemini = payload.provider === 'google'
   const headers = {
@@ -374,6 +382,7 @@ export function neonGenerate(payload, apiKey) {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    neutralApi: true,
     direct: true,
     timeout: 300000,
   })

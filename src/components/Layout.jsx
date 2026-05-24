@@ -19,7 +19,8 @@ import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 
-const SETUP_GATED_PATHS = ['/ads/graphs']
+const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai', '/insights/ai']
+const AI_EXPLORER_PATH = '/insights/ai'
 
 const NAV_ITEMS = [
   { to: '/', icon: 'home', label: 'ダッシュボード' },
@@ -38,7 +39,7 @@ const NAV_ITEMS = [
     children: [
       { to: '/ads/wizard', icon: 'tune', label: 'セットアップ' },
       { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
-      { to: '/ads/ai', icon: 'auto_awesome', label: 'AI考察' },
+      { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
     ],
   },
   { to: '/settings', icon: 'settings', label: '設定' },
@@ -637,7 +638,7 @@ export default function Layout() {
               {/* Report History Drawer Trigger */}
               <button
                 onClick={() => {
-                  if (location.pathname !== '/ads/ai') navigate('/ads/ai')
+                  if (location.pathname !== AI_EXPLORER_PATH) navigate(AI_EXPLORER_PATH)
                   setShowHistoryDrawer(true)
                 }}
                 className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"

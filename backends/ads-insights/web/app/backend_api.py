@@ -72,6 +72,16 @@ if str(BASE_DIR) not in sys.path:
 import chart_generator as cg
 
 from .point_pack_generator import generate_multi_month_point_pack_md, generate_point_pack_md, format_period_label
+from .ai_analysis import (
+    ai_json_output_contract,
+    apply_pv_spike_diagnostic_to_context,
+    build_ai_analysis_context,
+    fetch_pv_spike_diagnostic_context,
+    log_ai_debug,
+    normalize_ai_model_response,
+    question_needs_pv_spike_diagnostic,
+    summarize_ai_context_for_log,
+)
 
 # Import data providers
 from .data_providers import get_data_provider
@@ -1315,7 +1325,16 @@ def _validate_device_trust_token(token: str, case_id: str) -> bool:
     return payload.get("typ") == "device_trust" and payload.get("case_id") == case_id
 
 # Public paths that don't require auth
-_AUTH_PUBLIC_PATHS = {"/", "/api/auth/login", "/api/health", "/api/cases", "/api/cases/login"}
+_AUTH_PUBLIC_PATHS = {
+    "/",
+    "/api/auth/login",
+    "/api/health",
+    "/api/cases",
+    "/api/cases/login",
+    "/api/neon/health",
+    "/api/ads/neon/health",
+    "/api/insights/neon/health",
+}
 
 # ── ログイン専用 brute-force 対策 ─────────────────────────
 _LOGIN_MAX_FAILURES = 5       # 最大失敗回数
@@ -1385,7 +1404,14 @@ async def _auth_middleware(request, call_next):
 import collections
 _RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "30"))
 _RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
-_RATE_LIMITED_PATHS = {"/api/generate_insights", "/api/neon/generate", "/api/chat", "/api/bq/generate"}
+_RATE_LIMITED_PATHS = {
+    "/api/generate_insights",
+    "/api/neon/generate",
+    "/api/ads/neon/generate",
+    "/api/insights/neon/generate",
+    "/api/chat",
+    "/api/bq/generate",
+}
 _rate_buckets: dict[str, collections.deque] = {}
 
 @app.middleware("http")
@@ -2414,6 +2440,24 @@ def api_health():
             pass
 
     return _json({"ok": True, "status": "healthy", "version": sha})
+
+
+@app.api_route("/api/insights/neon/health", methods=["GET", "HEAD"])
+@app.api_route("/api/ads/neon/health", methods=["GET", "HEAD"])
+@app.api_route("/api/neon/health", methods=["GET", "HEAD"])
+def neon_health(request: Request):
+    """Lightweight AI Explorer route health check.
+
+    This proves that the Vercel/Render rewrite reaches the ads-insights
+    backend without invoking Gemini, BigQuery, or user credentials.
+    """
+    route = "insights" if request.url.path.startswith("/api/insights/") else "ads"
+    return _json({
+        "ok": True,
+        "service": "ads-insights",
+        "feature": "ai-explorer",
+        "route": route,
+    })
 
 
 # Mount public directory for charts
@@ -13837,6 +13881,8 @@ def _build_review_safe_insight_report(
     ])
 
 
+@app.post("/api/insights/neon/generate")
+@app.post("/api/ads/neon/generate")
 @app.post("/api/neon/generate")
 async def neon_generate(request: Request) -> Dict[str, Any]:
     # V3.1: Request型に変更しヘッダーからAPIキーも読み取り
@@ -13887,6 +13933,8 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     chart_evidence_pack = payload.get("chart_evidence_pack")
     active_chart_scope = payload.get("active_chart_scope") or {}
     session_policy = payload.get("session_policy") or {}
+    import uuid as _uuid_mod
+    request_id = _uuid_mod.uuid4().hex[:8]
 
     if not msg:
         return {"ok": False, "error": "message is empty"}
@@ -14097,6 +14145,70 @@ insight-report JSON の必須キー:
         except Exception:
             chart_summary = ""  # エラー時はスキップ
 
+    ai_analysis_context = {}
+    ai_analysis_context_json = ""
+    if data_source in ("bq", "cross"):
+        ai_analysis_context = build_ai_analysis_context(payload, msg, pp_md)
+        pv_diag_requested = question_needs_pv_spike_diagnostic(msg)
+        if pv_diag_requested:
+            dataset_id = (ai_analysis_context.get("datasetId") or "").strip()
+            date_range = ai_analysis_context.get("dateRange") if isinstance(ai_analysis_context.get("dateRange"), dict) else {}
+            if dataset_id and date_range.get("start") and date_range.get("end"):
+                try:
+                    pv_diagnostic = await asyncio.to_thread(
+                        fetch_pv_spike_diagnostic_context,
+                        dataset_id,
+                        date_range,
+                        project=payload.get("bq_project_id") or payload.get("projectId"),
+                    )
+                    ai_analysis_context = apply_pv_spike_diagnostic_to_context(ai_analysis_context, pv_diagnostic)
+                except Exception as exc:
+                    caveats = list(ai_analysis_context.get("caveats") or [])
+                    caveats.append(
+                        f"PVベースのBigQuery専用診断は取得できませんでした。既存グラフコンテキストのみで回答します（{type(exc).__name__}）。"
+                    )
+                    ai_analysis_context["caveats"] = list(dict.fromkeys(caveats))
+                    log_ai_debug(
+                        logger,
+                        "pv_spike_diagnostic_failed",
+                        request_id,
+                        {
+                            "dataset_id": dataset_id,
+                            "date_range": date_range,
+                            "error_type": type(exc).__name__,
+                            "error": str(exc)[:500],
+                        },
+                    )
+            else:
+                caveats = list(ai_analysis_context.get("caveats") or [])
+                caveats.append("PVベースのBigQuery専用診断に必要なdatasetIdまたはdateRangeが不足しています。")
+                ai_analysis_context["caveats"] = list(dict.fromkeys(caveats))
+        ai_analysis_context_json = _safe_json_dumps(ai_analysis_context, ensure_ascii=False, indent=2)
+        log_ai_debug(
+            logger,
+            "request_context",
+            request_id,
+            {
+                "user_question": msg,
+                "provider": provider,
+                "model": model,
+                "selected_project": ai_analysis_context.get("projectName"),
+                "selected_property": ai_analysis_context.get("propertyName"),
+                "date_range": ai_analysis_context.get("dateRange"),
+                "selected_metric": ai_analysis_context.get("metricFocus"),
+                "selected_chart_context": ai_analysis_context.get("chartContext"),
+                "data_context_summary": summarize_ai_context_for_log(ai_analysis_context),
+            },
+        )
+
+    json_contract = ai_json_output_contract() if data_source in ("bq", "cross") else ""
+    analysis_context_block = (
+        f"\n# AI_ANALYSIS_CONTEXT（Pythonで確定済みの分析データ。数値計算はここを優先）\n"
+        f"```json\n{ai_analysis_context_json}\n```\n"
+        if ai_analysis_context_json
+        else ""
+    )
+
     active_scope_context = ""
     if isinstance(active_chart_scope, dict) and active_chart_scope:
         scope_label = active_chart_scope.get("label") or ""
@@ -14137,10 +14249,12 @@ insight-report JSON の必須キー:
 - 計算が必要な場合でも、要点パックに無い数値を前提にしない
 - 不明な点は「未取得/不明」と明記し、追加で必要なデータを具体的に列挙する
 - データ取得状態が fallback/missing/partial の場合、数値分析は未確定として扱い、具体的な増減や精密なKPI判断を断定しない
+{json_contract}
 
 # 要点パック（根拠）
 {pp_md}
 {chart_summary}
+{analysis_context_block}
 {active_scope_context}
 {session_policy_context}
 {history_context}
@@ -14149,6 +14263,8 @@ insight-report JSON の必須キー:
 
 # 出力要件
 - 断定は根拠がある範囲だけ
+- data_source が bq/cross の場合は指定JSONだけを返し、本文Markdownは answer_markdown に入れること
+- PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にすること
 - 重要な根拠は「要点パックの該当箇所（見出し名/行の要旨）」として併記
 - ユーザーが具体質問した場合は、要点パック内のテーブル・ランキングから該当する値を抜き出して回答すること
 - 要点パックに存在しないデータを求められた場合は「未取得/不明」と回答し、追加で必要なクエリタイプを案内すること
@@ -14159,10 +14275,12 @@ insight-report JSON の必須キー:
         # 標準モード
         prompt = f"""{system}
 {instruction}
+{json_contract}
 
 # 要点パック（根拠）
 {pp_md}
 {chart_summary}
+{analysis_context_block}
 {active_scope_context}
 {session_policy_context}
 {history_context}
@@ -14171,14 +14289,14 @@ insight-report JSON の必須キー:
 
 # 出力要件
 - 断定は根拠がある範囲だけ
+- data_source が bq/cross の場合は指定JSONだけを返し、本文Markdownは answer_markdown に入れること
+- PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にすること
 - 重要な根拠は「要点パックの該当箇所（見出し名/行の要旨）」として併記
 - **箇条書きは必ず階層化し、全て同じレベルにしないこと**
 - **各セクション見出しには絵文字を必ず付けること**
 - データ取得状態が fallback/missing/partial の場合は、冒頭で「現時点ではBigQueryデータが未取得または暫定」と明記し、数値断定ではなく確認手順を提示すること
 """
 
-    import uuid as _uuid_mod
-    request_id = _uuid_mod.uuid4().hex[:8]
     _neon_max_tokens = int(os.getenv("NEON_MAX_OUTPUT_TOKENS", "8192"))
     try:
         async def _run_ai(current_prompt: str, current_temperature: float, max_tokens_override: int | None = None) -> str:
@@ -14519,6 +14637,35 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
             )
         else:
             text = await _run_ai(prompt, temperature)
+        if data_source in ("bq", "cross"):
+            normalized_response = normalize_ai_model_response(text, context=ai_analysis_context)
+            normalized_response.update({
+                "model": model,
+                "provider": provider,
+                "tokens_used": len(text or ""),
+                "workflow": workflow,
+                "report_contract_version": report_contract_version,
+                "agent_trace": agent_trace,
+                "request_id": request_id,
+            })
+            log_ai_debug(
+                logger,
+                "model_response",
+                request_id,
+                {
+                    "raw_response_start": (text or "")[:4000],
+                    "parse_status": normalized_response.get("parse_status"),
+                    "parse_error": normalized_response.get("parse_error"),
+                    "fallback_used": normalized_response.get("fallback_used"),
+                    "frontend_response": {
+                        k: v for k, v in normalized_response.items()
+                        if k not in ("raw_response", "answer_markdown", "text")
+                    },
+                },
+            )
+            if normalized_response.get("ok") is False:
+                return JSONResponse(normalized_response, status_code=502)
+            return normalized_response
         review_result = None
         if workflow == "multi_agent_v1" or report_contract_version == "insight_report_v2":
             from .bq_chart_builder import validate_ai_insight_output

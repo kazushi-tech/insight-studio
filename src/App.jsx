@@ -1,5 +1,5 @@
 import { Component } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Compare from './pages/Compare'
@@ -86,6 +86,12 @@ function AdminGuard({ children }) {
   return children
 }
 
+function LegacyAdsAiRedirect() {
+  const location = useLocation()
+  const search = location.search || (typeof window !== 'undefined' ? window.location.search : '') || ''
+  return <Navigate to={`/insights/ai${search}`} replace />
+}
+
 
 export default function App() {
   return (
@@ -111,7 +117,8 @@ export default function App() {
           <Route path="ads/wizard" element={<SetupWizard />} />
           <Route path="ads/pack" element={<Navigate to="/ads/graphs" replace />} />
           <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
-          <Route path="ads/ai" element={<AiExplorer />} />
+          <Route path="ads/ai" element={<SetupGuard><LegacyAdsAiRedirect /></SetupGuard>} />
+          <Route path="insights/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
           <Route path="cases" element={<Navigate to="/projects" replace />} />
           <Route path="projects" element={<AdminGuard><ProjectManagement /></AdminGuard>} />
           <Route path="settings" element={<Settings />} />

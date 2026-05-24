@@ -13,6 +13,10 @@ const proxy = {
     changeOrigin: true,
     rewrite: (path) => path.replace(/^\/api\/ads/, '/api'),
   },
+  '/api/insights': {
+    target: 'http://127.0.0.1:8001',
+    changeOrigin: true,
+  },
 }
 
 export default defineConfig({

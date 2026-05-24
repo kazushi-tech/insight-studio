@@ -1184,7 +1184,7 @@ function GraphReadingBoard({
             </div>
           )}
           <a
-            href="/ads/ai"
+            href="/insights/ai"
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-bold text-on-primary hover:opacity-90 transition-opacity"
           >
             <span className="material-symbols-outlined text-base" aria-hidden="true">chat</span>
@@ -1206,6 +1206,7 @@ function GraphAiQuestionRail({
   isAdsAuthenticated,
   analysisKey,
   analysisProvider,
+  currentCase,
   onThemeChange,
   onScrollToGraphs,
   isCollapsed,
@@ -1226,7 +1227,7 @@ function GraphAiQuestionRail({
         '異常値が施策判断に影響するか確認したい',
       ]
   const selectedQuestion = inlineQuestion.trim() || prompts[0] || ''
-  const wideAiHref = `/ads/ai?question=${encodeURIComponent(selectedQuestion)}`
+  const wideAiHref = `/insights/ai?question=${encodeURIComponent(selectedQuestion)}`
 
   if (isCollapsed) {
     return (
@@ -1317,6 +1318,14 @@ function GraphAiQuestionRail({
         workflow: 'multi_agent_v1',
         report_contract_version: 'insight_report_v2',
         ai_chart_context: buildAiChartContext(inlineEvidenceGroups),
+        analysis_context_meta: {
+          projectName: currentCase?.name,
+          caseName: currentCase?.name,
+          propertyName: setupState?.propertyName,
+          datasetId: setupState?.datasetId,
+          periods: setupState?.periods ?? [],
+          queryTypes: setupState?.queryTypes ?? [],
+        },
         chart_evidence_pack: inlineEvidencePack,
         active_chart_scope: {
           label: inlineScopeLabel,
@@ -1500,7 +1509,7 @@ export default function AnalysisGraphs() {
     analysisKey,
     analysisProvider,
   } = useAuth()
-  const { setupState, reportBundle, setReportBundle, resetSetup } = useAdsSetup()
+  const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
@@ -2032,6 +2041,7 @@ export default function AnalysisGraphs() {
               isAdsAuthenticated={isAdsAuthenticated}
               analysisKey={analysisKey}
               analysisProvider={analysisProvider}
+              currentCase={currentCase}
               onThemeChange={setActiveTheme}
               onScrollToGraphs={() => scrollToSection('graphs')}
               isCollapsed={isAiRailCollapsed}

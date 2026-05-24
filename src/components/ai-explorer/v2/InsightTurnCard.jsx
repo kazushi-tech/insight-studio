@@ -645,25 +645,63 @@ export default function InsightTurnCard({
   size = 'normal',
   insightMeta,
   chartGroups = [],
+  onRetry,
 }) {
-  const { userPrompt = '', userTimestamp, aiContent = '', aiTimestamp, isError } = turn
+  const {
+    userPrompt = '',
+    userTimestamp,
+    aiContent = '',
+    aiTimestamp,
+    isError,
+    fallbackNotice,
+    caveats = [],
+    analysisContext,
+    parseStatus,
+    fallbackUsed,
+    legacyFormatError,
+  } = turn
 
-  const derivedReport = extractInsightReport(aiContent)
-  const derivedMeta = insightMeta ?? extractInsightMeta(aiContent)
+  const isLegacyFormatTurn = Boolean(legacyFormatError)
+    || String(aiContent || '').includes('古い形式の回答です')
+    || String(aiContent || '').includes('以前のAI回答形式')
+  const derivedReport = isLegacyFormatTurn ? null : extractInsightReport(aiContent)
+  const derivedMeta = isLegacyFormatTurn ? null : insightMeta ?? extractInsightMeta(aiContent)
   const agentTrace = normalizeAgentTrace(turn.agentTrace ?? derivedReport?.agent_trace ?? derivedMeta?.agent_trace)
   if (derivedReport && agentTrace.length > 0 && (!derivedReport.agent_trace || derivedReport.agent_trace.length === 0)) {
     derivedReport.agent_trace = agentTrace
   }
   const renderContent = derivedReport?._strippedMarkdown ?? derivedMeta?._strippedMarkdown ?? aiContent
   const shouldHideRawArtifact = !derivedReport && hasInsightReportArtifact(renderContent)
-  const recoveredReport = shouldHideRawArtifact
+  const recoveredReport = shouldHideRawArtifact && !isLegacyFormatTurn
     ? buildSafeRecoveredReport({ userPrompt, aiContent, agentTrace, chartGroups })
     : null
   const displayReport = derivedReport ?? recoveredReport
   const hasStructuredV2Report = isStructuredReportV2(displayReport)
-  const fallbackContent = shouldHideRawArtifact ? '' : renderContent
+  const fallbackContent = shouldHideRawArtifact && !isLegacyFormatTurn ? '' : renderContent
 
-  const operationalCards = shouldHideRawArtifact ? [] : extractOperationalInsightCards(renderContent)
+  const operationalCards = shouldHideRawArtifact || isLegacyFormatTurn ? [] : extractOperationalInsightCards(renderContent)
+  const showDebugMeta = import.meta.env.DEV
+  const dataPeriod = analysisContext?.dateRange
+    ? [analysisContext.dateRange.start, analysisContext.dateRange.end].filter(Boolean).join(' 〜 ')
+    : ''
+  const metric = analysisContext?.metricFocus || analysisContext?.dataSummary?.primaryMetric || ''
+  const pvPeak = analysisContext?.pvSpikePeak
+  const formatSignedPercent = (value) => {
+    if (value == null || value === '') return ''
+    const num = Number(value)
+    if (!Number.isFinite(num)) return String(value)
+    return `${num > 0 ? '+' : ''}${num}%`
+  }
+  const parseLabel = parseStatus === 'json'
+    ? 'JSON parse成功'
+    : parseStatus
+      ? `parse: ${parseStatus}`
+      : ''
+  const fallbackLabel = fallbackUsed === false || (parseStatus === 'json' && !fallbackNotice)
+    ? '未使用'
+    : fallbackNotice
+      ? '使用'
+      : ''
 
   return (
     <article
@@ -696,6 +734,76 @@ export default function InsightTurnCard({
         <InsightSummaryHero meta={derivedMeta} />
       ) : null}
 
+      {(dataPeriod || metric || fallbackNotice || caveats.length > 0 || onRetry || (showDebugMeta && (parseLabel || fallbackLabel))) && (
+        <div className={styles.turnMetaPanel} data-testid="ai-response-meta">
+          <div className={styles.turnMetaItems}>
+            {dataPeriod && (
+              <span className="japanese-text">
+                <b>使用データ期間</b> {dataPeriod}
+              </span>
+            )}
+            {metric && (
+              <span className="japanese-text">
+                <b>主な指標</b> {metric}
+              </span>
+            )}
+            {pvPeak?.date && (
+              <span className="japanese-text">
+                <b>最大PV日</b> {pvPeak.date}
+              </span>
+            )}
+            {pvPeak?.pageViews != null && (
+              <span className="japanese-text">
+                <b>最大PV数</b> {pvPeak.pageViews}
+              </span>
+            )}
+            {pvPeak?.previousDayDeltaRate != null && (
+              <span className="japanese-text">
+                <b>前日比</b> {pvPeak.previousDayDelta != null ? `${pvPeak.previousDayDelta > 0 ? '+' : ''}${pvPeak.previousDayDelta} / ` : ''}{formatSignedPercent(pvPeak.previousDayDeltaRate)}
+              </span>
+            )}
+            {pvPeak?.periodAverageDeltaRate != null && (
+              <span className="japanese-text">
+                <b>平均比</b> {pvPeak.periodAverageDelta != null ? `${pvPeak.periodAverageDelta > 0 ? '+' : ''}${pvPeak.periodAverageDelta} / ` : ''}{formatSignedPercent(pvPeak.periodAverageDeltaRate)}
+              </span>
+            )}
+            {analysisContext?.pvSpikePeak && (
+              <span className="japanese-text">
+                <b>使用データ</b> GA4 BigQuery / page_viewベース
+              </span>
+            )}
+            {showDebugMeta && parseLabel && (
+              <span className="japanese-text">
+                <b>AI出力</b> {parseLabel}
+              </span>
+            )}
+            {showDebugMeta && fallbackLabel && (
+              <span className="japanese-text">
+                <b>fallback</b> {fallbackLabel}
+              </span>
+            )}
+            {fallbackNotice && (
+              <span className="japanese-text">
+                <b>注意</b> {fallbackNotice}
+              </span>
+            )}
+          </div>
+          {caveats.length > 0 && (
+            <ul className={styles.turnCaveats}>
+              {caveats.slice(0, 3).map((item, idx) => (
+                <li key={`${item}-${idx}`} className="japanese-text">{item}</li>
+              ))}
+            </ul>
+          )}
+          {onRetry && (
+            <button type="button" className={`${styles.retryButton} japanese-text`} onClick={onRetry}>
+              <span className="material-symbols-outlined" aria-hidden="true">refresh</span>
+              再試行
+            </button>
+          )}
+        </div>
+      )}
+
       {!displayReport && operationalCards.length > 0 && (
         <div className={styles.operationalCards} data-testid="operational-insight-cards">
           {operationalCards.map((card) => (
@@ -715,7 +823,7 @@ export default function InsightTurnCard({
         </div>
       )}
 
-      {!displayReport && !isError && fallbackContent && (
+      {!displayReport && !isError && fallbackContent && !isLegacyFormatTurn && (
         <InsightReportSections
           content={fallbackContent}
           operationalCards={operationalCards}

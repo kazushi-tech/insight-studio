@@ -14,6 +14,7 @@ const WRAPPER_KEYS = [
 ]
 
 const DEFAULT_TEXT_KEYS = [
+  'answer_markdown',
   'report_md',
   'summary_md',
   'analysis_md',
@@ -33,6 +34,17 @@ const DEFAULT_TEXT_KEYS = [
   'answer',
   'description',
   'detail',
+]
+
+const AI_TEXT_KEYS = [
+  'answer_markdown',
+  'text',
+  'message',
+  'content',
+  'markdown',
+  'md',
+  'answer',
+  'direct_answer',
 ]
 
 export function isPlainObject(value) {
@@ -115,6 +127,134 @@ export function getAdsText(payload, preferredKeys = DEFAULT_TEXT_KEYS) {
   }
 
   return null
+}
+
+function tryParseJsonLikeText(value) {
+  if (!isNonEmptyText(value)) return null
+  const text = value.trim()
+  const fence = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/i)
+  const candidates = []
+  if (fence?.[1]) candidates.push(fence[1].trim())
+  candidates.push(text)
+  const first = text.indexOf('{')
+  const last = text.lastIndexOf('}')
+  if (first >= 0 && last > first) candidates.push(text.slice(first, last + 1))
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate)
+      if (isPlainObject(parsed)) return parsed
+    } catch {
+      // keep trying candidates
+    }
+  }
+  return null
+}
+
+function buildMarkdownFromStructuredAi(payload) {
+  if (!isPlainObject(payload)) return null
+
+  for (const key of AI_TEXT_KEYS) {
+    const text = textFromValue(payload[key])
+    if (text) return text
+  }
+
+  const parts = []
+  if (isNonEmptyText(payload.direct_answer)) {
+    parts.push(`## 結論\n${payload.direct_answer.trim()}`)
+  }
+  if (Array.isArray(payload.facts) && payload.facts.length > 0) {
+    const lines = payload.facts
+      .filter((item) => isPlainObject(item))
+      .map((item) => `- ${item.label ?? '根拠'}: ${item.value ?? ''}${item.evidence ? `（${item.evidence}）` : ''}`)
+    if (lines.length > 0) parts.push(`## 数値根拠\n${lines.join('\n')}`)
+  }
+  if (Array.isArray(payload.hypotheses) && payload.hypotheses.length > 0) {
+    const lines = payload.hypotheses
+      .filter((item) => isPlainObject(item))
+      .map((item) => `- ${item.title ?? '仮説'}${item.reason ? `: ${item.reason}` : ''}`)
+    if (lines.length > 0) parts.push(`## 仮説\n${lines.join('\n')}`)
+  }
+  if (Array.isArray(payload.next_actions) && payload.next_actions.length > 0) {
+    const lines = payload.next_actions.filter(isNonEmptyText).map((item) => `- ${item.trim()}`)
+    if (lines.length > 0) parts.push(`## 次に見るべきこと\n${lines.join('\n')}`)
+  }
+
+  return parts.join('\n\n').trim() || null
+}
+
+export function normalizeAiDisplayResponse(payload) {
+  const directText = textFromValue(payload)
+  if (directText) {
+    const parsed = tryParseJsonLikeText(directText)
+    if (parsed) {
+      const parsedText = buildMarkdownFromStructuredAi(parsed)
+      if (parsedText) {
+        return {
+          text: parsedText,
+          fallbackNotice: null,
+          rawResponse: directText,
+          structured: parsed,
+          parseStatus: 'json_string',
+          fallbackUsed: false,
+          caveats: Array.isArray(parsed.caveats) ? parsed.caveats.filter(isNonEmptyText) : [],
+        }
+      }
+    }
+    return {
+      text: directText,
+      fallbackNotice: null,
+      rawResponse: directText,
+      structured: null,
+      parseStatus: 'raw_string',
+      fallbackUsed: false,
+      caveats: [],
+    }
+  }
+
+  const normalized = normalizeAdsPayload(payload)
+  const structuredText = buildMarkdownFromStructuredAi(normalized) ?? buildMarkdownFromStructuredAi(payload)
+  const fallbackText = getAdsText(payload, AI_TEXT_KEYS) ?? getAdsText(normalized, AI_TEXT_KEYS)
+  const text = structuredText ?? fallbackText
+
+  if (text) {
+    return {
+      text,
+      fallbackNotice: payload?.fallback_notice ?? normalized?.fallback_notice ?? null,
+      rawResponse: payload?.raw_response ?? normalized?.raw_response ?? null,
+      structured: isPlainObject(normalized) ? normalized : null,
+      parseStatus: payload?.parse_status ?? normalized?.parse_status ?? 'structured',
+      fallbackUsed: payload?.fallback_used ?? normalized?.fallback_used ?? null,
+      caveats: Array.isArray(payload?.caveats)
+        ? payload.caveats.filter(isNonEmptyText)
+        : Array.isArray(normalized?.caveats)
+          ? normalized.caveats.filter(isNonEmptyText)
+          : [],
+      analysisContext: payload?.analysis_context ?? normalized?.analysis_context ?? null,
+    }
+  }
+
+  if (isPlainObject(payload)) {
+    return {
+      text: JSON.stringify(payload, null, 2),
+      fallbackNotice: '回答本文の形式が想定外だったため、レスポンス内容を表示しています。',
+      rawResponse: null,
+      structured: payload,
+      parseStatus: 'object_fallback',
+      fallbackUsed: true,
+      caveats: [],
+    }
+  }
+
+  return {
+    text: '',
+    fallbackNotice: null,
+    rawResponse: null,
+    structured: null,
+    parseStatus: 'empty',
+    fallbackUsed: null,
+    caveats: [],
+  }
 }
 
 export function getAdsSections(payload) {
