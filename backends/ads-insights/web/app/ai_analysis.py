@@ -6,6 +6,7 @@ import json
 import os
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 
 SECRET_KEY_RE = re.compile(r"(api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|password|secret)", re.I)
@@ -67,6 +68,15 @@ def _percent(value: float | int | None) -> float | None:
         return None
 
 
+def _round_float(value: float | int | None, digits: int = 1) -> float | None:
+    if value is None:
+        return None
+    try:
+        return round(float(value), digits)
+    except Exception:
+        return None
+
+
 def _date_value(value: Any) -> date | None:
     if isinstance(value, datetime):
         return value.date()
@@ -96,6 +106,20 @@ def _safe_identifier(value: str) -> str:
     if not re.match(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)?$", text):
         raise ValueError("dataset_id contains unsupported characters")
     return text
+
+
+def _url_path(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = urlparse(text)
+        if not parsed.scheme or not parsed.netloc:
+            return text
+        path = parsed.path or "/"
+        return f"{path}?{parsed.query}" if parsed.query else path
+    except Exception:
+        return text
 
 
 def question_needs_pv_spike_diagnostic(question: str) -> bool:
@@ -211,12 +235,210 @@ def _build_breakdown_rows(
     return sorted(prepared, key=lambda r: (r.get("delta") or 0, r.get("peakDayPageViews") or 0), reverse=True)[:10]
 
 
+def _normalise_session_landing_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """BigQuery集計済み行、またはテスト用page_viewイベント行を日別LP行へ寄せる。"""
+    if not rows:
+        return []
+    if any("event_timestamp" in row or "page_location" in row for row in rows):
+        return _session_landing_rows_from_pageview_events(rows)
+
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        event_date = _date_text(row.get("event_date") or row.get("date"))
+        landing_url = row.get("landingPageUrl") or row.get("landing_page_url") or row.get("landing_page")
+        if not event_date or not landing_url:
+            continue
+        page_views = _safe_number(row.get("page_views") if "page_views" in row else row.get("peakDayPageViews"))
+        sessions = _safe_number(
+            row.get("sessions_with_pageviews")
+            if "sessions_with_pageviews" in row
+            else row.get("landing_sessions")
+            if "landing_sessions" in row
+            else row.get("sessions")
+        )
+        out.append({
+            "date": event_date,
+            "landingPageUrl": str(landing_url),
+            "landingPageTitle": row.get("landingPageTitle") or row.get("landing_page_title"),
+            "pageViews": int(page_views or 0),
+            "landingSessions": int(sessions or 0),
+            "missingSessionIdPageViews": int(_safe_number(row.get("missing_session_id_page_views")) or 0),
+            "unknownLandingPagePageViews": int(_safe_number(row.get("unknown_landing_page_page_views")) or 0),
+        })
+    return out
+
+
+def _session_landing_rows_from_pageview_events(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    pageviews = []
+    missing_by_date: dict[str, int] = {}
+    unknown_by_date: dict[str, int] = {}
+
+    for row in events:
+        if row.get("event_name") and row.get("event_name") != "page_view":
+            continue
+        event_date = _date_text(row.get("event_date") or row.get("date"))
+        user_id = row.get("user_pseudo_id")
+        session_id = row.get("ga_session_id")
+        page_location = row.get("page_location") or row.get("landing_page_url") or row.get("landingPageUrl")
+        if not user_id or session_id in (None, ""):
+            missing_by_date[event_date] = missing_by_date.get(event_date, 0) + 1
+            continue
+        if not page_location:
+            unknown_by_date[event_date] = unknown_by_date.get(event_date, 0) + 1
+            continue
+        pageviews.append({
+            "date": event_date,
+            "eventTimestamp": int(_safe_number(row.get("event_timestamp")) or 0),
+            "sessionKey": f"{user_id}-{session_id}",
+            "pageLocation": str(page_location),
+            "pageTitle": row.get("page_title"),
+        })
+
+    landing_by_session: dict[str, dict[str, Any]] = {}
+    for row in sorted(pageviews, key=lambda item: (item["sessionKey"], item["eventTimestamp"])):
+        landing_by_session.setdefault(row["sessionKey"], {
+            "landingPageUrl": row["pageLocation"],
+            "landingPageTitle": row.get("pageTitle"),
+        })
+
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    sessions_by_key: dict[tuple[str, str], set[str]] = {}
+    for row in pageviews:
+        landing = landing_by_session.get(row["sessionKey"])
+        if not landing:
+            continue
+        key = (row["date"], landing["landingPageUrl"])
+        item = grouped.setdefault(key, {
+            "date": row["date"],
+            "landingPageUrl": landing["landingPageUrl"],
+            "landingPageTitle": landing.get("landingPageTitle"),
+            "pageViews": 0,
+            "landingSessions": 0,
+            "missingSessionIdPageViews": missing_by_date.get(row["date"], 0),
+            "unknownLandingPagePageViews": unknown_by_date.get(row["date"], 0),
+        })
+        item["pageViews"] += 1
+        sessions_by_key.setdefault(key, set()).add(row["sessionKey"])
+
+    for key, sessions in sessions_by_key.items():
+        grouped[key]["landingSessions"] = len(sessions)
+
+    return sorted(grouped.values(), key=lambda item: (item["date"], -item["pageViews"], item["landingPageUrl"]))
+
+
+def build_session_landing_page_diagnostic(
+    rows: list[dict[str, Any]],
+    *,
+    peak_date: Any,
+    previous_date: Any | None,
+    date_range: dict[str, Any] | None = None,
+    caveats: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """セッション内の最初のpage_viewをLPとして、日別PVをLPへ帰属する。"""
+    normalised = _normalise_session_landing_rows(rows)
+    peak_text = _date_text(peak_date)
+    previous_text = _date_text(previous_date) if previous_date else None
+    target_rows = [row for row in normalised if row.get("date") in {peak_text, previous_text}]
+    if not peak_text or not target_rows:
+        return None
+
+    by_url: dict[str, dict[str, Any]] = {}
+    missing_by_date: dict[str, int] = {}
+    unknown_by_date: dict[str, int] = {}
+    for row in target_rows:
+        event_date = row.get("date")
+        missing_by_date[event_date] = max(missing_by_date.get(event_date, 0), int(row.get("missingSessionIdPageViews") or 0))
+        unknown_by_date[event_date] = max(unknown_by_date.get(event_date, 0), int(row.get("unknownLandingPagePageViews") or 0))
+        url = row.get("landingPageUrl")
+        if not url:
+            continue
+        item = by_url.setdefault(url, {
+            "landingPageUrl": url,
+            "landingPagePath": _url_path(url),
+            "landingPageTitle": row.get("landingPageTitle"),
+            "peakDayPageViews": 0,
+            "previousDayPageViews": 0,
+            "peakDayLandingSessions": 0,
+            "previousDayLandingSessions": 0,
+        })
+        if not item.get("landingPageTitle") and row.get("landingPageTitle"):
+            item["landingPageTitle"] = row.get("landingPageTitle")
+        if event_date == peak_text:
+            item["peakDayPageViews"] += int(row.get("pageViews") or 0)
+            item["peakDayLandingSessions"] += int(row.get("landingSessions") or 0)
+        elif previous_text and event_date == previous_text:
+            item["previousDayPageViews"] += int(row.get("pageViews") or 0)
+            item["previousDayLandingSessions"] += int(row.get("landingSessions") or 0)
+
+    peak_total = sum(int(row.get("peakDayPageViews") or 0) for row in by_url.values())
+    previous_total = sum(int(row.get("previousDayPageViews") or 0) for row in by_url.values())
+    positive_delta_total = sum(
+        max(int(row.get("peakDayPageViews") or 0) - int(row.get("previousDayPageViews") or 0), 0)
+        for row in by_url.values()
+    )
+
+    top_pages = []
+    for row in by_url.values():
+        peak_value = int(row.get("peakDayPageViews") or 0)
+        previous_value = int(row.get("previousDayPageViews") or 0)
+        delta = peak_value - previous_value
+        sessions = int(row.get("peakDayLandingSessions") or 0)
+        row["delta"] = delta
+        row["deltaRate"] = _rate(peak_value, previous_value)
+        row["shareOfPeakDayPageViews"] = _percent(peak_value / peak_total) if peak_total else None
+        row["contributionToIncrease"] = _percent(max(delta, 0) / positive_delta_total) if positive_delta_total else None
+        row["landingSessionsDelta"] = sessions - int(row.get("previousDayLandingSessions") or 0)
+        row["avgPageViewsPerLandingSession"] = _round_float(peak_value / sessions) if sessions else None
+        top_pages.append(row)
+
+    caveat_list = list(caveats or [])
+    caveat_list.append(
+        "セッションLPは user_pseudo_id + ga_session_id ごとの最初の page_view.page_location で定義しています。"
+    )
+    caveat_list.append(
+        "peakDayLandingSessions は、対象日にpage_viewを発生させた当該セッションLP起点のセッション数です。セッション開始日ではなくpage_view発生日に帰属しています。"
+    )
+    if missing_by_date.get(peak_text, 0) or (previous_text and missing_by_date.get(previous_text, 0)):
+        caveat_list.append("一部page_viewはga_session_idまたはuser_pseudo_idがなく、セッションLPに帰属できません。")
+    if unknown_by_date.get(peak_text, 0) or (previous_text and unknown_by_date.get(previous_text, 0)):
+        caveat_list.append("一部page_viewはpage_locationがなく、セッションLPに帰属できません。")
+
+    return {
+        "method": "ga4_session_first_page_view",
+        "sessionKeyMethod": "user_pseudo_id + ga_session_id",
+        "landingPageDefinition": "first page_view.page_location in each GA4 session",
+        "dateAttribution": "page_view event date attributed to the session's first page_view",
+        "comparisonWindow": {
+            "peakDate": peak_text,
+            "previousDate": previous_text,
+            "dateRangeStart": (date_range or {}).get("start") or "",
+            "dateRangeEnd": (date_range or {}).get("end") or "",
+        },
+        "topLandingPages": sorted(
+            top_pages,
+            key=lambda item: (item.get("delta") or 0, item.get("peakDayPageViews") or 0),
+            reverse=True,
+        )[:10],
+        "totals": {
+            "peakDayPageViewsAttributedToKnownLandingPage": peak_total,
+            "peakDayLandingSessions": sum(int(row.get("peakDayLandingSessions") or 0) for row in by_url.values()),
+            "previousDayPageViewsAttributedToKnownLandingPage": previous_total if previous_text else None,
+            "previousDayLandingSessions": sum(int(row.get("previousDayLandingSessions") or 0) for row in by_url.values()) if previous_text else None,
+            "unknownLandingPagePageViews": unknown_by_date.get(peak_text, 0),
+            "missingSessionIdPageViews": missing_by_date.get(peak_text, 0),
+        },
+        "caveats": list(dict.fromkeys([c for c in caveat_list if c])),
+    }
+
+
 def build_pv_spike_diagnostic_context(
     daily_rows: list[dict[str, Any]],
     breakdowns: dict[str, list[dict[str, Any]]] | None = None,
     *,
     date_range: dict[str, Any] | None = None,
     caveats: list[str] | None = None,
+    session_landing_page_rows: list[dict[str, Any]] | None = None,
+    session_landing_page_caveats: list[str] | None = None,
 ) -> dict[str, Any]:
     """PV最大日診断をPython側で確定する。AIにはこの結果を読ませるだけにする。"""
     daily = _normalise_daily_pv_rows(daily_rows)
@@ -227,6 +449,7 @@ def build_pv_spike_diagnostic_context(
             "dateRange": date_range or {"start": "", "end": "", "timezone": "Asia/Tokyo"},
             "peak": {},
             "breakdowns": {"sourceMedium": [], "landingPage": [], "campaign": [], "device": []},
+            "sessionLandingPageDiagnostic": None,
             "caveats": base_caveats + ["日別PVデータを取得できなかったため、PV最大日を確定できません。"],
         }
 
@@ -267,6 +490,33 @@ def build_pv_spike_diagnostic_context(
         base_caveats.append("breakdownsのcontributionToIncreaseは各分解軸内のプラス差分合計に対するシェアです。")
     base_caveats.append("広告配信、SNS投稿、メルマガ、外部掲載などの施策実施有無はGA4 BigQueryデータだけでは確認できません。")
 
+    session_landing_page_diagnostic = None
+    if session_landing_page_rows is not None:
+        session_landing_page_diagnostic = build_session_landing_page_diagnostic(
+            session_landing_page_rows,
+            peak_date=peak_row["date"],
+            previous_date=(daily[peak_idx - 1]["date"] if peak_idx > 0 else None),
+            date_range=date_range or {
+                "start": daily[0]["date"],
+                "end": daily[-1]["date"],
+                "timezone": "Asia/Tokyo",
+            },
+            caveats=session_landing_page_caveats,
+        )
+        if session_landing_page_diagnostic:
+            base_caveats.extend(session_landing_page_diagnostic.get("caveats") or [])
+            session_top = (session_landing_page_diagnostic.get("topLandingPages") or [{}])[0]
+            page_location_top = (computed_breakdowns.get("landingPage") or [{}])[0]
+            session_url = session_top.get("landingPageUrl")
+            session_label = session_top.get("landingPagePath") or session_url
+            page_location_label = page_location_top.get("landingPage")
+            if session_url and page_location_label and str(session_url) != str(page_location_label):
+                base_caveats.append(
+                    f"page_location別PVでは {page_location_label} が上位ですが、セッションLPでは {session_label} が上位です。サイト内回遊により閲覧ページと入口ページが異なる可能性があります。"
+                )
+        else:
+            base_caveats.append("セッションLP診断は取得できませんでした。page_location別PVをfallbackとして使用します。")
+
     return {
         "metric": "page_views",
         "dateRange": date_range or {
@@ -288,6 +538,7 @@ def build_pv_spike_diagnostic_context(
             "sevenDayAverageDeltaRate": _rate(peak_value, seven_avg),
         },
         "breakdowns": computed_breakdowns,
+        "sessionLandingPageDiagnostic": session_landing_page_diagnostic,
         "caveats": list(dict.fromkeys(base_caveats)),
     }
 
@@ -370,6 +621,98 @@ LIMIT 20
 """
 
 
+def _session_landing_page_sql(dataset_id: str) -> str:
+    dataset = _safe_identifier(dataset_id)
+    return f"""
+CREATE TEMP FUNCTION GetParamString(event_params ANY TYPE, param_name STRING)
+AS ((SELECT ANY_VALUE(value.string_value) FROM UNNEST(event_params) WHERE key = param_name));
+
+CREATE TEMP FUNCTION GetParamInt(event_params ANY TYPE, param_name STRING)
+AS ((SELECT ANY_VALUE(value.int_value) FROM UNNEST(event_params) WHERE key = param_name));
+
+WITH base AS (
+  SELECT
+    PARSE_DATE('%Y%m%d', event_date) AS event_date,
+    event_timestamp,
+    user_pseudo_id,
+    GetParamInt(event_params, 'ga_session_id') AS ga_session_id,
+    GetParamString(event_params, 'page_location') AS page_location,
+    GetParamString(event_params, 'page_title') AS page_title,
+    CONCAT(user_pseudo_id, '-', CAST(GetParamInt(event_params, 'ga_session_id') AS STRING)) AS session_key
+  FROM `{dataset}.events_*`
+  WHERE _TABLE_SUFFIX BETWEEN @start_suffix_with_buffer AND @end_suffix
+    AND event_name = 'page_view'
+),
+missing_by_date AS (
+  SELECT
+    event_date,
+    COUNTIF(user_pseudo_id IS NULL OR ga_session_id IS NULL) AS missing_session_id_page_views,
+    COUNTIF(user_pseudo_id IS NOT NULL AND ga_session_id IS NOT NULL AND page_location IS NULL) AS unknown_landing_page_page_views
+  FROM base
+  WHERE event_date BETWEEN PARSE_DATE('%Y-%m-%d', @start_date) AND PARSE_DATE('%Y-%m-%d', @end_date)
+  GROUP BY event_date
+),
+pageviews AS (
+  SELECT *
+  FROM base
+  WHERE user_pseudo_id IS NOT NULL
+    AND ga_session_id IS NOT NULL
+    AND page_location IS NOT NULL
+),
+session_landing AS (
+  SELECT
+    session_key,
+    ARRAY_AGG(
+      STRUCT(
+        page_location AS landing_page_url,
+        page_title AS landing_page_title,
+        event_timestamp AS landing_event_timestamp,
+        event_date AS landing_event_date
+      )
+      ORDER BY event_timestamp ASC
+      LIMIT 1
+    )[OFFSET(0)] AS landing
+  FROM pageviews
+  GROUP BY session_key
+),
+attributed_pageviews AS (
+  SELECT
+    p.event_date,
+    p.session_key,
+    sl.landing.landing_page_url,
+    sl.landing.landing_page_title
+  FROM pageviews p
+  JOIN session_landing sl
+    USING (session_key)
+  WHERE p.event_date BETWEEN PARSE_DATE('%Y-%m-%d', @start_date) AND PARSE_DATE('%Y-%m-%d', @end_date)
+),
+daily_landing_page AS (
+  SELECT
+    event_date,
+    landing_page_url,
+    ANY_VALUE(landing_page_title) AS landing_page_title,
+    COUNT(*) AS page_views,
+    COUNT(DISTINCT session_key) AS sessions_with_pageviews
+  FROM attributed_pageviews
+  GROUP BY event_date, landing_page_url
+)
+SELECT
+  FORMAT_DATE('%Y-%m-%d', d.event_date) AS event_date,
+  d.landing_page_url,
+  d.landing_page_title,
+  d.page_views,
+  d.sessions_with_pageviews,
+  COALESCE(m.missing_session_id_page_views, 0) AS missing_session_id_page_views,
+  COALESCE(m.unknown_landing_page_page_views, 0) AS unknown_landing_page_page_views
+FROM daily_landing_page d
+LEFT JOIN missing_by_date m
+  USING (event_date)
+WHERE d.event_date IN (PARSE_DATE('%Y-%m-%d', @peak_date), PARSE_DATE('%Y-%m-%d', @previous_date))
+ORDER BY d.event_date, d.page_views DESC
+LIMIT 100
+"""
+
+
 def fetch_pv_spike_diagnostic_context(
     dataset_id: str,
     date_range: dict[str, Any],
@@ -414,7 +757,40 @@ def fetch_pv_spike_diagnostic_context(
             breakdowns[axis] = []
             caveats.append(f"{axis}別PVはBigQuery schema差異または権限のため取得できませんでした: {type(exc).__name__}")
 
-    return build_pv_spike_diagnostic_context(daily_rows, breakdowns, date_range=date_range, caveats=caveats)
+    session_landing_page_rows: list[dict[str, Any]] | None = None
+    session_landing_page_caveats: list[str] = []
+    try:
+        start_date = _date_value(date_range.get("start"))
+        end_date = _date_value(date_range.get("end"))
+        if start_date and end_date:
+            session_params = {
+                "start_suffix_with_buffer": (start_date - timedelta(days=1)).strftime("%Y%m%d"),
+                "end_suffix": end_date.strftime("%Y%m%d"),
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "peak_date": peak_date.isoformat(),
+                "previous_date": previous_date.isoformat(),
+            }
+            session_landing_page_rows = _rows_from_dataframe(
+                run_query_fn(_session_landing_page_sql(dataset_id), session_params, project)
+            )
+        else:
+            session_landing_page_rows = []
+            session_landing_page_caveats.append("セッションLP診断に必要なdateRangeを日付として解釈できませんでした。")
+    except Exception as exc:
+        session_landing_page_rows = None
+        caveats.append(
+            f"セッションLP診断はBigQuery schema差異または権限のため取得できませんでした: {type(exc).__name__}。page_location別PVをfallbackとして使用します。"
+        )
+
+    return build_pv_spike_diagnostic_context(
+        daily_rows,
+        breakdowns,
+        date_range=date_range,
+        caveats=caveats,
+        session_landing_page_rows=session_landing_page_rows,
+        session_landing_page_caveats=session_landing_page_caveats,
+    )
 
 
 def _dataset_map(group: dict[str, Any]) -> dict[str, list[Any]]:
@@ -653,6 +1029,10 @@ def apply_pv_spike_diagnostic_to_context(context: dict[str, Any], diagnostic: di
         values = breakdowns.get(axis)
         if isinstance(values, list):
             tables[axis] = values
+    session_landing = diagnostic.get("sessionLandingPageDiagnostic") if isinstance(diagnostic.get("sessionLandingPageDiagnostic"), dict) else {}
+    session_landing_pages = session_landing.get("topLandingPages") if isinstance(session_landing.get("topLandingPages"), list) else []
+    if session_landing_pages:
+        tables["sessionLandingPage"] = session_landing_pages
 
     findings = context.setdefault("detectedFindings", [])
     if peak.get("date"):
@@ -666,6 +1046,21 @@ def apply_pv_spike_diagnostic_to_context(context: dict[str, Any], diagnostic: di
             "metric": "page_views",
             "value": peak.get("pageViews"),
             "comparison": "BigQuery event_name='page_view' ベースでPython集計済み",
+        })
+
+    if session_landing_pages:
+        top_session_lp = session_landing_pages[0]
+        findings.append({
+            "type": "comparison",
+            "title": f"厳密セッションLP別PV増加寄与候補: {top_session_lp.get('landingPagePath') or top_session_lp.get('landingPageUrl')}",
+            "evidence": (
+                f"セッションLP定義では最大日PV {top_session_lp.get('peakDayPageViews')}、"
+                f"前日PV {top_session_lp.get('previousDayPageViews')}、差分 {top_session_lp.get('delta')}、"
+                f"寄与度 {top_session_lp.get('contributionToIncrease')}%。"
+            ),
+            "metric": "page_views",
+            "value": top_session_lp.get("peakDayPageViews"),
+            "comparison": "user_pseudo_id + ga_session_id ごとの最初のpage_viewをLPにした前日比較",
         })
 
     for axis, label_key in (
@@ -698,6 +1093,7 @@ def summarize_ai_context_for_log(context: dict[str, Any]) -> dict[str, Any]:
     tables = context.get("tables") if isinstance(context.get("tables"), dict) else {}
     diagnostic = context.get("pvSpikeDiagnostic") if isinstance(context.get("pvSpikeDiagnostic"), dict) else {}
     breakdowns = diagnostic.get("breakdowns") if isinstance(diagnostic.get("breakdowns"), dict) else {}
+    session_landing = diagnostic.get("sessionLandingPageDiagnostic") if isinstance(diagnostic.get("sessionLandingPageDiagnostic"), dict) else {}
     return {
         "question": context.get("question"),
         "projectName": context.get("projectName"),
@@ -709,6 +1105,13 @@ def summarize_ai_context_for_log(context: dict[str, Any]) -> dict[str, Any]:
         "tableRows": {k: len(v) for k, v in tables.items() if isinstance(v, list)},
         "pvSpikePeak": diagnostic.get("peak"),
         "pvSpikeBreakdownRows": {k: len(v) for k, v in breakdowns.items() if isinstance(v, list)},
+        "sessionLandingPageDiagnostic": {
+            "method": session_landing.get("method"),
+            "sessionKeyMethod": session_landing.get("sessionKeyMethod"),
+            "landingPageDefinition": session_landing.get("landingPageDefinition"),
+            "topLandingPages": (session_landing.get("topLandingPages") or [])[:3],
+            "totals": session_landing.get("totals"),
+        } if session_landing else None,
         "findings": len(context.get("detectedFindings") or []),
         "caveats": context.get("caveats"),
     }
@@ -838,10 +1241,14 @@ def ai_json_output_contract() -> str:
 あなたは数値を再計算しないでください。存在しない数値を補完しないでください。
 数値・ランキング・平均との差分・前日比・構成比・寄与度は、必ず提供された AI_ANALYSIS_CONTEXT と要点パックに含まれる確定済みデータだけを根拠にしてください。
 PV最大日や急増理由を聞かれた場合は、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にしてください。
+LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先してください。
+これは単純なURL別PVではなく、user_pseudo_id + ga_session_id ごとの最初のpage_viewをLPとして定義し、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示します。
+page_location別PVとセッションLPは別物です。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」です。
+LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記してください。
 原因は、breakdownsにある差分・構成比・寄与度から「仮説」として述べてください。
 原因を断定できない場合は、断定できないと明記してください。
 campaign が (organic) の場合、それは広告キャンペーン名ではなく、自然検索流入のcampaign属性として扱ってください。広告キャンペーン施策が実施されたと断定してはいけません。
-LP候補は page_view の page_location ベースです。厳密なセッションのランディングページとは異なる場合があります。
+sessionLandingPageDiagnostic がない場合のみ、従来の landingPage breakdown をfallbackとして使ってください。その場合のLP候補は page_view の page_location ベースであり、厳密なセッションLPではないと明記してください。
 
 回答では以下を守ってください。
 1. 最初に質問への結論を一文で答える

@@ -264,6 +264,7 @@ async function main() {
               parseStatusJson: data.parse_status === 'json',
               fallbackUnused: data.fallback_used === false,
               hasRequiredHeadings: Boolean(data.answer_markdown && data.answer_markdown.includes('結論') && data.answer_markdown.includes('数値根拠')),
+              hasSessionLandingPageDiagnostic: data.analysis_context?.sessionLandingPageDiagnostic?.method === 'ga4_session_first_page_view',
             }
             result.ok = result.ok && Object.values(result.liveAssertions).every(Boolean)
           } catch {

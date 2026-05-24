@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import InsightTurnCard from '../InsightTurnCard'
 import styles from '../AiExplorerV2.module.css'
 
@@ -588,5 +589,39 @@ describe('InsightTurnCard', () => {
     expect(screen.getAllByText(/328/).length).toBeGreaterThan(0)
     expect(screen.queryByTestId('referenced-chart-report')).not.toBeInTheDocument()
     expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
+  })
+
+  it('renders response metadata, fallback notice, caveats, and retry action', async () => {
+    const user = userEvent.setup()
+    const onRetry = vi.fn()
+    render(
+      <InsightTurnCard
+        turn={{
+          userPrompt: '5月のPV最大日は？',
+          aiContent: '## 結論\n最大日は5月3日です。',
+          fallbackNotice: '形式整形に失敗したため、AIの生回答を表示しています。',
+          caveats: ['外部施策の有無は確認できません'],
+          analysisContext: {
+            dateRange: { start: '2026-05-01', end: '2026-05-31' },
+            metricFocus: 'page_views',
+            sessionLandingPageDiagnostic: {
+              method: 'ga4_session_first_page_view',
+              sessionKeyMethod: 'user_pseudo_id + ga_session_id',
+              landingPageDefinition: 'first page_view.page_location in each GA4 session',
+            },
+          },
+        }}
+        onRetry={onRetry}
+      />,
+    )
+
+    expect(screen.getByTestId('ai-response-meta')).toBeInTheDocument()
+    expect(screen.getByText(/2026-05-01 〜 2026-05-31/)).toBeInTheDocument()
+    expect(screen.getByText(/page_views/)).toBeInTheDocument()
+    expect(screen.getByText(/GA4セッション内の最初のpage_view/)).toBeInTheDocument()
+    expect(screen.getByText(/生回答を表示/)).toBeInTheDocument()
+    expect(screen.getByText('外部施策の有無は確認できません')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '再試行' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 })

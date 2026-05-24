@@ -75,3 +75,17 @@
 - [ ] `/api/ads/neon/generate` の旧互換が維持されている
 - [ ] production verify scriptが本番URLでpassed
 - [ ] Phase 5へ進んでよいと判定済み
+
+## Phase 5 session landing page
+
+- [ ] セッションLP定義が `user_pseudo_id + ga_session_id` ベース
+- [ ] LPはセッション内の最初の `page_view.page_location`
+- [ ] page_location別PVとは区別されている
+- [ ] `pvSpikeDiagnostic.sessionLandingPageDiagnostic` がAI contextに入る
+- [ ] セッションLPが取得できない場合、page_location別PVへfallbackする
+- [ ] caveatが表示される
+- [ ] live BigQuery smoke passed
+- [ ] AI回答がLP定義を明記する
+- [ ] 対象テスト passed
+- [ ] lint passed
+- [ ] build passed

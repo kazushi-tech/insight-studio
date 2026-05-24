@@ -25,7 +25,7 @@ const ANSWER_MARKDOWN = [
   '- 期間平均との差は +203.7PV / +103.2% です。',
   '',
   '## 原因として考えられること',
-  'source / medium では google / organic、LP候補では https://www.petabit.co.jp/、device では mobile の増加が目立ちます。',
+  'source / medium では google / organic、LP軸では厳密なセッションLP定義で https://www.petabit.co.jp/ から始まったセッション群の増加が目立ちます。',
   'campaign属性では (organic) が増えています。ただし、これは広告キャンペーン施策を意味するとは限らず、自然検索流入の増加として見るのが妥当です。',
   '',
   '## まだ断定できないこと',
@@ -136,12 +136,17 @@ describe('/insights/ai neutral route AI Explorer', () => {
           parse_status: 'json',
           fallback_used: false,
           caveats: [
-            'LP候補は page_view の page_location ベースです。厳密なGA4セッションのランディングページとは異なる場合があります。',
+            'セッションLPは user_pseudo_id + ga_session_id ごとの最初の page_view.page_location で定義しています。',
             'campaign属性の (organic) は広告キャンペーン施策名ではありません。',
           ],
           analysis_context: {
             dateRange: { start: '2026-05-01', end: '2026-05-31', timezone: 'Asia/Tokyo' },
             metricFocus: 'page_views',
+            sessionLandingPageDiagnostic: {
+              method: 'ga4_session_first_page_view',
+              sessionKeyMethod: 'user_pseudo_id + ga_session_id',
+              landingPageDefinition: 'first page_view.page_location in each GA4 session',
+            },
             pvSpikePeak: {
               date: '2026-05-13',
               pageViews: 401,
@@ -178,7 +183,8 @@ describe('/insights/ai neutral route AI Explorer', () => {
     expect(screen.getAllByText(/401/).length).toBeGreaterThan(0)
     expect(screen.getByText(/JSON parse成功/)).toBeInTheDocument()
     expect(screen.getByText(/fallback/).closest('[data-testid="ai-response-meta"]')).toHaveTextContent('未使用')
-    expect(screen.getByText(/page_location ベース/)).toBeInTheDocument()
+    expect(screen.getByText(/GA4セッション内の最初のpage_view/)).toBeInTheDocument()
+    expect(screen.getByText(/最初の page_view\.page_location/)).toBeInTheDocument()
     expect(screen.getByText(/広告キャンペーン施策名ではありません/)).toBeInTheDocument()
     expect(screen.getAllByText(/自然検索流入の増加として見るのが妥当/).length).toBeGreaterThan(0)
     expect(screen.queryByText('形式整形に失敗したため、AIの生回答を表示しています')).not.toBeInTheDocument()

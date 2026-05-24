@@ -71,9 +71,12 @@ async def test_live_neutral_ai_generate_from_real_services():
     assert body["ok"] is True
     assert body["parse_status"] == "json"
     assert body["fallback_used"] is False
+    assert body["analysis_context"]["sessionLandingPageDiagnostic"]["method"] == "ga4_session_first_page_view"
+    assert body["analysis_context"]["sessionLandingPageDiagnostic"]["topLandingPages"]
     markdown = body.get("answer_markdown") or body.get("text") or ""
     assert "## 結論" in markdown
     assert "## 数値根拠" in markdown
     assert "2026-05-" in markdown or "2026年5月" in markdown
     assert "PV" in markdown
     assert "401" in markdown
+    assert "セッションLP" in markdown or "最初のpage_view" in markdown or "ランディングページ" in markdown
