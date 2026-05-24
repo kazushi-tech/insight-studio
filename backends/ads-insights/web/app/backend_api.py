@@ -1329,6 +1329,7 @@ _AUTH_PUBLIC_PATHS = {
     "/",
     "/api/auth/login",
     "/api/health",
+    "/api/ads/health",
     "/api/cases",
     "/api/cases/login",
     "/api/neon/health",
@@ -2419,6 +2420,7 @@ def api_version():
             pass
     return _json({"git_commit": sha})
 
+@app.api_route("/api/ads/health", methods=["GET", "HEAD"])
 @app.api_route("/api/health", methods=["GET", "HEAD"])
 def api_health():
     """Health check endpoint with version info."""
