@@ -89,3 +89,28 @@
 - [ ] 対象テスト passed
 - [ ] lint passed
 - [ ] build passed
+
+## Phase 5.1 production release gate
+
+- [ ] PR #156 merged
+- [ ] Vercel production deployed
+- [ ] Render production deployed
+- [x] `/insights/ai` production route probe OK
+- [x] `/ads/ai` production compatibility route probe OK
+- [x] `/api/insights/neon/health` production 200 JSON
+- [x] `/api/ads/neon/health` production 200 JSON
+- [x] `/api/insights/neon/generate` reaches Render and does not return Vercel HTML/405
+- [x] `/api/ads/neon/generate` legacy route reaches Render
+- [x] OPTIONS for both generate APIs OK
+- [x] production verify passed before merge
+- [x] Render API-only verify passed before merge
+- [x] BigQuery diagnostic-only check generated `sessionLandingPageDiagnostic`
+- [ ] live smoke passed
+- [ ] AI response confirmed in production UI with session LP definition
+- [ ] AI response confirmed not to confuse page_location PV and session LP
+- [ ] Phase 5 complete
+
+Note: 2026-05-24 gate stopped before Draft release/merge because full live smoke
+with real BigQuery-derived context and Gemini could not be completed in the
+allowed execution path. Do not mark Phase 5 complete until live smoke and the
+production UI answer check are completed.
