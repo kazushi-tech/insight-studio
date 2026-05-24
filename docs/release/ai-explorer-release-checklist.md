@@ -75,3 +75,60 @@
 - [ ] `/api/ads/neon/generate` の旧互換が維持されている
 - [ ] production verify scriptが本番URLでpassed
 - [ ] Phase 5へ進んでよいと判定済み
+
+## Phase 5 session landing page
+
+- [ ] セッションLP定義が `user_pseudo_id + ga_session_id` ベース
+- [ ] LPはセッション内の最初の `page_view.page_location`
+- [ ] page_location別PVとは区別されている
+- [ ] `pvSpikeDiagnostic.sessionLandingPageDiagnostic` がAI contextに入る
+- [ ] セッションLPが取得できない場合、page_location別PVへfallbackする
+- [ ] caveatが表示される
+- [x] BigQuery-only session LP diagnostic smoke passed without Gemini call
+- [x] Synthetic Gemini smoke passed without real BigQuery data
+- [x] Frontend LP definition fixture test passed
+- [x] AI回答がLP定義を明記する
+- [x] 対象テスト passed
+- [x] lint passed
+- [x] build passed
+
+## Phase 5.1b safe release gate
+
+Full live smoke with real BigQuery-derived context sent to Gemini was not
+executed because it may transmit production analytics data to an external AI
+provider in sandbox review.
+
+Instead, Phase 5.1b uses a split safety gate:
+
+- BigQuery-only diagnostic smoke: verifies real GA4 BigQuery session LP
+  diagnostic generation without Gemini call.
+- Synthetic Gemini smoke: verifies AI prompt / response contract / LP definition
+  explanation using non-production synthetic context only.
+- Frontend fixture test: verifies LP definition display without real API or real
+  analytics data.
+- Production route verify: verifies `/insights/*` and `/ads/*` routing / Render
+  reachability.
+
+Phase 5 can be considered releasable only if all split gates pass.
+
+- [x] PR #156 remains clean and mergeable
+- [x] No secrets / generated assets / unrelated Discovery or Compare diffs
+- [x] BigQuery-only session LP diagnostic passed without Gemini call
+- [x] Synthetic Gemini smoke passed without real BigQuery data
+- [x] Frontend LP definition fixture test passed
+- [x] `/insights/ai` production route probe OK
+- [x] `/ads/ai` production compatibility route probe OK
+- [x] `/api/insights/neon/health` production 200 JSON
+- [x] `/api/ads/neon/health` production 200 JSON
+- [x] `/api/insights/neon/generate` reaches Render and does not return Vercel HTML/405
+- [x] `/api/ads/neon/generate` legacy route reaches Render
+- [x] OPTIONS for both generate APIs OK
+- [x] production verify passed before merge
+- [x] Render API-only verify passed before merge
+- [x] Full live smoke with real BigQuery context to Gemini intentionally skipped and documented
+- [x] Phase 5 can be safely moved from Draft to review
+- [ ] Phase 5 complete
+
+Note: 2026-05-24 gate stopped before Draft release/merge because the original
+full live smoke could send real BigQuery-derived analytics context to Gemini.
+Do not mark Phase 5 complete until the split safe gates above have all passed.

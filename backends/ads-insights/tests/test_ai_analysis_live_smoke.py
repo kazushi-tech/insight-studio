@@ -2,78 +2,46 @@ import os
 import sys
 from pathlib import Path
 
-import httpx
 import pytest
 
 
-RUN_LIVE = os.getenv("RUN_LIVE_AI_E2E") == "1"
-pytestmark = pytest.mark.skipif(
-    not RUN_LIVE,
-    reason="Set RUN_LIVE_AI_E2E=1 to run live BigQuery/Gemini smoke test.",
-)
+RUN_LIVE_BQ_DIAGNOSTIC = os.getenv("RUN_LIVE_BQ_DIAGNOSTIC") == "1"
+DATASET_ID = os.getenv("AI_EXPLORER_BQ_DIAGNOSTIC_DATASET_ID", "").strip()
+PROJECT_ID = os.getenv("AI_EXPLORER_BQ_DIAGNOSTIC_PROJECT_ID", "").strip() or None
+START_DATE = os.getenv("AI_EXPLORER_BQ_DIAGNOSTIC_START_DATE", "2026-05-01")
+END_DATE = os.getenv("AI_EXPLORER_BQ_DIAGNOSTIC_END_DATE", "2026-05-31")
 
-os.environ.setdefault("APP_PASSWORD", "test-secret-pw-42")
-os.environ.setdefault("JWT_SECRET", "test-jwt-secret-xxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+pytestmark = pytest.mark.skipif(
+    not RUN_LIVE_BQ_DIAGNOSTIC or not DATASET_ID,
+    reason=(
+        "Set RUN_LIVE_BQ_DIAGNOSTIC=1 and "
+        "AI_EXPLORER_BQ_DIAGNOSTIC_DATASET_ID to run BigQuery-only diagnostic smoke."
+    ),
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import web.app.backend_api as backend_api  # noqa: E402
+from web.app.ai_analysis import fetch_pv_spike_diagnostic_context  # noqa: E402
 
 
-@pytest.mark.anyio
-async def test_live_neutral_ai_generate_from_real_services():
-    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("VITE_GEMINI_API_KEY")
-    if not gemini_key:
-        pytest.skip("GEMINI_API_KEY or VITE_GEMINI_API_KEY is required for live AI smoke.")
+def test_bigquery_session_landing_page_diagnostic_without_gemini_call():
+    diagnostic = fetch_pv_spike_diagnostic_context(
+        DATASET_ID,
+        {"start": START_DATE, "end": END_DATE, "timezone": "Asia/Tokyo"},
+        project=PROJECT_ID,
+    )
 
-    payload = {
-        "mode": "question",
-        "provider": "google",
-        "model": "gemini-2.5-flash",
-        "temperature": 0.1,
-        "message": "5月のPV数で一番高かった日はいつ？原因は何だと思う？",
-        "point_pack_md": "## PV分析\n5月のPV推移をBigQueryデータから分析してください。\n",
-        "data_source": "bq",
-        "bq_query_types": ["pv", "traffic", "landing", "device"],
-        "analysis_context_meta": {
-            "projectName": "ペタビット",
-            "caseName": "ペタビット",
-            "datasetId": "analytics_311324674",
-            "periods": ["2026-05"],
-        },
-        "ai_chart_context": [],
-    }
+    session_diag = diagnostic.get("sessionLandingPageDiagnostic")
+    assert session_diag, "sessionLandingPageDiagnostic must be generated; no Gemini call is made in this smoke."
+    assert session_diag["method"] == "ga4_session_first_page_view"
+    assert session_diag["sessionKeyMethod"] == "user_pseudo_id + ga_session_id"
+    assert session_diag["landingPageDefinition"] == "first page_view.page_location in each GA4 session"
+    assert session_diag["topLandingPages"]
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=backend_api.app),
-        base_url="http://test",
-        timeout=300,
-    ) as client:
-        token_resp = await client.post("/api/auth/login", json={"password": os.environ["APP_PASSWORD"]})
-        assert token_resp.status_code == 200
-        token = token_resp.json()["token"]
-
-        resp = await client.post(
-            "/api/insights/neon/generate",
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "X-Client-ID": "live-ai-e2e-smoke",
-                "X-Analysis-Provider": "google",
-                "X-Gemini-API-Key": gemini_key,
-            },
-        )
-
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["ok"] is True
-    assert body["parse_status"] == "json"
-    assert body["fallback_used"] is False
-    markdown = body.get("answer_markdown") or body.get("text") or ""
-    assert "## 結論" in markdown
-    assert "## 数値根拠" in markdown
-    assert "2026-05-" in markdown or "2026年5月" in markdown
-    assert "PV" in markdown
-    assert "401" in markdown
+    totals = session_diag["totals"]
+    assert "missingSessionIdPageViews" in totals
+    assert "unknownLandingPagePageViews" in totals
+    assert diagnostic.get("sessionLandingPageDiagnostic") is not None
+    assert not any("fallback" in caveat for caveat in diagnostic.get("caveats", []))

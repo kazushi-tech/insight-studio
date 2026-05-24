@@ -16,7 +16,10 @@ if str(ROOT) not in sys.path:
 
 import web.app.backend_api as backend_api  # noqa: E402
 from web.app.ai_analysis import (  # noqa: E402
+    ai_json_output_contract,
+    build_session_landing_page_diagnostic,
     build_pv_spike_diagnostic_context,
+    fetch_pv_spike_diagnostic_context,
     question_needs_pv_spike_diagnostic,
 )
 
@@ -99,6 +102,10 @@ async def _post_neon(monkeypatch, raw_response, path="/api/neon/generate"):
                 ],
             },
             date_range={"start": "2026-05-01", "end": "2026-05-31", "timezone": "Asia/Tokyo"},
+            session_landing_page_rows=[
+                {"date": "2026-05-02", "landing_page_url": "https://example.com/", "page_views": 40, "sessions": 18},
+                {"date": "2026-05-03", "landing_page_url": "https://example.com/", "page_views": 120, "sessions": 45},
+            ],
         ),
     )
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=backend_api.app), base_url="http://test") as client:
@@ -221,6 +228,7 @@ async def test_pv_max_day_is_in_python_built_context(monkeypatch):
     assert summary["previousPeriodComparison"]["rate"] == 100.0
     assert body["analysis_context"]["pvSpikePeak"]["date"] == "2026-05-03"
     assert body["analysis_context"]["pvSpikeBreakdownRows"]["sourceMedium"] == 1
+    assert body["analysis_context"]["sessionLandingPageDiagnostic"]["method"] == "ga4_session_first_page_view"
 
 
 def test_pv_spike_diagnostic_calculates_peak_and_comparisons():
@@ -272,6 +280,147 @@ def test_pv_spike_breakdowns_calculate_delta_share_and_contribution():
     assert rows[0]["contributionToIncrease"] == 71.4
     assert rows[1]["sourceMedium"] == "google / cpc"
     assert rows[1]["contributionToIncrease"] == 28.6
+
+
+def test_session_landing_page_diagnostic_attributes_pageviews_to_first_page_view():
+    diagnostic = build_session_landing_page_diagnostic(
+        [
+            {
+                "event_date": "2026-05-13",
+                "event_timestamp": 1000,
+                "user_pseudo_id": "u1",
+                "ga_session_id": 111,
+                "event_name": "page_view",
+                "page_location": "https://example.com/",
+                "page_title": "Home",
+            },
+            {
+                "event_date": "2026-05-13",
+                "event_timestamp": 2000,
+                "user_pseudo_id": "u1",
+                "ga_session_id": 111,
+                "event_name": "page_view",
+                "page_location": "https://example.com/service",
+                "page_title": "Service",
+            },
+            {
+                "event_date": "2026-05-13",
+                "event_timestamp": 3000,
+                "user_pseudo_id": "u2",
+                "ga_session_id": 222,
+                "event_name": "page_view",
+                "page_location": "https://example.com/blog/a",
+                "page_title": "Blog A",
+            },
+        ],
+        peak_date="2026-05-13",
+        previous_date="2026-05-12",
+        date_range={"start": "2026-05-01", "end": "2026-05-31", "timezone": "Asia/Tokyo"},
+    )
+
+    rows = diagnostic["topLandingPages"]
+    home = next(row for row in rows if row["landingPageUrl"] == "https://example.com/")
+    blog = next(row for row in rows if row["landingPageUrl"] == "https://example.com/blog/a")
+    assert diagnostic["method"] == "ga4_session_first_page_view"
+    assert diagnostic["sessionKeyMethod"] == "user_pseudo_id + ga_session_id"
+    assert home["landingPageTitle"] == "Home"
+    assert home["peakDayPageViews"] == 2
+    assert home["peakDayLandingSessions"] == 1
+    assert blog["peakDayPageViews"] == 1
+    assert blog["peakDayLandingSessions"] == 1
+
+
+def test_session_landing_page_diagnostic_calculates_previous_day_delta_share_and_contribution():
+    diagnostic = build_session_landing_page_diagnostic(
+        [
+            {"date": "2026-05-12", "landing_page_url": "https://example.com/", "page_views": 50, "sessions": 20},
+            {"date": "2026-05-13", "landing_page_url": "https://example.com/", "page_views": 120, "sessions": 45},
+        ],
+        peak_date="2026-05-13",
+        previous_date="2026-05-12",
+        date_range={"start": "2026-05-01", "end": "2026-05-31", "timezone": "Asia/Tokyo"},
+    )
+
+    row = diagnostic["topLandingPages"][0]
+    assert row["delta"] == 70
+    assert row["deltaRate"] == 140.0
+    assert row["shareOfPeakDayPageViews"] == 100.0
+    assert row["contributionToIncrease"] == 100.0
+    assert row["landingSessionsDelta"] == 25
+
+
+def test_session_landing_page_diagnostic_tracks_missing_session_id_caveat():
+    diagnostic = build_session_landing_page_diagnostic(
+        [
+            {
+                "event_date": "2026-05-13",
+                "event_timestamp": 1000,
+                "user_pseudo_id": "u1",
+                "ga_session_id": 111,
+                "event_name": "page_view",
+                "page_location": "https://example.com/",
+            },
+            {
+                "event_date": "2026-05-13",
+                "event_timestamp": 2000,
+                "user_pseudo_id": "u2",
+                "ga_session_id": None,
+                "event_name": "page_view",
+                "page_location": "https://example.com/service",
+            },
+        ],
+        peak_date="2026-05-13",
+        previous_date="2026-05-12",
+        date_range={"start": "2026-05-01", "end": "2026-05-31", "timezone": "Asia/Tokyo"},
+    )
+
+    assert diagnostic["totals"]["missingSessionIdPageViews"] == 1
+    assert diagnostic["topLandingPages"][0]["peakDayPageViews"] == 1
+    assert "ga_session_id" in "\n".join(diagnostic["caveats"])
+
+
+def test_fetch_pv_spike_diagnostic_falls_back_when_session_landing_sql_fails():
+    def fake_run_query(sql, params, project=None):
+        if "COUNTIF(event_name = 'page_view')" in sql:
+            return [
+                {"date": "2026-05-12", "page_views": 50},
+                {"date": "2026-05-13", "page_views": 120},
+            ]
+        if "session_landing" in sql:
+            raise RuntimeError("schema missing")
+        return [{"landingPage": "https://example.com/", "peakDayPageViews": 120, "previousDayPageViews": 50}]
+
+    diagnostic = fetch_pv_spike_diagnostic_context(
+        "analytics_test",
+        {"start": "2026-05-01", "end": "2026-05-31", "timezone": "Asia/Tokyo"},
+        run_query_fn=fake_run_query,
+    )
+
+    assert diagnostic["sessionLandingPageDiagnostic"] is None
+    assert diagnostic["breakdowns"]["landingPage"][0]["landingPage"] == "https://example.com/"
+    assert "page_location別PVをfallback" in "\n".join(diagnostic["caveats"])
+
+
+def test_ai_context_contract_mentions_session_landing_page_definition():
+    diagnostic = build_pv_spike_diagnostic_context(
+        [
+            {"date": "2026-05-12", "page_views": 50},
+            {"date": "2026-05-13", "page_views": 120},
+        ],
+        {},
+        date_range={"start": "2026-05-01", "end": "2026-05-31", "timezone": "Asia/Tokyo"},
+        session_landing_page_rows=[
+            {"date": "2026-05-12", "landing_page_url": "https://example.com/", "page_views": 50, "sessions": 20},
+            {"date": "2026-05-13", "landing_page_url": "https://example.com/", "page_views": 120, "sessions": 45},
+        ],
+    )
+    prompt = ai_json_output_contract()
+
+    session_diag = diagnostic["sessionLandingPageDiagnostic"]
+    assert session_diag["method"] == "ga4_session_first_page_view"
+    assert session_diag["landingPageDefinition"] == "first page_view.page_location in each GA4 session"
+    assert "page_location別PVとセッションLPは別物" in prompt
+    assert "sessionLandingPageDiagnostic" in prompt
 
 
 def test_pv_spike_intent_detection_is_targeted():

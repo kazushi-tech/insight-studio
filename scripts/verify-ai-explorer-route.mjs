@@ -18,11 +18,11 @@ const answerMarkdown = [
   '- 期間平均との差は +203.7PV / +103.2% です。',
   '',
   '## 原因として考えられること',
-  'source / medium では google / organic、LP候補では https://www.petabit.co.jp/、device では mobile の増加が目立ちます。',
+  'source / medium では google / organic、LP軸では厳密なセッションLP定義で https://www.petabit.co.jp/ から始まったセッション群の増加が目立ちます。',
   'campaign属性では (organic) が増えています。ただし、これは広告キャンペーン施策を意味するとは限らず、自然検索流入の増加として見るのが妥当です。',
   '',
   '## まだ断定できないこと',
-  'LP候補は page_view の page_location ベースで、厳密なGA4セッションのランディングページとは異なる場合があります。',
+  'LP原因は厳密なセッションLP定義で見ています。page_location別PVとは別物です。',
   '広告配信、SNS投稿、メルマガ、外部露出の有無はこのデータだけでは確認できないため、原因は断定できません。',
   '',
   '## 次に確認すべきこと',
@@ -177,12 +177,17 @@ async function main() {
           parse_status: 'json',
           fallback_used: false,
           caveats: [
-            'LP候補は page_view の page_location ベースです。厳密なGA4セッションのランディングページとは異なる場合があります。',
+            'セッションLPは user_pseudo_id + ga_session_id ごとの最初の page_view.page_location で定義しています。',
             'campaign属性の (organic) は広告キャンペーン施策名ではありません。',
           ],
           analysis_context: {
             dateRange: { start: '2026-05-01', end: '2026-05-31', timezone: 'Asia/Tokyo' },
             metricFocus: 'page_views',
+            sessionLandingPageDiagnostic: {
+              method: 'ga4_session_first_page_view',
+              sessionKeyMethod: 'user_pseudo_id + ga_session_id',
+              landingPageDefinition: 'first page_view.page_location in each GA4 session',
+            },
             pvSpikePeak: {
               date: '2026-05-13',
               pageViews: 401,
@@ -235,7 +240,7 @@ async function main() {
       'まだ断定できないこと',
       '次に確認すべきこと',
       '打ち手',
-      'page_location ベース',
+      'GA4セッション内の最初のpage_view',
       '広告キャンペーン施策を意味するとは限らず',
     ])
     await page.waitForFunction(() => {

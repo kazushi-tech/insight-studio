@@ -686,6 +686,10 @@ export default function InsightTurnCard({
     : ''
   const metric = analysisContext?.metricFocus || analysisContext?.dataSummary?.primaryMetric || ''
   const pvPeak = analysisContext?.pvSpikePeak
+  const sessionLandingPageDiagnostic = analysisContext?.sessionLandingPageDiagnostic
+  const lpDefinitionLabel = sessionLandingPageDiagnostic?.landingPageDefinition
+    ? 'GA4セッション内の最初のpage_view'
+    : ''
   const formatSignedPercent = (value) => {
     if (value == null || value === '') return ''
     const num = Number(value)
@@ -734,7 +738,7 @@ export default function InsightTurnCard({
         <InsightSummaryHero meta={derivedMeta} />
       ) : null}
 
-      {(dataPeriod || metric || fallbackNotice || caveats.length > 0 || onRetry || (showDebugMeta && (parseLabel || fallbackLabel))) && (
+      {(dataPeriod || metric || lpDefinitionLabel || fallbackNotice || caveats.length > 0 || onRetry || (showDebugMeta && (parseLabel || fallbackLabel))) && (
         <div className={styles.turnMetaPanel} data-testid="ai-response-meta">
           <div className={styles.turnMetaItems}>
             {dataPeriod && (
@@ -770,6 +774,16 @@ export default function InsightTurnCard({
             {analysisContext?.pvSpikePeak && (
               <span className="japanese-text">
                 <b>使用データ</b> GA4 BigQuery / page_viewベース
+              </span>
+            )}
+            {lpDefinitionLabel && (
+              <span className="japanese-text">
+                <b>LP定義</b> {lpDefinitionLabel}
+              </span>
+            )}
+            {showDebugMeta && sessionLandingPageDiagnostic?.sessionKeyMethod && (
+              <span className="japanese-text">
+                <b>sessionKeyMethod</b> {sessionLandingPageDiagnostic.sessionKeyMethod}
               </span>
             )}
             {showDebugMeta && parseLabel && (

@@ -14210,7 +14210,6 @@ insight-report JSON の必須キー:
         if ai_analysis_context_json
         else ""
     )
-
     active_scope_context = ""
     if isinstance(active_chart_scope, dict) and active_chart_scope:
         scope_label = active_chart_scope.get("label") or ""
@@ -14234,6 +14233,28 @@ insight-report JSON の必須キー:
             "同じセッションで5回程度連続質問されても、毎回データ未取得扱いに戻さないでください。\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
         )
+
+    if data_source in ("bq", "cross"):
+        output_requirements = """# 出力要件
+- 断定は根拠がある範囲だけ
+- 数値は AI_ANALYSIS_CONTEXT または要点パックにある値だけを使い、再計算・補完・捏造をしない
+- PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にする
+- LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先する
+- sessionLandingPageDiagnostic は「user_pseudo_id + ga_session_id ごとの最初の page_view.page_location」をLPとし、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示す
+- page_location別PVとセッションLPは別物。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」
+- LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記する
+- answer_markdown は必ず「## 結論」「## 数値根拠」「## 原因として考えられること」「## まだ断定できないこと」「## 次に確認すべきこと」「## 打ち手」の見出しを含める
+- 原因はbreakdownsの差分・構成比・寄与度に基づく仮説として書き、施策情報がない場合は断定できないと明記する
+- campaign が (organic) の場合は広告キャンペーン施策ではなく自然検索流入のcampaign属性として説明する
+- sessionLandingPageDiagnostic がない場合のみ、従来の landingPage breakdown をfallbackとして使う。その場合は page_location別PVであり、厳密なセッションLPではないと明記する
+- JSON以外の前置き・後書きは禁止。answer_markdown内だけMarkdownを使うこと"""
+    else:
+        output_requirements = """# 出力要件
+- 断定は根拠がある範囲だけ
+- 重要な根拠は「要点パックの該当箇所（見出し名/行の要旨）」として併記
+- **箇条書きは必ず階層化し、全て同じレベルにしないこと**
+- **各セクション見出しには絵文字を必ず付けること**
+- **JSON以外の前置き・後書きは禁止。answer_markdown内だけMarkdownを使うこと**"""
 
     if style_instruction:
         # スタイル指示がある場合は、標準フォーマットよりも優先
@@ -14267,6 +14288,11 @@ insight-report JSON の必須キー:
 - 断定は根拠がある範囲だけ
 - data_source が bq/cross の場合は指定JSONだけを返し、本文Markdownは answer_markdown に入れること
 - PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にすること
+- LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先すること
+- sessionLandingPageDiagnostic は「user_pseudo_id + ga_session_id ごとの最初の page_view.page_location」をLPとし、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示す
+- page_location別PVとセッションLPは別物。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」
+- LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記すること
+- sessionLandingPageDiagnostic がない場合のみ、従来の landingPage breakdown をfallbackとして使う。その場合は page_location別PVであり、厳密なセッションLPではないと明記すること
 - 重要な根拠は「要点パックの該当箇所（見出し名/行の要旨）」として併記
 - ユーザーが具体質問した場合は、要点パック内のテーブル・ランキングから該当する値を抜き出して回答すること
 - 要点パックに存在しないデータを求められた場合は「未取得/不明」と回答し、追加で必要なクエリタイプを案内すること
@@ -14293,6 +14319,11 @@ insight-report JSON の必須キー:
 - 断定は根拠がある範囲だけ
 - data_source が bq/cross の場合は指定JSONだけを返し、本文Markdownは answer_markdown に入れること
 - PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にすること
+- LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先すること
+- sessionLandingPageDiagnostic は「user_pseudo_id + ga_session_id ごとの最初の page_view.page_location」をLPとし、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示す
+- page_location別PVとセッションLPは別物。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」
+- LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記すること
+- sessionLandingPageDiagnostic がない場合のみ、従来の landingPage breakdown をfallbackとして使う。その場合は page_location別PVであり、厳密なセッションLPではないと明記すること
 - 重要な根拠は「要点パックの該当箇所（見出し名/行の要旨）」として併記
 - **箇条書きは必ず階層化し、全て同じレベルにしないこと**
 - **各セクション見出しには絵文字を必ず付けること**
