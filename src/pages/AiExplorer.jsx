@@ -18,7 +18,7 @@ import {
   regenerateAdsReportBundle,
   selectChartGroupsForPrompt,
 } from '../utils/adsReports'
-import { extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
+import { extractInsightReport, getAdsText, normalizeAdsPayload, normalizeAiDisplayResponse } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import { useUiVersion } from '../hooks/useUiVersion'
 import InsightTimeline from '../components/ai-explorer/v2/InsightTimeline'
@@ -170,7 +170,7 @@ function LegacyAssistantMessage({ message, fontSize }) {
 
 export default function AiExplorer() {
   const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const { isV2 } = useUiVersion()
   const {
     isAdsAuthenticated,
@@ -178,7 +178,7 @@ export default function AiExplorer() {
     analysisProvider,
     hasAnalysisKey,
   } = useAuth()
-  const { setupState, reportBundle, setReportBundle, resetSetup } = useAdsSetup()
+  const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
   const { getDraft, setDraft, clearDraft } = useAnalysisRuns()
   const { avatarInitial } = useUserProfile()
   const { restoreTarget, clearRestoreTarget, addEntry } = useReportHistory()
@@ -216,12 +216,7 @@ export default function AiExplorer() {
     if (!question) return
     setInput(question)
     setStatus('グラフ分析から質問を引き継ぎました。内容を確認して送信できます。')
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current)
-      next.delete('question')
-      return next
-    }, { replace: true })
-  }, [searchParams, setSearchParams])
+  }, [searchParams])
 
   // アンマウント時にリトライ中のリクエストをキャンセル
   useEffect(() => {
@@ -462,6 +457,14 @@ export default function AiExplorer() {
         workflow: 'multi_agent_v1',
         report_contract_version: 'insight_report_v2',
         ai_chart_context: chartContext,
+        analysis_context_meta: {
+          projectName: currentCase?.name,
+          caseName: currentCase?.name,
+          propertyName: setupState?.propertyName,
+          datasetId: setupState?.datasetId,
+          periods: setupState?.periods ?? [],
+          queryTypes: setupState?.queryTypes ?? [],
+        },
         chart_evidence_pack: promptEvidencePack,
         active_chart_scope: {
           label: promptEvidencePack?.scope_label || 'AI考察 全グラフ',
@@ -512,14 +515,24 @@ export default function AiExplorer() {
         throw new Error(data?.error || normalized?.error || 'AI 考察の生成に失敗しました。')
       }
 
-      const baseAiContent = getAdsText(data) ?? getAdsText(normalized)
+      const displayResponse = normalizeAiDisplayResponse(data)
+      const baseAiContent = displayResponse.text || getAdsText(data) || getAdsText(normalized)
       const agentTrace = data?.agent_trace ?? normalized?.agent_trace ?? []
       const aiContent = baseAiContent
       if (!aiContent) {
         throw new Error('AI 応答本文を取得できませんでした。')
       }
 
-      const assistantMessage = { role: 'assistant', text: aiContent, agentTrace }
+      const assistantMessage = {
+        role: 'assistant',
+        text: aiContent,
+        agentTrace,
+        fallbackNotice: displayResponse.fallbackNotice,
+        caveats: displayResponse.caveats,
+        analysisContext: displayResponse.analysisContext,
+        parseStatus: displayResponse.parseStatus,
+        fallbackUsed: displayResponse.fallbackUsed,
+      }
       const completedMessages = [...nextMessages, assistantMessage]
       setMessages(completedMessages)
       addEntry({
@@ -671,6 +684,7 @@ export default function AiExplorer() {
           setStatus('✓ セッションをクリアしました。次の質問は履歴なしで生成します。')
           clearDraft('ai-explorer')
         }}
+        onRetryPrompt={(promptText) => handleSend(promptText)}
         mlStatus={mlStatus}
         reportError={reportError}
         reportBundle={reportBundle}
@@ -786,7 +800,7 @@ export default function AiExplorer() {
               className="px-4 py-2 bg-surface-container text-on-surface-variant rounded-[0.75rem] font-bold text-xs flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-sm">delete_sweep</span>
-              チャット消去
+              セッションをクリア
             </button>
             <button
               onClick={handleRefreshReport}

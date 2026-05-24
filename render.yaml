@@ -11,7 +11,10 @@ services:
         destination: https://market-lens-ai.onrender.com/api/ml/*
       - type: rewrite
         source: /api/ads/*
-        destination: https://market-lens-ai.onrender.com/api/ads/*
+        destination: https://ads-insights-9q5s.onrender.com/api/ads/*
+      - type: rewrite
+        source: /api/insights/*
+        destination: https://ads-insights-9q5s.onrender.com/api/insights/*
       - type: rewrite
         source: /*
         destination: /index.html
@@ -33,7 +36,7 @@ services:
         value: camera=(), microphone=(), geolocation=()
       - path: /*
         name: Content-Security-Policy
-        value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://market-lens-ai.onrender.com https://api.anthropic.com; frame-ancestors 'none'"
+        value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://market-lens-ai.onrender.com https://ads-insights-9q5s.onrender.com https://api.anthropic.com; frame-ancestors 'none'"
 
   - type: web
     name: market-lens-ai

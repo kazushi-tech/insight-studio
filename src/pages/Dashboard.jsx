@@ -298,7 +298,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           分析
         </button>
         <button
-          onClick={() => onNavigate('/ads/ai')}
+          onClick={() => onNavigate('/insights/ai')}
           className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
           AIエクスプローラー
@@ -341,7 +341,7 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
       status: hasAnalysisKey && isAdsAuthenticated && setupState ? '利用可' : '設定必要',
       tone: hasAnalysisKey && isAdsAuthenticated && setupState ? 'ok' : 'need',
       next: !isAdsAuthenticated ? 'Ads認証を確認' : !setupState ? '期間と案件を設定' : 'AI考察へ',
-      path: !isAdsAuthenticated || !setupState ? '/ads/wizard' : '/ads/ai',
+      path: !isAdsAuthenticated || !setupState ? '/ads/wizard' : '/insights/ai',
     },
     {
       icon: 'database',
