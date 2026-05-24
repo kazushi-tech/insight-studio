@@ -18,15 +18,15 @@ const QUESTION = '5月のPV数で一番高かった日はいつ？原因は何�
 
 const ANSWER_MARKDOWN = [
   '## 結論',
-  '5月でPV数が最も高かったのは 2026-05-13 で、PV数は 401 です。',
+  '5月でPV数が最も高かったのは 2026-05-13 で、PV数は 260 です。',
   '',
   '## 数値根拠',
-  '- 前日比は +102PV / +34.1% です。',
-  '- 期間平均との差は +203.7PV / +103.2% です。',
+  '- 前日比は +110PV / +73.3% です。',
+  '- 期間平均との差は +83.3PV / +47.2% です。',
   '',
   '## 原因として考えられること',
-  'source / medium では google / organic、LP軸では厳密なセッションLP定義で https://www.petabit.co.jp/ から始まったセッション群の増加が目立ちます。',
-  'campaign属性では (organic) が増えています。ただし、これは広告キャンペーン施策を意味するとは限らず、自然検索流入の増加として見るのが妥当です。',
+  'source / medium では search.example / organic、LP軸では厳密なセッションLP定義で https://entry-a.example.test/ から始まったセッション群の増加が目立ちます。',
+  'page_location別PVでは記事ページの閲覧増が見えますが、セッションLP定義では入口ページから始まったセッション群がPV増加に寄与したと見るのが妥当です。',
   '',
   '## まだ断定できないこと',
   '広告配信、SNS投稿、メルマガ、外部露出の有無はこのデータだけでは確認できないため、原因は断定できません。',
@@ -37,7 +37,7 @@ const ANSWER_MARKDOWN = [
   '3. 前週同曜日との比較',
   '',
   '## 打ち手',
-  '自然検索で伸びたページの検索クエリと導線を確認し、同系統ページの内部リンクとCTAを優先改善してください。',
+  '入口ページから記事ページへ進む導線を確認し、同系統ページの内部リンクとCTAを優先改善してください。',
 ].join('\n')
 
 function seedReadyStorage() {
@@ -45,21 +45,21 @@ function seedReadyStorage() {
   sessionStorage.clear()
   localStorage.setItem('insight-studio-guide-seen', '1')
   localStorage.setItem('is_ads_token', 'test-token')
-  localStorage.setItem('is_gemini_key', 'AIza-test-key')
+  localStorage.setItem('is_gemini_key', 'test-gemini-key')
   localStorage.setItem('is_user', JSON.stringify({ role: 'admin', display_name: 'テスト管理者' }))
   localStorage.setItem(
     'insight-studio-current-case',
-    JSON.stringify({ case_id: 'petabit', name: 'ペタビット', dataset_id: 'analytics_311324674' }),
+    JSON.stringify({ case_id: 'synthetic-demo', name: 'Synthetic Demo', dataset_id: 'analytics_synthetic_demo' }),
   )
   localStorage.setItem('insight-studio-case-authenticated', 'true')
   localStorage.setItem(
-    'insight-studio-ads-setup:petabit',
+    'insight-studio-ads-setup:synthetic-demo',
     JSON.stringify({
       version: 3,
       queryTypes: ['pv', 'traffic', 'landing', 'device'],
       periods: ['2026-05'],
       granularity: 'monthly',
-      datasetId: 'analytics_311324674',
+      datasetId: 'analytics_synthetic_demo',
       completedAt: '2026-05-24T00:00:00.000Z',
     }),
   )
@@ -112,14 +112,14 @@ describe('/insights/ai neutral route AI Explorer', () => {
     server.use(
       http.post('/api/ads/bq/generate_batch', () =>
         HttpResponse.json({
-          report_md: '## PV分析\n2026-05-13 が 401PV で最大です。',
+          report_md: '## PV分析\n2026-05-13 が 260PV で最大です。',
           chart_data: {
             groups: [
               {
                 title: 'PV分析 — 日別推移',
                 chartType: 'line',
                 labels: ['2026-05-12', '2026-05-13'],
-                datasets: [{ label: 'PV数', data: [299, 401] }],
+                datasets: [{ label: 'PV数', data: [150, 260] }],
               },
             ],
           },
@@ -132,7 +132,7 @@ describe('/insights/ai neutral route AI Explorer', () => {
           ok: true,
           answer_markdown: ANSWER_MARKDOWN,
           text: ANSWER_MARKDOWN,
-          direct_answer: '2026-05-13 が最大で、401PV です。',
+          direct_answer: '2026-05-13 が最大で、260PV です。',
           parse_status: 'json',
           fallback_used: false,
           caveats: [
@@ -149,11 +149,11 @@ describe('/insights/ai neutral route AI Explorer', () => {
             },
             pvSpikePeak: {
               date: '2026-05-13',
-              pageViews: 401,
-              previousDayDelta: 102,
-              previousDayDeltaRate: 34.1,
-              periodAverageDelta: 203.7,
-              periodAverageDeltaRate: 103.2,
+              pageViews: 260,
+              previousDayDelta: 110,
+              previousDayDeltaRate: 73.3,
+              periodAverageDelta: 83.3,
+              periodAverageDeltaRate: 47.2,
             },
           },
         })
@@ -180,13 +180,13 @@ describe('/insights/ai neutral route AI Explorer', () => {
     expect(screen.getByRole('heading', { name: '次に確認すべきこと' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '打ち手' })).toBeInTheDocument()
     expect(screen.getAllByText(/2026-05-13/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/401/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/260/).length).toBeGreaterThan(0)
     expect(screen.getByText(/JSON parse成功/)).toBeInTheDocument()
     expect(screen.getByText(/fallback/).closest('[data-testid="ai-response-meta"]')).toHaveTextContent('未使用')
     expect(screen.getByText(/GA4セッション内の最初のpage_view/)).toBeInTheDocument()
     expect(screen.getByText(/最初の page_view\.page_location/)).toBeInTheDocument()
     expect(screen.getByText(/広告キャンペーン施策名ではありません/)).toBeInTheDocument()
-    expect(screen.getAllByText(/自然検索流入の増加として見るのが妥当/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/入口ページから始まったセッション群がPV増加に寄与/).length).toBeGreaterThan(0)
     expect(screen.queryByText('形式整形に失敗したため、AIの生回答を表示しています')).not.toBeInTheDocument()
     expect(screen.queryByText('この回答は表示形式を整えられませんでした。')).not.toBeInTheDocument()
     expect(neonCalls).toBe(1)
@@ -208,7 +208,7 @@ describe('/insights/ai neutral route AI Explorer', () => {
     server.use(
       http.post('/api/ads/bq/generate_batch', () =>
         HttpResponse.json({
-          report_md: '## PV分析\n2026-05-13 が 401PV で最大です。',
+          report_md: '## PV分析\n2026-05-13 が 260PV で最大です。',
           chart_data: { groups: [] },
         }),
       ),
@@ -229,7 +229,7 @@ describe('/insights/ai neutral route AI Explorer', () => {
     server.use(
       http.post('/api/ads/bq/generate_batch', () =>
         HttpResponse.json({
-          report_md: '## PV分析\n2026-05-13 が 401PV で最大です。',
+          report_md: '## PV分析\n2026-05-13 が 260PV で最大です。',
           chart_data: { groups: [] },
         }),
       ),
