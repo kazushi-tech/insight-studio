@@ -31,6 +31,10 @@
       "destination": "https://ads-insights-9q5s.onrender.com/api/cases/:path*"
     },
     {
+      "source": "/api/ads/bq/:path*",
+      "destination": "https://ads-insights-9q5s.onrender.com/api/bq/:path*"
+    },
+    {
       "source": "/api/ads/:path*",
       "destination": "https://ads-insights-9q5s.onrender.com/api/ads/:path*"
     },
