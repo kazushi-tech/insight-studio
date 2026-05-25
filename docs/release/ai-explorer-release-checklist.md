@@ -127,7 +127,7 @@ Phase 5 can be considered releasable only if all split gates pass.
 - [x] Render API-only verify passed before merge
 - [x] Full live smoke with real BigQuery context to Gemini intentionally skipped and documented
 - [x] Phase 5 can be safely moved from Draft to review
-- [ ] Phase 5 complete
+- [x] Phase 5 complete
 
 Note: 2026-05-24 gate stopped before Draft release/merge because the original
 full live smoke could send real BigQuery-derived analytics context to Gemini.
@@ -149,15 +149,27 @@ Do not mark Phase 5 complete until the split safe gates above have all passed.
 - [x] production verify passed after merge
 - [x] Render API-only verify passed after merge
 - [x] BigQuery-only diagnostic passed before merge without Gemini call
-- [ ] BigQuery-only diagnostic rerun after merge completed
+- [x] BigQuery-only diagnostic rerun after merge completed
 - [x] Synthetic Gemini smoke passed after merge without real BigQuery data
 - [x] Full live smoke with real BigQuery-derived context sent to Gemini intentionally not executed
-- [ ] Phase 5 completed
+- [x] Phase 5 completed
 
 Notes:
 
 - PR #156 was merged as merge commit `42481560cb5a05d84fc0fd8cf427b51af620b36c`.
 - Pre-merge BigQuery-only diagnostic passed on PR head `a9550809f73130fd5d6c65e75e9aa7dcbc9d9061` without Gemini call.
-- Post-merge BigQuery-only diagnostic rerun was attempted twice and timed out at the existing 180s command limit. The timeout was not increased.
+- Post-merge BigQuery-only diagnostic rerun passed on master HEAD `f9b1cdab248202aa4bc6cef7f16a689c430062ac` without Gemini call.
 - Synthetic Gemini smoke used only non-production synthetic context and passed after merge.
 - Full live smoke remains intentionally skipped because it would send real BigQuery-derived analytics context to Gemini.
+
+## Phase 5.1d final verification
+
+- [x] Merge後 master HEAD `f9b1cdab248202aa4bc6cef7f16a689c430062ac` で BigQuery-only diagnostic passed
+- [x] Gemini callなし
+- [x] 実BigQuery由来データをGeminiへ送信していない
+- [x] `sessionLandingPageDiagnostic.method = ga4_session_first_page_view`
+- [x] `sessionLandingPageDiagnostic.topLandingPages` generated
+- [x] `missingSessionIdPageViews` / `unknownLandingPagePageViews` 集計あり
+- [x] fallback caveatなし
+- [x] Full live smoke with real BigQuery-derived context sent to Gemini intentionally not executed
+- [x] Phase 5 completed
