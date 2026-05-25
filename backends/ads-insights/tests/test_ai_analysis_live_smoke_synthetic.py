@@ -48,6 +48,7 @@ def _synthetic_context():
                 },
             ],
             "campaign": [
+                {"campaign": "(organic)", "peakDayPageViews": 120, "previousDayPageViews": 60},
                 {"campaign": "synthetic-spring-guide", "peakDayPageViews": 70, "previousDayPageViews": 40},
             ],
             "device": [
@@ -80,7 +81,7 @@ def _synthetic_context():
         ],
     )
     return {
-        "question": "Which synthetic landing page group contributed to the PV spike?",
+        "question": "5月のPV数で一番高かった日はいつ？原因は何だと思う？",
         "projectName": "Synthetic Demo Project",
         "propertyName": "Synthetic GA4 Property",
         "datasetId": "analytics_synthetic_demo",
@@ -111,9 +112,11 @@ Return JSON only.
 
 Required answer_markdown content:
 - Mention that session LP means GA4 session's first page_view.page_location.
+- Explain session LP as attributing the day's PV to each session's entry page.
 - Explain that page_location PV and session LP are different.
 - Explain that the synthetic entry page group contributed to PV increase.
 - Do not say that a page is the cause only because that page's page_location PV increased.
+- Explain that campaign (organic) is not proof that an advertising campaign was run.
 """
 
     lowered_prompt = prompt.lower()
@@ -142,4 +145,6 @@ Required answer_markdown content:
     assert "page_location" in markdown
     assert "セッションLP" in markdown or "session LP" in markdown
     assert "入口" in markdown or "entry" in markdown or "始まったセッション" in markdown
+    assert "広告キャンペーン" in markdown or "advertising campaign" in markdown
+    assert "organic" in markdown.lower()
     assert "トップページのPVが増えたからトップページが原因" not in markdown

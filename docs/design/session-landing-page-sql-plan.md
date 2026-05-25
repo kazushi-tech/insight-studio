@@ -78,6 +78,14 @@ Phase 5では、既存のBigQuery接続と `run_query_with_params` を再利用�
 
 新しい `pvSpikeDiagnostic.sessionLandingPageDiagnostic` は、「どのページから始まったセッション群が、その日のPVに寄与したか」を示す。たとえば `/` から入ったユーザーが `/blog/a` を多く閲覧した場合、page_location別PVでは `/blog/a`、セッションLPでは `/` が上位になることがある。
 
+### セッションLP診断の読み方
+
+セッションLP診断は、「その日に発生したPVを、各セッションの入口ページへ帰属させて見る」ための診断である。
+
+たとえばトップページが上位に出ている場合、それは「トップページ自体の閲覧PVが最も増えた」とは限らない。正しくは、「トップページから始まったセッション群が、その日のPV増加に大きく寄与した可能性がある」と読む。
+
+一方、従来の page_location別PV は「そのURLが何回閲覧されたか」を見る指標である。そのため、セッションLP診断と page_location別PV は似ているが意味が異なる。
+
 ### fallback方針
 
 - セッションLP SQLが失敗した場合、既存の `page_location` 別PVをfallbackとして維持

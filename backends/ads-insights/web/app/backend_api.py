@@ -14241,6 +14241,7 @@ insight-report JSON の必須キー:
 - PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にする
 - LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先する
 - sessionLandingPageDiagnostic は「user_pseudo_id + ga_session_id ごとの最初の page_view.page_location」をLPとし、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示す
+- セッションLPは「その日に発生したPVを、各セッションの入口ページへ帰属させた診断」として説明する
 - page_location別PVとセッションLPは別物。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」
 - LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記する
 - answer_markdown は必ず「## 結論」「## 数値根拠」「## 原因として考えられること」「## まだ断定できないこと」「## 次に確認すべきこと」「## 打ち手」の見出しを含める
@@ -14290,6 +14291,7 @@ insight-report JSON の必須キー:
 - PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にすること
 - LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先すること
 - sessionLandingPageDiagnostic は「user_pseudo_id + ga_session_id ごとの最初の page_view.page_location」をLPとし、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示す
+- セッションLPは「その日に発生したPVを、各セッションの入口ページへ帰属させた診断」として説明すること
 - page_location別PVとセッションLPは別物。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」
 - LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記すること
 - sessionLandingPageDiagnostic がない場合のみ、従来の landingPage breakdown をfallbackとして使う。その場合は page_location別PVであり、厳密なセッションLPではないと明記すること
@@ -14321,6 +14323,7 @@ insight-report JSON の必須キー:
 - PV最大日や急増理由は AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にすること
 - LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先すること
 - sessionLandingPageDiagnostic は「user_pseudo_id + ga_session_id ごとの最初の page_view.page_location」をLPとし、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示す
+- セッションLPは「その日に発生したPVを、各セッションの入口ページへ帰属させた診断」として説明すること
 - page_location別PVとセッションLPは別物。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」
 - LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記すること
 - sessionLandingPageDiagnostic がない場合のみ、従来の landingPage breakdown をfallbackとして使う。その場合は page_location別PVであり、厳密なセッションLPではないと明記すること

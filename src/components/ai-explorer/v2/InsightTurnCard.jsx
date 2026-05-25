@@ -688,7 +688,7 @@ export default function InsightTurnCard({
   const pvPeak = analysisContext?.pvSpikePeak
   const sessionLandingPageDiagnostic = analysisContext?.sessionLandingPageDiagnostic
   const lpDefinitionLabel = sessionLandingPageDiagnostic?.landingPageDefinition
-    ? 'GA4セッション内の最初のpage_view'
+    ? 'GA4セッション内で最初に閲覧されたページ（入口ページ）'
     : ''
   const formatSignedPercent = (value) => {
     if (value == null || value === '') return ''

@@ -183,7 +183,7 @@ describe('/insights/ai neutral route AI Explorer', () => {
     expect(screen.getAllByText(/260/).length).toBeGreaterThan(0)
     expect(screen.getByText(/JSON parse成功/)).toBeInTheDocument()
     expect(screen.getByText(/fallback/).closest('[data-testid="ai-response-meta"]')).toHaveTextContent('未使用')
-    expect(screen.getByText(/GA4セッション内の最初のpage_view/)).toBeInTheDocument()
+    expect(screen.getByText(/GA4セッション内で最初に閲覧されたページ（入口ページ）/)).toBeInTheDocument()
     expect(screen.getByText(/最初の page_view\.page_location/)).toBeInTheDocument()
     expect(screen.getByText(/広告キャンペーン施策名ではありません/)).toBeInTheDocument()
     expect(screen.getAllByText(/入口ページから始まったセッション群がPV増加に寄与/).length).toBeGreaterThan(0)

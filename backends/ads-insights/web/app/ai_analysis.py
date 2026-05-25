@@ -1243,6 +1243,7 @@ def ai_json_output_contract() -> str:
 PV最大日や急増理由を聞かれた場合は、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic を最優先の根拠にしてください。
 LP原因分析では、AI_ANALYSIS_CONTEXT.pvSpikeDiagnostic.sessionLandingPageDiagnostic がある場合、それを最優先してください。
 これは単純なURL別PVではなく、user_pseudo_id + ga_session_id ごとの最初のpage_viewをLPとして定義し、そのLPから始まったセッション群が対象日のpage_viewにどれだけ寄与したかを示します。
+セッションLPは「その日に発生したPVを、各セッションの入口ページへ帰属させた診断」です。
 page_location別PVとセッションLPは別物です。page_location別PVは「そのページが何回見られたか」、セッションLPは「そのページから始まったセッションがどれだけPVに寄与したか」です。
 LP原因を述べるときは、必ず「厳密なセッションLP定義」または「page_location別PV」のどちらを使っているか明記してください。
 原因は、breakdownsにある差分・構成比・寄与度から「仮説」として述べてください。

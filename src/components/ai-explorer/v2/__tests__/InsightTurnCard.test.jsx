@@ -618,7 +618,7 @@ describe('InsightTurnCard', () => {
     expect(screen.getByTestId('ai-response-meta')).toBeInTheDocument()
     expect(screen.getByText(/2026-05-01 〜 2026-05-31/)).toBeInTheDocument()
     expect(screen.getByText(/page_views/)).toBeInTheDocument()
-    expect(screen.getByText(/GA4セッション内の最初のpage_view/)).toBeInTheDocument()
+    expect(screen.getByText(/GA4セッション内で最初に閲覧されたページ（入口ページ）/)).toBeInTheDocument()
     expect(screen.getByText(/生回答を表示/)).toBeInTheDocument()
     expect(screen.getByText('外部施策の有無は確認できません')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '再試行' }))

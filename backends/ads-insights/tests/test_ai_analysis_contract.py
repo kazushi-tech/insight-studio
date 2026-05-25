@@ -420,6 +420,7 @@ def test_ai_context_contract_mentions_session_landing_page_definition():
     assert session_diag["method"] == "ga4_session_first_page_view"
     assert session_diag["landingPageDefinition"] == "first page_view.page_location in each GA4 session"
     assert "page_location別PVとセッションLPは別物" in prompt
+    assert "その日に発生したPVを、各セッションの入口ページへ帰属させた診断" in prompt
     assert "sessionLandingPageDiagnostic" in prompt
 
 
