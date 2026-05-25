@@ -19,6 +19,18 @@
       "destination": "https://market-lens-ai.onrender.com/api/ml/:path*"
     },
     {
+      "source": "/api/ads/auth/:path*",
+      "destination": "https://ads-insights-9q5s.onrender.com/api/auth/:path*"
+    },
+    {
+      "source": "/api/ads/cases",
+      "destination": "https://ads-insights-9q5s.onrender.com/api/cases"
+    },
+    {
+      "source": "/api/ads/cases/:path*",
+      "destination": "https://ads-insights-9q5s.onrender.com/api/cases/:path*"
+    },
+    {
       "source": "/api/ads/:path*",
       "destination": "https://ads-insights-9q5s.onrender.com/api/ads/:path*"
     },
