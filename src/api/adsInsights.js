@@ -1,5 +1,11 @@
 const BASE = '/api/ads'
-const ADS_BACKEND_ORIGIN = 'https://ads-insights-9q5s.onrender.com'
+// 非プロキシ(本番)オリジンで直叩きする backend URL。VITE_ADS_INSIGHTS_API_ORIGIN で上書き可。
+// これは公開URLであって秘密ではない — 認証情報など秘密値は VITE_* に入れない
+// （VITE_* はブラウザバンドルに同梱される）。ローカルは SHOULD_FORCE_PROXY=true のため
+// この値は使われず、同一オリジンの /api/ads（vite proxy）が使われる。
+const ADS_BACKEND_ORIGIN =
+  import.meta.env.VITE_ADS_INSIGHTS_API_ORIGIN?.replace(/\/$/, '') ||
+  'https://ads-insights-9q5s.onrender.com'
 const ADS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api/ads`
 export const AI_GENERATE_ENDPOINT = '/api/insights/neon/generate'
 const INSIGHTS_BASE = '/api/insights'
