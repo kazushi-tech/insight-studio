@@ -34,9 +34,10 @@ def _escape_markdown_cell(value) -> str:
     None / NaN / 空文字 → データなし、数値はそのまま文字列化、
     文字列セル中の `|` を `\\|` に置換する。
     """
-    if value is None:
-        return "データなし"
-    if isinstance(value, float) and pd.isna(value):
+    # None / NaN / pd.NA など、スカラの欠損値を安全に「データなし」へ。
+    # （_escape_df_for_markdown から各セル単位で呼ばれるため value は常にスカラ。
+    #   is_scalar ガードで配列が来ても pd.isna が真偽配列を返して落ちるのを防ぐ）
+    if pd.api.types.is_scalar(value) and pd.isna(value):
         return "データなし"
     s = str(value)
     if s.strip() == "" or s.strip().lower() in {"none", "nan", "null"}:
@@ -52,12 +53,19 @@ def _escape_df_for_markdown(df: pd.DataFrame) -> pd.DataFrame:
     """DataFrame の全 object 列について `|` をエスケープしたコピーを返す。
 
     数値列はそのまま維持し、見た目を壊さない。
+    pandas の nullable 型（Int64/Float64 等）が持つ pd.NA は、to_markdown 内部の
+    tabulate が真偽評価して "boolean value of NA is ambiguous" で落ちるため、
+    NA を含む nullable 列は NA セルだけ None に正規化する（数値はそのまま維持）。
+    （BigQuery の to_dataframe() は NULL を含む INT64 列を Int64 で返すため必要）
     元の DataFrame は変更しない。
     """
     out = df.copy()
     for col in out.columns:
-        if out[col].dtype == object:
-            out[col] = out[col].apply(_escape_markdown_cell)
+        series = out[col]
+        if series.dtype == object:
+            out[col] = series.apply(_escape_markdown_cell)
+        elif pd.api.types.is_extension_array_dtype(series.dtype) and series.isna().any():
+            out[col] = series.astype(object).where(series.notna(), other=None)
     return out
 from bq.queries import get_query, list_query_types, QUERIES
 

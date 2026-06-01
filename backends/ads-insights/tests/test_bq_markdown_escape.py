@@ -35,6 +35,11 @@ def test_escape_nan():
     assert _escape_markdown_cell(float("nan")) == "データなし"
 
 
+def test_escape_pandas_na():
+    # pandas の nullable 型（Int64 等）が持つ欠損値 pd.NA も「データなし」に
+    assert _escape_markdown_cell(pd.NA) == "データなし"
+
+
 def test_escape_numeric():
     assert _escape_markdown_cell(12345) == "12345"
     assert _escape_markdown_cell(3.14) == "3.14"
@@ -68,6 +73,33 @@ def test_escape_df_empty():
     df = pd.DataFrame(columns=["page_title", "page_views"])
     escaped = _escape_df_for_markdown(df)
     assert len(escaped) == 0
+
+
+def test_escape_df_nullable_int_with_na_renders():
+    """PV分析クエリ回帰: NULL を含む INT64 列は to_dataframe() で Int64(pd.NA) になる。
+
+    `IF(daily_rank = 1, daily_users, NULL)` のように一部行が NULL の列を
+    to_markdown へ流すと、tabulate が pd.NA を真偽評価して
+    'boolean value of NA is ambiguous' で落ちていた。NA セルが安全化され、
+    例外なくレンダリングでき、数値はそのまま残ることを検証する。
+    """
+    df = pd.DataFrame({
+        "event_date": ["20251201", "20251201"],
+        "users": pd.array([100, None], dtype="Int64"),
+        "sessions": pd.array([120, None], dtype="Int64"),
+        "page_views": pd.array([50, 30], dtype="Int64"),
+        "page_title": ["トップ | 会社概要", "サービス"],
+    })
+    escaped = _escape_df_for_markdown(df)
+    # 例外なく Markdown 化できる（これがバグの本丸）
+    md = escaped.to_markdown(index=False)
+    assert "50" in md and "30" in md            # NA でない数値は維持される
+    assert "トップ \\| 会社概要" in md          # object 列の `|` エスケープは従来どおり
+    # NA セルは None に正規化されている（tabulate 安全）
+    assert escaped["users"].iloc[1] is None
+    assert escaped["users"].iloc[0] == 100
+    # 元の DataFrame は破壊されない
+    assert pd.isna(df["users"].iloc[1])
 
 
 # ---------------------------------------------------------------------------
@@ -153,10 +185,12 @@ if __name__ == "__main__":
         test_escape_no_pipe,
         test_escape_none,
         test_escape_nan,
+        test_escape_pandas_na,
         test_escape_numeric,
         test_escape_multiple_pipes,
         test_escape_df_preserves_numeric,
         test_escape_df_empty,
+        test_escape_df_nullable_int_with_na_renders,
         test_summarize_pv_pipe_in_page_title,
         test_summarize_traffic_pipe_in_source,
         test_summarize_landing_pipe_in_page,
