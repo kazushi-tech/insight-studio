@@ -874,6 +874,270 @@ export function buildChartEvidencePack(chartGroups = [], options = {}) {
   }
 }
 
+const BEGINNER_CARD_TYPES = new Set(['what_happened', 'so_what', 'check_first', 'data_gap', 'next_action'])
+const BEGINNER_SEVERITIES = new Set(['positive', 'neutral', 'warning', 'critical'])
+
+function cleanBeginnerText(value, fallback = '') {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback
+}
+
+function normalizeBeginnerStringList(value, limit = 5) {
+  return Array.isArray(value)
+    ? value
+        .map((item) => cleanBeginnerText(item))
+        .filter(Boolean)
+        .filter((item, index, array) => array.indexOf(item) === index)
+        .slice(0, limit)
+    : []
+}
+
+function normalizeBeginnerCards(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => {
+      const type = BEGINNER_CARD_TYPES.has(item.type) ? item.type : 'what_happened'
+      const title = cleanBeginnerText(item.title)
+      const body = cleanBeginnerText(item.body)
+      if (!title || !body) return null
+      return {
+        type,
+        title,
+        body,
+        severity: BEGINNER_SEVERITIES.has(item.severity) ? item.severity : 'neutral',
+        evidence_chart_ids: normalizeBeginnerStringList(item.evidence_chart_ids ?? item.evidenceChartIds, 4),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+}
+
+function normalizeBeginnerActions(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item) => item && typeof item === 'object')
+    .map((item, index) => {
+      const title = cleanBeginnerText(item.title)
+      const reason = cleanBeginnerText(item.reason)
+      if (!title && !reason) return null
+      return {
+        priority: cleanBeginnerText(item.priority, `P${index + 1}`),
+        title: title || reason,
+        reason,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 4)
+}
+
+function normalizeBeginnerGaps(value) {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item) => item && typeof item === 'object')
+    .map((item, index) => {
+      const label = cleanBeginnerText(item.label)
+      const impact = cleanBeginnerText(item.impact)
+      if (!label && !impact) return null
+      return {
+        key: cleanBeginnerText(item.key, `gap_${index + 1}`),
+        label: label || '判断保留',
+        impact,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+}
+
+export function normalizeBeginnerReport(report) {
+  if (!report || typeof report !== 'object') return null
+  const summaryCards = normalizeBeginnerCards(report.summary_cards ?? report.summaryCards)
+  const nextActions = normalizeBeginnerActions(report.next_actions ?? report.nextActions)
+  const dataGaps = normalizeBeginnerGaps(report.data_gaps ?? report.dataGaps)
+  const recommendedCharts = normalizeBeginnerStringList(report.recommended_charts ?? report.recommendedCharts, 3)
+
+  if (summaryCards.length === 0 && nextActions.length === 0 && dataGaps.length === 0 && recommendedCharts.length === 0) {
+    return null
+  }
+
+  return {
+    version: cleanBeginnerText(report.version, 'beginner_report_v1'),
+    summary_cards: summaryCards,
+    next_actions: nextActions,
+    data_gaps: dataGaps,
+    recommended_charts: recommendedCharts,
+  }
+}
+
+function formatBeginnerValue(value) {
+  const number = toFiniteNumber(value)
+  if (number == null) return '未取得'
+  return number.toLocaleString('ja-JP', {
+    maximumFractionDigits: Math.abs(number) >= 1000 ? 0 : 1,
+  })
+}
+
+function queryTypeOfGroup(group) {
+  return group?.queryType ?? group?.query_type ?? group?.metadata?.queryType ?? group?.metadata?.query_type ?? ''
+}
+
+function mainDatasetOfGroup(group) {
+  const datasets = Array.isArray(group?.datasets) ? group.datasets : []
+  return datasets
+    .map((dataset) => {
+      const values = (Array.isArray(dataset?.data) ? dataset.data : [])
+        .map(toFiniteNumber)
+        .filter((value) => value != null)
+      return { dataset, values }
+    })
+    .filter((item) => item.values.length > 0)
+    .sort((a, b) => b.values.length - a.values.length || b.values.reduce((sum, value) => sum + value, 0) - a.values.reduce((sum, value) => sum + value, 0))[0] ?? null
+}
+
+function topPointOfGroup(group, dataset) {
+  const labels = Array.isArray(group?.labels) ? group.labels : []
+  const data = Array.isArray(dataset?.data) ? dataset.data : []
+  const points = data
+    .map((value, index) => ({
+      label: labels[index] == null ? `項目${index + 1}` : String(labels[index]),
+      value: toFiniteNumber(value),
+    }))
+    .filter((point) => point.value != null && point.label.trim())
+  if (points.length === 0) return null
+  return points.sort((a, b) => b.value - a.value)[0]
+}
+
+function makeFallbackBeginnerCard(type, title, body, severity = 'neutral', evidenceChartIds = []) {
+  return { type, title, body, severity, evidence_chart_ids: evidenceChartIds }
+}
+
+export function buildBeginnerReportFromCharts(chartGroups = [], executionSummary = []) {
+  const groups = (Array.isArray(chartGroups) ? chartGroups : []).map(normalizeChartGroupShape)
+  const cards = []
+  const nextActions = []
+  const dataGaps = []
+  const recommendedCharts = []
+
+  const statusByQuery = new Map(
+    (Array.isArray(executionSummary) ? executionSummary : [])
+      .map((item) => [item?.query_type ?? item?.queryType ?? '', item?.status ?? 'unknown']),
+  )
+  const cvStatus = statusByQuery.get('cv')
+  const cvHasChart = groups.some((group) => queryTypeOfGroup(group) === 'cv')
+  if ((cvStatus && cvStatus !== 'success' && cvStatus !== 'no_chart') || (cvStatus && !cvHasChart)) {
+    dataGaps.push({
+      key: 'cv_missing',
+      label: 'CVデータ未取得',
+      impact: '成果につながる行動が見えないため、良し悪しは判断保留です。',
+    })
+  }
+
+  const contexts = groups
+    .map((group, index) => {
+      const main = mainDatasetOfGroup(group)
+      if (!main) return null
+      const first = main.values[0]
+      const latest = main.values[main.values.length - 1]
+      const delta = main.values.length >= 2 && first !== 0 ? ((latest - first) / Math.abs(first)) * 100 : null
+      return {
+        chartId: `chart_${String(index + 1).padStart(2, '0')}`,
+        group,
+        queryType: queryTypeOfGroup(group),
+        dataset: main.dataset,
+        values: main.values,
+        latest,
+        delta,
+        topPoint: topPointOfGroup(group, main.dataset),
+      }
+    })
+    .filter(Boolean)
+
+  const pushRecommended = (chartId) => {
+    if (chartId && !recommendedCharts.includes(chartId) && recommendedCharts.length < 3) recommendedCharts.push(chartId)
+  }
+
+  const pv = contexts.find((item) => item.queryType === 'pv')
+  if (pv) {
+    const title = pv.delta == null || Math.abs(pv.delta) < 10
+      ? '閲覧数は大きく崩れていません'
+      : pv.delta > 0
+        ? 'サイト閲覧は増えています'
+        : 'サイト閲覧は減っています'
+    const body = pv.delta == null || Math.abs(pv.delta) < 10
+      ? `最新値は ${formatBeginnerValue(pv.latest)} です。まずは急な変化がないかを確認します。`
+      : `期間内の最初の値から最新値まで ${pv.delta > 0 ? '+' : ''}${pv.delta.toFixed(1)}% 変化しています。増減した日と流入元を次に見ます。`
+    cards.push(makeFallbackBeginnerCard('what_happened', title, body, pv.delta < -10 ? 'warning' : pv.delta > 10 ? 'positive' : 'neutral', [pv.chartId]))
+    pushRecommended(pv.chartId)
+  }
+
+  const traffic = contexts.find((item) => item.queryType === 'traffic' && item.topPoint)
+  if (traffic) {
+    cards.push(makeFallbackBeginnerCard(
+      'check_first',
+      'まず流入元を見ます',
+      `もっとも多い流入元は「${traffic.topPoint.label}」で、値は ${formatBeginnerValue(traffic.topPoint.value)} です。どこから来た人が多いかを最初に確認します。`,
+      'neutral',
+      [traffic.chartId],
+    ))
+    nextActions.push({ priority: 'P2', title: '上位の流入元を確認する', reason: '来訪が増減したとき、最初に見るべき入口だからです。' })
+    pushRecommended(traffic.chartId)
+  }
+
+  const landing = contexts.find((item) => item.queryType === 'landing' && item.topPoint)
+  if (landing) {
+    cards.push(makeFallbackBeginnerCard(
+      'so_what',
+      '見られているページを確認します',
+      `上位ページは「${landing.topPoint.label}」で、値は ${formatBeginnerValue(landing.topPoint.value)} です。よく見られるページから改善候補を探します。`,
+      'neutral',
+      [landing.chartId],
+    ))
+    nextActions.push({ priority: 'P2', title: '上位LPの内容を確認する', reason: '訪問が集まるページを直すほど、改善の影響が見えやすいためです。' })
+    pushRecommended(landing.chartId)
+  }
+
+  if (dataGaps.some((gap) => gap.key === 'cv_missing')) {
+    cards.push(makeFallbackBeginnerCard(
+      'data_gap',
+      'CV計測が見つかりません',
+      '成果につながる行動が未取得です。閲覧数が良く見えても、成果の良し悪しはまだ断定しません。',
+      'warning',
+    ))
+    nextActions.unshift({ priority: 'P1', title: 'CV計測を確認する', reason: '成果データがないと、良い流入かどうかを判断できないためです。' })
+  }
+
+  if (cards.length === 0 && contexts.length > 0) {
+    cards.push(makeFallbackBeginnerCard(
+      'what_happened',
+      '取得済みグラフから順に確認します',
+      '大きな結論はまだ出さず、まず数値が取れているグラフから状態を確認します。',
+      'neutral',
+      [contexts[0].chartId],
+    ))
+    pushRecommended(contexts[0].chartId)
+  }
+
+  if (cards.length === 0) {
+    cards.push(makeFallbackBeginnerCard(
+      'data_gap',
+      '判断できるグラフがまだありません',
+      'セットアップ条件またはBigQuery接続を確認してから、再取得してください。',
+      'warning',
+    ))
+  }
+
+  if (nextActions.length === 0) {
+    nextActions.push({ priority: 'P1', title: '根拠グラフを3つだけ確認する', reason: '最初から全グラフを見ると判断が散らばるためです。' })
+  }
+
+  return normalizeBeginnerReport({
+    version: 'beginner_report_v1',
+    summary_cards: cards,
+    next_actions: nextActions,
+    data_gaps: dataGaps,
+    recommended_charts: recommendedCharts,
+  })
+}
+
 export async function generateBatchWithRetry(payload) {
   for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
@@ -915,6 +1179,9 @@ export function buildAdsReportBundle({ setupState, results }) {
     const reportMd = pickReportMarkdown(result)
     const chartGroups = pickChartGroups(result, periodTag)
     const executionSummary = pickExecutionSummary(result, periodTag)
+    const beginnerReport =
+      normalizeBeginnerReport(result?.beginner_report ?? result?.beginnerReport) ||
+      buildBeginnerReportFromCharts(chartGroups, executionSummary)
 
     return {
       periodTag,
@@ -922,6 +1189,7 @@ export function buildAdsReportBundle({ setupState, results }) {
       reportMd,
       chartGroups,
       executionSummary,
+      beginnerReport,
       raw: result,
     }
   })
@@ -945,6 +1213,11 @@ export function buildAdsReportBundle({ setupState, results }) {
   ].join('\n')
 
   const flatExecutionSummary = periodReports.flatMap((item) => item.executionSummary)
+  const flatChartGroups = periodReports.flatMap((item) => item.chartGroups)
+  const latestPeriodReport = periodReports[periodReports.length - 1] ?? null
+  const beginnerReport =
+    latestPeriodReport?.beginnerReport ||
+    buildBeginnerReportFromCharts(flatChartGroups, flatExecutionSummary)
   const dataAvailability = reportMd
     ? summarizeAvailability(results, periodReports)
     : 'fallback'
@@ -958,7 +1231,8 @@ export function buildAdsReportBundle({ setupState, results }) {
     missingReason,
     datasetId,
     reportMd: reportMd || fallbackReportMd,
-    chartGroups: periodReports.flatMap((item) => item.chartGroups),
+    chartGroups: flatChartGroups,
+    beginnerReport,
     periodReports,
     executionSummary: flatExecutionSummary,
     results,

@@ -2,10 +2,12 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   buildAdsReportBundle,
   buildAnalysisInstructions,
+  buildBeginnerReportFromCharts,
   buildChartEvidencePack,
   generateBatchWithRetry,
   getDisplayChartGroups,
   matchRelevantCharts,
+  normalizeBeginnerReport,
   normalizeChartGroupShape,
   pickExecutionSummary,
   selectChartGroupsForPrompt,
@@ -297,6 +299,88 @@ describe('chart group normalization', () => {
 
   it('shortens long LP URLs for custom legends', () => {
     expect(shortenChartLabel('https://example.com/a/very/long/landing/page/path?utm=1', 24)).toMatch(/…$/)
+  })
+})
+
+describe('beginner report bundle support', () => {
+  it('preserves backend beginner_report on the latest period', () => {
+    const bundle = buildAdsReportBundle({
+      setupState: {
+        datasetId: 'analytics_123',
+        periods: ['2026-06', '2026-07'],
+        queryTypes: ['pv'],
+      },
+      results: [
+        {
+          period: '2026-06',
+          report_md: '# June',
+          chart_data: { groups: [makeGroup({ title: 'June graph', labels: ['a'], datasets: [{ label: 'PV数', data: [1] }] })] },
+        },
+        {
+          period: '2026-07',
+          report_md: '# July',
+          beginner_report: {
+            version: 'beginner_report_v1',
+            summary_cards: [{
+              type: 'what_happened',
+              title: 'サイト閲覧は増えています',
+              body: '前半より後半のPVが高いです。',
+              severity: 'positive',
+              evidence_chart_ids: ['chart_01'],
+            }],
+            next_actions: [{ priority: 'P1', title: 'CV計測を確認する', reason: '成果判断のため。' }],
+            data_gaps: [{ key: 'cv_missing', label: 'CVデータ未取得', impact: '成果判断は保留です。' }],
+            recommended_charts: ['chart_01'],
+          },
+          chart_data: { groups: [makeGroup({ title: 'PV分析 — 日別推移', queryType: 'pv', labels: ['a'], datasets: [{ label: 'PV数', data: [2] }] })] },
+        },
+      ],
+    })
+
+    expect(bundle.beginnerReport.summary_cards[0].title).toBe('サイト閲覧は増えています')
+    expect(bundle.beginnerReport.data_gaps[0].key).toBe('cv_missing')
+    expect(bundle.beginnerReport.recommended_charts).toEqual(['chart_01'])
+  })
+
+  it('builds a beginner report fallback from chart groups when backend field is missing', () => {
+    const report = buildBeginnerReportFromCharts([
+      makeGroup({
+        title: 'PV分析 — 日別推移',
+        queryType: 'pv',
+        labels: ['2026-07-01', '2026-07-02'],
+        datasets: [{ label: 'PV数', data: [100, 150] }],
+      }),
+      makeGroup({
+        title: '流入分析 — セッション数上位2チャネル',
+        queryType: 'traffic',
+        chartType: 'bar_horizontal',
+        labels: ['organic / google', 'direct / none'],
+        datasets: [{ label: 'セッション', data: [80, 20] }],
+      }),
+    ], [
+      { query_type: 'pv', status: 'success' },
+      { query_type: 'traffic', status: 'success' },
+      { query_type: 'cv', status: 'no_data' },
+    ])
+
+    expect(report.summary_cards.map((card) => card.type)).toContain('what_happened')
+    expect(report.summary_cards.map((card) => card.type)).toContain('data_gap')
+    expect(report.next_actions[0].title).toBe('CV計測を確認する')
+    expect(JSON.stringify(report)).not.toMatch(/CPA|ROAS|CTR|広告費/)
+  })
+
+  it('normalizes invalid beginner_report values without crashing', () => {
+    const report = normalizeBeginnerReport({
+      summaryCards: [{ title: '見る場所', body: '流入元を確認します。', severity: 'unknown' }],
+      nextActions: ['invalid'],
+      dataGaps: [{ label: 'CVデータ未取得' }],
+      recommendedCharts: ['chart_01', '', 'chart_01'],
+    })
+
+    expect(report.summary_cards[0].severity).toBe('neutral')
+    expect(report.next_actions).toEqual([])
+    expect(report.data_gaps[0].label).toBe('CVデータ未取得')
+    expect(report.recommended_charts).toEqual(['chart_01'])
   })
 })
 

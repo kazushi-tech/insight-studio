@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
 import MarkdownRenderer from '../components/MarkdownRenderer'
@@ -1340,6 +1340,7 @@ function GraphAiQuestionRail({
           queryTypes: setupState?.queryTypes ?? [],
         },
         chart_evidence_pack: inlineEvidencePack,
+        beginner_report: reportBundle?.beginnerReport ?? null,
         active_chart_scope: {
           label: inlineScopeLabel,
           chart_ids: inlineEvidencePack?.charts?.map((chart) => chart.chart_id) ?? [],
@@ -1767,7 +1768,7 @@ export default function AnalysisGraphs() {
                   {reportAvailabilityLabel}
                 </span>
               )}
-              <h1 className="text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">広告分析</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">詳細グラフ</h1>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-on-surface-variant text-sm">
               {setupState?.datasetId && (
@@ -1797,6 +1798,14 @@ export default function AnalysisGraphs() {
 
           {/* Exec / Analyst toggle + refresh */}
           <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
+            <Link
+              to="/ads/report"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary transition-colors hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">summarize</span>
+              初心者レポート
+            </Link>
+
             <div className="flex items-center justify-center rounded-full bg-surface-container p-1 ghost-border sm:w-auto">
               <button
                 onClick={() => setViewMode('exec')}

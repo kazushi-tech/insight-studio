@@ -466,6 +466,7 @@ export default function AiExplorer() {
           queryTypes: setupState?.queryTypes ?? [],
         },
         chart_evidence_pack: promptEvidencePack,
+        beginner_report: reportBundle?.beginnerReport ?? null,
         active_chart_scope: {
           label: promptEvidencePack?.scope_label || 'AI考察 全グラフ',
           chart_ids: promptEvidencePack?.charts?.map((chart) => chart.chart_id) ?? [],

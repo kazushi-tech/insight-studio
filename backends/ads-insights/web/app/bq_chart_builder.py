@@ -924,6 +924,248 @@ def _fmt_ai_number(value: Any) -> str:
     return f"{number:,.2f}".rstrip("0").rstrip(".")
 
 
+def _beginner_query_type(group: dict[str, Any]) -> str:
+    metadata = group.get("metadata") if isinstance(group.get("metadata"), dict) else {}
+    return str(
+        group.get("queryType")
+        or group.get("query_type")
+        or metadata.get("queryType")
+        or metadata.get("query_type")
+        or ""
+    )
+
+
+def _beginner_values(dataset: dict[str, Any]) -> list[float]:
+    values: list[float] = []
+    for value in dataset.get("data") or []:
+        number = _as_number(value)
+        if number is not None:
+            values.append(float(number))
+    return values
+
+
+def _beginner_main_series(group: dict[str, Any]) -> tuple[dict[str, Any] | None, list[float]]:
+    best_dataset = None
+    best_values: list[float] = []
+    for dataset in group.get("datasets") or []:
+        if not isinstance(dataset, dict):
+            continue
+        values = _beginner_values(dataset)
+        if len(values) > len(best_values) or (values and sum(values) > sum(best_values)):
+            best_dataset = dataset
+            best_values = values
+    return best_dataset, best_values
+
+
+def _beginner_delta(values: list[float]) -> float | None:
+    if len(values) < 2 or values[0] == 0:
+        return None
+    return ((values[-1] - values[0]) / abs(values[0])) * 100
+
+
+def _beginner_top_point(group: dict[str, Any], dataset: dict[str, Any]) -> tuple[str, float] | None:
+    labels = group.get("labels") if isinstance(group.get("labels"), list) else []
+    data = dataset.get("data") if isinstance(dataset.get("data"), list) else []
+    points: list[tuple[str, float]] = []
+    for index, raw_value in enumerate(data):
+        value = _as_number(raw_value)
+        if value is None:
+            continue
+        label = str(labels[index]) if index < len(labels) else f"項目{index + 1}"
+        if label.strip():
+            points.append((label.strip(), float(value)))
+    if not points:
+        return None
+    return max(points, key=lambda item: item[1])
+
+
+def _beginner_card(
+    card_type: str,
+    title: str,
+    body: str,
+    *,
+    severity: str = "neutral",
+    evidence_chart_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "type": card_type,
+        "title": title,
+        "body": body,
+        "severity": severity,
+        "evidence_chart_ids": evidence_chart_ids or [],
+    }
+
+
+def _append_unique(items: list[str], values: list[str], limit: int = 3) -> None:
+    for value in values:
+        if value and value not in items:
+            items.append(value)
+        if len(items) >= limit:
+            return
+
+
+def build_beginner_report(
+    chart_groups: list[dict[str, Any]] | None,
+    execution_summary: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build a deterministic beginner report from generated charts.
+
+    This deliberately avoids unsupported ad efficiency KPIs. The result is a
+    small reading layer above the existing charts, not an AI interpretation.
+    """
+    groups = [group for group in (chart_groups or []) if isinstance(group, dict)]
+    summary = [item for item in (execution_summary or []) if isinstance(item, dict)]
+    cards: list[dict[str, Any]] = []
+    actions: list[dict[str, Any]] = []
+    data_gaps: list[dict[str, Any]] = []
+    recommended: list[str] = []
+
+    status_by_query = {
+        str(item.get("query_type") or item.get("queryType") or ""): str(item.get("status") or "unknown")
+        for item in summary
+    }
+    cv_status = status_by_query.get("cv")
+    cv_has_chart = any(_beginner_query_type(group) == "cv" for group in groups)
+    if cv_status in {"error", "no_data", "unknown"} or (cv_status and not cv_has_chart):
+        data_gaps.append({
+            "key": "cv_missing",
+            "label": "CVデータ未取得",
+            "impact": "成果につながる行動が見えないため、良し悪しは判断保留です。",
+        })
+
+    for item in summary:
+        query_type = str(item.get("query_type") or item.get("queryType") or "unknown")
+        status = str(item.get("status") or "unknown")
+        if status not in {"error", "no_data", "unknown"}:
+            continue
+        if query_type == "cv" and any(gap.get("key") == "cv_missing" for gap in data_gaps):
+            continue
+        data_gaps.append({
+            "key": f"{query_type}_{status}",
+            "label": f"{query_type} が未取得",
+            "impact": str(item.get("message") or "この項目は今回の判断材料から外します。")[:160],
+        })
+
+    chart_contexts: list[dict[str, Any]] = []
+    for index, group in enumerate(groups):
+        dataset, values = _beginner_main_series(group)
+        if dataset is None or not values:
+            continue
+        chart_id = f"chart_{index + 1:02d}"
+        chart_contexts.append({
+            "chart_id": chart_id,
+            "title": str(group.get("title") or f"グラフ{index + 1}"),
+            "query_type": _beginner_query_type(group),
+            "chart_type": str(group.get("chartType") or group.get("chart_type") or ""),
+            "dataset": dataset,
+            "values": values,
+            "delta": _beginner_delta(values),
+            "top_point": _beginner_top_point(group, dataset),
+        })
+
+    pv_chart = next((chart for chart in chart_contexts if chart["query_type"] == "pv"), None)
+    if pv_chart:
+        delta = pv_chart["delta"]
+        latest = pv_chart["values"][-1]
+        if delta is None or abs(delta) < 10:
+            title = "閲覧数は大きく崩れていません"
+            body = f"最新値は {_fmt_ai_number(latest)} です。まずは急な変化がないかを確認します。"
+            severity = "neutral"
+        elif delta > 0:
+            title = "サイト閲覧は増えています"
+            body = f"期間内の最初の値から最新値まで {delta:+.1f}% 変化しています。増えた日と流入元を次に見ます。"
+            severity = "positive"
+        else:
+            title = "サイト閲覧は減っています"
+            body = f"期間内の最初の値から最新値まで {delta:+.1f}% 変化しています。落ちた日と流入元を先に確認します。"
+            severity = "warning"
+        cards.append(_beginner_card("what_happened", title, body, severity=severity, evidence_chart_ids=[pv_chart["chart_id"]]))
+        _append_unique(recommended, [pv_chart["chart_id"]])
+
+    traffic_chart = next((chart for chart in chart_contexts if chart["query_type"] == "traffic" and chart["top_point"]), None)
+    if traffic_chart:
+        top_label, top_value = traffic_chart["top_point"]
+        cards.append(_beginner_card(
+            "check_first",
+            "まず流入元を見ます",
+            f"もっとも多い流入元は「{top_label}」で、値は {_fmt_ai_number(top_value)} です。どこから来た人が多いかを最初に確認します。",
+            severity="neutral",
+            evidence_chart_ids=[traffic_chart["chart_id"]],
+        ))
+        actions.append({
+            "priority": "P2",
+            "title": "上位の流入元を確認する",
+            "reason": "来訪が増減したとき、最初に見るべき入口だからです。",
+        })
+        _append_unique(recommended, [traffic_chart["chart_id"]])
+
+    landing_chart = next((chart for chart in chart_contexts if chart["query_type"] == "landing" and chart["top_point"]), None)
+    if landing_chart:
+        top_label, top_value = landing_chart["top_point"]
+        cards.append(_beginner_card(
+            "so_what",
+            "見られているページを確認します",
+            f"上位ページは「{top_label}」で、値は {_fmt_ai_number(top_value)} です。よく見られるページから改善候補を探します。",
+            severity="neutral",
+            evidence_chart_ids=[landing_chart["chart_id"]],
+        ))
+        actions.append({
+            "priority": "P2",
+            "title": "上位LPの内容を確認する",
+            "reason": "訪問が集まるページを直すほど、改善の影響が見えやすいためです。",
+        })
+        _append_unique(recommended, [landing_chart["chart_id"]])
+
+    if any(gap.get("key") == "cv_missing" for gap in data_gaps):
+        cards.append(_beginner_card(
+            "data_gap",
+            "CV計測が見つかりません",
+            "成果につながる行動が未取得です。閲覧数が良く見えても、成果の良し悪しはまだ断定しません。",
+            severity="warning",
+            evidence_chart_ids=[],
+        ))
+        actions.insert(0, {
+            "priority": "P1",
+            "title": "CV計測を確認する",
+            "reason": "成果データがないと、良い流入かどうかを判断できないためです。",
+        })
+
+    if not cards and chart_contexts:
+        first_chart = chart_contexts[0]
+        cards.append(_beginner_card(
+            "what_happened",
+            "取得済みグラフから順に確認します",
+            "大きな結論はまだ出さず、まず数値が取れているグラフから状態を確認します。",
+            severity="neutral",
+            evidence_chart_ids=[first_chart["chart_id"]],
+        ))
+        _append_unique(recommended, [first_chart["chart_id"]])
+
+    if not cards:
+        cards.append(_beginner_card(
+            "data_gap",
+            "判断できるグラフがまだありません",
+            "セットアップ条件またはBigQuery接続を確認してから、再取得してください。",
+            severity="warning",
+            evidence_chart_ids=[],
+        ))
+
+    if not actions:
+        actions.append({
+            "priority": "P1",
+            "title": "根拠グラフを3つだけ確認する",
+            "reason": "最初から全グラフを見ると判断が散らばるためです。",
+        })
+
+    return {
+        "version": "beginner_report_v1",
+        "summary_cards": cards[:5],
+        "next_actions": actions[:4],
+        "data_gaps": data_gaps[:5],
+        "recommended_charts": recommended[:3],
+    }
+
+
 def summarize_chart_evidence_pack_for_ai(pack: dict | None) -> str:
     """chart_evidence_pack をAIが引用しやすいMarkdownに圧縮する。"""
     if not isinstance(pack, dict):

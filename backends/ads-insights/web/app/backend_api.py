@@ -13933,6 +13933,7 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     workflow = str(payload.get("workflow") or "legacy").strip()
     report_contract_version = str(payload.get("report_contract_version") or "").strip()
     chart_evidence_pack = payload.get("chart_evidence_pack")
+    beginner_report = payload.get("beginner_report")
     active_chart_scope = payload.get("active_chart_scope") or {}
     session_policy = payload.get("session_policy") or {}
     import uuid as _uuid_mod
@@ -14222,6 +14223,15 @@ insight-report JSON の必須キー:
             "━━━━━━━━━━━━━━━━━━━━\n"
         )
 
+    beginner_report_context = ""
+    if isinstance(beginner_report, dict) and beginner_report:
+        beginner_report_context = (
+            "\n━━━ 初心者向け決定論レポート ━━━\n"
+            "このJSONはPython/JSで作った読み順です。数値根拠は chart_evidence_pack と AI_ANALYSIS_CONTEXT を優先してください。\n"
+            f"```json\n{_safe_json_dumps(beginner_report, ensure_ascii=False, indent=2)}\n```\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+        )
+
     session_policy_context = ""
     if isinstance(session_policy, dict) and session_policy:
         session_policy_context = (
@@ -14278,6 +14288,7 @@ insight-report JSON の必須キー:
 # 要点パック（根拠）
 {pp_md}
 {chart_summary}
+{beginner_report_context}
 {analysis_context_block}
 {active_scope_context}
 {session_policy_context}
@@ -14310,6 +14321,7 @@ insight-report JSON の必須キー:
 # 要点パック（根拠）
 {pp_md}
 {chart_summary}
+{beginner_report_context}
 {analysis_context_block}
 {active_scope_context}
 {session_policy_context}
@@ -14475,6 +14487,7 @@ insight-report JSON の必須キー:
             ))
             agent_pp_md = _compact_agent_text(pp_md, 10000)
             agent_chart_summary = _compact_agent_text(chart_summary, 14000)
+            agent_beginner_report_context = _compact_agent_text(beginner_report_context, 4000)
             agent_history_context = _compact_agent_text(history_context, 3000)
             agent_base_context = f"""{system}
 {bq_context}
@@ -14482,6 +14495,7 @@ insight-report JSON の必須キー:
 # 要点パック（根拠）
 {agent_pp_md}
 {agent_chart_summary}
+{agent_beginner_report_context}
 {active_scope_context}
 {session_policy_context}
 {agent_history_context}
@@ -16233,7 +16247,7 @@ async def api_bq_generate(request: Request):
 
         from bq.reporter import run_report
         from bq.queries import QUERIES, normalize_dataset_ref
-        from .bq_chart_builder import build_bq_chart_data
+        from .bq_chart_builder import build_bq_chart_data, build_beginner_report
 
         dataset_id = normalize_dataset_ref(dataset_id)
 
@@ -16259,6 +16273,13 @@ async def api_bq_generate(request: Request):
             chart_data = build_bq_chart_data(df, query_type)
 
         query_info = results.get("query_info", {})
+        execution_summary = {
+            "query_type": query_type,
+            "status": "success" if chart_data.get("groups") else "no_chart",
+            "row_count": int(len(df)) if df is not None else 0,
+            "chart_group_count": len(chart_data.get("groups") or []),
+            "message": "単一クエリのグラフ生成結果です。",
+        }
 
         response_data = {
             "ok": True,
@@ -16266,6 +16287,7 @@ async def api_bq_generate(request: Request):
             "missing_reason": "" if (results.get("report_md") or chart_data.get("groups")) else "レポート本文またはグラフが生成されませんでした。",
             "report_md": results.get("report_md", ""),
             "chart_data": chart_data,
+            "beginner_report": build_beginner_report(chart_data.get("groups") or [], [execution_summary]),
             "csv_path": results.get("csv", ""),
             "query_info": {"key": query_type, "name": query_info.get("name", query_type)},
         }
@@ -16319,7 +16341,7 @@ async def api_bq_generate_batch(request: Request):
 
         from bq.reporter import run_report, generate_cross_summary
         from bq.queries import QUERIES, normalize_dataset_ref
-        from .bq_chart_builder import build_bq_chart_data
+        from .bq_chart_builder import build_bq_chart_data, build_beginner_report
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         dataset_id = normalize_dataset_ref(dataset_id)
@@ -16476,6 +16498,7 @@ async def api_bq_generate_batch(request: Request):
         )
         data_availability, missing_reason = _bq_availability_from_summary(sorted_summary, len(valid_types))
         ok = data_availability != "failed"
+        beginner_report = build_beginner_report(all_groups, sorted_summary)
 
         return _json({
             "ok": ok,
@@ -16483,6 +16506,7 @@ async def api_bq_generate_batch(request: Request):
             "missing_reason": missing_reason,
             "report_md": combined_md,
             "chart_data": {"groups": all_groups} if all_groups else {},
+            "beginner_report": beginner_report,
             "results": {qt: {"report_md": d.get("report_md", ""), "query_info": d.get("query_info", {})}
                         for qt, d in all_results.items()},
             "skipped": skipped,

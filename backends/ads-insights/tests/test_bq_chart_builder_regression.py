@@ -9,7 +9,7 @@ import pandas as pd
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from web.app.bq_chart_builder import build_bq_chart_data
+from web.app.bq_chart_builder import build_beginner_report, build_bq_chart_data
 
 
 def test_search_uses_actual_coverage_instead_of_fixed_top20():
@@ -95,3 +95,63 @@ def test_flat_bounce_rate_ranking_reports_warning():
 
     assert group["datasets"][0]["data"] == [100.0, 100.0, 100.0]
     assert "flat_series" in group["warnings"]
+
+
+def test_beginner_report_flags_cv_gap_and_recommends_evidence_charts():
+    groups = [
+        {
+            "title": "PV分析 — 日別推移",
+            "queryType": "pv",
+            "chartType": "line",
+            "labels": ["2026-07-01", "2026-07-02"],
+            "datasets": [{"label": "PV数", "data": [100, 150]}],
+        },
+        {
+            "title": "流入分析 — セッション数上位2チャネル",
+            "queryType": "traffic",
+            "chartType": "bar_horizontal",
+            "labels": ["organic / google", "direct / none"],
+            "datasets": [{"label": "セッション", "data": [80, 20]}],
+        },
+        {
+            "title": "LP分析 — セッション数上位2LP",
+            "queryType": "landing",
+            "chartType": "bar_horizontal",
+            "labels": ["/", "/service"],
+            "datasets": [{"label": "セッション", "data": [60, 40]}],
+        },
+    ]
+    summary = [
+        {"query_type": "pv", "status": "success", "row_count": 2, "chart_group_count": 1},
+        {"query_type": "traffic", "status": "success", "row_count": 2, "chart_group_count": 1},
+        {"query_type": "landing", "status": "success", "row_count": 2, "chart_group_count": 1},
+        {"query_type": "cv", "status": "no_data", "row_count": 0, "chart_group_count": 0},
+    ]
+
+    report = build_beginner_report(groups, summary)
+
+    assert report["version"] == "beginner_report_v1"
+    assert len(report["summary_cards"]) <= 5
+    assert any(card["type"] == "what_happened" for card in report["summary_cards"])
+    assert any(card["type"] == "data_gap" for card in report["summary_cards"])
+    assert any(gap["key"] == "cv_missing" for gap in report["data_gaps"])
+    assert report["recommended_charts"][:2] == ["chart_01", "chart_02"]
+    assert report["next_actions"][0]["title"] == "CV計測を確認する"
+
+
+def test_beginner_report_does_not_invent_ad_efficiency_kpis():
+    groups = [
+        {
+            "title": "PV分析 — 日別推移",
+            "queryType": "pv",
+            "chartType": "line",
+            "labels": ["2026-07-01", "2026-07-02"],
+            "datasets": [{"label": "PV数", "data": [100, 90]}],
+        },
+    ]
+
+    report = build_beginner_report(groups, [{"query_type": "pv", "status": "success"}])
+    rendered = str(report)
+
+    for forbidden in ["CPA", "ROAS", "CTR", "広告費"]:
+        assert forbidden not in rendered

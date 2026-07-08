@@ -19,7 +19,7 @@ import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 
-const SETUP_GATED_PATHS = ['/ads/graphs', '/ads/ai', '/insights/ai']
+const SETUP_GATED_PATHS = ['/ads/report', '/ads/graphs', '/ads/ai', '/insights/ai']
 const AI_EXPLORER_PATH = '/insights/ai'
 
 const NAV_ITEMS = [
@@ -38,7 +38,8 @@ const NAV_ITEMS = [
     label: '広告分析',
     children: [
       { to: '/ads/wizard', icon: 'tune', label: 'セットアップ' },
-      { to: '/ads/graphs', icon: 'monitoring', label: '広告グラフ', requiresSetup: true },
+      { to: '/ads/report', icon: 'summarize', label: '初心者レポート', requiresSetup: true },
+      { to: '/ads/graphs', icon: 'monitoring', label: '詳細グラフ', requiresSetup: true },
       { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
     ],
   },
@@ -532,7 +533,7 @@ export default function Layout() {
   const mobileNavItems = [
     { to: '/', icon: 'home', label: 'ホーム' },
     { to: '/ads/wizard', icon: 'tune', label: '設定' },
-    { to: '/ads/graphs', icon: 'monitoring', label: 'グラフ', requiresSetup: true },
+    { to: '/ads/report', icon: 'summarize', label: 'レポート', requiresSetup: true },
     { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI', requiresSetup: true },
     { to: '/settings', icon: 'settings', label: '管理' },
   ]

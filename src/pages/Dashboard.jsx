@@ -201,7 +201,7 @@ function ChartOverviewSection({ chartGroups, periodTags, onDrillDown }) {
             onClick={onDrillDown}
             className="text-sm font-bold text-secondary flex items-center gap-1 hover:underline"
           >
-            すべてのグラフ
+            詳細グラフ
             <span className="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
         </div>
@@ -292,10 +292,10 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
       </div>
       <div className="grid grid-cols-2 gap-2 mt-4">
         <button
-          onClick={() => onNavigate('/ads/graphs')}
+          onClick={() => onNavigate('/ads/report')}
           className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
-          分析
+          レポート
         </button>
         <button
           onClick={() => onNavigate('/insights/ai')}
@@ -348,8 +348,8 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
       title: 'GA4 BigQuery',
       status: setupState?.datasetId ? '利用可' : '未接続',
       tone: setupState?.datasetId ? 'ok' : 'idle',
-      next: setupState?.datasetId ? 'GA4推定グラフを見る' : 'GA4の保存先IDを設定',
-      path: setupState?.datasetId ? '/ads/graphs' : '/projects',
+      next: setupState?.datasetId ? '初心者レポートを見る' : 'GA4の保存先IDを設定',
+      path: setupState?.datasetId ? '/ads/report' : '/projects',
     },
   ]
 
@@ -467,7 +467,7 @@ function DashboardImage2StatusPanel({ setupState, reportBundle, isAdsAuthenticat
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => onNavigate('/ads/graphs')} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-accent-gold px-5 py-4 text-base font-black text-white">
+          <button type="button" onClick={() => onNavigate('/ads/report')} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-accent-gold px-5 py-4 text-base font-black text-white">
             機能一覧を見る
             <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
           </button>
@@ -740,7 +740,7 @@ export default function Dashboard() {
             <ChartOverviewSection
               chartGroups={reportBundle.chartGroups}
               periodTags={getChartPeriodTags(reportBundle.chartGroups)}
-              onDrillDown={() => navigate('/ads/graphs')}
+              onDrillDown={() => navigate('/ads/report')}
             />
           )}
 
