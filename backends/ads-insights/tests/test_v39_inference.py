@@ -172,6 +172,33 @@ chart_01_test のセッション 200 を根拠にします。
     assert result["ok"] is True
 
 
+def test_validate_ai_insight_output_rejects_mismatched_evidence_table_row():
+    """source/metric/value/period の組み合わせが違う根拠行を検知する"""
+    from web.app.bq_chart_builder import validate_ai_insight_output
+
+    pack = {
+        "charts": [
+            {
+                "chart_id": "chart_01_test",
+                "title": "PV分析 — 日別推移",
+                "series": [
+                    {"label": "PV数", "points": [{"label": "5/3", "value": 200}]},
+                    {"label": "セッション", "points": [{"label": "5/2", "value": 200}]},
+                ],
+            }
+        ]
+    }
+    text = """```insight-report
+{"version":"insight_report_v2","executive_summary":["5/3が最大"],"evidence_table":[{"claim":"最大","metric":"セッション","value":"200","period":"5/3","source":"chart_01_test","confidence":"high"}],"interpretation":["初心者にも分かるように確認します。","Senior AdOps ReviewerとConsistency Agentが確認しました。"],"hypotheses":[{"hypothesis":"流入増の仮説","evidence":"chart_01_test","missing_data":"広告費"}],"actions":[{"priority":"P0","action":"確認","rationale":"200が最大","expected_metric":"セッション"}],"limitations":["広告費は未取得","Consistency Agent: 日付と数値を確認"],"review_status":{"verdict":"pass","notes":["初心者説明","Senior AdOps Reviewer","Consistency Agent"]}}
+```
+chart_01_test のセッション 200 を根拠にします。
+"""
+
+    result = validate_ai_insight_output(text, pack, data_source="bq")
+    assert result["ok"] is False
+    assert any("source/metric/value/period" in issue for issue in result["issues"])
+
+
 def test_validate_ai_insight_output_requires_chart_id_when_evidence_pack_exists():
     """数値根拠パックがある場合は chart_id なし回答を落とす"""
     from web.app.bq_chart_builder import validate_ai_insight_output

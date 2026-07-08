@@ -70,8 +70,8 @@ export default function FlatMetricDiagnosticCard({ group }) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-outline-variant/20 bg-white">
-        <div className="grid grid-cols-[minmax(280px,1fr)_120px_140px_120px_120px] border-b border-outline-variant/20 bg-[#fbfcf7] px-4 py-3 text-[11px] font-black tracking-[0.08em] text-on-surface-variant">
+      <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-white">
+        <div className="grid min-w-[760px] grid-cols-[minmax(240px,1fr)_110px_130px_110px_110px] border-b border-outline-variant/20 bg-[#fbfcf7] px-4 py-3 text-[11px] font-black tracking-[0.08em] text-on-surface-variant sm:grid-cols-[minmax(280px,1fr)_120px_140px_120px_120px]">
           <span>LP</span>
           <span className="text-right">sessions</span>
           <span className="text-right">bounce sessions</span>
@@ -79,7 +79,7 @@ export default function FlatMetricDiagnosticCard({ group }) {
           <span className="text-right">status</span>
         </div>
         {rows.slice(0, 15).map((row, index) => (
-          <div key={`${row.label}-${index}`} className="grid grid-cols-[minmax(280px,1fr)_120px_140px_120px_120px] items-center border-b border-outline-variant/10 px-4 py-3 last:border-b-0">
+          <div key={`${row.label}-${index}`} className="grid min-w-[760px] grid-cols-[minmax(240px,1fr)_110px_130px_110px_110px] items-center border-b border-outline-variant/10 px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(280px,1fr)_120px_140px_120px_120px]">
             <p className="truncate text-sm font-black text-on-surface" title={row.label}>{shortenChartLabel(row.label, 66)}</p>
             <p className="text-right text-xs font-bold tabular-nums text-on-surface-variant">{formatMetricValue(row.sessions)}</p>
             <p className="text-right text-xs font-bold tabular-nums text-on-surface-variant">{formatMetricValue(row.bounceSessions)}</p>

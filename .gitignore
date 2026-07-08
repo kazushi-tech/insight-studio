@@ -41,8 +41,21 @@ plans/.reviews/
 smoke-manifest.json
 verify_output/
 .claude/settings.local.json
+.claude/*.json
+.claude/*.lock
 plans/CLAUDE.md
 src/pages/CLAUDE.md
+
+# Local browser / deployment verification artifacts
+tmp/
+output/playwright/
+output/verification/
+output/image2-report-ui-refs/
+output/prod-*.css
+output/prod-*.js
+deploys.json
+render_logs*.json
+backends/*/pytest_result.txt
 
 # === Python (backends) ===
 __pycache__/

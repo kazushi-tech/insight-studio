@@ -3,7 +3,7 @@ import { buildRankingRows, formatMetricValue, shortenChartLabel } from '../../..
 import ChartKpiStrip from './ChartKpiStrip'
 import ChartTooltip from './ChartTooltip'
 
-const BAR_COLORS = ['#003925', '#0f766e', '#1d5fd1', '#6f8f83']
+const BAR_COLORS = ['#003925', '#0f5238', '#456553', '#d4a843', '#713638']
 
 export default function RankingBarTableCard({ group }) {
   const rows = buildRankingRows(group, 15)
@@ -52,14 +52,14 @@ export default function RankingBarTableCard({ group }) {
               onFocus={() => setActiveRank(row.rank)}
               onMouseEnter={() => setActiveRank(row.rank)}
             >
-              <div className="mb-2 grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3">
+              <div className="mb-2 grid grid-cols-[32px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[40px_minmax(0,1fr)_auto] sm:gap-3">
                 <span className={`grid size-8 place-items-center rounded-lg text-xs font-black ${row.rank <= 3 ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}>
                   {row.rank}
                 </span>
                 <span className="min-w-0 truncate text-sm font-black text-on-surface">
                   {shortenChartLabel(row.label, 78)}
                 </span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-black tabular-nums text-primary shadow-sm">
+                <span className="col-span-2 justify-self-start rounded-full bg-white px-3 py-1 text-xs font-black tabular-nums text-primary shadow-sm sm:col-span-1 sm:justify-self-auto">
                   {formatMetricValue(row.value, row.usePercent)}
                 </span>
               </div>

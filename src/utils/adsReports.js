@@ -7,6 +7,9 @@ function sleep(ms) {
 }
 
 function isRetryableError(error) {
+  // data_availability === 'failed' のような決定論的失敗（BQ全失敗）は
+  // 再試行しても成功しないため、再試行対象から除外する。
+  if (error?.deterministic) return false
   return !error?.status || error.status === 429 || error.status >= 500
 }
 
@@ -48,6 +51,50 @@ export function pickExecutionSummary(result, periodTag) {
       chartGroupCount: Number.isFinite(Number(item.chart_group_count ?? item.chartGroupCount)) ? Number(item.chart_group_count ?? item.chartGroupCount) : 0,
       message: item.message ?? '',
     }))
+}
+
+function normalizeDataAvailability(value, fallback = 'full') {
+  const normalized = String(value ?? '').toLowerCase()
+  if (['full', 'partial', 'failed', 'fallback', 'missing'].includes(normalized)) return normalized
+  return fallback
+}
+
+function summarizeAvailability(results = [], periodReports = []) {
+  const availabilityValues = (Array.isArray(results) ? results : [])
+    .map((result) => normalizeDataAvailability(
+      result?.data_availability ?? result?.dataAvailability,
+      result?.ok === false ? 'failed' : 'full',
+    ))
+  const executionStatuses = periodReports
+    .flatMap((item) => item.executionSummary ?? [])
+    .map((item) => item.status)
+    .filter(Boolean)
+
+  const hasFailedResult = (Array.isArray(results) ? results : []).some((result) => result?.ok === false)
+  const hasErrorStatus = executionStatuses.some((status) => ['error', 'unknown'].includes(status))
+  const hasNoDataStatus = executionStatuses.some((status) => status === 'no_data')
+  const hasAnySuccess = executionStatuses.some((status) => ['success', 'no_chart'].includes(status))
+  const hasPartial = availabilityValues.some((value) => ['partial', 'missing'].includes(value)) || ((hasErrorStatus || hasNoDataStatus) && hasAnySuccess)
+  const hasFailed = availabilityValues.some((value) => value === 'failed') || hasFailedResult || ((hasErrorStatus || hasNoDataStatus) && !hasAnySuccess && executionStatuses.length > 0)
+
+  if (hasFailed && !hasAnySuccess && !hasPartial) return 'failed'
+  if (hasFailed || hasPartial) return 'partial'
+  if (availabilityValues.some((value) => value === 'fallback')) return 'fallback'
+  return 'full'
+}
+
+function collectMissingReasons(results = [], executionSummary = []) {
+  const reasons = []
+  ;(Array.isArray(results) ? results : []).forEach((result) => {
+    const reason = result?.missing_reason ?? result?.missingReason ?? result?.message ?? result?.error
+    if (reason) reasons.push(String(reason))
+  })
+  ;(Array.isArray(executionSummary) ? executionSummary : []).forEach((item) => {
+    if (['error', 'no_data', 'unknown'].includes(item?.status) && item?.message) {
+      reasons.push(`${item.query_type || item.queryType || 'unknown'}: ${item.message}`)
+    }
+  })
+  return [...new Set(reasons)].slice(0, 5).join(' / ')
 }
 
 export function getChartPeriodTags(chartGroups = []) {
@@ -369,8 +416,8 @@ export function buildAnalysisInstructions(queryTypes = [], periods = []) {
     : periods[0] ? `期間: ${periods[0]}` : ''
 
   const lenses = [
-    `1. ビジネス影響: 指標が収益・リードに与える影響を定量化`,
-    `2. ファネル品質: PV→セッション→エンゲージメント→CVの各段階転換率。業界一般水準（CVR 1-3%、直帰率40-60%）と比較`,
+    `1. ビジネス影響: 取得済み指標が収益・リードに関係しそうな箇所を、根拠付きの仮説として整理`,
+    `2. ファネル品質: PV→セッション→エンゲージメント→CVの各段階を確認。未取得のCVR/CPA/ROAS/広告費は断定しない`,
     `3. チャネル効率: source/medium別の流入効率を比較。チャネル間の補完・カニバリゼーションも評価`,
     `4. ユーザー行動: デバイス・時間帯・地域パターン。モバイル比率70%超なら最優先課題として扱う`,
     `5. 異常分解: ±30%以上の急変動は流入元・デバイス・時間帯・地域で要因分解`,
@@ -379,10 +426,10 @@ export function buildAnalysisInstructions(queryTypes = [], periods = []) {
   ]
 
   const typeDirectives = {
-    pv_analysis: 'PV/セッション比で回遊深度を評価。曜日パターンを特定。突出ページは流入元別・デバイス別で要因分解',
+    pv_analysis: 'PV/セッション比で回遊深度を評価。曜日パターンを特定。突出ページは流入元別・デバイス別で要因仮説を分解',
     traffic_analysis: 'source/medium別の構成比と前期間比を対比。単一チャネル依存50%超はリスク評価',
-    cv_analysis: 'CVイベント種別の傾向。カート→購入率が40%未満なら決済フロー課題の仮説提示。デバイス別CVR比較',
-    device_analysis: 'モバイル70%超の場合: モバイル/PCの直帰率・CVR数値比較、モバイル固有UX課題、モバイル優先CRO提案',
+    cv_analysis: 'CVイベント種別の傾向。CVRや決済フロー課題は、入力に該当イベントと母数がある場合のみ仮説提示',
+    device_analysis: 'モバイル比率が高い場合: モバイル/PCの取得済み指標を比較し、未取得のCVRやCPAは追加確認に回す',
     user_analysis: '新規/リピーター比率の健全性評価。都市別で主要エリア外の成長機会を特定',
   }
 
@@ -423,7 +470,8 @@ export function buildAnalysisInstructions(queryTypes = [], periods = []) {
     `推奨アクションは以下を満たす:`,
     `- 優先度: P0（即時）/ P1（今週）/ P2（来月）`,
     `- 具体性: 何を・どの程度・いつまでに`,
-    `- 期待効果: 想定改善幅（例: 直帰率10pt改善でCV +15件/月）`,
+    `- 期待効果: 入力データに根拠がある場合だけ数値化し、ない場合は「見る指標」と「判定条件」に留める`,
+    `- CPA/ROAS/CTR/CPC/広告費/インプレッションは、根拠パックに存在しない限り未取得として扱う`,
     ``,
     `【フォーマット要件（厳守）】`,
     `出力の構成比率: 段落（散文）50%以上 / テーブル・表 20%以上 / 箇条書き 30%以下`,
@@ -829,7 +877,19 @@ export function buildChartEvidencePack(chartGroups = [], options = {}) {
 export async function generateBatchWithRetry(payload) {
   for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
-      return await bqGenerateBatch(payload)
+      const result = await bqGenerateBatch(payload)
+      if (result?.ok === false) {
+        // data_availability === 'failed' は BQ 全失敗（CVデータ無し等）の決定論的エラー。
+        // 再試行しても結果は変わらないため deterministic フラグを立てて即 throw する。
+        // partial 等の非決定論的失敗は従来どおり status 500 で再試行対象に残す。
+        const deterministicFailure = result?.data_availability === 'failed'
+        const error = new Error(result?.message || result?.missing_reason || result?.error || 'BQレポート生成に失敗しました。')
+        error.status = deterministicFailure ? 502 : 500
+        error.body = result
+        if (deterministicFailure) error.deterministic = true
+        throw error
+      }
+      return result
     } catch (error) {
       if (!isRetryableError(error) || attempt === GENERATE_RETRY_DELAYS_MS.length) {
         throw error
@@ -884,15 +944,23 @@ export function buildAdsReportBundle({ setupState, results }) {
     '「どの指標を見るべきか」「不足データをどう確認するか」「次に取得すべきレポート」を中心にAI考察できます。',
   ].join('\n')
 
+  const flatExecutionSummary = periodReports.flatMap((item) => item.executionSummary)
+  const dataAvailability = reportMd
+    ? summarizeAvailability(results, periodReports)
+    : 'fallback'
+  const missingReason = reportMd
+    ? collectMissingReasons(results, flatExecutionSummary)
+    : 'BigQueryからレポート本文が返っていません。'
+
   return {
     source: 'bq_generate_batch',
-    dataAvailability: reportMd ? 'full' : 'fallback',
-    missingReason: reportMd ? '' : 'BigQueryからレポート本文が返っていません。',
+    dataAvailability,
+    missingReason,
     datasetId,
     reportMd: reportMd || fallbackReportMd,
     chartGroups: periodReports.flatMap((item) => item.chartGroups),
     periodReports,
-    executionSummary: periodReports.flatMap((item) => item.executionSummary),
+    executionSummary: flatExecutionSummary,
     results,
     generatedAt: new Date().toISOString(),
   }
@@ -929,15 +997,35 @@ export async function regenerateAdsReportBundle(setupState) {
     throw new Error('セットアップ条件が不足しています。')
   }
 
-  const results = await Promise.all(
+  const settled = await Promise.allSettled(
     setupState.periods.map(period =>
       generateBatchWithRetry({
         query_types: setupState.queryTypes,
         dataset_id: setupState.datasetId,
         period,
       }).then((result) => ({ ...result, period }))
-    )
+    ),
   )
+  const results = settled.map((item, index) => {
+    if (item.status === 'fulfilled') return item.value
+    const period = setupState.periods[index]
+    const error = item.reason
+    return {
+      ok: false,
+      period,
+      data_availability: 'failed',
+      missing_reason: error?.message || 'BigQueryレポート生成に失敗しました。',
+      report_md: '',
+      chart_data: {},
+      execution_summary: (setupState.queryTypes ?? []).map((queryType) => ({
+        query_type: queryType,
+        status: 'error',
+        row_count: 0,
+        chart_group_count: 0,
+        message: error?.message || 'BigQueryレポート生成に失敗しました。',
+      })),
+    }
+  })
 
   return buildAdsReportBundle({ setupState, results })
 }

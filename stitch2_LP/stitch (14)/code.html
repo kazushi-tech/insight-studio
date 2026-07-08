@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio | AI-Driven Ad Operations &amp; Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Literata:wght@400;700&amp;family=Nunito+Sans:wght@300;400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "tertiary": "#705c30",
+              "primary-container": "#78a886",
+              "on-tertiary": "#ffffff",
+              "on-secondary-fixed-variant": "#4a4538",
+              "on-tertiary-fixed-variant": "#554020",
+              "surface-container-lowest": "#ffffff",
+              "on-secondary-fixed": "#1e1a13",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#8ecf9e",
+              "inverse-on-surface": "#f5f0e8",
+              "tertiary-fixed": "#f8e0a8",
+              "inverse-surface": "#2e3230",
+              "on-primary": "#ffffff",
+              "error": "#b83230",
+              "outline-variant": "#c4c8bc",
+              "on-background": "#2e3230",
+              "surface-container-high": "#eae6de",
+              "on-primary-fixed": "#002110",
+              "on-error-container": "#690005",
+              "secondary": "#6b6358",
+              "on-secondary-container": "#5e5548",
+              "surface-tint": "#4a7c59",
+              "primary": "#4a7c59",
+              "error-container": "#ffdad8",
+              "secondary-fixed": "#f0e8db",
+              "primary-fixed-dim": "#8ecf9e",
+              "on-surface": "#2e3230",
+              "outline": "#74796e",
+              "tertiary-fixed-dim": "#dcc48e",
+              "on-tertiary-container": "#554020",
+              "on-primary-fixed-variant": "#2a6038",
+              "surface-container": "#f0ece4",
+              "background": "#faf6f0",
+              "primary-fixed": "#c8e8d0",
+              "surface-container-highest": "#e4e0d8",
+              "tertiary-container": "#c4a66a",
+              "on-tertiary-fixed": "#221a05",
+              "surface-variant": "#e4e0d8",
+              "surface-container-low": "#f5f1ea",
+              "on-surface-variant": "#4a4e4a",
+              "surface-dim": "#dbd7cf",
+              "on-error": "#ffffff",
+              "secondary-fixed-dim": "#d4ccbf",
+              "secondary-container": "#f0e8db",
+              "surface-bright": "#faf6f0",
+              "surface": "#faf6f0",
+              "on-primary-container": "#d8f0de"
+            },
+            fontFamily: {
+              "headline": ["Literata", "serif"],
+              "body": ["Nunito Sans", "sans-serif"],
+              "label": ["Nunito Sans", "sans-serif"],
+              "manrope": ["Manrope", "sans-serif"],
+              "inter": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Nunito Sans', 'Inter', sans-serif; background-color: #faf6f0; color: #2e3230; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .glass-card { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        h1, h2, h3 { font-family: 'Manrope', 'Literata', serif; }
+    </style>
+</head>
+<body class="selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopNavBar -->
+<header class="bg-[#faf6f0] dark:bg-stone-900 border-b border-stone-200/50 dark:border-stone-800/50 shadow-sm shadow-stone-900/5 sticky top-0 z-50">
+<nav class="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+<div class="flex items-center gap-12">
+<a class="font-['Literata'] text-xl font-bold text-[#4a7c59] dark:text-[#6aa37b]" href="#">Insight Studio</a>
+<div class="hidden md:flex gap-8 items-center">
+<a class="font-['Nunito_Sans'] text-sm font-semibold tracking-wide text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] transition-colors duration-200" href="#features">Features</a>
+<a class="font-['Nunito_Sans'] text-sm font-semibold tracking-wide text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] transition-colors duration-200" href="#demo">Demo</a>
+<a class="font-['Nunito_Sans'] text-sm font-semibold tracking-wide text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] transition-colors duration-200" href="#benefits">Benefits</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2.5 rounded-full bg-primary text-white font-semibold text-sm hover:opacity-90 transition-opacity">Start for Free</button>
+</div>
+</nav>
+</header>
+<!-- Hero Section -->
+<section class="relative pt-20 pb-32 overflow-hidden px-6">
+<div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+<div class="z-10">
+<span class="inline-block px-4 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed-variant text-xs font-bold tracking-widest mb-6">AI POWERED ANALYSIS</span>
+<h1 class="text-5xl md:text-6xl font-extrabold text-on-background leading-[1.1] mb-8">
+                    広告運用の"なぜ？"を、<br/><span class="text-primary">AIが解き明かす。</span>
+</h1>
+<p class="text-xl text-on-surface-variant leading-relaxed mb-10 max-w-xl">
+                    競合LPの比較からクリエイティブ診断まで、データに基づいた広告改善をAIが加速。属人的な分析から脱却し、確かな勝率を。
+                </p>
+<div class="flex flex-wrap gap-4">
+<button class="px-8 py-4 rounded-xl bg-primary text-on-primary font-bold text-lg shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">無料で始める</button>
+<button class="px-8 py-4 rounded-xl bg-white border border-outline-variant text-primary font-bold text-lg hover:bg-surface-container-low transition-colors">資料をダウンロード</button>
+</div>
+</div>
+<div class="relative">
+<div class="absolute -top-12 -left-12 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="absolute -bottom-12 -right-12 w-64 h-64 bg-tertiary/5 rounded-full blur-3xl"></div>
+<div class="relative glass-card p-4 rounded-2xl shadow-2xl overflow-hidden">
+<img alt="Dashboard Mockup" class="rounded-xl w-full object-cover aspect-[4/3] shadow-inner" data-alt="modern software dashboard showing ad performance metrics, analytics charts, and competitive landscape data in a clean light interface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAofpVgxC7uPPCv1cNTxsDdCuguFixR3GkG3j2FguGgkkDGXQws73WslH94StCHkrO42s5JJJwly7TnQzDG9TYiFNxLEQ1Li2lN0Zy8Hz_NP5RQVNF5gfpMpzFTj9T5AEkOhDX917cntkhJMIv2AAQfUR0Fm3DwtZOhNani396_CxM2WYFGlqA_7IRN7rgM5-qZSlP3hRvOYLHk8XiYRz44pqGaYAqhNEOgOgQgY-5-bxZ0hC_vLCOWMJGeJzWcJ3EJCQZPJNHugE"/>
+<div class="absolute top-8 right-8 bg-white/90 backdrop-blur px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<div>
+<p class="text-[10px] text-on-surface-variant font-bold">ROAS IMPROVEMENT</p>
+<p class="text-lg font-extrabold text-primary">+142%</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Problem Section -->
+<section class="py-24 bg-surface-container-low px-6">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="text-3xl md:text-4xl font-extrabold text-on-background mb-4">広告運用チームが直面する4つの課題</h2>
+<div class="w-24 h-1 bg-primary mx-auto rounded-full"></div>
+</div>
+<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+<!-- Card 1 -->
+<div class="bg-surface p-8 rounded-xl shadow-sm border border-outline-variant/30 hover:border-primary/30 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined" data-icon="visibility_off">visibility_off</span>
+</div>
+<h3 class="text-xl font-bold mb-3">競合が見えない</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">競合他社がどのような訴求で、どのLPを展開しているのか把握しきれない。</p>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface p-8 rounded-xl shadow-sm border border-outline-variant/30 hover:border-primary/30 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+</div>
+<h3 class="text-xl font-bold mb-3">分析に時間がかかる</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">日々のデータ集計とレポート作成に追われ、本質的な改善策を練る時間がない。</p>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface p-8 rounded-xl shadow-sm border border-outline-variant/30 hover:border-primary/30 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined" data-icon="psychology_alt">psychology_alt</span>
+</div>
+<h3 class="text-xl font-bold mb-3">改善根拠が曖昧</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">クリエイティブの変更が「勘」や「経験」頼みになり、再現性が低い。</p>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface p-8 rounded-xl shadow-sm border border-outline-variant/30 hover:border-primary/30 transition-colors group">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-primary group-hover:text-white transition-colors">
+<span class="material-symbols-outlined" data-icon="hub">hub</span>
+</div>
+<h3 class="text-xl font-bold mb-3">データが分散</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed">広告媒体、LP、CRMなどツールが散らばり、全体像を俯瞰して判断できない。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Features Section (Bento Grid) -->
+<section class="py-24 px-6 overflow-hidden" id="features">
+<div class="max-w-7xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="text-3xl md:text-4xl font-extrabold text-on-background mb-4">Insight Studio の主要機能</h2>
+<p class="text-on-surface-variant">最新のAI技術が、あなたのチームの分析力を10倍に引き上げます。</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[240px]">
+<!-- Feature 1: Main Large -->
+<div class="md:col-span-8 md:row-span-2 bg-white rounded-3xl p-10 flex flex-col justify-between border border-outline-variant/50 relative overflow-hidden group">
+<div class="relative z-10">
+<div class="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-white mb-8">
+<span class="material-symbols-outlined text-3xl" data-icon="compare_arrows">compare_arrows</span>
+</div>
+<h3 class="text-3xl font-extrabold mb-4">競合LP比較</h3>
+<p class="text-on-surface-variant max-w-md text-lg leading-relaxed">
+                            競合他社のランディングページをAIが自動解析。ファーストビューの訴求、構成案、CTAの配置を瞬時に比較・可視化します。
+                        </p>
+</div>
+<div class="absolute bottom-0 right-0 w-2/3 h-2/3 p-4 translate-y-12 translate-x-12 group-hover:translate-y-6 group-hover:translate-x-6 transition-transform">
+<img class="rounded-xl shadow-xl border border-outline-variant/50 w-full h-full object-cover" data-alt="split screen comparison of two web landing pages with heatmaps and analysis annotations" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTAfLNjuH9iC6xjzyT8i6XZaa1W-JRr6T4GqyD6egAovFckf2N8yoq80DShs01I52UB8008dRSh9gEl1aNe7JqK2Juj_5wiYr9v_FYXbQ1_b5ciyLNNRLeVuqkE8pjro6QlTyWs4gtPNgfsSEaSdGXJkVUXvXbsJJQqUv2PihTnY4r0jQYTybLC6zUtnbGyJZW7DKL2ubtRNvTd8dtUv4Bm0JdfGLYSYAfgfDuE4-obUOyNRrgiAG8dVs3f4IxELuyCKCP4jw-qh4"/>
+</div>
+</div>
+<!-- Feature 2 -->
+<div class="md:col-span-4 md:row-span-1 bg-surface-container p-8 rounded-3xl border border-outline-variant/50 hover:bg-primary-fixed/20 transition-colors">
+<span class="material-symbols-outlined text-primary mb-4 text-3xl" data-icon="search_insights">search_insights</span>
+<h3 class="text-xl font-extrabold mb-2">競合ディスカバリー</h3>
+<p class="text-on-surface-variant text-sm">業界トレンドから、まだ気づいていない新たな競合広告主をAIが特定。</p>
+</div>
+<!-- Feature 3 -->
+<div class="md:col-span-4 md:row-span-1 bg-surface-container-highest p-8 rounded-3xl border border-outline-variant/50 hover:bg-tertiary-fixed/20 transition-colors">
+<span class="material-symbols-outlined text-tertiary mb-4 text-3xl" data-icon="verified">verified</span>
+<h3 class="text-xl font-extrabold mb-2">クリエイティブ診断</h3>
+<p class="text-on-surface-variant text-sm">広告バナーや動画をAIが診断。成功パターンの要素を抽出し改善を提案。</p>
+</div>
+<!-- Feature 4 -->
+<div class="md:col-span-6 md:row-span-1 bg-white p-8 rounded-3xl border border-outline-variant/50 relative overflow-hidden flex items-end">
+<div class="relative z-10 w-full">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-primary" data-icon="analytics">analytics</span>
+<h3 class="text-xl font-extrabold">広告パフォーマンス考察</h3>
+</div>
+<p class="text-on-surface-variant text-sm">数値の変化から「なぜその結果になったのか」という文脈をAIが文章化。</p>
+</div>
+</div>
+<!-- Feature 5 -->
+<div class="md:col-span-6 md:row-span-1 bg-primary text-on-primary p-8 rounded-3xl relative overflow-hidden flex flex-col justify-center">
+<div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-4">
+<span class="material-symbols-outlined text-white" data-icon="smart_toy" style="font-variation-settings: 'FILL' 1;">smart_toy</span>
+<h3 class="text-xl font-extrabold">AI Explorer</h3>
+</div>
+<p class="text-primary-fixed text-sm opacity-90">チャット形式でデータに関する質問を投げ、瞬時にインサイトを得るパーソナルアナリスト機能。</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Differentiation Section -->
+<section class="py-24 bg-[#0f5238] text-white px-6">
+<div class="max-w-7xl mx-auto">
+<div class="grid lg:grid-cols-2 gap-16 items-center">
+<div>
+<h2 class="text-4xl font-extrabold mb-8 leading-tight">Insight Studio が<br/>選ばれる3つの理由</h2>
+<p class="text-primary-fixed opacity-80 text-lg mb-12">従来の分析ツールとは一線を画す、圧倒的なインサイトの深さと使いやすさ。</p>
+<div class="space-y-8">
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full border border-primary-fixed/30 flex items-center justify-center font-bold text-primary-fixed">1</div>
+<div>
+<h3 class="text-xl font-bold mb-2">オールインワン</h3>
+<p class="text-primary-fixed/70">競合調査、LP分析、クリエイティブ診断を一つのプラットフォームで完結。</p>
+</div>
+</div>
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full border border-primary-fixed/30 flex items-center justify-center font-bold text-primary-fixed">2</div>
+<div>
+<h3 class="text-xl font-bold mb-2">AI駆動の洞察</h3>
+<p class="text-primary-fixed/70">単なるグラフ表示ではなく、次のアクションに繋がる「考察」をAIが提示。</p>
+</div>
+</div>
+<div class="flex gap-6">
+<div class="flex-shrink-0 w-10 h-10 rounded-full border border-primary-fixed/30 flex items-center justify-center font-bold text-primary-fixed">3</div>
+<div>
+<h3 class="text-xl font-bold mb-2">案件単位の管理</h3>
+<p class="text-primary-fixed/70">プロジェクトごとの煩雑なデータ管理をスマートに整理、チームのナレッジへ。</p>
+</div>
+</div>
+</div>
+</div>
+<div class="relative">
+<img alt="Team Collaboration" class="rounded-3xl shadow-2xl opacity-90 mix-blend-luminosity hover:mix-blend-normal transition-all duration-500" data-alt="diverse marketing team collaborating around a large table with laptops and digital charts in a warm modern office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvsJtPMCpdpbIDgOW5qwDSUalMDH0HGyqNSL0AEod65dM2I3JIQRTPp1VEpfiHDlvKT8Ae5438wQcieg6eeP4ep75PelYW33K5pmHt-RaFFp-5o2FZzHhybAQBppfhF4jFQ0N2NkdC_uHtkKO1Udhw5rs0nwy_cAtwWipgydzvKpfGTfZ_yDNdbf_J9dBmnqdveEBXx5Ap_2ds6fA3k5HAR-U-v9gwUWwpRGmYDxFUtt9SgRzskbg7TqmWhqm-jsjo5Rjl3OBm-CU"/>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-24 px-6 relative overflow-hidden">
+<div class="max-w-4xl mx-auto bg-primary-fixed/30 rounded-[2.5rem] p-12 md:p-20 text-center relative z-10 border border-primary/10">
+<h2 class="text-3xl md:text-5xl font-extrabold text-on-background mb-8 leading-tight">
+                広告運用の分析を、<br/>次のレベルへ。
+            </h2>
+<p class="text-on-surface-variant text-lg mb-12 max-w-xl mx-auto">
+                データに隠れた勝ち筋を、Insight Studio で見つけましょう。<br/>まずは無料プランでその実力を体験してください。
+            </p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center">
+<button class="px-10 py-5 rounded-2xl bg-primary text-white font-extrabold text-xl shadow-xl shadow-primary/30 hover:-translate-y-1 transition-all">無料で始める</button>
+<button class="px-10 py-5 rounded-2xl bg-white text-primary border border-primary/20 font-extrabold text-xl hover:bg-surface-container-low transition-all">デモを予約する</button>
+</div>
+<p class="mt-8 text-sm text-on-surface-variant/60 font-medium">クレジットカード登録不要 ・ いつでもキャンセル可能</p>
+</div>
+<!-- Decorative blobs -->
+<div class="absolute -bottom-24 -left-24 w-96 h-96 bg-primary/5 rounded-full blur-[100px]"></div>
+<div class="absolute -top-24 -right-24 w-96 h-96 bg-tertiary/5 rounded-full blur-[100px]"></div>
+</section>
+<!-- Footer -->
+<footer class="bg-stone-100 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800">
+<div class="w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center gap-8 max-w-7xl mx-auto">
+<div class="flex flex-col items-center md:items-start gap-4">
+<span class="font-['Literata'] text-lg font-bold text-stone-800 dark:text-stone-200">Insight Studio</span>
+<p class="font-['Nunito_Sans'] text-sm leading-relaxed text-stone-500 dark:text-stone-400">© 2024 Insight Studio. All rights reserved.</p>
+</div>
+<div class="flex gap-8">
+<a class="text-stone-500 dark:text-stone-400 hover:underline decoration-[#4a7c59] transition-all duration-300 font-['Nunito_Sans'] text-sm" href="#">Privacy Policy</a>
+<a class="text-stone-500 dark:text-stone-400 hover:underline decoration-[#4a7c59] transition-all duration-300 font-['Nunito_Sans'] text-sm" href="#">Terms of Service</a>
+<a class="text-stone-500 dark:text-stone-400 hover:underline decoration-[#4a7c59] transition-all duration-300 font-['Nunito_Sans'] text-sm" href="#">Contact</a>
+<a class="text-stone-500 dark:text-stone-400 hover:underline decoration-[#4a7c59] transition-all duration-300 font-['Nunito_Sans'] text-sm" href="#">About Us</a>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Insight Studio - AI Analysis Core</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ba1a1a",
+                    "tertiary": "#552021",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#404943",
+                    "on-secondary-fixed": "#012113",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#accfb9",
+                    "on-primary-container": "#85c4a2",
+                    "on-secondary-container": "#4b6b59",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2f312e",
+                    "tertiary-container": "#713636",
+                    "on-background": "#1a1c19",
+                    "surface-bright": "#fafaf5",
+                    "surface": "#fafaf5",
+                    "surface-container-high": "#e8e8e4",
+                    "on-tertiary-fixed-variant": "#703535",
+                    "surface-tint": "#2c694e",
+                    "primary-container": "#0f5238",
+                    "tertiary-fixed-dim": "#ffb3b1",
+                    "on-tertiary-container": "#f2a19f",
+                    "primary-fixed-dim": "#95d4b2",
+                    "secondary-container": "#c7ebd4",
+                    "primary": "#003925",
+                    "background": "#fafaf5",
+                    "on-surface": "#1a1c19",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#b0f1cd",
+                    "on-primary-fixed": "#002113",
+                    "on-primary": "#ffffff",
+                    "secondary": "#456553",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#0d5137",
+                    "inverse-primary": "#95d4b2",
+                    "tertiary-fixed": "#ffdad8",
+                    "surface-variant": "#e2e3de",
+                    "surface-container-low": "#f4f4ef",
+                    "on-secondary-fixed-variant": "#2e4d3c",
+                    "on-error-container": "#93000a",
+                    "inverse-on-surface": "#f1f1ec",
+                    "surface-dim": "#dadad6",
+                    "surface-container": "#eeeee9",
+                    "outline": "#707973",
+                    "on-tertiary-fixed": "#390b0d",
+                    "outline-variant": "#bfc9c1",
+                    "secondary-fixed": "#c7ebd4",
+                    "surface-container-highest": "#e2e3de"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ghost-border {
+            outline: 1px solid rgba(191, 201, 193, 0.15); /* outline-variant at 15% */
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased min-h-screen flex overflow-hidden">
+<!-- SideNavBar -->
+<nav class="bg-[#f4f4f0] dark:bg-[#0a261c] fixed left-0 top-0 h-full flex flex-col p-8 w-72 z-40 transition-colors">
+<div class="flex items-center gap-4 mb-12">
+<div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">donut_small</span>
+</div>
+<div>
+<h1 class="text-xl font-bold text-[#003925] dark:text-[#fafaf5] tracking-wide font-['Manrope']">Insight Studio</h1>
+<p class="font-['Inter'] tracking-tight text-xs text-[#1a1c19]/60 dark:text-[#fafaf5]/60 mt-1">AI Analysis Core</p>
+</div>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 p-3 rounded text-[#1a1c19]/60 dark:text-[#fafaf5]/60 font-medium hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded text-[#1a1c19]/60 dark:text-[#fafaf5]/60 font-medium hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">campaign</span>
+<span>Ad Ops</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded text-[#003925] dark:text-[#fafaf5] font-bold border-r-4 border-[#003925] dark:border-[#0f5238] pr-4 hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">history</span>
+<span>Archival Insights</span>
+</a>
+<a class="flex items-center gap-3 p-3 rounded text-[#1a1c19]/60 dark:text-[#fafaf5]/60 font-medium hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+</div>
+<button class="mt-auto w-full bg-primary text-on-primary rounded-full py-3 px-4 font-semibold hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">add</span>
+            Generate Report
+        </button>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-72 flex flex-col relative h-screen">
+<!-- TopAppBar -->
+<header class="bg-[#fafaf5]/80 dark:bg-[#003925]/80 backdrop-blur-xl sticky top-0 z-30 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+<div class="flex justify-between items-center w-full px-12 py-6">
+<div class="font-['Manrope'] font-extrabold text-[#003925] dark:text-[#fafaf5] text-lg">
+                    AI考察
+                </div>
+<div class="flex items-center gap-6">
+<button class="font-['Inter'] text-sm tracking-widest uppercase text-[#003925] dark:text-[#fafaf5] border-b-2 border-[#003925] pb-1 hover:text-[#0f5238] dark:hover:text-[#fafaf5] transition-all opacity-80 hover:opacity-100 duration-300">
+                        Period Selector
+                    </button>
+<div class="flex items-center gap-4 text-[#1a1c19]/40 dark:text-[#fafaf5]/40">
+<span class="material-symbols-outlined hover:text-[#0f5238] cursor-pointer transition-colors">format_size</span>
+<span class="material-symbols-outlined hover:text-[#0f5238] cursor-pointer transition-colors">radar</span>
+<span class="material-symbols-outlined hover:text-[#0f5238] cursor-pointer transition-colors">find_in_page</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas Area (Context beneath drawer) -->
+<main class="flex-1 p-12 overflow-y-auto">
+<div class="max-w-4xl mx-auto space-y-12 opacity-40 transition-opacity">
+<div>
+<h2 class="font-headline text-headline-md text-primary mb-4">Recent Cultivations</h2>
+<div class="grid grid-cols-2 gap-6">
+<div class="bg-surface-container-lowest p-8 rounded ghost-border">
+<div class="w-12 h-12 bg-surface-container-low rounded-full mb-4"></div>
+<div class="h-4 bg-surface-variant rounded w-3/4 mb-2"></div>
+<div class="h-4 bg-surface-variant rounded w-1/2"></div>
+</div>
+<div class="bg-surface-container-lowest p-8 rounded ghost-border">
+<div class="w-12 h-12 bg-surface-container-low rounded-full mb-4"></div>
+<div class="h-4 bg-surface-variant rounded w-3/4 mb-2"></div>
+<div class="h-4 bg-surface-variant rounded w-1/2"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Drawer Backdrop Overlay -->
+<div class="absolute inset-0 bg-on-surface/5 backdrop-blur-[2px] z-40 transition-opacity"></div>
+<!-- Archival Insights Drawer -->
+<aside class="absolute top-0 right-0 h-full w-[400px] bg-surface-container-lowest shadow-[0_8px_32px_rgba(26,28,25,0.06)] z-50 flex flex-col transform translate-x-0 transition-transform duration-300 ease-out border-l border-outline-variant/10">
+<!-- Drawer Header -->
+<div class="flex justify-between items-center px-8 py-6 border-b border-surface-variant/30">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container">history</span>
+<h2 class="font-headline text-title-md font-semibold text-primary">Archival Insights</h2>
+</div>
+<button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-low text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<!-- Drawer Content -->
+<div class="flex-1 overflow-y-auto p-8 space-y-10">
+<!-- Group: Today -->
+<section>
+<h3 class="font-label text-label-sm tracking-[0.15em] text-on-surface-variant uppercase mb-4 pl-2 border-l-2 border-primary-container">Today</h3>
+<div class="space-y-2">
+<button class="w-full text-left p-4 rounded-lg bg-surface hover:bg-surface-container-low transition-colors group">
+<p class="font-body text-body-md text-on-surface line-clamp-2 leading-relaxed group-hover:text-primary transition-colors">
+                                Q3広告予算配分の最適化提案
+                            </p>
+<div class="flex items-center gap-2 mt-3 text-on-surface-variant opacity-70">
+<span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>
+<span class="font-label text-xs">14:22 PM</span>
+</div>
+</button>
+<button class="w-full text-left p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<p class="font-body text-body-md text-on-surface line-clamp-2 leading-relaxed group-hover:text-primary transition-colors">
+                                競合A社との訴求軸比較
+                            </p>
+<div class="flex items-center gap-2 mt-3 text-on-surface-variant opacity-70">
+<span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>
+<span class="font-label text-xs">09:15 AM</span>
+</div>
+</button>
+</div>
+</section>
+<!-- Group: Yesterday -->
+<section>
+<h3 class="font-label text-label-sm tracking-[0.15em] text-on-surface-variant uppercase mb-4 pl-2 border-l-2 border-surface-variant">Yesterday</h3>
+<div class="space-y-2">
+<button class="w-full text-left p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<p class="font-body text-body-md text-on-surface line-clamp-2 leading-relaxed group-hover:text-primary transition-colors">
+                                新規ユーザー獲得単価の要因分析
+                            </p>
+<div class="flex items-center gap-2 mt-3 text-on-surface-variant opacity-70">
+<span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>
+<span class="font-label text-xs">16:40 PM</span>
+</div>
+</button>
+</div>
+</section>
+<!-- Group: Last Week -->
+<section>
+<h3 class="font-label text-label-sm tracking-[0.15em] text-on-surface-variant uppercase mb-4 pl-2 border-l-2 border-surface-variant">Last Week</h3>
+<div class="space-y-2">
+<button class="w-full text-left p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<p class="font-body text-body-md text-on-surface line-clamp-2 leading-relaxed group-hover:text-primary transition-colors">
+                                秋期キャンペーンのクリエイティブA/Bテスト結果
+                            </p>
+<div class="flex items-center gap-2 mt-3 text-on-surface-variant opacity-70">
+<span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>
+<span class="font-label text-xs">Oct 12, 11:05 AM</span>
+</div>
+</button>
+<button class="w-full text-left p-4 rounded-lg hover:bg-surface-container-low transition-colors group">
+<p class="font-body text-body-md text-on-surface line-clamp-2 leading-relaxed group-hover:text-primary transition-colors">
+                                SNSチャネル別のエンゲージメント推移と改善策
+                            </p>
+<div class="flex items-center gap-2 mt-3 text-on-surface-variant opacity-70">
+<span class="material-symbols-outlined" style="font-size: 14px;">schedule</span>
+<span class="font-label text-xs">Oct 10, 08:30 AM</span>
+</div>
+</button>
+</div>
+</section>
+</div>
+<!-- Drawer Footer (Optional Subtle Element) -->
+<div class="p-6 bg-surface-container-lowest border-t border-surface-variant/20">
+<button class="w-full py-2 flex items-center justify-center gap-2 text-primary hover:text-primary-container text-sm font-medium transition-colors">
+<span class="material-symbols-outlined text-sm">search</span>
+                    Search Archives
+                </button>
+</div>
+</aside>
+</div>
+</body></html>

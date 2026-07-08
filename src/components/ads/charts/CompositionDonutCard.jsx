@@ -9,7 +9,7 @@ import {
 import ChartKpiStrip from './ChartKpiStrip'
 import ChartLegendList from './ChartLegendList'
 
-const PALETTE = ['#2f66d8', '#f0a313', '#12a87a', '#d34a5f', '#7357c7', '#2f80a7', '#8a6f37', '#7b8a83']
+const PALETTE = ['#003925', '#0f5238', '#456553', '#d4a843', '#713638', '#2e7d32', '#0369a1', '#707973']
 const RADIUS = 84
 const STROKE_WIDTH = 34
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
@@ -86,7 +86,7 @@ export default function CompositionDonutCard({ group }) {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1fr)] lg:items-center">
-          <svg role="img" aria-label={`${group?.title ?? '構成比グラフ'}の項目別構成比`} viewBox="0 0 360 260" className="h-[300px] w-full">
+          <svg role="img" aria-label={`${group?.title ?? '構成比グラフ'}の項目別構成比`} viewBox="0 0 360 260" className="h-[240px] w-full sm:h-[300px]">
             <rect x="0" y="0" width="360" height="260" rx="18" fill="#fbfcf7" />
             <g transform="translate(180 122) rotate(-90)">
               <circle r={RADIUS} fill="none" stroke="#e8eee8" strokeWidth={STROKE_WIDTH} />

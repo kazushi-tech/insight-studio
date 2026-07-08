@@ -125,9 +125,43 @@ def test_generate_batch_returns_execution_summary_for_every_query(monkeypatch):
     }))))
 
     summary = {item["query_type"]: item for item in body["execution_summary"]}
+    assert body["ok"] is True
+    assert body["data_availability"] == "partial"
+    assert "traffic:no_data" in body["missing_reason"]
     assert summary["search"]["status"] == "success"
     assert summary["search"]["row_count"] == 2
     assert summary["search"]["chart_group_count"] >= 1
     assert summary["traffic"]["status"] == "no_data"
     assert summary["custom_no_chart"]["status"] == "no_chart"
     assert set(summary) == {"search", "traffic", "custom_no_chart"}
+
+
+def test_dataset_ref_validation_rejects_injection_and_bad_dates():
+    from bq.queries import get_query, normalize_dataset_ref
+
+    for bad_dataset in ["analytics_123;DROP", "demo.analytics_123.events_*", "bad-dataset"]:
+        try:
+            normalize_dataset_ref(bad_dataset)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"dataset should be rejected: {bad_dataset}")
+
+    for start_date, end_date in [("2026-05-01", "20260531"), ("20260601", "20260501")]:
+        try:
+            get_query("pv", "analytics_123", start_date, end_date)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"dates should be rejected: {start_date} - {end_date}")
+
+
+def test_pv_and_landing_queries_keep_session_level_counts():
+    pv_sql = bq_queries.get_query("pv", "analytics_123", "20260501", "20260531")
+    landing_sql = bq_queries.get_query("landing", "analytics_123", "20260501", "20260531")
+
+    assert "ROW_NUMBER() OVER" in pv_sql
+    assert "IF(daily_rank = 1, daily_users, NULL) AS users" in pv_sql
+    assert "page_users" in pv_sql
+    assert "session_rollup" in landing_sql
+    assert "is_entrance" not in landing_sql

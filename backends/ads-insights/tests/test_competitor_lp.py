@@ -12,6 +12,17 @@ sys.path.insert(0, str(_SKILLS_DIR / "competitor-lp-analyzer"))
 
 # テスト対象モジュール
 import importlib.util
+import pytest
+
+# competitor-lp-analyzer スキル本体（.agent/skills 配下）はリポジトリ外で管理されており、
+# このチェックアウトに存在しない場合は収集エラーにせず明示的に skip する。
+_ANALYZE_PATH = _SKILLS_DIR / "competitor-lp-analyzer" / "analyze.py"
+if not _ANALYZE_PATH.exists():
+    pytest.skip(
+        f"competitor-lp-analyzer スキル本体 ({_ANALYZE_PATH}) がこのチェックアウトに存在しないため skip",
+        allow_module_level=True,
+    )
+
 spec = importlib.util.spec_from_file_location(
     "lp_analyze", _SKILLS_DIR / "competitor-lp-analyzer" / "analyze.py"
 )

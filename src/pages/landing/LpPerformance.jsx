@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import LpSection from './components/LpSection'
 import LpCta from './components/LpCta'
+import LpImage from './components/LpImage'
 
 export default function LpPerformance() {
   return (
@@ -23,7 +24,7 @@ export default function LpPerformance() {
                 無料で体験を開始
               </Link>
               <Link
-                to="#"
+                to="/ads/wizard"
                 className="bg-white border-2 border-primary text-primary px-8 py-4 rounded-xl font-bold text-lg hover:bg-primary-container/10 transition-all text-center"
               >
                 デモを見る
@@ -71,7 +72,7 @@ export default function LpPerformance() {
                   </div>
                 </div>
               </div>
-              <img
+              <LpImage icon="monitoring"
                 className="w-full h-40 object-cover rounded-lg shadow-inner opacity-80"
                 alt="Dashboard data visualization showing a line graph and digital statistics"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDT7j2VMo1KSrok1zMKvaKZaGXUOP5kPp1SS7ybxiF0Mh7kAOzUlYi2pJ9R1qL5LOl27-dmXqAbogBGyhKiqKt16ALy-6MUr6RKt60oxqsVs8M39S85-8hy0jR8iWEhbUTBkVzgDRFa5ZApdx7wVOzYl0nlDNFQkWijDLZdlqXjoXvTvt7dsy6WMF711DCG4M3pp8voe_FtGMdKYuiE6fkPApl8_J1ix_3tV1ey-ba-ZFnPpIGssC9D3wN5nDVcW7GQL4-FMlwOVxg"

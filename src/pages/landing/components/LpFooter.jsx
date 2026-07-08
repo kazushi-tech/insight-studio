@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 
 const footerLinks = [
-  { label: '利用規約', href: '#' },
-  { label: 'プライバシーポリシー', href: '#' },
-  { label: 'お問い合わせ', href: '#' },
-  { label: '会社概要', href: '#' },
+  { label: '利用規約', status: '準備中' },
+  { label: 'プライバシーポリシー', status: '準備中' },
+  { label: 'お問い合わせ', status: '料金ページから相談' },
+  { label: '会社概要', status: '準備中' },
 ]
 
 export default function LpFooter() {
@@ -41,7 +41,7 @@ export default function LpFooter() {
                 </Link>
               </li>
               <li>
-                <Link to="/lp#demo" className="hover:text-primary transition-colors">
+                <Link to="/lp/discovery#demo" className="hover:text-primary transition-colors">
                   分析デモ
                 </Link>
               </li>
@@ -57,12 +57,13 @@ export default function LpFooter() {
             <ul className="space-y-3 text-on-surface-variant text-sm">
               {footerLinks.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="hover:text-primary transition-colors"
+                  <span
+                    className="inline-flex flex-col gap-1 text-on-surface-variant/80"
+                    aria-disabled="true"
                   >
-                    {link.label}
-                  </a>
+                    <span>{link.label}</span>
+                    <span className="text-[10px] text-on-surface-variant/55">{link.status}</span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -71,7 +72,7 @@ export default function LpFooter() {
       </div>
       <div className="max-w-7xl mx-auto px-8 pb-12 border-t border-outline-variant pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-on-surface-variant/60 text-xs font-body">
-          © 2024 Insight Studio. All rights reserved.
+          © {new Date().getFullYear()} Insight Studio. All rights reserved.
         </p>
         <div className="flex gap-6">
           <span className="text-on-surface-variant/60 text-xs hover:text-primary cursor-pointer">

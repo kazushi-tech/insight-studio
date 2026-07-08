@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>クリエイティブ診断 - Insight Studio</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600;7..72,700&amp;family=Nunito+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-variant": "#e4e0d8",
+              "background": "#faf6f0",
+              "on-tertiary-container": "#554020",
+              "surface-dim": "#dbd7cf",
+              "surface-container-highest": "#e4e0d8",
+              "secondary-fixed": "#f0e8db",
+              "outline": "#74796e",
+              "on-primary-fixed-variant": "#2a6038",
+              "on-secondary-fixed-variant": "#4a4538",
+              "secondary-fixed-dim": "#d4ccbf",
+              "on-tertiary-fixed-variant": "#554020",
+              "on-surface": "#2e3230",
+              "surface-container": "#f0ece4",
+              "inverse-on-surface": "#f5f0e8",
+              "surface-container-high": "#eae6de",
+              "on-tertiary-fixed": "#221a05",
+              "primary": "#4a7c59",
+              "tertiary-fixed": "#f8e0a8",
+              "error-container": "#ffdad8",
+              "primary-fixed-dim": "#8ecf9e",
+              "tertiary": "#705c30",
+              "tertiary-container": "#c4a66a",
+              "error": "#b83230",
+              "on-surface-variant": "#4a4e4a",
+              "surface-tint": "#4a7c59",
+              "surface-container-low": "#f5f1ea",
+              "primary-container": "#78a886",
+              "outline-variant": "#c4c8bc",
+              "inverse-surface": "#2e3230",
+              "secondary": "#6b6358",
+              "surface-container-lowest": "#ffffff",
+              "on-primary-fixed": "#002110",
+              "on-secondary": "#ffffff",
+              "on-error-container": "#690005",
+              "surface": "#faf6f0",
+              "on-secondary-fixed": "#1e1a13",
+              "on-error": "#ffffff",
+              "tertiary-fixed-dim": "#dcc48e",
+              "primary-fixed": "#c8e8d0",
+              "on-background": "#2e3230",
+              "on-primary": "#ffffff",
+              "surface-bright": "#faf6f0",
+              "on-primary-container": "#d8f0de",
+              "secondary-container": "#f0e8db",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#8ecf9e",
+              "on-secondary-container": "#5e5548"
+            },
+            fontFamily: {
+              "headline": ["Literata"],
+              "body": ["Nunito Sans"],
+              "label": ["Nunito Sans"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Nunito Sans', sans-serif; background-color: #faf6f0; color: #2e3230; line-height: 1.6; }
+        h1, h2, h3, .font-headline { font-family: 'Literata', serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-background">
+<!-- TopNavBar (Shared Component) -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-8 h-20 max-w-7xl mx-auto bg-[#faf6f0] dark:bg-stone-950 shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<div class="font-['Literata'] text-xl font-bold text-[#4a7c59] dark:text-[#6fb082]">Insight Studio</div>
+<div class="hidden md:flex gap-8 items-center font-['Nunito_Sans'] text-base tracking-tight font-medium">
+<a class="text-[#4a7c59] dark:text-[#6fb082] border-b-2 border-[#4a7c59] pb-1 hover:text-[#4a7c59] transition-colors duration-200" href="#">機能</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-[#6fb082] transition-colors duration-200" href="#">デモ</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-[#6fb082] transition-colors duration-200" href="#">メリット</a>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-medium active:opacity-80 active:scale-95 transition-all shadow-sm">無料でお開始</button>
+</nav>
+<main class="pt-20">
+<!-- Hero Section -->
+<section class="px-8 py-20 max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+<div class="space-y-6">
+<span class="inline-block px-4 py-1.5 bg-tertiary-fixed text-on-tertiary-fixed rounded-full text-sm font-semibold tracking-wide">AIクリエイティブ診断</span>
+<h1 class="text-5xl md:text-6xl font-bold text-on-surface leading-tight">「そのクリエイティブ、本当に刺さっていますか？」</h1>
+<p class="text-xl text-on-surface-variant max-w-lg leading-relaxed">
+                    バナー・LP・広告クリエイティブの訴求力をAIが多角的に診断。感覚ではなくデータで改善。
+                </p>
+<div class="flex gap-4 pt-4">
+<button class="bg-primary text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-lg transition-shadow">無料で診断を開始する</button>
+<button class="bg-surface-container text-primary px-8 py-4 rounded-xl font-bold text-lg hover:bg-surface-container-high transition-colors">資料ダウンロード</button>
+</div>
+</div>
+<div class="relative">
+<div class="absolute -inset-4 bg-primary/5 rounded-[2rem] blur-2xl"></div>
+<img class="relative rounded-xl shadow-xl w-full object-cover aspect-[4/3] border border-outline-variant/30" data-alt="Modern sleek dashboard interface showing analytical data charts and creative report mockups in a warm forest green and cream aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqrHvQldxQz_QSkukM81FR2hWUlLnwKRREljQLfvoABxXsY0oa3VWAlkMMejTt0FN1pqH2dNNpsMcCMrze3LYDK3Zd_0wjCYh7omzKR42PN376hQS_c3ZrfS_gKwfsM-YNeKWIBYHY1OAUJmTARBW4sJn9q1egtCU0_9saOO-1PYCrlT21wLR8XdlMTyAxTTGlIVp1Wv-4bcE_JtOeQJxSdqxzro8QBoTBkEDWH6sTwvD_j2GnEcIX_THk-V-yNqANKGKyRiGpE1g"/>
+</div>
+</section>
+<!-- Overview Section (Radar Chart Mockup) -->
+<section class="bg-surface-container-low py-24">
+<div class="max-w-7xl mx-auto px-8">
+<div class="text-center mb-16 space-y-4">
+<h2 class="text-4xl font-bold text-on-surface">診断の概要</h2>
+<p class="text-on-surface-variant max-w-2xl mx-auto">AIが広告クリエイティブの「心理的インパクト」と「構造的品質」を、4つの評価軸でスコア化します。</p>
+</div>
+<div class="grid md:grid-cols-2 gap-16 items-center">
+<div class="grid grid-cols-2 gap-6">
+<div class="p-6 bg-white rounded-xl shadow-sm border border-outline-variant/20">
+<span class="material-symbols-outlined text-primary text-3xl mb-4" data-icon="energy_savings_leaf">energy_savings_leaf</span>
+<h3 class="text-lg font-bold mb-2">訴求力</h3>
+<p class="text-sm text-on-surface-variant">ユーザーの課題を解決するメッセージが含まれているか。</p>
+</div>
+<div class="p-6 bg-white rounded-xl shadow-sm border border-outline-variant/20">
+<span class="material-symbols-outlined text-primary text-3xl mb-4" data-icon="visibility">visibility</span>
+<h3 class="text-lg font-bold mb-2">視認性</h3>
+<p class="text-sm text-on-surface-variant">フォントサイズや色のコントラストが適切に保たれているか。</p>
+</div>
+<div class="p-6 bg-white rounded-xl shadow-sm border border-outline-variant/20">
+<span class="material-symbols-outlined text-primary text-3xl mb-4" data-icon="touch_app">touch_app</span>
+<h3 class="text-lg font-bold mb-2">CTA効果</h3>
+<p class="text-sm text-on-surface-variant">クリックを促す動線が明確で行動しやすい設計か。</p>
+</div>
+<div class="p-6 bg-white rounded-xl shadow-sm border border-outline-variant/20">
+<span class="material-symbols-outlined text-primary text-3xl mb-4" data-icon="verified">verified</span>
+<h3 class="text-lg font-bold mb-2">ブランド一貫性</h3>
+<p class="text-sm text-on-surface-variant">企業のブランドイメージとデザインが合致しているか。</p>
+</div>
+</div>
+<div class="relative aspect-square flex items-center justify-center p-8 bg-white rounded-[2rem] shadow-sm overflow-hidden">
+<!-- Simulated Radar Chart -->
+<div class="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
+<img class="w-full h-full object-contain rounded-lg" data-alt="minimalist aesthetic illustration of a geometric radar chart visualization with soft organic shapes in shades of forest green" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSPGN5zH8AfbBWjgauvyyyMoXU8S-TTP2yQM99kB_cus88Fuankf0NTcMj4N9daowvetLuJupksr1KPc5wnFwCokuHr7mUTaIh9galAmx7bDLRmFgVG6qKqoglbh30d5C90O73eny14xRreca-1cKVUxp9H-qyOCxju_1-g4lojzD-6PqpNAfk36rzAz70et7EsncQbY3fqhuoDcOqpRAqSDkuTuY5LU0JVSsJg_9-n9vYzujmheVFYi-LufUfCS0ZVi26DTU-yiw"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Steps Section -->
+<section class="py-24 px-8 max-w-7xl mx-auto">
+<h2 class="text-4xl font-bold text-center mb-16">使い方は簡単、3ステップ</h2>
+<div class="grid md:grid-cols-3 gap-12">
+<div class="relative group">
+<div class="mb-6 flex items-baseline gap-4">
+<span class="text-6xl font-headline font-bold text-primary/20 group-hover:text-primary/40 transition-colors">01</span>
+<h3 class="text-2xl font-bold">画像をアップロード</h3>
+</div>
+<p class="text-on-surface-variant mb-6">診断したいバナー、LPのスクリーンショット、動画サムネイルをアップロードするだけ。</p>
+<div class="aspect-video rounded-xl bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant">
+<span class="material-symbols-outlined text-outline text-4xl" data-icon="upload_file">upload_file</span>
+</div>
+</div>
+<div class="relative group">
+<div class="mb-6 flex items-baseline gap-4">
+<span class="text-6xl font-headline font-bold text-primary/20 group-hover:text-primary/40 transition-colors">02</span>
+<h3 class="text-2xl font-bold">AIが多角的に診断</h3>
+</div>
+<p class="text-on-surface-variant mb-6">独自のAIエンジンが瞬時に解析。視線予測やテキスト分析を用いて診断を行います。</p>
+<div class="aspect-video rounded-xl bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="Close up of a stylized AI interface analyzing a digital poster with heatmap overlays in soft earthy tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApeVghpTEA3DMguQ9GO1_oNmRasurd0udfXgtGLPf0r0D4RPlGYc8chQeQOWcM_2sE0s9MfEygJ2BQSt1_I4yz8sVKgrxAGYx8BOmecG0rNWqLjFVPOhjUCEI4Ttjb5Cz8i5TXPLkIkqoKrunEMJCgVGK6_7z7ZxM0CHtr1SSobuH8OORx5HznFuj6Tp8q2Fxh5TODSThe1GMxz9y_xjQSRqB3oj9VGPGUo2jb0GoBAU9VLR2-wixSGngmo3fXnYhQj-NraHMZzZo"/>
+</div>
+</div>
+<div class="relative group">
+<div class="mb-6 flex items-baseline gap-4">
+<span class="text-6xl font-headline font-bold text-primary/20 group-hover:text-primary/40 transition-colors">03</span>
+<h3 class="text-2xl font-bold">改善提案を確認</h3>
+</div>
+<p class="text-on-surface-variant mb-6">具体的な改善ポイントをリストアップ。何を、どう変えるべきか一目でわかります。</p>
+<div class="aspect-video rounded-xl bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant">
+<span class="material-symbols-outlined text-outline text-4xl" data-icon="task_alt">task_alt</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Diagnosis Result Mockup (Bento Style) -->
+<section class="bg-surface-container-high py-24 overflow-hidden">
+<div class="max-w-7xl mx-auto px-8">
+<div class="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+<div class="space-y-4">
+<h2 class="text-4xl font-bold">診断レポート例</h2>
+<p class="text-on-surface-variant">実際の診断結果画面のイメージです。具体的でアクション可能なデータを提供します。</p>
+</div>
+<div class="bg-white px-6 py-4 rounded-xl shadow-sm flex items-center gap-6">
+<div class="text-center">
+<p class="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Total Score</p>
+<p class="text-4xl font-bold text-primary">72<span class="text-lg text-on-surface-variant font-normal">/100</span></p>
+</div>
+<div class="h-10 w-[1px] bg-outline-variant/30"></div>
+<div class="text-sm font-semibold text-tertiary">良好なポテンシャル</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<!-- Improvement List -->
+<div class="md:col-span-4 bg-white p-8 rounded-xl shadow-sm space-y-6">
+<h3 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-tertiary" data-icon="lightbulb">lightbulb</span>
+                            改善提案リスト
+                        </h3>
+<ul class="space-y-4">
+<li class="flex gap-3 items-start group">
+<span class="material-symbols-outlined text-error mt-1 text-xl" data-icon="priority_high">priority_high</span>
+<div>
+<p class="font-bold text-on-surface">CTAボタンのコントラストを上げる</p>
+<p class="text-sm text-on-surface-variant">現在の色は背景に馴染みすぎています。彩度の高い色を推奨。</p>
+</div>
+</li>
+<li class="flex gap-3 items-start">
+<span class="material-symbols-outlined text-primary mt-1 text-xl" data-icon="tips_and_updates">tips_and_updates</span>
+<div>
+<p class="font-bold text-on-surface">キャッチコピーをベネフィット訴求に</p>
+<p class="text-sm text-on-surface-variant">「多機能」よりも「時間の短縮」にフォーカスした表現が効果的。</p>
+</div>
+</li>
+<li class="flex gap-3 items-start">
+<span class="material-symbols-outlined text-primary mt-1 text-xl" data-icon="tips_and_updates">tips_and_updates</span>
+<div>
+<p class="font-bold text-on-surface">人物の視線をテキストに誘導</p>
+<p class="text-sm text-on-surface-variant">写真の人物の目線を主要なメッセージに向けることで読了率が向上。</p>
+</div>
+</li>
+</ul>
+</div>
+<!-- Before/After Visual -->
+<div class="md:col-span-8 grid grid-cols-2 gap-4">
+<div class="bg-white p-4 rounded-xl shadow-sm relative group">
+<span class="absolute top-6 left-6 z-10 bg-on-surface/80 text-white px-3 py-1 rounded-full text-xs font-bold">BEFORE</span>
+<img class="w-full h-full object-cover rounded-lg aspect-video" data-alt="Screenshot of a cluttered banner advertisement with low contrast text and unclear call to action" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_7YQ4VBXSyXYoNhUc5pSS2XJ82FiAVkO-mTyFS_r7TDzEigjcZB6V6BA1fxaorEh9wLI2GKX6ZkBCtANGs3yxVxXV8wEwHv49h-sRSy-6R6qEESwO0G8vFHzo03EPgp0n-ycv3CSBoboMjkdWwpf7o6c1tqr_Kk6FGef7Ur7T3KUzELN_Fqn1kZayOClJCHadtylsosImZ9GrjrRuSnaCl3_r9d29MgyA7bUsE9F57mwgvhUBD6gQrvOhBp8GxEwPj3YrIFC_IRw"/>
+</div>
+<div class="bg-white p-4 rounded-xl shadow-sm relative">
+<span class="absolute top-6 left-6 z-10 bg-primary text-white px-3 py-1 rounded-full text-xs font-bold">AFTER (Suggested)</span>
+<img class="w-full h-full object-cover rounded-lg aspect-video" data-alt="Clean and high-converting banner design with bold typography and a clear high-contrast call to action button" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQcz3mCeObJH_NKqpBmtMC5p_1cRM1Q5XRV-wf1TJLCy1NFbC2FYKxkjPq9xR6jF6tKoikk26XWYoRD6JHPL2hwckdgVLV2IGCOhlNE3VndJdfzOqPjeOGyJ215uGBmuMKph_UIgOUvPtsmWzCYEDpkh3FPcqVPmju7GIb2blg4n6MP4Hh08_wxWBsmPEbIn8f54hYmLNw-K3fhD6Zpy3CIJj9v9OTme5vUPtJBdTI26Y0khTXcpUpbs02cwjs40tBJhJt8jLktcw"/>
+</div>
+<div class="col-span-2 bg-white p-6 rounded-xl shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<p class="font-bold">視線ヒートマップ解析</p>
+<span class="text-sm text-on-surface-variant">予測モデル: Insight AI v4.2</span>
+</div>
+<div class="h-48 w-full bg-gradient-to-r from-blue-100 via-yellow-100 to-red-100 rounded-lg flex items-center justify-center border border-outline-variant/20">
+<p class="text-sm text-on-surface-variant font-medium">ヒートマップビジュアライゼーション生成中...</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Items Grid Section -->
+<section class="py-24 max-w-7xl mx-auto px-8">
+<div class="text-center mb-16 space-y-4">
+<h2 class="text-4xl font-bold">診断できる項目一覧</h2>
+<p class="text-on-surface-variant">あらゆるデジタルクリエイティブに対応しています。</p>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+<div class="p-8 bg-surface-container-low rounded-2xl hover:shadow-md transition-shadow text-center">
+<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="ad_units">ad_units</span>
+</div>
+<h3 class="text-xl font-bold mb-3">バナー広告</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">静止画バナーのクリック率(CTR)を最大化するための構成を診断。</p>
+</div>
+<div class="p-8 bg-surface-container-low rounded-2xl hover:shadow-md transition-shadow text-center">
+<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="web">web</span>
+</div>
+<h3 class="text-xl font-bold mb-3">LP全体</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">ランディングページ全体のストーリー構成とCVR向上のための改善提案。</p>
+</div>
+<div class="p-8 bg-surface-container-low rounded-2xl hover:shadow-md transition-shadow text-center">
+<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="smart_display">smart_display</span>
+</div>
+<h3 class="text-xl font-bold mb-3">動画サムネイル</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">YouTubeやSNS動画のクリックを誘発する視覚的インパクトを診断。</p>
+</div>
+<div class="p-8 bg-surface-container-low rounded-2xl hover:shadow-md transition-shadow text-center">
+<div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="share">share</span>
+</div>
+<h3 class="text-xl font-bold mb-3">SNS広告</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">タイムラインに馴染みつつ指を止める、SNS特有のクリエイティブ解析。</p>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-24 px-8 max-w-7xl mx-auto">
+<div class="bg-primary rounded-[2.5rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl">
+<div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]"></div>
+<div class="relative z-10 space-y-8">
+<h2 class="text-4xl md:text-5xl font-bold text-white leading-tight">
+                        あなたのクリエイティブの<br class="hidden md:block"/>真の実力を今すぐ診断しましょう
+                    </h2>
+<p class="text-primary-fixed text-lg max-w-xl mx-auto">
+                        会員登録なしでも、最初の1枚は無料で診断可能です。AIによるデータドリブンな改善を体験してください。
+                    </p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center">
+<button class="bg-white text-primary px-10 py-5 rounded-xl font-bold text-xl hover:scale-105 transition-transform">あなたのクリエイティブを無料で診断する</button>
+</div>
+<p class="text-primary-fixed/60 text-sm">※診断は最短10秒で完了します</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer (Shared Component) -->
+<footer class="w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center gap-6 bg-[#faf6f0] dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800">
+<div class="font-['Literata'] text-lg font-semibold text-[#4a7c59] dark:text-[#6fb082]">Insight Studio</div>
+<div class="flex flex-wrap justify-center gap-8 font-['Nunito_Sans'] text-sm leading-relaxed text-stone-500 dark:text-stone-500">
+<a class="hover:text-[#4a7c59] underline transition-all" href="#">プライバシーポリシー</a>
+<a class="hover:text-[#4a7c59] underline transition-all" href="#">利用規約</a>
+<a class="hover:text-[#4a7c59] underline transition-all" href="#">お問い合わせ</a>
+<a class="hover:text-[#4a7c59] underline transition-all" href="#">会社概要</a>
+</div>
+<div class="text-stone-500 text-sm">© 2024 Insight Studio. All rights reserved.</div>
+</footer>
+</body></html>

@@ -70,7 +70,7 @@ export default function SeriesSummaryBarCard({ group }) {
                 data-testid="series-summary-bar-row"
                 className="rounded-xl border border-outline-variant/15 bg-[#fbfcf7] p-3"
               >
-                <div className="mb-2 grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3">
+                <div className="mb-2 grid grid-cols-[32px_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[40px_minmax(0,1fr)_auto] sm:gap-3">
                   <span className="grid size-8 place-items-center rounded-lg bg-primary text-xs font-black text-on-primary">
                     {row.rank}
                   </span>
@@ -82,7 +82,7 @@ export default function SeriesSummaryBarCard({ group }) {
                       最新 {formatMetricValue(row.latest?.value, row.usePercent)} ({formatShortDate(row.latest?.label)}) / 最大 {formatMetricValue(row.peak?.value, row.usePercent)} ({formatShortDate(row.peak?.label)})
                     </p>
                   </div>
-                  <strong className="rounded-full bg-white px-3 py-1 text-xs font-black text-primary shadow-sm tabular-nums">
+                  <strong className="col-span-2 justify-self-start rounded-full bg-white px-3 py-1 text-xs font-black text-primary shadow-sm tabular-nums sm:col-span-1 sm:justify-self-auto">
                     {formatMetricValue(row.total, row.usePercent)}
                   </strong>
                 </div>

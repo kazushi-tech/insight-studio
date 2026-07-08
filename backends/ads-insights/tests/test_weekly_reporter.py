@@ -12,6 +12,16 @@ sys.path.insert(0, str(_SKILLS_DIR))
 sys.path.insert(0, str(_SKILLS_DIR / "weekly-reporter"))
 
 import pandas as pd
+import pytest
+
+# weekly-reporter スキル本体（.agent/skills 配下）はリポジトリ外で管理されており、
+# このチェックアウトに存在しない場合は収集エラーにせず明示的に skip する。
+_ANALYZE_PATH = _SKILLS_DIR / "weekly-reporter" / "analyze.py"
+if not _ANALYZE_PATH.exists():
+    pytest.skip(
+        f"weekly-reporter スキル本体 ({_ANALYZE_PATH}) がこのチェックアウトに存在しないため skip",
+        allow_module_level=True,
+    )
 
 # テスト対象モジュール
 import importlib.util

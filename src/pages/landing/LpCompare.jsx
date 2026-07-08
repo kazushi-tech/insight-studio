@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import LpSection from './components/LpSection'
 import LpCta from './components/LpCta'
+import LpImage from './components/LpImage'
 
 export default function LpCompare() {
   return (
@@ -27,7 +28,7 @@ export default function LpCompare() {
                 Start for Free
               </Link>
               <Link
-                to="#"
+                to="/lp/discovery#demo"
                 className="flex items-center justify-center gap-2 px-10 py-4 rounded-xl font-label font-bold text-lg text-primary border-2 border-primary/20 bg-surface hover:bg-surface-container-low transition-colors"
               >
                 <span className="material-symbols-outlined">play_circle</span>
@@ -47,7 +48,7 @@ export default function LpCompare() {
           <div className="grid md:grid-cols-2 gap-20 items-center">
             <div className="relative">
               <div className="aspect-[4/3] bg-surface rounded-xl shadow-xl overflow-hidden border border-outline-variant/30">
-                <img
+                <LpImage icon="compare"
                   className="w-full h-full object-cover"
                   alt="Modern split-screen interface showing two different landing pages side by side with AI analysis overlays and heatmaps"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuAApIQ8g_fwBVPpTPtxbP8C0mJQ-J7OvipuIqQChdA_pNrlFv09asSMX9e_EIbtU-FX9bW027vONjsMNtbapoTGrm8lF_Y81V4p4VgnJfwp-ZKzUwPR25Jl6xcykMSAE6zF51KY3BHCioB23B36GrpUOijj1-AXw9SVfavsIB-HIZ-CdCSpsR6bhJD-RjBWnZXd_W0F4_3aHlJMXIasPBRTLkyumA0n8odyBJwmrAfroI0-Hjyae667iQEJmw-I4367SIJlYWCrtcU"
@@ -153,7 +154,7 @@ export default function LpCompare() {
                 </div>
               </div>
               <div className="aspect-video bg-surface-container-low rounded-lg border border-dashed border-outline-variant flex items-center justify-center relative overflow-hidden">
-                <img
+                <LpImage icon="compare"
                   className="w-full h-full object-cover opacity-80"
                   alt="Data visualization dashboard showing charts, conversion funnels, and landing page heatmaps"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYe5wGtOJUvPmJ0v474bzj0UxzKpYbzgTd1YLap_T4TYSCqqko3e-df2cw-dXsUPA8MopnTouipxBlv_JVGodkpoXpyiEQMxfeUKuN9JF7rlN24erTNZG8_6swTVv3RS2EFHq7cHxOJPUogGBpj0LB3ynufe9gxguxUzjPKG8L9Ji2Y1ZoOxjitU_69VRAOANkDUzwMp9eOzbI1Y6WiS7F3k2mo7p1alhNwLIKS7wM5bjAftePQrCZ1l9-SVAG84tZwDhGN5Dk74g"

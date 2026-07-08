@@ -7,16 +7,19 @@ Usage:
 import sys
 from pathlib import Path
 
-# プロジェクトルートをパスに追加
-app_path = Path(__file__).parent.parent / "web" / "app"
-sys.path.insert(0, str(app_path))
-
-# バックエンドディレクトリから直接インポート
-import os
-os.chdir(str(app_path))
+# point_pack_generator は `from .report_data import ...` の相対 import を使うため、
+# web.app パッケージ経由で import する（トップレベル import だと収集時に ImportError になる）。
+# 既存の tests/test_data_providers.py と同じ import 方針。
+_ADS_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(_ADS_ROOT))
+sys.path.insert(0, str(_ADS_ROOT / "web" / "app"))
 
 from data_providers.mock_provider import MockProvider
-import point_pack_generator
+from web.app import point_pack_generator
+
+# 各テスト関数内の `from point_pack_generator import ...` がトップレベル名で
+# 解決できるよう、同一モジュールを別名でも登録する。
+sys.modules.setdefault("point_pack_generator", point_pack_generator)
 
 
 def test_new_kpis_in_markdown():

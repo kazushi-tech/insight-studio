@@ -14,7 +14,7 @@ import ChartKpiStrip from './ChartKpiStrip'
 import ChartTooltip from './ChartTooltip'
 
 const FRAME = { x: 62, y: 28, width: 616, height: 236 }
-const COLORS = ['#003925', '#1d5fd1', '#0f766e', '#9b7b3e', '#7b88a8', '#9a6f84', '#4f8a9a', '#8a8f63']
+const COLORS = ['#003925', '#0f5238', '#456553', '#d4a843', '#713638', '#2e7d32', '#0369a1', '#707973']
 
 function getLatestPoint(series, labels) {
   for (let index = series.values.length - 1; index >= 0; index -= 1) {
@@ -103,7 +103,7 @@ export default function SmallMultipleTrendCard({ group }) {
         </div>
 
         <div className="space-y-4">
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3" role="list" aria-label={`${group?.title ?? '日別推移'}の系列切替`}>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="list" aria-label={`${group?.title ?? '日別推移'}の系列切替`}>
             {rows.slice(0, 10).map((row) => (
               <button
                 key={row.id}
@@ -151,7 +151,7 @@ export default function SmallMultipleTrendCard({ group }) {
                   最新 {formatShortDate(activeRow?.latest?.label)} / 最大 {formatShortDate(activeRow?.peak?.label)}
                 </p>
               </div>
-              <div className="grid min-w-[260px] grid-cols-2 gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]">
                 <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm">
                   <p className="text-[10px] font-black tracking-[0.1em] text-on-surface-variant">表示値</p>
                   <p className="text-2xl font-black text-primary tabular-nums">{formatMetricValue(displayPoint?.value, activeRow?.usePercent)}</p>
@@ -163,7 +163,7 @@ export default function SmallMultipleTrendCard({ group }) {
               </div>
             </div>
 
-            <svg role="img" aria-label={`${activeRow?.label ?? '選択系列'}の大きな推移`} viewBox="0 0 720 340" className="h-[420px] w-full">
+            <svg role="img" aria-label={`${activeRow?.label ?? '選択系列'}の大きな推移`} viewBox="0 0 720 340" className="h-[300px] w-full sm:h-[420px]">
               <rect x="0" y="0" width="720" height="340" rx="18" fill="#fffefa" />
               {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
                 const y = FRAME.y + FRAME.height * ratio

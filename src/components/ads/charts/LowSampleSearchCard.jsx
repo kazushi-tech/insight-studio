@@ -16,12 +16,12 @@ export default function LowSampleSearchCard({ group }) {
       </div>
 
       <div className="rounded-xl border border-outline-variant/20 bg-white p-5">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="text-[10px] font-black tracking-[0.14em] text-primary">発生日の点表示</p>
             <p className="mt-1 text-sm font-bold text-on-surface-variant">日付別に発生有無だけを薄く確認します。</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button type="button" className="rounded-xl border border-primary/15 bg-primary/[0.06] px-4 py-2 text-xs font-black text-primary">
               期間を延ばす
             </button>
@@ -46,14 +46,14 @@ export default function LowSampleSearchCard({ group }) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-outline-variant/20 bg-white">
-        <div className="grid grid-cols-[minmax(220px,1fr)_120px_minmax(280px,1.2fr)] border-b border-outline-variant/20 bg-[#fbfcf7] px-4 py-3 text-[11px] font-black tracking-[0.08em] text-on-surface-variant">
+      <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-white">
+        <div className="grid min-w-[640px] grid-cols-[minmax(200px,1fr)_110px_minmax(250px,1.2fr)] border-b border-outline-variant/20 bg-[#fbfcf7] px-4 py-3 text-[11px] font-black tracking-[0.08em] text-on-surface-variant sm:grid-cols-[minmax(220px,1fr)_120px_minmax(280px,1.2fr)]">
           <span>検索語</span>
           <span className="text-right">raw count 表示</span>
           <span>発生日</span>
         </div>
         {rows.map((row) => (
-          <div key={row.label} className="grid grid-cols-[minmax(220px,1fr)_120px_minmax(280px,1.2fr)] items-center border-b border-outline-variant/10 px-4 py-3 last:border-b-0">
+          <div key={row.label} className="grid min-w-[640px] grid-cols-[minmax(200px,1fr)_110px_minmax(250px,1.2fr)] items-center border-b border-outline-variant/10 px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(220px,1fr)_120px_minmax(280px,1.2fr)]">
             <p className="truncate text-sm font-black text-on-surface" title={row.label}>{shortenChartLabel(row.label, 48)}</p>
             <p className="text-right text-sm font-black text-primary tabular-nums">{formatMetricValue(row.total)}</p>
             <div className="flex flex-wrap gap-2">

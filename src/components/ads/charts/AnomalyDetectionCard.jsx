@@ -185,15 +185,15 @@ export default function AnomalyDetectionCard({ group }) {
         </aside>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-outline-variant/20 bg-white">
-        <div className="grid grid-cols-[160px_minmax(220px,1fr)_120px_120px] border-b border-outline-variant/20 bg-[#fbfcf7] px-4 py-3 text-[11px] font-black tracking-[0.08em] text-on-surface-variant">
+      <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-white">
+        <div className="grid min-w-[560px] grid-cols-[120px_minmax(180px,1fr)_110px_110px] border-b border-outline-variant/20 bg-[#fbfcf7] px-4 py-3 text-[11px] font-black tracking-[0.08em] text-on-surface-variant sm:grid-cols-[160px_minmax(220px,1fr)_120px_120px]">
           <span>日付</span>
           <span>指標</span>
           <span className="text-right">Z-score</span>
           <span className="text-right">判定</span>
         </div>
         {(events.length ? events : [{ label: '-', value: null }]).slice(0, 8).map((event, index) => (
-          <div key={`${event.label}-${index}`} className="grid grid-cols-[160px_minmax(220px,1fr)_120px_120px] items-center border-b border-outline-variant/10 px-4 py-3 last:border-b-0">
+          <div key={`${event.label}-${index}`} className="grid min-w-[560px] grid-cols-[120px_minmax(180px,1fr)_110px_110px] items-center border-b border-outline-variant/10 px-4 py-3 last:border-b-0 sm:grid-cols-[160px_minmax(220px,1fr)_120px_120px]">
             <p className="text-sm font-black text-on-surface">{event.label === '-' ? '-' : formatShortDate(event.label)}</p>
             <p className="truncate text-sm font-bold text-on-surface-variant" title={selected.label}>{shortenChartLabel(selected.label, 42)}</p>
             <p className="text-right text-sm font-black text-primary tabular-nums">{formatMetricValue(event.value)}</p>

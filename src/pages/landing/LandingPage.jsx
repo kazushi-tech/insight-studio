@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import LpSection from './components/LpSection'
 import LpCta from './components/LpCta'
+import LpImage from './components/LpImage'
 
 const problems = [
   {
@@ -58,7 +59,7 @@ const features = [
   {
     title: 'AI Explorer',
     body: '自然言語で広告データに質問。複雑なクエリもAIが即座に回答します。',
-    to: '#',
+    to: '/insights/ai',
     colSpan: 'md:col-span-6',
     rowSpan: '',
     isPrimary: true,
@@ -123,11 +124,11 @@ export default function LandingPage() {
                 <span className="material-symbols-outlined text-xl">arrow_forward</span>
               </Link>
               <a
-                href="#"
+                href="/lp/pricing"
                 className="inline-flex items-center justify-center gap-2 px-10 py-5 bg-white/80 text-primary border border-primary/20 rounded-2xl font-extrabold text-lg hover:bg-surface-container-low transition-all"
               >
-                資料をダウンロード
-                <span className="material-symbols-outlined text-xl">download</span>
+                料金と導入条件を見る
+                <span className="material-symbols-outlined text-xl">open_in_new</span>
               </a>
             </div>
           </div>
@@ -135,7 +136,7 @@ export default function LandingPage() {
           {/* Dashboard mockup glass card */}
           <div className="relative max-w-4xl mx-auto">
             <div className="glass-card rounded-3xl p-3 shadow-2xl">
-              <img
+              <LpImage icon="monitoring"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsKVptWyBCrm4gxoVFJKcvV1WqwgfhCwpVeHDnxLqy-FJF-3F7TaaBkHPHvgjrpjraCb9P9Y6_v-b5IUl9jQpTRfKCm9TU1Z5J5KuZwshN8Q1xfI9NJHbQpn__hDXAyf0EYQ7jBdjWULBWnl2HQww_-u1_Pl5g7uHYfbVOBRhJ_mKd9xpfIi2TvPCidYETotbdFKR25-SEOQ2sVgvTbM4IbP8-5WT4LM3wXPAOzP8P9pSJIkBW8GTx5nSUAcVGqLf8jn7J--p3WoT7eQxvfI"
                 alt="Insight Studio ダッシュボード"
                 className="w-full rounded-2xl"
@@ -224,7 +225,7 @@ export default function LandingPage() {
                   </p>
                   {f.hasImage && (
                     <div className="mt-auto rounded-2xl overflow-hidden">
-                      <img
+                      <LpImage icon="monitoring"
                         src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsKVptWyBCrm4gxoVFJKcvV1WqwgfhCwpVeHDnxLqy-FJF-3F7TaaBkHPHvgjrpjraCb9P9Y6_v-b5IUl9jQpTRfKCm9TU1Z5J5KuZwshN8Q1xfI9NJHbQpn__hDXAyf0EYQ7jBdjWULBWnl2HQww_-u1_Pl5g7uHYfbVOBRhJ_mKd9xpfIi2TvPCidYETotbdFKR25-SEOQ2sVgvTbM4IbP8-5WT4LM3wXPAOzP8P9pSJIkBW8GTx5nSUAcVGqLf8jn7J--p3WoT7eQxvfI"
                         alt="競合LP比較画面"
                         className="w-full rounded-2xl group-hover:scale-[1.02] transition-transform"
@@ -293,7 +294,7 @@ export default function LandingPage() {
             </div>
 
             <div className="rounded-3xl overflow-hidden shadow-2xl">
-              <img
+              <LpImage icon="monitoring"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5nfS5ZDjDClNvLV5mZ0KAOXyTnKJElnVHG9Ae0uu8V8OFVlJkjw-y5UE3tqDBj4Xn2FKXk64qbqP5BKuoKW5_bL9gOCB1YiqWxDJUKPg-0eBfLRWIZpRv0c-dAkZoWC0xFGJ4bYt4jQJbBq_1GsmvJz_wthW39HS1dnvMXLcUzqPQXM6FH6DKUVO7G63LFXqOl2lK8l7Ox2l3o5YgOmpUKnb0OYxc_cLlsS3oK4YD_o-xKX4w2wZLcJxcaGfKzofpV1vBJm_dkT6iYGOg"
                 alt="チームで分析するイメージ"
                 className="w-full"

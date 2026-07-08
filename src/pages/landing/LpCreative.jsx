@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import LpSection from './components/LpSection'
 import LpCta from './components/LpCta'
+import LpImage from './components/LpImage'
 
 export default function LpCreative() {
   return (
@@ -25,17 +26,17 @@ export default function LpCreative() {
               無料で診断を開始する
             </Link>
             <Link
-              to="#"
+              to="/lp/pricing"
               className="bg-surface-container text-primary px-8 py-4 rounded-xl font-bold text-lg hover:bg-surface-container-high transition-colors"
             >
-              資料ダウンロード
+              導入条件を見る
             </Link>
           </div>
         </div>
 
         <div className="relative">
           <div className="absolute -inset-4 bg-primary/5 rounded-[2rem] blur-2xl" />
-          <img
+          <LpImage icon="palette"
             className="relative rounded-xl shadow-xl w-full object-cover aspect-[4/3] border border-outline-variant/30"
             alt="Dashboard interface showing analytical data charts and creative report mockups"
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqrHvQldxQz_QSkukM81FR2hWUlLnwKRREljQLfvoABxXsY0oa3VWAlkMMejTt0FN1pqH2dNNpsMcCMrze3LYDK3Zd_0wjCYh7omzKR42PN376hQS_c3ZrfS_gKwfsM-YNeKWIBYHY1OAUJmTARBW4sJn9q1egtCU0_9saOO-1PYCrlT21wLR8XdlMTyAxTTGlIVp1Wv-4bcE_JtOeQJxSdqxzro8QBoTBkEDWH6sTwvD_j2GnEcIX_THk-V-yNqANKGKyRiGpE1g"
@@ -94,7 +95,7 @@ export default function LpCreative() {
             {/* Radar chart mockup */}
             <div className="relative aspect-square flex items-center justify-center p-8 bg-white rounded-[2rem] shadow-sm overflow-hidden">
               <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent" />
-              <img
+              <LpImage icon="palette"
                 className="w-full h-full object-contain rounded-lg"
                 alt="Geometric radar chart visualization in forest green"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSPGN5zH8AfbBWjgauvyyyMoXU8S-TTP2yQM99kB_cus88Fuankf0NTcMj4N9daowvetLuJupksr1KPc5wnFwCokuHr7mUTaIh9galAmx7bDLRmFgVG6qKqoglbh30d5C90O73eny14xRreca-1cKVUxp9H-qyOCxju_1-g4lojzD-6PqpNAfk36rzAz70et7EsncQbY3fqhuoDcOqpRAqSDkuTuY5LU0JVSsJg_9-n9vYzujmheVFYi-LufUfCS0ZVi26DTU-yiw"
@@ -139,7 +140,7 @@ export default function LpCreative() {
               独自のAIエンジンが瞬時に解析。視線予測やテキスト分析を用いて診断を行います。
             </p>
             <div className="aspect-video rounded-xl bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant overflow-hidden">
-              <img
+              <LpImage icon="palette"
                 className="w-full h-full object-cover opacity-80"
                 alt="AI interface analyzing a digital poster with heatmap overlays"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuApeVghpTEA3DMguQ9GO1_oNmRasurd0udfXgtGLPf0r0D4RPlGYc8chQeQOWcM_2sE0s9MfEygJ2BQSt1_I4yz8sVKgrxAGYx8BOmecG0rNWqLjFVPOhjUCEI4Ttjb5Cz8i5TXPLkIkqoKrunEMJCgVGK6_7z7ZxM0CHtr1SSobuH8OORx5HznFuj6Tp8q2Fxh5TODSThe1GMxz9y_xjQSRqB3oj9VGPGUo2jb0GoBAU9VLR2-wixSGngmo3fXnYhQj-NraHMZzZo"
@@ -241,7 +242,7 @@ export default function LpCreative() {
                 <span className="absolute top-6 left-6 z-10 bg-on-surface/80 text-white px-3 py-1 rounded-full text-xs font-bold">
                   BEFORE
                 </span>
-                <img
+                <LpImage icon="palette"
                   className="w-full h-full object-cover rounded-lg aspect-video"
                   alt="Cluttered banner advertisement with low contrast text"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_7YQ4VBXSyXYoNhUc5pSS2XJ82FiAVkO-mTyFS_r7TDzEigjcZB6V6BA1fxaorEh9wLI2GKX6ZkBCtANGs3yxVxXV8wEwHv49h-sRSy-6R6qEESwO0G8vFHzo03EPgp0n-ycv3CSBoboMjkdWwpf7o6c1tqr_Kk6FGef7Ur7T3KUzELN_Fqn1kZayOClJCHadtylsosImZ9GrjrRuSnaCl3_r9d29MgyA7bUsE9F57mwgvhUBD6gQrvOhBp8GxEwPj3YrIFC_IRw"
@@ -251,7 +252,7 @@ export default function LpCreative() {
                 <span className="absolute top-6 left-6 z-10 bg-primary text-white px-3 py-1 rounded-full text-xs font-bold">
                   AFTER (Suggested)
                 </span>
-                <img
+                <LpImage icon="palette"
                   className="w-full h-full object-cover rounded-lg aspect-video"
                   alt="Clean high-converting banner with bold typography and clear CTA"
                   src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQcz3mCeObJH_NKqpBmtMC5p_1cRM1Q5XRV-wf1TJLCy1NFbC2FYKxkjPq9xR6jF6tKoikk26XWYoRD6JHPL2hwckdgVLV2IGCOhlNE3VndJdfzOqPjeOGyJ215uGBmuMKph_UIgOUvPtsmWzCYEDpkh3FPcqVPmju7GIb2blg4n6MP4Hh08_wxWBsmPEbIn8f54hYmLNw-K3fhD6Zpy3CIJj9v9OTme5vUPtJBdTI26Y0khTXcpUpbs02cwjs40tBJhJt8jLktcw"

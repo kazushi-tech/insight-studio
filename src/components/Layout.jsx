@@ -132,6 +132,41 @@ function SidebarGroup({ item, disabledPaths }) {
   )
 }
 
+function MobileNavLink({ to, icon, label, disabled }) {
+  const baseClass = 'flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-black japanese-text'
+
+  if (disabled) {
+    return (
+      <button
+        type="button"
+        disabled
+        className={`${baseClass} cursor-not-allowed text-on-surface-variant/40`}
+        aria-label={`${label}はセットアップ完了後に利用できます`}
+      >
+        <span className="material-symbols-outlined text-[21px]" aria-hidden="true">{icon}</span>
+        <span className="max-w-full truncate">{label}</span>
+      </button>
+    )
+  }
+
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      className={({ isActive }) =>
+        `${baseClass} rounded-2xl transition-colors ${
+          isActive
+            ? 'bg-primary text-on-primary shadow-sm'
+            : 'text-on-surface-variant hover:bg-primary/[0.06] hover:text-primary'
+        }`
+      }
+    >
+      <span className="material-symbols-outlined text-[21px]" aria-hidden="true">{icon}</span>
+      <span className="max-w-full truncate">{label}</span>
+    </NavLink>
+  )
+}
+
 function KeySettingsModal({ onClose }) {
   const { claudeKey, setClaudeKey, geminiKey, setGeminiKey, loginAds, isAdsAuthenticated, logoutAds, loading } = useAuth()
   const [localClaudeKey, setLocalClaudeKey] = useState(claudeKey)
@@ -494,9 +529,16 @@ export default function Layout() {
   const adsAiTone = adsAiReady ? 'text-emerald-400' : hasAnalysisKey || isAdsAuthenticated ? 'text-amber-400' : 'text-white/40'
   const adsAiDot = adsAiReady ? 'bg-emerald-400' : hasAnalysisKey || isAdsAuthenticated ? 'bg-amber-400' : 'bg-white/20'
   const showKeyAttention = !hasAnalysisKey || !isAdsAuthenticated
+  const mobileNavItems = [
+    { to: '/', icon: 'home', label: 'ホーム' },
+    { to: '/ads/wizard', icon: 'tune', label: '設定' },
+    { to: '/ads/graphs', icon: 'monitoring', label: 'グラフ', requiresSetup: true },
+    { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI', requiresSetup: true },
+    { to: '/settings', icon: 'settings', label: '管理' },
+  ]
 
   return (
-    <div className="flex min-h-screen bg-surface">
+    <div className="min-h-screen bg-surface lg:flex">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary focus:text-on-primary focus:rounded-lg focus:font-bold focus:text-sm focus:shadow-lg"
@@ -504,7 +546,7 @@ export default function Layout() {
         メインコンテンツへスキップ
       </a>
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full z-40 py-6 text-sm tracking-wide flex flex-col overflow-hidden" style={{ width: sidebarWidth, background: 'linear-gradient(135deg, #0f5238 0%, #002114 100%)' }}>
+      <aside className="fixed left-0 top-0 z-40 hidden h-full flex-col overflow-hidden py-6 text-sm tracking-wide lg:flex" style={{ width: sidebarWidth, background: 'linear-gradient(135deg, #0f5238 0%, #002114 100%)' }}>
         {/* Logo */}
         <div className="px-6 mb-8 flex shrink-0 items-center gap-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.12)', color: '#f4fff8' }}>
@@ -620,10 +662,14 @@ export default function Layout() {
       </aside>
 
       {/* Main Content */}
-      <main id="main-content" className="flex-1 min-h-screen flex flex-col" style={{ marginLeft: sidebarWidth }}>
+      <main
+        id="main-content"
+        className="flex min-h-screen min-w-0 flex-1 flex-col pb-20 lg:ml-[var(--sidebar-width)] lg:pb-0"
+        style={{ '--sidebar-width': `${sidebarWidth}px` }}
+      >
         {/* Top Header */}
-        <header className="h-16 w-full sticky top-0 flex justify-between items-center px-8 z-50 bg-surface/90 backdrop-blur-md border-b border-outline-variant/10">
-          <div className="flex-1">
+        <header className="sticky top-0 z-50 flex min-h-16 w-full flex-wrap items-center justify-between gap-3 border-b border-outline-variant/10 bg-surface/90 px-4 py-3 backdrop-blur-md lg:h-16 lg:flex-nowrap lg:px-8 lg:py-0">
+          <div className="min-w-0 flex-1">
             {isCaseUser ? (
               <div className="flex items-center gap-2 text-on-surface font-bold">
                 <span className="material-symbols-outlined text-secondary">folder</span>
@@ -633,7 +679,7 @@ export default function Layout() {
               <CaseSelector onCaseSelect={handleCaseSelect} />
             )}
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 lg:gap-6">
             <div className="flex items-center gap-2">
               {/* Report History Drawer Trigger */}
               <button
@@ -678,8 +724,8 @@ export default function Layout() {
                 <span className="material-symbols-outlined">{isDark ? 'light_mode' : 'dark_mode'}</span>
               </button>
             </div>
-            <div className="flex items-center gap-3 pl-6 border-l border-outline-variant/30">
-              <div className="text-right max-w-[160px]">
+            <div className="flex items-center gap-2 border-l border-outline-variant/30 pl-2 lg:gap-3 lg:pl-6">
+              <div className="hidden max-w-[160px] text-right sm:block">
                 <p className="text-sm font-bold text-on-surface truncate" title={displayName}>{displayName}</p>
                 <p className="text-[10px] text-on-surface-variant">{profileCaption}</p>
               </div>
@@ -703,6 +749,21 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      <nav
+        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 gap-1 border-t border-outline-variant/15 bg-surface-container-lowest/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden"
+        aria-label="モバイル主要ナビゲーション"
+      >
+        {mobileNavItems.map((item) => (
+          <MobileNavLink
+            key={item.to}
+            to={item.to}
+            icon={item.icon}
+            label={item.label}
+            disabled={item.requiresSetup && disabledPaths?.includes(item.to)}
+          />
+        ))}
+      </nav>
 
       {/* Key Settings Modal */}
       {showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}

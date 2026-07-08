@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   buildAdsReportBundle,
+  buildAnalysisInstructions,
   buildChartEvidencePack,
+  generateBatchWithRetry,
   getDisplayChartGroups,
   matchRelevantCharts,
   normalizeChartGroupShape,
@@ -9,6 +11,11 @@ import {
   selectChartGroupsForPrompt,
 } from '../adsReports'
 import { analyzeChartReadability, shortenChartLabel } from '../chartReadability'
+import { bqGenerateBatch } from '../../api/adsInsights'
+
+vi.mock('../../api/adsInsights', () => ({
+  bqGenerateBatch: vi.fn(),
+}))
 
 const makeGroup = (overrides = {}) => ({
   title: '',
@@ -316,6 +323,8 @@ describe('BQ execution summary', () => {
       expect.objectContaining({ periodTag: '2026-05', queryType: 'search', status: 'success', rowCount: 7, chartGroupCount: 2 }),
       expect.objectContaining({ periodTag: '2026-05', queryType: 'landing', status: 'no_data', rowCount: 0, chartGroupCount: 0 }),
     ])
+    expect(bundle.dataAvailability).toBe('partial')
+    expect(bundle.missingReason).toContain('landing')
   })
 
   it('normalizes a single execution_summary object', () => {
@@ -324,6 +333,17 @@ describe('BQ execution summary', () => {
     }, '2026-05')).toEqual([
       expect.objectContaining({ periodTag: '2026-05', queryType: 'pv', status: 'no_chart', rowCount: 5, chartGroupCount: 0 }),
     ])
+  })
+})
+
+describe('AI analysis prompt safety', () => {
+  it('does not inject unsupported benchmark or improvement examples', () => {
+    const instructions = buildAnalysisInstructions(['cv'], ['2026-05'])
+
+    expect(instructions).not.toContain('CVR 1-3%')
+    expect(instructions).not.toContain('直帰率10pt改善でCV +15件/月')
+    expect(instructions).toContain('CPA/ROAS/CTR/CPC/広告費/インプレッション')
+    expect(instructions).toContain('根拠パックに存在しない限り未取得')
   })
 })
 
@@ -444,5 +464,56 @@ describe('selectChartGroupsForPrompt', () => {
     ], '2026年5月7日のPV数328、セッション数308、ユーザー数273を説明して', { maxGroups: 1 })
 
     expect(selected[0].title).toContain('PV分析')
+  })
+})
+
+describe('generateBatchWithRetry', () => {
+  it('gives up after 1 attempt for deterministic BQ failures (data_availability === "failed")', async () => {
+    bqGenerateBatch.mockResolvedValue({
+      ok: false,
+      data_availability: 'failed',
+      missing_reason: 'CVデータが取得できませんでした。',
+    })
+
+    await expect(generateBatchWithRetry({ period: '2026-05' })).rejects.toThrow(
+      'CVデータが取得できませんでした。',
+    )
+    // 決定論的失敗は再試行しない — BQ を叩くのは1回だけ
+    expect(bqGenerateBatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries non-deterministic ok:false results (e.g. partial) until success', async () => {
+    vi.useFakeTimers()
+    try {
+      bqGenerateBatch
+        .mockResolvedValueOnce({ ok: false, data_availability: 'partial' })
+        .mockResolvedValueOnce({ ok: true, report_md: '# ok' })
+
+      const promise = generateBatchWithRetry({ period: '2026-05' })
+      await vi.runAllTimersAsync()
+
+      await expect(promise).resolves.toEqual({ ok: true, report_md: '# ok' })
+      expect(bqGenerateBatch).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries transient errors thrown by the API (network / 5xx) up to the retry limit', async () => {
+    vi.useFakeTimers()
+    try {
+      const networkError = new Error('Failed to fetch') // status 無し = 一時的とみなす
+      bqGenerateBatch.mockRejectedValue(networkError)
+
+      const promise = generateBatchWithRetry({ period: '2026-05' })
+      const assertion = expect(promise).rejects.toThrow('Failed to fetch')
+      await vi.runAllTimersAsync()
+      await assertion
+
+      // 初回 + GENERATE_RETRY_DELAYS_MS.length 回の再試行
+      expect(bqGenerateBatch).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

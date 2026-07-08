@@ -16,35 +16,156 @@
 
 from __future__ import annotations
 
+import os
+import re
+
+
+_PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+_DATASET_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,1023}$")
+_DATE_SUFFIX_RE = re.compile(r"^\d{8}$")
+_EVENT_NAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,79}$")
+
+DEFAULT_CV_EVENTS = (
+    "purchase",
+    "generate_lead",
+    "sign_up",
+    "begin_checkout",
+    "add_to_cart",
+    "submit_form",
+    "contact",
+    "conversion",
+)
+
+
+def normalize_dataset_ref(dataset: str) -> str:
+    """BigQuery dataset ref を検証して正規化する。
+
+    Accepts either ``dataset`` or ``project.dataset``. The returned string is
+    safe to interpolate inside a backticked BigQuery table reference.
+    """
+    value = str(dataset or "").strip()
+    if not value:
+        raise ValueError("dataset_id が空です。")
+    parts = value.split(".")
+    if len(parts) == 1:
+        dataset_id = parts[0]
+        if not _DATASET_ID_RE.fullmatch(dataset_id):
+            raise ValueError(f"不正な dataset_id です: {dataset}")
+        return dataset_id
+    if len(parts) == 2:
+        project_id, dataset_id = parts
+        if not _PROJECT_ID_RE.fullmatch(project_id) or not _DATASET_ID_RE.fullmatch(dataset_id):
+            raise ValueError(f"不正な dataset_id です: {dataset}")
+        return f"{project_id}.{dataset_id}"
+    raise ValueError(f"不正な dataset_id です: {dataset}")
+
+
+def split_dataset_ref(dataset: str, default_project: str) -> tuple[str, str]:
+    """Return (project_id, dataset_id) after validating a dataset ref."""
+    normalized = normalize_dataset_ref(dataset)
+    if "." in normalized:
+        project_id, dataset_id = normalized.split(".", 1)
+        return project_id, dataset_id
+    return default_project, normalized
+
+
+def validate_date_suffix(value: str, *, label: str) -> str:
+    suffix = str(value or "").strip()
+    if not _DATE_SUFFIX_RE.fullmatch(suffix):
+        raise ValueError(f"{label} は YYYYMMDD 形式で指定してください。")
+    return suffix
+
+
+def get_cv_event_names() -> tuple[str, ...]:
+    raw = os.getenv("ADS_CV_EVENTS", "")
+    values = [item.strip() for item in raw.split(",") if item.strip()] if raw else list(DEFAULT_CV_EVENTS)
+    invalid = [item for item in values if not _EVENT_NAME_RE.fullmatch(item)]
+    if invalid:
+        raise ValueError("ADS_CV_EVENTS に不正なイベント名があります: " + ", ".join(invalid[:5]))
+    return tuple(dict.fromkeys(values))
+
+
+def _format_sql_string_list(values: tuple[str, ...]) -> str:
+    return ", ".join("'" + value.replace("'", "\\'") + "'" for value in values)
+
 
 def _build_query(template: str, dataset: str, start_date: str, end_date: str) -> str:
     """テンプレートにパラメータを埋め込む。"""
+    safe_dataset = normalize_dataset_ref(dataset)
+    safe_start = validate_date_suffix(start_date, label="start_date")
+    safe_end = validate_date_suffix(end_date, label="end_date")
+    if safe_start > safe_end:
+        raise ValueError("start_date は end_date 以前にしてください。")
     return template.format(
-        dataset=dataset,
-        start_date=start_date,
-        end_date=end_date,
+        dataset=safe_dataset,
+        start_date=safe_start,
+        end_date=safe_end,
+        cv_events_sql=_format_sql_string_list(get_cv_event_names()),
     )
 
 
 # ========== 1. PV分析 ==========
 _PV_TEMPLATE = """
+WITH base AS (
+  SELECT
+    event_date,
+    event_name,
+    user_pseudo_id,
+    CONCAT(
+      user_pseudo_id, '-',
+      CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS STRING)
+    ) AS session_key,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_title') AS page_title,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
+  FROM
+    `{dataset}.events_*`
+  WHERE
+    _TABLE_SUFFIX BETWEEN '{start_date}' AND '{end_date}'
+),
+daily_metrics AS (
+  SELECT
+    event_date,
+    COUNT(DISTINCT user_pseudo_id) AS daily_users,
+    COUNT(DISTINCT session_key) AS daily_sessions,
+    COUNTIF(event_name = 'page_view') AS daily_page_views
+  FROM base
+  GROUP BY event_date
+),
+page_metrics AS (
+  SELECT
+    event_date,
+    page_title,
+    page_location,
+    COUNT(*) AS page_views,
+    COUNT(DISTINCT user_pseudo_id) AS page_users,
+    COUNT(DISTINCT session_key) AS page_sessions
+  FROM base
+  WHERE event_name = 'page_view'
+  GROUP BY event_date, page_title, page_location
+),
+ranked_pages AS (
+  SELECT
+    p.*,
+    d.daily_users,
+    d.daily_sessions,
+    d.daily_page_views,
+    ROW_NUMBER() OVER (PARTITION BY p.event_date ORDER BY p.page_views DESC, p.page_location) AS daily_rank
+  FROM page_metrics p
+  JOIN daily_metrics d USING (event_date)
+)
 SELECT
   event_date,
-  COUNT(DISTINCT user_pseudo_id) AS users,
-  COUNT(DISTINCT
-    CONCAT(user_pseudo_id, '-',
-      (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id')
-    )
-  ) AS sessions,
-  COUNTIF(event_name = 'page_view') AS page_views,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_title') AS page_title,
-  (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
-FROM
-  `{dataset}.events_*`
-WHERE
-  _TABLE_SUFFIX BETWEEN '{start_date}' AND '{end_date}'
-GROUP BY
-  event_date, page_title, page_location
+  IF(daily_rank = 1, daily_users, NULL) AS users,
+  IF(daily_rank = 1, daily_sessions, NULL) AS sessions,
+  page_views,
+  page_title,
+  page_location,
+  page_users,
+  page_sessions,
+  daily_users,
+  daily_sessions,
+  daily_page_views
+FROM ranked_pages
 ORDER BY
   event_date, page_views DESC
 """
@@ -83,10 +204,7 @@ FROM
   `{dataset}.events_*`
 WHERE
   _TABLE_SUFFIX BETWEEN '{start_date}' AND '{end_date}'
-  AND event_name IN (
-    'purchase', 'generate_lead', 'sign_up', 'begin_checkout',
-    'add_to_cart', 'submit_form', 'contact', 'conversion'
-  )
+  AND event_name IN ({cv_events_sql})
 GROUP BY
   event_name, event_date
 ORDER BY
@@ -125,7 +243,7 @@ WITH daily_metrics AS (
       )
     ) AS sessions,
     COUNTIF(event_name = 'page_view') AS page_views,
-    COUNTIF(event_name IN ('purchase', 'generate_lead', 'sign_up', 'submit_form', 'contact', 'conversion')) AS conversions
+    COUNTIF(event_name IN ({cv_events_sql})) AS conversions
   FROM
     `{dataset}.events_*`
   WHERE
@@ -159,29 +277,32 @@ ORDER BY event_date
 
 # ========== 6. LP分析（V3.3: event_date付き日別化） ==========
 _LANDING_TEMPLATE = """
-WITH session_starts AS (
+WITH page_views AS (
   SELECT
     event_date,
+    event_timestamp,
     user_pseudo_id,
     (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS session_id,
-    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS landing_page,
-    (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'entrances') AS is_entrance
+    CONCAT(
+      user_pseudo_id, '-',
+      CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS STRING)
+    ) AS session_key,
+    (SELECT value.string_value FROM UNNEST(event_params) WHERE key = 'page_location') AS page_location
   FROM
     `{dataset}.events_*`
   WHERE
     _TABLE_SUFFIX BETWEEN '{start_date}' AND '{end_date}'
     AND event_name = 'page_view'
 ),
-session_pages AS (
+session_rollup AS (
   SELECT
-    event_date,
-    user_pseudo_id,
-    session_id,
-    landing_page,
+    MIN(event_date) AS event_date,
+    session_key,
+    ARRAY_AGG(page_location IGNORE NULLS ORDER BY event_timestamp ASC LIMIT 1)[SAFE_OFFSET(0)] AS landing_page,
     COUNT(*) AS page_count
-  FROM session_starts
-  WHERE is_entrance = 1
-  GROUP BY event_date, user_pseudo_id, session_id, landing_page
+  FROM page_views
+  WHERE session_id IS NOT NULL
+  GROUP BY session_key
 )
 SELECT
   event_date,
@@ -190,7 +311,7 @@ SELECT
   AVG(page_count) AS avg_pages_per_session,
   COUNTIF(page_count = 1) AS bounce_sessions,
   SAFE_DIVIDE(COUNTIF(page_count = 1), COUNT(*)) AS bounce_rate
-FROM session_pages
+FROM session_rollup
 WHERE landing_page IS NOT NULL
 GROUP BY event_date, landing_page
 ORDER BY event_date, sessions DESC
@@ -222,7 +343,7 @@ ORDER BY
 # ========== 8. 時間帯分析 ==========
 _HOURLY_TEMPLATE = """
 SELECT
-  EXTRACT(HOUR FROM TIMESTAMP_MICROS(event_timestamp)) AS hour_of_day,
+  EXTRACT(HOUR FROM DATETIME(TIMESTAMP_MICROS(event_timestamp), "Asia/Tokyo")) AS hour_of_day,
   COUNT(DISTINCT user_pseudo_id) AS users,
   COUNT(DISTINCT
     CONCAT(user_pseudo_id, '-',

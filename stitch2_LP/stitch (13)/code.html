@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>料金プラン | Insight Studio</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&amp;family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Scripts -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed": "#f0e8db",
+              "on-primary": "#ffffff",
+              "tertiary-container": "#c4a66a",
+              "on-primary-fixed": "#002110",
+              "on-primary-container": "#d8f0de",
+              "on-tertiary-fixed": "#221a05",
+              "surface-tint": "#4a7c59",
+              "on-secondary-fixed": "#1e1a13",
+              "on-surface": "#2e3230",
+              "on-tertiary-container": "#554020",
+              "secondary-fixed-dim": "#d4ccbf",
+              "error": "#b83230",
+              "inverse-primary": "#8ecf9e",
+              "on-background": "#2e3230",
+              "surface": "#faf6f0",
+              "on-error-container": "#690005",
+              "surface-bright": "#faf6f0",
+              "primary-fixed-dim": "#8ecf9e",
+              "primary-fixed": "#c8e8d0",
+              "outline-variant": "#c4c8bc",
+              "inverse-on-surface": "#f5f0e8",
+              "tertiary-fixed": "#f8e0a8",
+              "on-tertiary-fixed-variant": "#554020",
+              "on-secondary-container": "#5e5548",
+              "tertiary-fixed-dim": "#dcc48e",
+              "on-surface-variant": "#4a4e4a",
+              "on-secondary": "#ffffff",
+              "on-error": "#ffffff",
+              "on-secondary-fixed-variant": "#4a4538",
+              "primary-container": "#78a886",
+              "outline": "#74796e",
+              "surface-container-lowest": "#ffffff",
+              "secondary-container": "#f0e8db",
+              "surface-container-high": "#eae6de",
+              "background": "#faf6f0",
+              "secondary": "#6b6358",
+              "surface-dim": "#dbd7cf",
+              "surface-container-low": "#f5f1ea",
+              "primary": "#4a7c59",
+              "inverse-surface": "#2e3230",
+              "on-primary-fixed-variant": "#2a6038",
+              "error-container": "#ffdad8",
+              "surface-variant": "#e4e0d8",
+              "surface-container-highest": "#e4e0d8",
+              "on-tertiary": "#ffffff",
+              "surface-container": "#f0ece4",
+              "tertiary": "#705c30"
+            },
+            fontFamily: {
+              "headline": ["Literata"],
+              "body": ["Nunito Sans"],
+              "label": ["Nunito Sans"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      body {
+        font-family: 'Nunito Sans', sans-serif;
+        background-color: #faf6f0;
+        color: #2e3230;
+      }
+      h1, h2, h3, .brand-font {
+        font-family: 'Literata', serif;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="w-full top-0 sticky bg-[#f8f8f5] dark:bg-stone-950 border-b border-stone-200 dark:border-stone-800/50 shadow-[0_4px_20px_rgba(46,50,48,0.06)] z-50">
+<div class="flex justify-between items-center px-8 h-20 max-w-7xl mx-auto">
+<div class="font-['Literata'] text-xl font-bold text-[#4a7c59] dark:text-emerald-400">Insight Studio</div>
+<div class="hidden md:flex items-center space-x-8 font-['Nunito_Sans'] font-medium text-sm">
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 transition-colors" href="#">機能紹介</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 transition-colors" href="#">製品デモ</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-400 transition-colors" href="#">導入メリット</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2.5 bg-primary text-on-primary rounded-lg font-['Nunito_Sans'] font-semibold text-sm hover:opacity-90 transition-opacity">
+                    無料で始める
+                </button>
+</div>
+</div>
+</nav>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="relative overflow-hidden pt-20 pb-16 px-8">
+<div class="max-w-4xl mx-auto text-center relative z-10">
+<span class="inline-block py-1 px-3 mb-6 bg-primary-fixed text-on-primary-fixed-variant rounded-full text-xs font-bold tracking-wider uppercase">Pricing Plans</span>
+<h1 class="text-5xl md:text-6xl font-black text-on-background leading-tight mb-6">
+                    あなたのチームに最適なプランを。
+                </h1>
+<p class="text-xl text-on-surface-variant font-body leading-relaxed max-w-2xl mx-auto">
+                    すべてのプランに14日間の無料トライアル付き。クレジットカード不要。
+                </p>
+</div>
+<!-- Decorative Elements -->
+<div class="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-96 h-96 bg-tertiary/5 rounded-full blur-3xl"></div>
+</section>
+<!-- Pricing Cards Section -->
+<section class="px-8 pb-24">
+<div class="max-w-7xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+<!-- Free Plan -->
+<div class="bg-surface-container-low rounded-xl p-8 flex flex-col border border-outline-variant/30 shadow-[0_4px_20px_rgba(46,50,48,0.06)] hover:translate-y-[-4px] transition-transform duration-300">
+<div class="mb-8">
+<h3 class="text-2xl font-bold mb-2">Free</h3>
+<div class="flex items-baseline gap-1">
+<span class="text-4xl font-black">¥0</span>
+<span class="text-on-surface-variant text-sm">/月</span>
+</div>
+</div>
+<ul class="space-y-4 mb-10 flex-grow text-on-surface-variant">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>LP比較分析 月3回</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>競合ディスカバリー 月1回</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>プロジェクト数 1</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>基本レポート</span>
+</li>
+</ul>
+<button class="w-full py-4 bg-surface-container-highest text-primary border border-primary/20 rounded-lg font-bold hover:bg-primary hover:text-white transition-all duration-300">
+                            無料で始める
+                        </button>
+</div>
+<!-- Pro Plan (Featured) -->
+<div class="bg-[#0f5238] text-white rounded-xl p-8 flex flex-col relative shadow-2xl scale-105 border-4 border-tertiary-container z-20">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-tertiary-container text-on-tertiary-container px-6 py-1 rounded-full text-sm font-black tracking-widest flex items-center gap-2 shadow-lg">
+<span class="material-symbols-outlined text-sm" data-icon="star" data-weight="fill" style="font-variation-settings: 'FILL' 1;">star</span>
+                            おすすめ
+                        </div>
+<div class="mb-8">
+<h3 class="text-2xl font-bold mb-2 font-headline">Pro</h3>
+<div class="flex items-baseline gap-1">
+<span class="text-5xl font-black text-tertiary-fixed">¥29,800</span>
+<span class="text-primary-fixed text-sm">/月</span>
+</div>
+</div>
+<ul class="space-y-4 mb-10 flex-grow">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed text-lg" data-icon="verified" data-weight="fill" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="font-bold text-white">全機能無制限</span>
+</li>
+<li class="flex items-center gap-3 text-on-primary-container">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+<span>AI Explorer利用可</span>
+</li>
+<li class="flex items-center gap-3 text-on-primary-container">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+<span>プロジェクト数 10</span>
+</li>
+<li class="flex items-center gap-3 text-on-primary-container">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+<span>優先サポート</span>
+</li>
+<li class="flex items-center gap-3 text-on-primary-container">
+<span class="material-symbols-outlined text-lg" data-icon="check_circle">check_circle</span>
+<span>API連携</span>
+</li>
+</ul>
+<button class="w-full py-4 bg-tertiary-container text-on-tertiary-container rounded-lg font-black text-lg hover:brightness-110 transition-all shadow-md">
+                            Proを始める
+                        </button>
+</div>
+<!-- Enterprise Plan -->
+<div class="bg-surface-container-low rounded-xl p-8 flex flex-col border border-outline-variant/30 shadow-[0_4px_20px_rgba(46,50,48,0.06)] hover:translate-y-[-4px] transition-transform duration-300">
+<div class="mb-8">
+<h3 class="text-2xl font-bold mb-2">Enterprise</h3>
+<div class="flex items-baseline gap-1">
+<span class="text-4xl font-black">お問い合わせ</span>
+</div>
+</div>
+<ul class="space-y-4 mb-10 flex-grow text-on-surface-variant">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>カスタム分析</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>無制限プロジェクト</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>専任カスタマーサクセス</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>SLA保証</span>
+</li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check_circle">check_circle</span>
+<span>SSO/セキュリティ対応</span>
+</li>
+</ul>
+<button class="w-full py-4 bg-surface-container-highest text-primary border border-primary/20 rounded-lg font-bold hover:bg-primary hover:text-white transition-all duration-300">
+                            お問い合わせ
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- FAQ Section -->
+<section class="bg-surface-container py-24 px-8">
+<div class="max-w-3xl mx-auto">
+<h2 class="text-4xl font-bold text-center mb-16">よくあるご質問</h2>
+<div class="space-y-4">
+<!-- FAQ Item 1 -->
+<details class="group bg-surface-container-lowest rounded-xl p-6 shadow-sm cursor-pointer border border-outline-variant/20 open:shadow-md transition-all">
+<summary class="flex justify-between items-center font-bold text-lg list-none marker:content-none">
+<span>無料トライアル中に課金されますか？</span>
+<span class="material-symbols-outlined transition-transform group-open:rotate-180" data-icon="expand_more">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed font-body">
+                            いいえ、無料トライアル期間が終了するまで課金されることはありません。また、クレジットカード情報の登録も不要ですので、自動的に課金が始まる心配もございません。
+                        </p>
+</details>
+<!-- FAQ Item 2 -->
+<details class="group bg-surface-container-lowest rounded-xl p-6 shadow-sm cursor-pointer border border-outline-variant/20 open:shadow-md transition-all">
+<summary class="flex justify-between items-center font-bold text-lg list-none marker:content-none">
+<span>プランの変更はいつでもできますか？</span>
+<span class="material-symbols-outlined transition-transform group-open:rotate-180" data-icon="expand_more">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed font-body">
+                            はい、ダッシュボードの設定画面からいつでもプランのアップグレード、またはダウングレードが可能です。差額は日割り計算にて次回の請求時に調整されます。
+                        </p>
+</details>
+<!-- FAQ Item 3 -->
+<details class="group bg-surface-container-lowest rounded-xl p-6 shadow-sm cursor-pointer border border-outline-variant/20 open:shadow-md transition-all">
+<summary class="flex justify-between items-center font-bold text-lg list-none marker:content-none">
+<span>データのエクスポートは可能ですか？</span>
+<span class="material-symbols-outlined transition-transform group-open:rotate-180" data-icon="expand_more">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed font-body">
+                            はい、CSVおよびPDF形式でのレポートエクスポートが可能です。Pro以上のプランでは、APIを介した自動データ連携もご利用いただけます。
+                        </p>
+</details>
+<!-- FAQ Item 4 -->
+<details class="group bg-surface-container-lowest rounded-xl p-6 shadow-sm cursor-pointer border border-outline-variant/20 open:shadow-md transition-all">
+<summary class="flex justify-between items-center font-bold text-lg list-none marker:content-none">
+<span>セキュリティ対策について教えてください</span>
+<span class="material-symbols-outlined transition-transform group-open:rotate-180" data-icon="expand_more">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed font-body">
+                            SSL暗号化通信はもちろん、ISMS準拠の厳格なデータ管理体制を敷いております。Enterpriseプランでは、SSO（シングルサインオン）や特定IP制限などの高度なセキュリティ設定も可能です。
+                        </p>
+</details>
+<!-- FAQ Item 5 -->
+<details class="group bg-surface-container-lowest rounded-xl p-6 shadow-sm cursor-pointer border border-outline-variant/20 open:shadow-md transition-all">
+<summary class="flex justify-between items-center font-bold text-lg list-none marker:content-none">
+<span>解約方法は？</span>
+<span class="material-symbols-outlined transition-transform group-open:rotate-180" data-icon="expand_more">expand_more</span>
+</summary>
+<p class="mt-4 text-on-surface-variant leading-relaxed font-body">
+                            マイページの設定からいつでも解約手続きが行えます。違約金等は発生いたしません。解約後も契約期間終了までは全ての機能をご利用いただけます。
+                        </p>
+</details>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-24 px-8 bg-background overflow-hidden relative">
+<div class="max-w-5xl mx-auto rounded-3xl bg-[#0f5238] p-12 md:p-20 text-center relative z-10">
+<div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 32px 32px;"></div>
+<h2 class="text-3xl md:text-5xl font-black text-white mb-8 relative z-10 leading-tight">
+                    まずは14日間、無料で全機能をお試しください。
+                </h2>
+<div class="flex flex-col md:flex-row items-center justify-center gap-6 relative z-10">
+<button class="px-10 py-5 bg-tertiary-container text-on-tertiary-container rounded-xl font-black text-xl shadow-xl hover:scale-105 transition-transform">
+                        無料でトライアルを始める
+                    </button>
+<button class="px-10 py-5 bg-transparent border-2 border-primary-container text-primary-container rounded-xl font-bold text-xl hover:bg-white/5 transition-colors">
+                        資料をダウンロード
+                    </button>
+</div>
+<p class="mt-8 text-on-primary-container/80 font-medium relative z-10">
+                    導入のご相談もお気軽に。専門スタッフがサポートいたします。
+                </p>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full mt-auto bg-[#faf6f0] dark:bg-stone-900 border-t border-stone-200 dark:border-stone-800">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 py-12 max-w-7xl mx-auto">
+<div class="mb-6 md:mb-0">
+<div class="font-['Literata'] text-lg font-semibold text-[#4a7c59] mb-2">Insight Studio</div>
+<p class="font-['Nunito_Sans'] text-xs leading-relaxed text-stone-500 dark:text-stone-400">© 2024 Insight Studio. Rooted in growth.</p>
+</div>
+<div class="flex gap-8 font-['Nunito_Sans'] text-xs leading-relaxed">
+<a class="text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors" href="#">利用規約</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors" href="#">プライバシーポリシー</a>
+<a class="text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 transition-colors" href="#">お問い合わせ</a>
+</div>
+</div>
+</footer>
+</body></html>

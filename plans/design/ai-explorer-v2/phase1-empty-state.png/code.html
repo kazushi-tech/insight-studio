@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI考察 - Insight Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ba1a1a",
+                        "tertiary": "#552021",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#404943",
+                        "on-secondary-fixed": "#012113",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed-dim": "#accfb9",
+                        "on-primary-container": "#85c4a2",
+                        "on-secondary-container": "#4b6b59",
+                        "error-container": "#ffdad6",
+                        "inverse-surface": "#2f312e",
+                        "tertiary-container": "#713636",
+                        "on-background": "#1a1c19",
+                        "surface-bright": "#fafaf5",
+                        "surface": "#fafaf5",
+                        "surface-container-high": "#e8e8e4",
+                        "on-tertiary-fixed-variant": "#703535",
+                        "surface-tint": "#2c694e",
+                        "primary-container": "#0f5238",
+                        "tertiary-fixed-dim": "#ffb3b1",
+                        "on-tertiary-container": "#f2a19f",
+                        "primary-fixed-dim": "#95d4b2",
+                        "secondary-container": "#c7ebd4",
+                        "primary": "#003925",
+                        "background": "#fafaf5",
+                        "on-surface": "#1a1c19",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#b0f1cd",
+                        "on-primary-fixed": "#002113",
+                        "on-primary": "#ffffff",
+                        "secondary": "#456553",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed-variant": "#0d5137",
+                        "inverse-primary": "#95d4b2",
+                        "tertiary-fixed": "#ffdad8",
+                        "surface-variant": "#e2e3de",
+                        "surface-container-low": "#f4f4ef",
+                        "on-secondary-fixed-variant": "#2e4d3c",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#f1f1ec",
+                        "surface-dim": "#dadad6",
+                        "surface-container": "#eeeee9",
+                        "outline": "#707973",
+                        "on-tertiary-fixed": "#390b0d",
+                        "outline-variant": "#bfc9c1",
+                        "secondary-fixed": "#c7ebd4",
+                        "surface-container-highest": "#e2e3de"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex">
+<!-- SideNavBar (from JSON) -->
+<nav class="fixed left-0 top-0 h-full flex flex-col p-8 docked left-0 h-screen w-72 bg-[#f4f4f0] dark:bg-[#0a261c] bg-[#f4f4f0] against surface-white tonal transition z-50">
+<div class="mb-12">
+<div class="flex items-center gap-3 mb-2">
+<span class="material-symbols-outlined text-primary text-3xl">nature</span>
+<h1 class="text-xl font-bold text-[#003925] dark:text-[#fafaf5] tracking-wide font-['Manrope'] tracking-tight">Insight Studio</h1>
+</div>
+<p class="text-xs text-on-surface-variant font-medium tracking-widest uppercase ml-11">AI Analysis Core</p>
+</div>
+<ul class="flex flex-col gap-2 flex-grow">
+<li>
+<a class="flex items-center gap-4 py-3 px-4 rounded-lg text-[#1a1c19]/60 dark:text-[#fafaf5]/60 font-medium hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+                    Ecosystem Overview
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 py-3 px-4 rounded-lg text-[#003925] dark:text-[#fafaf5] font-bold border-r-4 border-[#003925] dark:border-[#0f5238] pr-4 bg-[#0f5238]/5 dark:bg-[#fafaf5]/5" href="#">
+<span class="material-symbols-outlined">psychology</span>
+                    Specimen Trends
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 py-3 px-4 rounded-lg text-[#1a1c19]/60 dark:text-[#fafaf5]/60 font-medium hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">database</span>
+                    Archival Insights
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 py-3 px-4 rounded-lg text-[#1a1c19]/60 dark:text-[#fafaf5]/60 font-medium hover:bg-[#0f5238]/5 dark:hover:bg-[#fafaf5]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+                    Lab Settings
+                </a>
+</li>
+</ul>
+<div class="mt-auto">
+<button class="w-full bg-primary text-on-primary py-3 rounded-full font-medium text-sm flex items-center justify-center gap-2 hover:bg-primary-container transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm">psychology</span>
+                Cultivate Insight
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col ml-72">
+<!-- TopAppBar (from JSON) -->
+<header class="flex justify-between items-center w-full px-12 py-6 docked full-width top-0 sticky bg-[#fafaf5]/80 dark:bg-[#003925]/80 backdrop-blur-xl z-40 tonal depth shift from surface to surface-container shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
+<div class="flex items-center gap-6">
+<h2 class="font-['Manrope'] font-extrabold text-[#003925] dark:text-[#fafaf5] text-lg tracking-tight">AI考察</h2>
+</div>
+<div class="flex items-center gap-6">
+<!-- Header Actions (Based on Prompt: Period Selector, tT, Market Lens, Context Mode) -->
+<div class="flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/15">
+<span class="text-xs font-medium text-on-surface-variant font-label tracking-wide">Q3 2023 - Q4 2023</span>
+<span class="material-symbols-outlined text-sm text-on-surface-variant">expand_more</span>
+</div>
+<div class="flex items-center gap-4 border-l border-outline-variant/15 pl-6">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-xl">text_fields</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-xl">travel_explore</span>
+<span class="text-xs font-medium hidden lg:inline-block">Market Lens</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1 bg-surface-container py-1 px-3 rounded-full">
+<span class="material-symbols-outlined text-xl">center_focus_strong</span>
+<span class="text-xs font-medium">Context Mode</span>
+</button>
+</div>
+<div class="flex items-center gap-3 border-l border-outline-variant/15 pl-6">
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">download</span>
+</button>
+<button class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center overflow-hidden">
+<img alt="Chief Botanist Profile" class="w-full h-full object-cover" data-alt="close up portrait of a professional woman with natural lighting and a soft focus botanical background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7bXnxiiuLR-rjrISo1V3Gqc1R0SI_E673S5UF01g5pHgii2e9D6HfworBK76j--0qayw4AYsthv4EnViV8TS6lPxy-fP42qjXLqNgDF9BxCXjM0gyEJuSI0E0Hc9owy41pPud12CJBK88Ty1KuBjlEjn2Eh6Xvr7yz0vVpNu9WJ2xnL5n1GGYb1uMf6tk3Ygxksay3ycXRKQw9Jn84Ikvcd1CNfBWzOpWkrfdDe8tE11rg-Fx6_NziuD2O7SdLmcXbX7IkViOEygJ"/>
+</button>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-12 flex flex-col items-center justify-center max-w-4xl mx-auto w-full relative">
+<!-- Empty State / Welcome Area -->
+<div class="text-center mb-16 flex flex-col items-center max-w-2xl">
+<div class="w-20 h-20 rounded-full bg-surface-container-highest flex items-center justify-center mb-8 relative">
+<span class="material-symbols-outlined text-4xl text-primary relative z-10" data-weight="fill">psychology</span>
+<!-- Decorative subtle blur -->
+<div class="absolute inset-0 bg-primary/10 rounded-full blur-xl scale-150"></div>
+</div>
+<h1 class="text-display-lg font-headline text-primary mb-4 tracking-tight leading-tight">AI考察を始めましょう</h1>
+<p class="text-body-md text-on-surface-variant max-w-lg mx-auto leading-relaxed">
+                    Arboretum AIは、あなたのデータセットから深い洞察を抽出し、新たな視点を提供します。以下のプロンプトから始めるか、独自の質問を入力してください。
+                </p>
+</div>
+<!-- Quick Prompts (Bento-style layout) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-12">
+<button class="text-left bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:border-primary/30 hover:shadow-[0_8px_32px_rgba(0,57,37,0.06)] transition-all group flex flex-col gap-3">
+<span class="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform duration-300">trending_up</span>
+<div>
+<h3 class="text-title-md font-headline text-primary mb-1">トレンドの分析</h3>
+<p class="text-body-md text-on-surface-variant text-sm">直近四半期の成長要因と、市場全体における相対的な立ち位置を考察してください。</p>
+</div>
+</button>
+<button class="text-left bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:border-primary/30 hover:shadow-[0_8px_32px_rgba(0,57,37,0.06)] transition-all group flex flex-col gap-3">
+<span class="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform duration-300">groups</span>
+<div>
+<h3 class="text-title-md font-headline text-primary mb-1">競合との差異</h3>
+<p class="text-body-md text-on-surface-variant text-sm">主要な競合3社との間で、ユーザー定着率の推移における構造的な違いを洗い出してください。</p>
+</div>
+</button>
+<button class="text-left bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15 hover:border-primary/30 hover:shadow-[0_8px_32px_rgba(0,57,37,0.06)] transition-all group flex flex-col gap-3">
+<span class="material-symbols-outlined text-primary-container group-hover:scale-110 transition-transform duration-300">warning</span>
+<div>
+<h3 class="text-title-md font-headline text-primary mb-1">潜在的なリスク要因の特定</h3>
+<p class="text-body-md text-on-surface-variant text-sm">現在の成長ペースを維持する上で、データから読み取れる先行指標の悪化や、外部環境の変化による潜在的なボトルネックを提示し、その緩和策を提案してください。</p>
+</div>
+</button>
+</div>
+<!-- Input Area -->
+<div class="w-full relative mt-auto">
+<div class="absolute inset-0 bg-gradient-to-r from-primary-container/5 to-surface-tint/5 rounded-2xl blur-xl transform scale-y-110 -z-10"></div>
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-[0_12px_48px_rgba(0,0,0,0.05)] p-2 flex items-end relative overflow-hidden transition-all focus-within:border-primary/50 focus-within:shadow-[0_12px_48px_rgba(0,57,37,0.08)]">
+<button class="p-3 text-primary hover:bg-primary/5 rounded-full transition-colors shrink-0 mb-1">
+<span class="material-symbols-outlined">auto_awesome</span>
+</button>
+<textarea class="w-full bg-transparent border-none focus:ring-0 resize-none py-4 px-2 text-on-surface placeholder:text-on-surface-variant/50 text-body-md" placeholder="データに対する質問や分析したい仮説を入力してください..." rows="1" style="min-height: 56px;"></textarea>
+<div class="flex items-center gap-2 p-2 shrink-0 mb-1">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined text-xl">attach_file</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center hover:bg-primary-container transition-colors shadow-sm">
+<span class="material-symbols-outlined text-lg">arrow_upward</span>
+</button>
+</div>
+</div>
+<div class="text-center mt-3">
+<span class="text-[0.65rem] font-label text-on-surface-variant/60 tracking-widest uppercase">Arboretum AI May Produce Inaccurate Information. Verify Specimen Data.</span>
+</div>
+</div>
+</main>
+</div>
+</body></html>

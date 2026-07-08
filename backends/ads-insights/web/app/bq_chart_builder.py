@@ -1048,6 +1048,120 @@ def _collect_evidence_chart_ids(pack: dict | None) -> set[str]:
     }
 
 
+def _normalize_evidence_value(value: Any) -> str:
+    number = _as_number(value)
+    if number is not None:
+        normalized = _fmt_ai_number(number)
+        return normalized.replace(",", "").strip()
+    return str(value or "").replace(",", "").strip()
+
+
+def _normalize_evidence_text(value: Any) -> str:
+    return re.sub(r"\s+", "", str(value or "").strip().lower())
+
+
+def _point_period_aliases(point: dict, fallback: str = "") -> set[str]:
+    aliases = {
+        _normalize_evidence_text(fallback),
+        _normalize_evidence_text(point.get("label")),
+        _normalize_evidence_text(point.get("rawLabel")),
+    }
+    for alias in point.get("aliases") or []:
+        aliases.add(_normalize_evidence_text(alias))
+    return {alias for alias in aliases if alias}
+
+
+def _build_evidence_row_index(pack: dict | None) -> dict[str, list[dict[str, set[str] | str]]]:
+    """Index chart evidence by chart_id/value for strict evidence_table checks."""
+    if not isinstance(pack, dict):
+        return {}
+    charts = pack.get("charts")
+    if not isinstance(charts, list):
+        return {}
+    index: dict[str, list[dict[str, set[str] | str]]] = {}
+
+    def add_record(chart_id: str, metric: Any, value: Any, period: Any) -> None:
+        normalized_value = _normalize_evidence_value(value)
+        if not chart_id or not normalized_value:
+            return
+        index.setdefault(chart_id, []).append({
+            "value": normalized_value,
+            "metrics": {
+                item for item in [
+                    _normalize_evidence_text(metric),
+                ] if item
+            },
+            "periods": {
+                item for item in [
+                    _normalize_evidence_text(period),
+                    _normalize_evidence_text("対象期間"),
+                    _normalize_evidence_text("全期間"),
+                ] if item
+            },
+        })
+
+    for chart in charts:
+        if not isinstance(chart, dict):
+            continue
+        chart_id = str(chart.get("chart_id") or "")
+        period_tag = chart.get("period_tag") or pack.get("scope_label") or ""
+        title_metric = chart.get("title") or ""
+        for series in chart.get("series") or []:
+            if not isinstance(series, dict):
+                continue
+            metric = series.get("label") or title_metric
+            for point in series.get("points") or []:
+                if isinstance(point, dict):
+                    add_record(chart_id, metric, point.get("value"), point.get("label") or period_tag)
+                    if chart_id in index and index[chart_id]:
+                        index[chart_id][-1]["periods"] = set(index[chart_id][-1]["periods"]) | _point_period_aliases(point, str(period_tag))
+            for point_key in ("latest", "max", "min"):
+                point = series.get(point_key)
+                if isinstance(point, dict):
+                    add_record(chart_id, metric, point.get("value"), point.get("label") or period_tag)
+                    if chart_id in index and index[chart_id]:
+                        index[chart_id][-1]["periods"] = set(index[chart_id][-1]["periods"]) | _point_period_aliases(point, str(period_tag))
+            if series.get("total") is not None:
+                add_record(chart_id, metric, series.get("total"), "合計")
+        for row in chart.get("ranking_top") or []:
+            if isinstance(row, dict):
+                add_record(chart_id, row.get("series_label") or title_metric, row.get("value"), row.get("label") or period_tag)
+    return index
+
+
+def _evidence_row_matches(row: dict, index: dict[str, list[dict[str, set[str] | str]]]) -> bool:
+    source = str(row.get("source") or "")
+    if not source.startswith("chart_") or source not in index:
+        return True
+    value = _normalize_evidence_value(row.get("value"))
+    if not value or not re.search(r"\d", value):
+        return True
+    candidates = [record for record in index.get(source, []) if record.get("value") == value]
+    if not candidates:
+        return False
+
+    metric = _normalize_evidence_text(row.get("metric"))
+    period = _normalize_evidence_text(row.get("period"))
+    loose_periods = {
+        _normalize_evidence_text(item)
+        for item in ("", "対象期間", "期間内", "全期間", "最新", "直近", "合計")
+    }
+
+    def metric_ok(record: dict[str, set[str] | str]) -> bool:
+        if not metric:
+            return True
+        metrics = record.get("metrics") if isinstance(record.get("metrics"), set) else set()
+        return any(metric == item or metric in item or item in metric for item in metrics if item)
+
+    def period_ok(record: dict[str, set[str] | str]) -> bool:
+        if period in loose_periods:
+            return True
+        periods = record.get("periods") if isinstance(record.get("periods"), set) else set()
+        return period in periods
+
+    return any(metric_ok(record) and period_ok(record) for record in candidates)
+
+
 def _extract_insight_report_json(text: str) -> dict | None:
     match = re.search(r"```insight-report\s*\n([\s\S]*?)\n```", str(text or ""))
     if not match:
@@ -1113,6 +1227,7 @@ def validate_ai_insight_output(
     claim_content = _strip_agent_trace_for_validation(content)
     evidence_terms, evidence_labels = _collect_evidence_terms(evidence_pack)
     evidence_chart_ids = _collect_evidence_chart_ids(evidence_pack)
+    evidence_row_index = _build_evidence_row_index(evidence_pack)
     insight_report = _extract_insight_report_json(content)
     if agent_trace is None and insight_report and isinstance(insight_report.get("agent_trace"), list):
         agent_trace = insight_report.get("agent_trace")
@@ -1196,6 +1311,14 @@ def validate_ai_insight_output(
                     unsupported_values.append(str(row.get("value")))
             if unsupported_values:
                 issues.append("evidence_table に根拠パック外の値があります: " + ", ".join(sorted(set(unsupported_values))[:6]))
+            mismatched_rows = []
+            for row in evidence_rows:
+                if isinstance(row, dict) and not _evidence_row_matches(row, evidence_row_index):
+                    mismatched_rows.append(
+                        f"{row.get('source')} / {row.get('metric')} / {row.get('value')} / {row.get('period')}"
+                    )
+            if mismatched_rows:
+                issues.append("evidence_table の source/metric/value/period が根拠パックと一致しません: " + ", ".join(sorted(set(mismatched_rows))[:5]))
 
     if insight_report:
         required_arrays = ["executive_summary", "evidence_table", "interpretation", "actions", "limitations"]

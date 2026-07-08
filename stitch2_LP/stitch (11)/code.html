@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>広告パフォーマンス考察 - Insight Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Literata:wght@400;600;700;800&amp;family=Nunito+Sans:wght@300;400;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary-container": "#5e5548",
+                        "on-secondary-fixed-variant": "#4a4538",
+                        "secondary-container": "#f0e8db",
+                        "outline-variant": "#c4c8bc",
+                        "on-primary-container": "#d8f0de",
+                        "on-background": "#2e3230",
+                        "secondary-fixed": "#f0e8db",
+                        "tertiary-fixed": "#f8e0a8",
+                        "tertiary-container": "#c4a66a",
+                        "secondary-fixed-dim": "#d4ccbf",
+                        "on-surface-variant": "#4a4e4a",
+                        "on-surface": "#2e3230",
+                        "on-primary-fixed-variant": "#2a6038",
+                        "surface-variant": "#e4e0d8",
+                        "on-tertiary-fixed-variant": "#554020",
+                        "on-tertiary-fixed": "#221a05",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#faf6f0",
+                        "outline": "#74796e",
+                        "background": "#faf6f0",
+                        "surface-dim": "#dbd7cf",
+                        "surface-container-low": "#f5f1ea",
+                        "tertiary": "#705c30",
+                        "on-error-container": "#690005",
+                        "inverse-surface": "#2e3230",
+                        "primary-fixed-dim": "#8ecf9e",
+                        "primary": "#4a7c59",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#dcc48e",
+                        "surface-tint": "#4a7c59",
+                        "primary-fixed": "#c8e8d0",
+                        "on-error": "#ffffff",
+                        "on-tertiary-container": "#554020",
+                        "on-secondary-fixed": "#1e1a13",
+                        "on-secondary": "#ffffff",
+                        "surface-container-high": "#eae6de",
+                        "surface-container": "#f0ece4",
+                        "surface-bright": "#faf6f0",
+                        "error": "#b83230",
+                        "inverse-on-surface": "#f5f0e8",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e4e0d8",
+                        "error-container": "#ffdad8",
+                        "secondary": "#6b6358",
+                        "inverse-primary": "#8ecf9e",
+                        "primary-container": "#78a886",
+                        "on-primary-fixed": "#002110"
+                    },
+                    fontFamily: {
+                        "headline": ["Literata", "serif"],
+                        "body": ["Nunito Sans", "sans-serif"],
+                        "label": ["Nunito Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Nunito Sans', sans-serif; }
+        h1, h2, h3 { font-family: 'Literata', serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48; }
+        .glass-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="docked full-width top-0 sticky z-50 bg-[#faf6f0] border-b border-[#4a7c59]/10 shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<nav class="flex justify-between items-center px-8 h-20 max-w-7xl mx-auto w-full">
+<div class="text-2xl font-bold text-[#4a7c59] font-['Literata']">Insight Studio</div>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-[#4a7c59] border-b-2 border-[#4a7c59] pb-1 font-bold font-['Literata'] text-lg" href="#">機能</a>
+<a class="text-stone-600 font-medium font-['Literata'] text-lg hover:text-[#4a7c59] transition-colors duration-200" href="#">事例</a>
+<a class="text-stone-600 font-medium font-['Literata'] text-lg hover:text-[#4a7c59] transition-colors duration-200" href="#">料金</a>
+<a class="text-stone-600 font-medium font-['Literata'] text-lg hover:text-[#4a7c59] transition-colors duration-200" href="#">サポート</a>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-stone-600 cursor-pointer">login</span>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-bold hover:opacity-90 active:scale-95 transition-all">無料で試す</button>
+</div>
+</nav>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="relative pt-16 pb-24 px-8 overflow-hidden">
+<div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+<div class="z-10">
+<h1 class="text-5xl lg:text-6xl font-extrabold text-primary leading-tight mb-8">
+                        数字の裏にある"なぜ"を、<br/>AIが読み解く。
+                    </h1>
+<p class="text-xl text-on-surface-variant leading-relaxed mb-10 max-w-xl">
+                        Google Ads等の広告データを接続するだけ。AIがパフォーマンスの変動要因を分析し、次のアクションを提案します。
+                    </p>
+<div class="flex flex-wrap gap-4">
+<button class="bg-primary text-on-primary px-8 py-4 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 transition-all">
+                            無料で体験を開始
+                        </button>
+<button class="bg-white border-2 border-primary text-primary px-8 py-4 rounded-xl font-bold text-lg hover:bg-primary-container/10 transition-all">
+                            デモを見る
+                        </button>
+</div>
+</div>
+<div class="relative">
+<div class="absolute -inset-10 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="relative bg-surface-container rounded-2xl shadow-2xl p-6 border border-outline-variant/30 overflow-hidden transform hover:-translate-y-2 transition-transform duration-500">
+<div class="flex justify-between items-center mb-6 border-b border-outline-variant/20 pb-4">
+<div class="flex gap-2">
+<div class="w-3 h-3 rounded-full bg-error/40"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary/40"></div>
+<div class="w-3 h-3 rounded-full bg-primary/40"></div>
+</div>
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Dashboard Mockup</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-white p-4 rounded-lg shadow-sm">
+<p class="text-xs text-stone-500 mb-1">ROAS</p>
+<p class="text-2xl font-bold text-primary">340%</p>
+<p class="text-[10px] text-error font-bold">↓ 12.5% vs last week</p>
+</div>
+<div class="bg-white p-4 rounded-lg shadow-sm">
+<p class="text-xs text-stone-500 mb-1">CPA</p>
+<p class="text-2xl font-bold text-primary">¥1,250</p>
+<p class="text-[10px] text-error font-bold">↑ 15% vs last week</p>
+</div>
+</div>
+<div class="bg-primary/5 border border-primary/20 p-4 rounded-xl mb-4">
+<div class="flex gap-2 items-start">
+<span class="material-symbols-outlined text-primary text-sm mt-1" data-weight="fill">smart_toy</span>
+<div class="text-sm">
+<p class="font-bold text-primary mb-1 leading-none">AI Insight</p>
+<p class="text-stone-700">CPAが上昇しています。競合他社の入札強化が原因の可能性があります。リマーケティング設定の再確認を推奨します。</p>
+</div>
+</div>
+</div>
+<img class="w-full h-40 object-cover rounded-lg shadow-inner opacity-80" data-alt="dashboard data visualization showing a line graph and digital statistics with green and professional aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDT7j2VMo1KSrok1zMKvaKZaGXUOP5kPp1SS7ybxiF0Mh7kAOzUlYi2pJ9R1qL5LOl27-dmXqAbogBGyhKiqKt16ALy-6MUr6RKt60oxqsVs8M39S85-8hy0jR8iWEhbUTBkVzgDRFa5ZApdx7wVOzYl0nlDNFQkWijDLZdlqXjoXvTvt7dsy6WMF711DCG4M3pp8voe_FtGMdKYuiE6fkPApl8_J1ix_3tV1ey-ba-ZFnPpIGssC9D3wN5nDVcW7GQL4-FMlwOVxg"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Feature Overview -->
+<section class="py-24 bg-surface-container-low px-8">
+<div class="max-w-7xl mx-auto text-center mb-16">
+<h2 class="text-3xl md:text-4xl font-bold text-on-surface mb-4">単なるレポートではなく「考察」を自動生成</h2>
+<div class="h-1 w-20 bg-primary mx-auto"></div>
+</div>
+<div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-4xl">analytics</span>
+</div>
+<h3 class="text-xl font-bold mb-4">変動要因の特定</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        「なぜ数字が動いたか」を、複雑なデータからAIが即座に見つけ出します。
+                    </p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-4xl">psychology</span>
+</div>
+<h3 class="text-xl font-bold mb-4">高度な考察ロジック</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        業界トレンドや季節要因を加味し、人間と同等以上の深い考察を提示します。
+                    </p>
+</div>
+<div class="flex flex-col items-center text-center">
+<div class="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-4xl">assignment_turned_in</span>
+</div>
+<h3 class="text-xl font-bold mb-4">具体的な次の一手</h3>
+<p class="text-on-surface-variant leading-relaxed">
+                        分析して終わりではありません。予算配分やクリエイティブの改善案を具体的に示します。
+                    </p>
+</div>
+</div>
+</section>
+<!-- 3 Steps -->
+<section class="py-24 px-8 bg-surface">
+<div class="max-w-7xl mx-auto">
+<h2 class="text-3xl font-bold text-center mb-16">3ステップで改善サイクルを加速</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
+<div class="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-outline-variant/30 -z-10"></div>
+<!-- Step 1 -->
+<div class="bg-white p-8 rounded-2xl shadow-[0_4px_20px_rgba(46,50,48,0.06)] border border-outline-variant/20">
+<div class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center text-xl font-bold mb-6">1</div>
+<span class="material-symbols-outlined text-tertiary mb-4 text-3xl">hub</span>
+<h4 class="text-xl font-bold mb-2">広告アカウントを接続</h4>
+<p class="text-on-surface-variant text-sm">Google, Meta, Yahooなどの主要プラットフォームとAPI連携。数クリックで完了します。</p>
+</div>
+<!-- Step 2 -->
+<div class="bg-white p-8 rounded-2xl shadow-[0_4px_20px_rgba(46,50,48,0.06)] border border-outline-variant/20">
+<div class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center text-xl font-bold mb-6">2</div>
+<span class="material-symbols-outlined text-tertiary mb-4 text-3xl">auto_awesome</span>
+<h4 class="text-xl font-bold mb-2">AIが自動で分析・考察</h4>
+<p class="text-on-surface-variant text-sm">接続されたデータをAIが24時間スキャン。異常値や機会損失をリアルタイムで見つけます。</p>
+</div>
+<!-- Step 3 -->
+<div class="bg-white p-8 rounded-2xl shadow-[0_4px_20px_rgba(46,50,48,0.06)] border border-outline-variant/20">
+<div class="w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center text-xl font-bold mb-6">3</div>
+<span class="material-symbols-outlined text-tertiary mb-4 text-3xl">insights</span>
+<h4 class="text-xl font-bold mb-2">レポートとアクションを確認</h4>
+<p class="text-on-surface-variant text-sm">整理されたダッシュボードで結果を確認。提案された改善策を実行に移すだけです。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Analysis Dashboard Mockup -->
+<section class="py-24 px-8 bg-stone-100">
+<div class="max-w-5xl mx-auto">
+<div class="text-center mb-12">
+<h2 class="text-3xl font-bold mb-4">直感的な Analysis Dashboard</h2>
+<p class="text-on-surface-variant">あなたの広告パフォーマンスを、AIの視点で可視化します。</p>
+</div>
+<div class="bg-[#faf6f0] rounded-3xl p-8 md:p-12 shadow-2xl border border-primary/10">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<div class="p-6 bg-white rounded-xl shadow-sm border-l-4 border-primary">
+<p class="text-xs font-bold text-stone-500 uppercase mb-2">Conversion Rate</p>
+<p class="text-3xl font-bold text-on-surface">3.8%</p>
+<div class="flex items-center gap-1 mt-2 text-primary font-bold text-xs">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+0.4%</span>
+</div>
+</div>
+<div class="p-6 bg-white rounded-xl shadow-sm border-l-4 border-primary">
+<p class="text-xs font-bold text-stone-500 uppercase mb-2">Avg. CPA</p>
+<p class="text-3xl font-bold text-on-surface">¥1,850</p>
+<div class="flex items-center gap-1 mt-2 text-error font-bold text-xs">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+15% vs last week</span>
+</div>
+</div>
+<div class="p-6 bg-white rounded-xl shadow-sm border-l-4 border-primary">
+<p class="text-xs font-bold text-stone-500 uppercase mb-2">Total ROAS</p>
+<p class="text-3xl font-bold text-on-surface">412%</p>
+<div class="flex items-center gap-1 mt-2 text-primary font-bold text-xs">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span>+22%</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+<div class="lg:col-span-3 space-y-6">
+<div class="bg-white p-6 rounded-xl shadow-sm h-64 flex flex-col justify-between">
+<div class="flex justify-between items-center mb-4">
+<h5 class="font-bold">Performance Trend</h5>
+<div class="flex gap-2">
+<span class="w-3 h-3 bg-primary rounded-full"></span>
+<span class="w-3 h-3 bg-outline-variant rounded-full"></span>
+</div>
+</div>
+<div class="flex-grow flex items-end gap-2">
+<div class="w-full bg-primary/20 h-1/2 rounded-t"></div>
+<div class="w-full bg-primary/40 h-2/3 rounded-t"></div>
+<div class="w-full bg-primary/30 h-1/2 rounded-t"></div>
+<div class="w-full bg-primary/60 h-3/4 rounded-t"></div>
+<div class="w-full bg-primary/80 h-full rounded-t"></div>
+<div class="w-full bg-primary h-5/6 rounded-t"></div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-2 space-y-6">
+<div class="bg-primary/5 border border-primary/20 p-6 rounded-2xl relative">
+<div class="absolute -top-4 -left-4 w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white shadow-lg">
+<span class="material-symbols-outlined text-xl">smart_toy</span>
+</div>
+<h5 class="font-bold text-primary mb-3">AI Analysis Comment</h5>
+<p class="text-sm text-on-surface leading-relaxed mb-4">
+                                    「CPAが先週比+15%上昇。原因：<span class="font-bold border-b-2 border-primary/30">競合Aの新キャンペーン開始による入札競争の激化</span>を確認しました。」
+                                </p>
+<div class="space-y-2">
+<p class="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Recommended Actions</p>
+<div class="flex items-center gap-2 text-xs bg-white/50 p-2 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span>検索クエリの除外ワード追加</span>
+</div>
+<div class="flex items-center gap-2 text-xs bg-white/50 p-2 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+<span>リターゲティング予算の20%増</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Supported Platforms -->
+<section class="py-16 px-8 border-y border-outline-variant/20 bg-white">
+<div class="max-w-7xl mx-auto text-center">
+<p class="text-sm font-bold text-stone-400 mb-10 tracking-[0.2em] uppercase">Supported Platforms</p>
+<div class="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all">
+<span class="text-2xl font-bold font-headline">Google Ads</span>
+<span class="text-2xl font-bold font-headline">Meta Ads</span>
+<span class="text-2xl font-bold font-headline">TikTok Ads</span>
+<span class="text-2xl font-bold font-headline">Yahoo! Japan</span>
+<span class="text-2xl font-bold font-headline">X Ads</span>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-24 px-8">
+<div class="max-w-5xl mx-auto bg-primary rounded-[2rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl">
+<div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+<div class="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2"></div>
+<h2 class="text-4xl md:text-5xl font-bold text-on-primary mb-6 relative z-10">
+                    広告データの"なぜ？"を解明する
+                </h2>
+<p class="text-on-primary/80 text-lg mb-12 max-w-2xl mx-auto relative z-10">
+                    今すぐアカウントを連携して、AIによる無料分析を開始しましょう。<br class="hidden md:block"/>
+                    あなたの広告運用を、データドリブンな意思決定へ進化させます。
+                </p>
+<button class="bg-white text-primary px-12 py-5 rounded-2xl font-bold text-xl hover:bg-primary-container hover:text-on-primary-container transition-all relative z-10 shadow-xl">
+                    無料で始める
+                </button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-stone-100 border-t border-stone-200">
+<div class="max-w-7xl mx-auto py-16 px-8 grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+<div>
+<div class="text-2xl font-bold text-stone-800 mb-6">Insight Studio</div>
+<p class="text-stone-500 text-sm max-w-sm mb-8 leading-relaxed">
+                    AIの力で、マーケティングデータを価値あるインサイトへ。Insight Studioは、次世代の広告運用を支援する分析プラットフォームです。
+                </p>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-stone-400 hover:text-primary cursor-pointer">public</span>
+<span class="material-symbols-outlined text-stone-400 hover:text-primary cursor-pointer">mail</span>
+<span class="material-symbols-outlined text-stone-400 hover:text-primary cursor-pointer">chat</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-8">
+<div>
+<h5 class="font-bold text-stone-800 mb-4">製品</h5>
+<ul class="space-y-3 text-stone-500 text-sm">
+<li class="hover:text-primary cursor-pointer transition-colors">機能一覧</li>
+<li class="hover:text-primary cursor-pointer transition-colors">分析デモ</li>
+<li class="hover:text-primary cursor-pointer transition-colors">導入事例</li>
+</ul>
+</div>
+<div>
+<h5 class="font-bold text-stone-800 mb-4">サポート</h5>
+<ul class="space-y-3 text-stone-500 text-sm">
+<li class="hover:text-primary cursor-pointer transition-colors">会社概要</li>
+<li class="hover:text-primary cursor-pointer transition-colors">プライバシーポリシー</li>
+<li class="hover:text-primary cursor-pointer transition-colors">利用規約</li>
+<li class="hover:text-primary cursor-pointer transition-colors">お問い合わせ</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="max-w-7xl mx-auto px-8 pb-12 border-t border-stone-200 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="text-stone-400 text-xs font-['Nunito_Sans']">© 2024 Insight Studio. All rights reserved.</p>
+<div class="flex gap-6">
+<span class="text-stone-400 text-xs hover:text-primary cursor-pointer">JP / English</span>
+<span class="text-stone-400 text-xs hover:text-primary cursor-pointer">Status</span>
+</div>
+</div>
+</footer>
+</body></html>

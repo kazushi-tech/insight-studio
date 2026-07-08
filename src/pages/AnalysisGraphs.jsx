@@ -224,7 +224,7 @@ function EvidenceDrawer({ cards, reportBundle }) {
   if (!cards || cards.length === 0) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30">
+    <div className="fixed bottom-16 left-0 right-0 z-30 lg:bottom-0">
       <details className="group bg-surface-container-lowest border-t border-outline-variant shadow-[0_-10px_30px_rgba(0,0,0,0.08)]">
         <summary className="flex items-center justify-between px-8 py-3 cursor-pointer list-none hover:bg-surface-container-low transition-colors select-none">
           <div className="flex items-center gap-4">
@@ -629,15 +629,15 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
       <button
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="group w-full px-6 py-5 flex items-center justify-between gap-6 cursor-pointer hover:bg-primary/[0.04] transition-colors border-b border-primary/10 text-left"
+        className="group flex w-full cursor-pointer flex-col gap-4 border-b border-primary/10 px-4 py-5 text-left transition-colors hover:bg-primary/[0.04] sm:flex-row sm:items-center sm:justify-between sm:px-6"
       >
         <div className="min-w-0">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div>
               <p className="text-[10px] font-black tracking-[0.16em] text-primary">グラフテーマ</p>
               <h3 className="mt-1 font-black text-xl text-primary japanese-text">{theme.label}</h3>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <span className="text-[10px] font-black bg-surface-container-lowest px-3 py-1 rounded-full border border-primary/10">
                 {summary.chartCount} グラフ
               </span>
@@ -649,8 +649,8 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
             </div>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3 text-sm font-medium text-on-surface-variant">
-          <div className="flex items-center gap-2 rounded-full bg-surface-container-lowest px-4 py-2 border border-primary/10">
+        <div className="flex shrink-0 items-center justify-between gap-3 text-sm font-medium text-on-surface-variant sm:justify-end">
+          <div className="flex items-center gap-2 rounded-full border border-primary/10 bg-surface-container-lowest px-4 py-2">
             <span className={`size-2.5 rounded-full ${summary.criticalShifts > 0 ? 'bg-accent-gold' : 'bg-primary'}`} />
             品質: {summary.criticalShifts > 0 ? '注意' : '良好'}
           </div>
@@ -855,7 +855,20 @@ function AdsImage2KpiBoard({
         minute: '2-digit',
       })
     : '更新待ち'
-  const isFallback = reportBundle?.dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
+  const availability = reportBundle?.dataAvailability || (reportBundle?.source === 'bq_generate_fallback' ? 'fallback' : 'full')
+  const isFallback = availability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
+  const isPartial = availability === 'partial'
+  const isFailed = availability === 'failed'
+  const availabilityLabel = isFailed ? '取得失敗' : isFallback ? '暫定表示' : isPartial ? '一部未取得' : '取得確認済み'
+  const availabilityTitle = isFailed ? 'BigQuery 取得失敗' : isFallback ? 'BigQuery 取得未確定' : isPartial ? 'BigQuery 一部取得' : 'BigQuery 取得済み'
+  const availabilityTone = (isFailed || isPartial || isFallback) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+  const availabilityMessage = isFailed
+    ? '全クエリが未取得です。条件と権限を確認してください'
+    : isFallback
+      ? '未取得データを成功扱いせず、確認手順と追加取得候補を表示しています'
+      : isPartial
+        ? `一部クエリが未取得です${reportBundle?.missingReason ? `: ${reportBundle.missingReason}` : ''}`
+        : 'BigQueryからPythonで集計した最新データを表示しています'
   const hasTheme = (id) => themes.some((theme) => theme.id === id)
 
   const metrics = [
@@ -969,12 +982,12 @@ function AdsImage2KpiBoard({
               <span className="material-symbols-outlined" aria-hidden="true">database</span>
             </span>
             <div>
-              <h3 className="text-lg font-extrabold text-on-surface japanese-text">{isFallback ? 'BigQuery 取得未確定' : 'BigQuery 取得済み'}</h3>
+              <h3 className="text-lg font-extrabold text-on-surface japanese-text">{availabilityTitle}</h3>
               <p className="mt-1 text-sm text-on-surface-variant japanese-text">データソース: {setupState?.datasetId || 'GA4データセット未設定'}</p>
             </div>
           </div>
-          <span className={`rounded-lg px-3 py-1 text-xs font-black ${isFallback ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-            {isFallback ? '暫定表示' : '取得確認済み'}
+          <span className={`rounded-lg px-3 py-1 text-xs font-black ${availabilityTone}`}>
+            {availabilityLabel}
           </span>
         </div>
         <div className="rounded-xl border border-primary/15 bg-primary/[0.045] p-5 flex items-center justify-between gap-4">
@@ -996,7 +1009,7 @@ function AdsImage2KpiBoard({
       <div className="rounded-xl border border-primary/15 bg-primary/[0.055] px-4 py-3 flex items-center justify-between gap-4">
         <p className="flex items-center gap-2 text-sm font-bold text-primary japanese-text">
           <span className="material-symbols-outlined text-lg" aria-hidden="true">info</span>
-          {isFallback ? '未取得データを成功扱いせず、確認手順と追加取得候補を表示しています' : 'BigQueryからPythonで集計した最新データを表示しています'}
+          {availabilityMessage}
         </p>
         <button
           type="button"
@@ -1028,11 +1041,11 @@ function AdsImage2KpiBoard({
         <div className="flex gap-4">
           <span className="material-symbols-outlined text-3xl text-amber-600" aria-hidden="true">lightbulb</span>
           <div>
-            <h3 className="text-base font-extrabold text-on-surface japanese-text">## まず確認する数値</h3>
+            <h3 className="text-base font-extrabold text-on-surface japanese-text">まず確認する数値</h3>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-7 text-on-surface japanese-text">
-              <li>CTR と CVR の上下で、成果の増減要因をざっくり把握しましょう</li>
-              <li>CPA は媒体費Excelを取り込むと確定値として比較できます</li>
-              <li>コストとCVのバランスを見て、配信の拡大余地を検討しましょう</li>
+              <li>まずGA4で取得済みのPV、セッション、CVイベント、LP別直帰率を確認します</li>
+              <li>CPA、ROAS、CTR、広告費は媒体費Excelや広告管理画面がある場合だけ確定値として扱います</li>
+              <li>未取得KPIは断定せず、追加取得の条件と見るべき指標を分けて判断します</li>
             </ul>
           </div>
         </div>
@@ -1062,7 +1075,7 @@ function GraphReadingBoard({
 
   return (
     <section className="rounded-[1.35rem] bg-surface-container-lowest border border-outline-variant/20 shadow-sm overflow-hidden">
-      <div className="p-7 border-b border-outline-variant/15 bg-primary/[0.035] flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+      <div className="flex flex-col justify-between gap-6 border-b border-outline-variant/15 bg-primary/[0.035] p-5 sm:p-7 xl:flex-row xl:items-end">
         <div className="space-y-3 max-w-3xl">
           <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-[0.14em] uppercase text-primary">
             <span className="material-symbols-outlined text-base" aria-hidden="true">analytics</span>
@@ -1075,7 +1088,7 @@ function GraphReadingBoard({
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3 min-w-[360px]">
+        <div className="grid w-full grid-cols-3 gap-2 sm:gap-3 xl:w-auto xl:min-w-[360px]">
           <div className="rounded-2xl bg-surface-container-low p-4">
             <p className="text-[10px] font-black text-on-surface-variant tracking-widest">表示グループ数</p>
             <strong className="text-2xl text-primary tabular-nums">{filteredGroups.length}</strong>
@@ -1095,7 +1108,7 @@ function GraphReadingBoard({
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
-              { id: 'cv', step: '01', title: 'KPIとCV推移', body: 'CVR / CPA / CV数の変化を最初に確認', icon: 'conversion_path' },
+              { id: 'cv', step: '01', title: 'CVイベント推移', body: 'CV数と取得済み母数を先に確認', icon: 'conversion_path' },
               { id: 'traffic', step: '02', title: '流入チャネル', body: 'チャネル別の勝ち筋と悪化源を分ける', icon: 'swap_horiz' },
               { id: 'lp', step: '03', title: 'LPの行動', body: 'ページ別の離脱・回遊・成果を確認', icon: 'web' },
               { id: 'anomaly', step: '04', title: '生データと異常', body: '急変値はテーブルで根拠まで見る', icon: 'warning' },
@@ -1221,8 +1234,8 @@ function GraphAiQuestionRail({
   const prompts = topInsights.length > 0
     ? topInsights.slice(0, 4).map((insight) => `${insight.title} の変化を、広告運用ではどう読むべき？`)
     : [
-        'CVRが下がった原因は、どのグラフから確認すべき？',
-        'CPA悪化がLP由来か流入由来か切り分けたい',
+        'CVイベントが減った場合、どのグラフから確認すべき？',
+        'CPAを判断するには、追加でどの媒体データが必要？',
         '今週優先して見るべき数値を3つに絞って',
         '異常値が施策判断に影響するか確認したい',
       ]
@@ -1234,7 +1247,7 @@ function GraphAiQuestionRail({
       <aside
         data-testid="ads-graph-ai-rail"
         data-state="collapsed"
-        className="fixed right-4 top-24 z-20 xl:right-6"
+        className="fixed right-4 top-24 z-20 hidden lg:block xl:right-6"
       >
         <button
           type="button"
@@ -1360,7 +1373,7 @@ function GraphAiQuestionRail({
   return (
     <aside
       data-testid="ads-graph-ai-rail"
-      className="fixed right-4 top-20 z-20 block w-[min(360px,calc(100vw-2rem))] max-h-[calc(100vh-6rem)] self-start overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm xl:right-6 xl:top-24 xl:max-h-[calc(100vh-7rem)]"
+      className="fixed right-4 top-20 z-20 hidden w-[min(360px,calc(100vw-2rem))] max-h-[calc(100vh-6rem)] self-start overflow-y-auto overscroll-contain rounded-[1.35rem] border border-primary/15 bg-surface-container-lowest shadow-sm lg:block xl:right-6 xl:top-24 xl:max-h-[calc(100vh-7rem)]"
     >
       <div className="p-5 border-b border-outline-variant/15 bg-primary/[0.045]">
         <div className="flex items-center justify-between gap-3">
@@ -1438,7 +1451,7 @@ function GraphAiQuestionRail({
           <textarea
             id="graph-ai-draft"
             className="mt-2 min-h-28 w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary japanese-text"
-            placeholder="例: CVR推移とLP別CVRを見て、CPA悪化の原因を切り分けたい"
+            placeholder="例: LP別セッションとCVイベントを見て、次に確認すべき追加データを知りたい"
             value={inlineQuestion}
             onChange={(e) => setInlineQuestion(e.target.value)}
           />
@@ -1583,7 +1596,22 @@ export default function AnalysisGraphs() {
 
   /* ── Summary data (from EssentialPack extractors) ── */
   const currentReport = useMemo(() => reportBundle?.reportMd ?? '', [reportBundle?.reportMd])
-  const isFallbackReport = reportBundle?.dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
+  const dataAvailability = reportBundle?.dataAvailability || (reportBundle?.source === 'bq_generate_fallback' ? 'fallback' : 'full')
+  const isPartialReport = dataAvailability === 'partial'
+  const isFailedReport = dataAvailability === 'failed'
+  const isFallbackReport = dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
+  const reportAvailabilityLabel = isFailedReport
+    ? 'BQ取得失敗'
+    : isFallbackReport
+      ? '暫定表示'
+      : isPartialReport
+        ? 'BQ一部未取得'
+        : reportBundle?.source === 'bq_generate_batch'
+          ? 'BQ取得済み'
+          : '暫定'
+  const reportAvailabilityClass = isFailedReport || isPartialReport || isFallbackReport
+    ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+    : 'bg-primary-container text-on-primary-container'
   const executiveCards = useMemo(
     () => extractExecutiveCards(currentReport, chartGroups),
     [currentReport, chartGroups],
@@ -1727,25 +1755,25 @@ export default function AnalysisGraphs() {
   }
 
   return (
-    <div className="flex-1 min-w-0 overflow-visible">
-      <div className="px-8 py-8 pb-20 max-w-[1680px] space-y-10">
+    <div className="min-w-0 flex-1 overflow-x-hidden">
+      <div className="max-w-[1680px] space-y-8 px-4 py-5 pb-20 sm:px-6 lg:space-y-10 lg:px-8 lg:py-8">
 
         {/* ═══ 1. PAGE HEADER ═══ */}
-        <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <section className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               {reportBundle?.source && (
-                <span className="px-2 py-0.5 bg-primary-container text-on-primary-container text-[10px] font-bold rounded uppercase tracking-wider">
-                  {reportBundle.source === 'bq_generate_batch' ? 'BQ取得済み' : '暫定'}
+                <span className={`px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider ${reportAvailabilityClass}`}>
+                  {reportAvailabilityLabel}
                 </span>
               )}
-              <h1 className="text-3xl font-extrabold tracking-tight text-primary japanese-text">広告分析</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">広告分析</h1>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-on-surface-variant text-sm">
               {setupState?.datasetId && (
-                <span className="font-medium flex items-center gap-1">
+                <span className="flex min-w-0 items-center gap-1 font-medium">
                   <span className="material-symbols-outlined text-base">corporate_fare</span>
-                  {setupState.datasetId}
+                  <span className="max-w-[240px] truncate sm:max-w-none">{setupState.datasetId}</span>
                 </span>
               )}
               {dateRange && (
@@ -1768,8 +1796,8 @@ export default function AnalysisGraphs() {
           </div>
 
           {/* Exec / Analyst toggle + refresh */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center p-1 bg-surface-container rounded-full ghost-border">
+          <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
+            <div className="flex items-center justify-center rounded-full bg-surface-container p-1 ghost-border sm:w-auto">
               <button
                 onClick={() => setViewMode('exec')}
                 className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
@@ -1795,7 +1823,7 @@ export default function AnalysisGraphs() {
             <button
               type="button"
               onClick={handleChangeSetup}
-              className="inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary hover:bg-primary/[0.05] transition-colors"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/[0.05]"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
               セットアップ（クエリ・期間）
@@ -1806,7 +1834,7 @@ export default function AnalysisGraphs() {
               <select
                 value={periodFilter}
                 onChange={(e) => setPeriodFilter(e.target.value)}
-                className="text-sm text-on-surface-variant bg-surface-container-low border border-outline-variant/30 rounded-xl px-3 py-2 cursor-pointer"
+                className="w-full cursor-pointer rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant sm:w-auto"
               >
                 <option value="latest">最新期間</option>
                 <option value="all">全期間まとめ</option>
@@ -1819,7 +1847,7 @@ export default function AnalysisGraphs() {
             <button
               onClick={handleRefresh}
               disabled={loading || !isAdsAuthenticated || !setupState}
-              className="px-5 py-2 bg-primary text-on-primary rounded-full font-bold text-sm flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-on-primary transition-all hover:opacity-90 disabled:opacity-50"
             >
               {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">refresh</span>}
               再取得
@@ -1865,7 +1893,7 @@ export default function AnalysisGraphs() {
         )}
 
         {/* ═══ 3. LOCAL SECTION NAV ═══ */}
-        <nav className="flex gap-8 border-b border-outline-variant/15 pb-2">
+        <nav className="flex gap-6 overflow-x-auto border-b border-outline-variant/15 pb-2">
           {visibleSections.map((sec) => (
             <button
               key={sec.id}
@@ -1928,46 +1956,6 @@ export default function AnalysisGraphs() {
             <section id="section-graphs" className="scroll-mt-24 space-y-6">
               {hasGraphData ? (
                 <>
-                  <div className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest p-6 shadow-sm">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                      <div className="max-w-3xl">
-                        <span className="inline-flex items-center gap-2 text-[11px] font-black tracking-[0.14em] uppercase text-primary">
-                          <span className="material-symbols-outlined text-base" aria-hidden="true">stacked_line_chart</span>
-                          Python集計グラフ
-                        </span>
-                        <h2 className="mt-2 text-2xl font-extrabold text-on-surface japanese-text">Python集計グラフ</h2>
-                        <p className="mt-1 text-base font-bold text-on-surface japanese-text">
-                          Pythonで集計済みのグラフを、この画面の先頭で確認できます。
-                        </p>
-                        <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-                          期間選択後にBigQueryから取得したGA4数値をPythonで集計し、CVイベント・流入・LP・デバイス・生データの順で確認します。
-                          文章の考察は右カラムのAI質問へ分け、ここではグラフを大きく読みます。
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs min-w-[300px]">
-                        <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">表示グループ数</b>
-                          <strong className="text-xl text-primary tabular-nums">{filteredGroups.length}</strong>
-                        </span>
-                        <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">テーマ数</b>
-                          <strong className="text-xl text-primary tabular-nums">{themes.length}</strong>
-                        </span>
-                        <span className="rounded-2xl bg-surface-container-low px-3 py-3">
-                          <b className="block text-on-surface-variant">表示</b>
-                          <strong className="text-sm text-primary">{viewMode === 'analyst' ? '詳細' : '要約'}</strong>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <QueryCoverageSummary
-                    setupState={setupState}
-                    reportBundle={reportBundle}
-                    filteredGroups={filteredGroups}
-                    periodLabel={activeScopeLabel}
-                  />
-
                   {keyCharts.length > 0 && (
                     <div className="grid grid-cols-1 gap-8">
                       {keyCharts.map((group, idx) => (
@@ -1976,23 +1964,7 @@ export default function AnalysisGraphs() {
                     </div>
                   )}
 
-                  {/* Inline insight for key charts */}
-                  {topInsights.length > 0 && topInsights[0].takeaway && (
-                    <div className="p-4 bg-primary/[0.04] rounded-xl">
-                      <p className="text-sm font-semibold text-primary japanese-text">{topInsights[0].takeaway}</p>
-                    </div>
-                  )}
-
                   <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
-
-                  <div className="flex items-center gap-2 bg-primary-fixed/30 p-3 rounded-lg border border-primary/10">
-                    <span className="material-symbols-outlined text-primary text-xl">info</span>
-                    <p className="text-sm font-semibold text-on-surface japanese-text">
-                      {activeTheme === 'all'
-                        ? `${themes.length}テーマ、合計${filteredGroups.length}グラフを表示中`
-                        : `${displayThemes[0]?.label ?? ''}: ${displayThemes[0]?.groups.length ?? 0}グラフ`}
-                    </p>
-                  </div>
 
                   <div className="space-y-6">
                     {displayThemes.map((theme) => (
@@ -2009,6 +1981,13 @@ export default function AnalysisGraphs() {
                       <AnomalySection chartGroups={filteredGroups} />
                     )}
                   </div>
+
+                  <QueryCoverageSummary
+                    setupState={setupState}
+                    reportBundle={reportBundle}
+                    filteredGroups={filteredGroups}
+                    periodLabel={activeScopeLabel}
+                  />
                 </>
               ) : !loading && (
                 <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">

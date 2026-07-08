@@ -14674,14 +14674,91 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
         else:
             text = await _run_ai(prompt, temperature)
         if data_source in ("bq", "cross"):
+            from .bq_chart_builder import validate_ai_insight_output
+            if not str(text or "").strip():
+                normalized_response = normalize_ai_model_response(text, context=ai_analysis_context)
+                normalized_response.update({
+                    "model": model,
+                    "provider": provider,
+                    "tokens_used": 0,
+                    "workflow": workflow,
+                    "report_contract_version": report_contract_version,
+                    "review_status": {"ok": False, "verdict": "fail", "issues": ["empty_ai_response"]},
+                    "agent_trace": agent_trace,
+                    "validation_warnings": ["empty_ai_response"],
+                    "request_id": request_id,
+                })
+                return JSONResponse(normalized_response, status_code=502)
+            review_result = validate_ai_insight_output(
+                text,
+                chart_evidence_pack,
+                data_source=data_source,
+                agent_trace=agent_trace,
+                require_agent_trace=(workflow == "multi_agent_v1"),
+            )
+            validation_warnings = []
+            if not review_result.get("ok"):
+                validation_warnings = review_result.get("issues", [])
+                if workflow == "multi_agent_v1" or report_contract_version == "insight_report_v2":
+                    text = _build_review_safe_insight_report(
+                        chart_evidence_pack,
+                        validation_warnings,
+                        data_availability=data_availability,
+                        query_text=user_prompt_for_matching,
+                    )
+                    agent_trace = _extract_agent_trace_from_insight_report(text) or _normalize_agent_trace(agent_trace)
+                    review_result = validate_ai_insight_output(
+                        text,
+                        chart_evidence_pack,
+                        data_source=data_source,
+                        agent_trace=agent_trace,
+                        require_agent_trace=(workflow == "multi_agent_v1"),
+                    )
+            if workflow == "multi_agent_v1":
+                agent_trace = _normalize_agent_trace(agent_trace)
+                review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
+                text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
+                review_result = validate_ai_insight_output(
+                    text,
+                    chart_evidence_pack,
+                    data_source=data_source,
+                    agent_trace=agent_trace,
+                    require_agent_trace=True,
+                )
+                if not review_result.get("ok"):
+                    validation_warnings = [*validation_warnings, *review_result.get("issues", [])]
+                    text = _build_review_safe_insight_report(
+                        chart_evidence_pack,
+                        validation_warnings,
+                        data_availability=data_availability,
+                        query_text=user_prompt_for_matching,
+                    )
+                    agent_trace = _extract_agent_trace_from_insight_report(text) or _normalize_agent_trace(agent_trace)
+                    review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                    text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
+                    review_result = validate_ai_insight_output(
+                        text,
+                        chart_evidence_pack,
+                        data_source=data_source,
+                        agent_trace=agent_trace,
+                        require_agent_trace=True,
+                    )
+            response_review_status = (
+                _build_enhanced_review_status(review_result, agent_trace, text=text)
+                if workflow == "multi_agent_v1"
+                else review_result
+            )
             normalized_response = normalize_ai_model_response(text, context=ai_analysis_context)
             normalized_response.update({
+                "ok": True,
                 "model": model,
                 "provider": provider,
                 "tokens_used": len(text or ""),
                 "workflow": workflow,
                 "report_contract_version": report_contract_version,
+                "review_status": response_review_status,
                 "agent_trace": agent_trace,
+                "validation_warnings": validation_warnings,
                 "request_id": request_id,
             })
             log_ai_debug(
@@ -14699,8 +14776,6 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                     },
                 },
             )
-            if normalized_response.get("ok") is False:
-                return JSONResponse(normalized_response, status_code=502)
             return normalized_response
         review_result = None
         if workflow == "multi_agent_v1" or report_contract_version == "insight_report_v2":
@@ -15923,6 +15998,40 @@ def _bq_cache_put(key: str, value: dict) -> None:
     _bq_cache[key] = (now, value)
 
 
+def _bq_availability_from_summary(summary: list[dict], requested_count: int) -> tuple[str, str]:
+    """Return full/partial/failed plus a user-facing missing reason."""
+    if requested_count <= 0:
+        return "failed", "クエリタイプが指定されていません。"
+    if not summary:
+        return "failed", "BigQuery実行結果が取得できませんでした。"
+
+    success_statuses = {"success", "no_chart"}
+    success_count = sum(1 for item in summary if item.get("status") in success_statuses)
+    error_items = [
+        item for item in summary
+        if item.get("status") in {"error", "no_data", "unknown"}
+    ]
+
+    if success_count == requested_count:
+        return "full", ""
+    if success_count > 0:
+        labels = [
+            f"{item.get('query_type', 'unknown')}:{item.get('status', 'unknown')}"
+            for item in error_items[:5]
+        ]
+        return "partial", "一部クエリが未取得です: " + ", ".join(labels)
+
+    labels = [
+        f"{item.get('query_type', 'unknown')}:{item.get('status', 'unknown')}"
+        for item in summary[:5]
+    ]
+    return "failed", "全クエリが未取得です: " + ", ".join(labels)
+
+
+def _bq_response_status(data_availability: str) -> int:
+    return 502 if data_availability == "failed" else 200
+
+
 
 @app.get("/api/bq/datasets")
 def api_bq_datasets():
@@ -15985,12 +16094,9 @@ def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "
             return _json(cached[1])
     try:
         from bq.client import run_query, PROJECT_ID
+        from bq.queries import split_dataset_ref
 
-        dataset_ref = str(dataset_id or "").strip()
-        if "." in dataset_ref:
-            project_id, dataset_name = dataset_ref.split(".", 1)
-        else:
-            project_id, dataset_name = PROJECT_ID, dataset_ref
+        project_id, dataset_name = split_dataset_ref(dataset_id, PROJECT_ID)
 
         methods_tried = []
         last_error = None
@@ -16126,8 +16232,10 @@ async def api_bq_generate(request: Request):
             return _json(cached[1])
 
         from bq.reporter import run_report
-        from bq.queries import QUERIES
+        from bq.queries import QUERIES, normalize_dataset_ref
         from .bq_chart_builder import build_bq_chart_data
+
+        dataset_id = normalize_dataset_ref(dataset_id)
 
         if query_type not in QUERIES:
             available = ", ".join(QUERIES.keys())
@@ -16154,6 +16262,8 @@ async def api_bq_generate(request: Request):
 
         response_data = {
             "ok": True,
+            "data_availability": "full" if (results.get("report_md") or chart_data.get("groups")) else "partial",
+            "missing_reason": "" if (results.get("report_md") or chart_data.get("groups")) else "レポート本文またはグラフが生成されませんでした。",
             "report_md": results.get("report_md", ""),
             "chart_data": chart_data,
             "csv_path": results.get("csv", ""),
@@ -16208,9 +16318,11 @@ async def api_bq_generate_batch(request: Request):
                            "message": "クエリタイプを1つ以上指定してください"}, 400)
 
         from bq.reporter import run_report, generate_cross_summary
-        from bq.queries import QUERIES
+        from bq.queries import QUERIES, normalize_dataset_ref
         from .bq_chart_builder import build_bq_chart_data
         from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        dataset_id = normalize_dataset_ref(dataset_id)
 
         # 不正なクエリタイプをフィルタ
         valid_types = [qt for qt in query_types if qt in QUERIES]
@@ -16358,20 +16470,25 @@ async def api_bq_generate_batch(request: Request):
         if cross_summary:
             combined_md = cross_summary + "\n---\n\n"
         combined_md += "\n\n---\n\n".join(all_md)
+        sorted_summary = sorted(
+            execution_summary,
+            key=lambda item: query_types.index(item.get("query_type")) if item.get("query_type") in query_types else 999,
+        )
+        data_availability, missing_reason = _bq_availability_from_summary(sorted_summary, len(valid_types))
+        ok = data_availability != "failed"
 
         return _json({
-            "ok": True,
+            "ok": ok,
+            "data_availability": data_availability,
+            "missing_reason": missing_reason,
             "report_md": combined_md,
             "chart_data": {"groups": all_groups} if all_groups else {},
             "results": {qt: {"report_md": d.get("report_md", ""), "query_info": d.get("query_info", {})}
                         for qt, d in all_results.items()},
             "skipped": skipped,
-            "execution_summary": sorted(
-                execution_summary,
-                key=lambda item: query_types.index(item.get("query_type")) if item.get("query_type") in query_types else 999,
-            ),
+            "execution_summary": sorted_summary,
             "query_count": len(all_results),
-        })
+        }, _bq_response_status(data_availability))
 
     except ImportError as _ie:
         import traceback as _tb

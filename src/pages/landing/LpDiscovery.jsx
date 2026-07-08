@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import LpSection from './components/LpSection'
 import LpCta from './components/LpCta'
+import LpImage from './components/LpImage'
 
 /* ── Data ── */
 const problems = [
@@ -57,9 +58,9 @@ const testimonials = [
 
 const faqs = [
   { q: 'どのようなデータが分析可能ですか？', a: '検索広告の出稿状況、主要キーワードの順位、クリエイティブの変化、LPの構造更新、市場におけるシェア推移など、公開されているウェブ情報をAIが包括的に分析します。' },
-  { q: '分析の精度はどのくらいですか？', a: '独自の機械学習モデルにより、関連性の高い競合を98%以上の精度で特定します。また、人間が気づきにくい文脈上の競合もAIが見つけ出します。' },
+  { q: '分析の精度はどのくらいですか？', a: '入力URL、キーワード、公開情報をもとに関連性の高い競合候補を提示します。最終判断は、表示された根拠URLと比較観点を確認しながら進めます。' },
   { q: '海外の競合も調査できますか？', a: 'はい、世界120カ国以上のウェブデータをサポートしており、グローバル展開しているブランドの調査も可能です。' },
-  { q: '導入には時間がかかりますか？', a: '最短1分で完了します。アカウント作成後、URLを入力するだけで即座に初期レポートが生成されます。' },
+  { q: '導入には時間がかかりますか？', a: 'アカウント作成後、URLやキーワードを入力すると短時間で初期候補を確認できます。データ連携や社内レビューが必要な場合は、運用条件に合わせて設定します。' },
   { q: 'レポートの出力形式は？', a: 'ダッシュボード上での閲覧に加え、PDF、CSV、Googleスライド形式でのエクスポートに対応しています。' },
 ]
 
@@ -84,7 +85,7 @@ export default function LpDiscovery() {
             <h1 className="font-headline text-4xl lg:text-7xl font-extrabold text-on-surface leading-tight">
               見逃している競合、
               <br />
-              <span className="text-primary">AIが1分で特定。</span>
+              <span className="text-primary">AIが候補を整理。</span>
             </h1>
             <p className="font-body text-xl text-on-surface-variant max-w-xl leading-relaxed">
               URLを入力するだけで、独自のアルゴリズムがあなたの市場をリアルタイムにスキャン。隠れたライバルの戦略を瞬時に可視化します。
@@ -109,7 +110,7 @@ export default function LpDiscovery() {
 
           <div className="relative flex justify-center lg:justify-end">
             <div className="w-full max-w-lg aspect-square bg-primary/5 backdrop-blur-2xl rounded-full p-8 lp-animate-float border border-primary/10">
-              <img
+              <LpImage icon="hub"
                 alt="Competitor Map visualization"
                 className="w-full h-full object-contain opacity-90"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuCH7Cv9-8Wijbts1d04yR8dZOiCjGYe3cMihjxzXQk6_M0Tw76PHMMBRcMc6zK_AdaJwUXN5jGBnpT93dLp0HFyww-rkkYuuFZeY3-Nhhs72EV7RkTMzwNvDdw7OY4nT0LJQLfmBvwug-JyyUP5y55ZZ5255nwVeaJfdgTYI30BTm15REDmWrM-DIpaEk07rffj550YIay0k1p-njGgfzlJzRDtup5DqsngpSRv8CkvKakpaaSmqouyL2EPjHXdMpROMAqpBIrQB2w"
@@ -198,7 +199,7 @@ export default function LpDiscovery() {
                 </div>
                 <span className="bg-primary/10 text-primary px-4 py-1 rounded-full text-xs font-bold">Real-time</span>
               </div>
-              <img
+              <LpImage icon="hub"
                 alt="Network Map"
                 className="w-full h-full object-cover rounded-xl opacity-80 mix-blend-multiply"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOHgiK5oqU_fmJ20CpiPo3l4lfU7fvmupkRjuPWKnNqg-7yskVRqr4U5JV4WBD4OpbCTJ60x29KSQGdOJIczSObj8Kz8dysWbLVA4DY6u0fZq9d3UVNGf8VsAJh-QSlSbO8j-DzyTOUOKYRQzYrXeAyJMFpMMyqEHCOVLrL90Rmz-c6tZUcOEqIA98-zmqsKCJ7cwkG_-6HaybwJsBmgPV39RvX8BdgN3GmuniAidSbmmxyrwycfiNITfNW8CLy-10Px09qwBcxO8"

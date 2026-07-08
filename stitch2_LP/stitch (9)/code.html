@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+
+<html class="scroll-smooth" lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900&amp;family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-container": "#f0e8db",
+              "outline-variant": "#c4c8bc",
+              "on-primary-fixed-variant": "#2a6038",
+              "inverse-primary": "#8ecf9e",
+              "on-surface": "#2e3230",
+              "secondary": "#6b6358",
+              "on-surface-variant": "#4a4e4a",
+              "inverse-surface": "#2e3230",
+              "surface-tint": "#4a7c59",
+              "on-primary": "#ffffff",
+              "primary-container": "#78a886",
+              "error-container": "#ffdad8",
+              "on-secondary-fixed": "#1e1a13",
+              "on-primary-container": "#d8f0de",
+              "error": "#b83230",
+              "primary-fixed-dim": "#8ecf9e",
+              "surface-container": "#f0ece4",
+              "tertiary": "#705c30",
+              "on-error-container": "#690005",
+              "surface": "#faf6f0",
+              "on-tertiary-fixed": "#221a05",
+              "surface-bright": "#faf6f0",
+              "surface-container-low": "#f5f1ea",
+              "secondary-fixed": "#f0e8db",
+              "on-background": "#2e3230",
+              "outline": "#74796e",
+              "on-secondary": "#ffffff",
+              "inverse-on-surface": "#f5f0e8",
+              "surface-container-highest": "#e4e0d8",
+              "on-secondary-fixed-variant": "#4a4538",
+              "primary": "#4a7c59",
+              "on-tertiary-container": "#554020",
+              "surface-container-high": "#eae6de",
+              "on-tertiary-fixed-variant": "#554020",
+              "on-error": "#ffffff",
+              "on-secondary-container": "#5e5548",
+              "background": "#faf6f0",
+              "on-tertiary": "#ffffff",
+              "primary-fixed": "#c8e8d0",
+              "on-primary-fixed": "#002110",
+              "secondary-fixed-dim": "#d4ccbf",
+              "tertiary-fixed": "#f8e0a8",
+              "surface-container-lowest": "#ffffff",
+              "surface-dim": "#dbd7cf",
+              "surface-variant": "#e4e0d8",
+              "tertiary-fixed-dim": "#dcc48e",
+              "tertiary-container": "#c4a66a"
+            },
+            fontFamily: {
+              "headline": ["Literata"],
+              "body": ["Nunito Sans"],
+              "label": ["Nunito Sans"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            font-family: 'Nunito Sans', sans-serif;
+            background-color: #faf6f0;
+            color: #2e3230;
+        }
+        h1, h2, h3, .brand-font {
+            font-family: 'Literata', serif;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased">
+<!-- TopNavBar -->
+<header class="w-full top-0 sticky z-50 bg-[#faf6f0] dark:bg-emerald-950 shadow-[0_4px_20px_rgba(46,50,48,0.06)]">
+<nav class="flex justify-between items-center px-8 h-20 max-w-7xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="font-['Literata'] text-xl font-bold text-[#4a7c59] dark:text-emerald-400">Insight Studio</span>
+<div class="hidden md:flex items-center gap-6 font-['Nunito_Sans'] text-sm font-medium tracking-tight">
+<a class="text-[#4a7c59] dark:text-emerald-400 border-b-2 border-[#4a7c59] pb-1" href="#">Features</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-300 transition-colors" href="#">Demo</a>
+<a class="text-stone-600 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-300 transition-colors" href="#">Benefits</a>
+</div>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label font-bold text-sm hover:opacity-90 transition-opacity active:scale-95 transition-transform duration-150">
+                Start for Free
+            </button>
+</nav>
+</header>
+<main>
+<!-- Hero Section -->
+<section class="relative pt-20 pb-32 overflow-hidden">
+<div class="max-w-7xl mx-auto px-8 relative z-10">
+<div class="max-w-3xl">
+<span class="inline-block px-4 py-1.5 bg-secondary-container text-on-tertiary-container rounded-full text-sm font-label font-bold tracking-wider mb-6">COMPETITOR LP ANALYSIS</span>
+<h1 class="text-5xl md:text-7xl font-bold text-on-surface leading-[1.1] mb-8">
+                        競合LPを、<br/>
+<span class="text-primary italic">AIが丸裸にする。</span>
+</h1>
+<p class="text-xl text-on-surface-variant leading-relaxed mb-10 font-body">
+                        自社と競合のランディングページをAIが多角的に比較分析。構成からコピー、コンバージョン動線まで、勝てるLPの裏側を可視化します。
+                    </p>
+<div class="flex flex-col sm:flex-row gap-4">
+<button class="bg-primary text-on-primary px-10 py-4 rounded-xl font-label font-extrabold text-lg shadow-lg hover:opacity-90 transition-all active:scale-95">
+                            Start for Free
+                        </button>
+<button class="flex items-center justify-center gap-2 px-10 py-4 rounded-xl font-label font-bold text-lg text-primary border-2 border-primary/20 bg-surface hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined" data-icon="play_circle">play_circle</span>
+                            デモを見る
+                        </button>
+</div>
+</div>
+</div>
+<!-- Decorative background element -->
+<div class="absolute top-0 right-0 w-1/2 h-full bg-primary-container/10 -skew-x-12 transform origin-top translate-x-1/4 -z-0"></div>
+<div class="absolute bottom-20 right-20 w-96 h-96 bg-tertiary-container/20 rounded-full blur-3xl -z-0"></div>
+</section>
+<!-- Feature Explanation -->
+<section class="py-24 bg-surface-container-low">
+<div class="max-w-7xl mx-auto px-8">
+<div class="grid md:grid-cols-2 gap-20 items-center">
+<div class="relative">
+<div class="aspect-[4/3] bg-surface rounded-xl shadow-xl overflow-hidden border border-outline-variant/30">
+<img class="w-full h-full object-cover" data-alt="Modern split-screen interface showing two different landing pages side by side with AI analysis overlays and heatmaps" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAApIQ8g_fwBVPpTPtxbP8C0mJQ-J7OvipuIqQChdA_pNrlFv09asSMX9e_EIbtU-FX9bW027vONjsMNtbapoTGrm8lF_Y81V4p4VgnJfwp-ZKzUwPR25Jl6xcykMSAE6zF51KY3BHCioB23B36GrpUOijj1-AXw9SVfavsIB-HIZ-CdCSpsR6bhJD-RjBWnZXd_W0F4_3aHlJMXIasPBRTLkyumA0n8odyBJwmrAfroI0-Hjyae667iQEJmw-I4367SIJlYWCrtcU"/>
+</div>
+<div class="absolute -bottom-6 -right-6 w-48 h-48 bg-primary text-on-primary p-6 rounded-xl shadow-2xl flex flex-col justify-center items-center text-center">
+<span class="material-symbols-outlined text-4xl mb-2" data-icon="query_stats">query_stats</span>
+<span class="text-sm font-bold">Side-by-Side Analysis</span>
+</div>
+</div>
+<div>
+<h2 class="text-4xl font-bold mb-8 text-on-surface">データに基づいた<br/>圧倒的な比較優位性を。</h2>
+<p class="text-on-surface-variant text-lg leading-relaxed mb-10">
+                            AIが両サイトの「ファーストビュー」「コンテンツ構造」「訴求軸」「CTA位置」をリアルタイムでスキャン。感覚的な評価ではなく、コンバージョンに直結する要素を数値とロジックで比較します。
+                        </p>
+<ul class="space-y-6">
+<li class="flex items-start gap-4">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check">check</span>
+</div>
+<div>
+<h3 class="font-bold text-on-surface">構成とコピーの差分抽出</h3>
+<p class="text-on-surface-variant text-sm">どのセクションがターゲットの心を掴んでいるかを言語化。</p>
+</div>
+</li>
+<li class="flex items-start gap-4">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+<span class="material-symbols-outlined text-primary text-lg" data-icon="check">check</span>
+</div>
+<div>
+<h3 class="font-bold text-on-surface">CTAパフォーマンス予測</h3>
+<p class="text-on-surface-variant text-sm">ボタンの文言や配置によるクリック率の違いをAIがシミュレーション。</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+<!-- 3-Step Guide -->
+<section class="py-24 bg-surface">
+<div class="max-w-7xl mx-auto px-8 text-center mb-16">
+<h2 class="text-4xl font-bold text-on-surface mb-4">使い方</h2>
+<div class="w-20 h-1 bg-primary mx-auto"></div>
+</div>
+<div class="max-w-7xl mx-auto px-8">
+<div class="grid md:grid-cols-3 gap-12">
+<div class="relative p-8 bg-surface-container-high rounded-xl text-center group hover:shadow-lg transition-shadow">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-xl shadow-md">1</div>
+<div class="mb-6 pt-4">
+<span class="material-symbols-outlined text-5xl text-primary" data-icon="link">link</span>
+</div>
+<h3 class="text-xl font-bold mb-4">URLを入力</h3>
+<p class="text-on-surface-variant text-sm">比較したい自社と競合のLPのURLをフォームに入力するだけです。</p>
+</div>
+<div class="relative p-8 bg-surface-container-high rounded-xl text-center group hover:shadow-lg transition-shadow">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-xl shadow-md">2</div>
+<div class="mb-6 pt-4">
+<span class="material-symbols-outlined text-5xl text-primary" data-icon="smart_toy">smart_toy</span>
+</div>
+<h3 class="text-xl font-bold mb-4">AIが自動分析</h3>
+<p class="text-on-surface-variant text-sm">独自の解析エンジンが数秒でページ全体をスキャンし、各要素を分解します。</p>
+</div>
+<div class="relative p-8 bg-surface-container-high rounded-xl text-center group hover:shadow-lg transition-shadow">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 w-12 h-12 bg-primary text-on-primary rounded-full flex items-center justify-center font-bold text-xl shadow-md">3</div>
+<div class="mb-6 pt-4">
+<span class="material-symbols-outlined text-5xl text-primary" data-icon="description">description</span>
+</div>
+<h3 class="text-xl font-bold mb-4">改善ポイントをレポート</h3>
+<p class="text-on-surface-variant text-sm">競合に勝つために、今すぐ直すべき具体的な改善アクションを提示します。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Dashboard Mockup (Bento Grid Style) -->
+<section class="py-24 bg-surface-container-lowest">
+<div class="max-w-7xl mx-auto px-8">
+<div class="mb-16 text-center">
+<h2 class="text-4xl font-bold mb-4">Analysis Result</h2>
+<p class="text-on-surface-variant">直感的で高機能な分析ダッシュボード</p>
+</div>
+<div class="grid grid-cols-12 gap-6">
+<!-- Main Preview -->
+<div class="col-span-12 lg:col-span-8 bg-white rounded-xl shadow-sm border border-outline-variant/30 p-6">
+<div class="flex items-center justify-between mb-6">
+<div class="flex gap-2">
+<div class="w-3 h-3 rounded-full bg-error/40"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary/40"></div>
+<div class="w-3 h-3 rounded-full bg-primary/40"></div>
+</div>
+<div class="px-4 py-1 bg-surface-container rounded-md text-xs font-bold text-on-surface-variant">COMPETITOR SCORE: 88/100</div>
+</div>
+<div class="aspect-video bg-surface-container-low rounded-lg border border-dashed border-outline-variant flex items-center justify-center relative overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="High-fidelity data visualization dashboard showing charts, conversion funnels, and landing page heatmaps with professional green accents" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYe5wGtOJUvPmJ0v474bzj0UxzKpYbzgTd1YLap_T4TYSCqqko3e-df2cw-dXsUPA8MopnTouipxBlv_JVGodkpoXpyiEQMxfeUKuN9JF7rlN24erTNZG8_6swTVv3RS2EFHq7cHxOJPUogGBpj0LB3ynufe9gxguxUzjPKG8L9Ji2Y1ZoOxjitU_69VRAOANkDUzwMp9eOzbI1Y6WiS7F3k2mo7p1alhNwLIKS7wM5bjAftePQrCZ1l9-SVAG84tZwDhGN5Dk74g"/>
+<div class="absolute inset-0 bg-gradient-to-t from-white/40 to-transparent"></div>
+</div>
+</div>
+<!-- Stats Card 1 -->
+<div class="col-span-12 sm:col-span-6 lg:col-span-4 bg-primary text-on-primary p-8 rounded-xl flex flex-col justify-between">
+<div>
+<span class="material-symbols-outlined text-3xl mb-4" data-icon="trending_up">trending_up</span>
+<h4 class="text-lg font-bold mb-2">想定CVR向上率</h4>
+<p class="text-4xl font-headline font-black">+14.2%</p>
+</div>
+<p class="text-sm opacity-80 mt-4">AI推奨の改善案を全て適用した場合の予測数値です。</p>
+</div>
+<!-- Stats Card 2 -->
+<div class="col-span-12 sm:col-span-6 lg:col-span-4 bg-tertiary-container text-on-tertiary-container p-8 rounded-xl">
+<h4 class="text-lg font-bold mb-4">重要改善項目</h4>
+<div class="space-y-4">
+<div class="flex justify-between items-center border-b border-on-tertiary-container/10 pb-2">
+<span>見出しの訴求</span>
+<span class="bg-error text-on-error px-2 py-0.5 rounded text-xs">High</span>
+</div>
+<div class="flex justify-between items-center border-b border-on-tertiary-container/10 pb-2">
+<span>追従CTA導入</span>
+<span class="bg-primary text-on-primary px-2 py-0.5 rounded text-xs">Mid</span>
+</div>
+<div class="flex justify-between items-center pb-2">
+<span>画像読み込み</span>
+<span class="bg-primary text-on-primary px-2 py-0.5 rounded text-xs">Mid</span>
+</div>
+</div>
+</div>
+<!-- Secondary Features Grid -->
+<div class="col-span-12 lg:col-span-8 grid grid-cols-2 gap-6">
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant/20">
+<h5 class="font-bold flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" data-icon="palette">palette</span>
+                                カラースキーム分析
+                            </h5>
+<div class="flex gap-1 mt-3">
+<div class="w-8 h-8 rounded bg-[#4a7c59]"></div>
+<div class="w-8 h-8 rounded bg-[#705c30]"></div>
+<div class="w-8 h-8 rounded bg-[#faf6f0]"></div>
+<div class="w-8 h-8 rounded bg-[#2e3230]"></div>
+</div>
+</div>
+<div class="bg-surface-container-high p-6 rounded-xl border border-outline-variant/20">
+<h5 class="font-bold flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary" data-icon="bolt">bolt</span>
+                                読み込み速度診断
+                            </h5>
+<div class="w-full bg-outline-variant/30 h-2 rounded-full mt-4">
+<div class="bg-primary w-[92%] h-full rounded-full"></div>
+</div>
+<span class="text-xs mt-2 inline-block">Score: 92/100 (Optimal)</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Analysis Items List (Grid) -->
+<section class="py-24 bg-surface-container-low">
+<div class="max-w-7xl mx-auto px-8">
+<div class="grid lg:grid-cols-4 gap-8">
+<div class="bg-surface p-8 rounded-xl shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="account_tree">account_tree</span>
+</div>
+<h4 class="text-xl font-bold mb-4">ページ構造</h4>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            競合がどのような順序で情報を伝え、ユーザーの期待感を高めているかをセクションごとに解析。
+                        </p>
+</div>
+<div class="bg-surface p-8 rounded-xl shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="ads_click">ads_click</span>
+</div>
+<h4 class="text-xl font-bold mb-4">訴求軸</h4>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            価格、品質、スピード、安心感。競合が最も強調している独自の強みをAIが特定。
+                        </p>
+</div>
+<div class="bg-surface p-8 rounded-xl shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="touch_app">touch_app</span>
+</div>
+<h4 class="text-xl font-bold mb-4">CTA配置</h4>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            ボタンの色、サイズ、文言、そして設置タイミング。離脱を防ぐための最適な設計をアドバイス。
+                        </p>
+</div>
+<div class="bg-surface p-8 rounded-xl shadow-sm hover:translate-y-[-4px] transition-transform">
+<div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="smartphone">smartphone</span>
+</div>
+<h4 class="text-xl font-bold mb-4">モバイル対応度</h4>
+<p class="text-on-surface-variant text-sm leading-relaxed">
+                            スマホでの視認性、操作性、表示速度を徹底チェック。モバイルユーザーを逃さないUIを。
+                        </p>
+</div>
+</div>
+</div>
+</section>
+<!-- CTA Section -->
+<section class="py-32 relative overflow-hidden">
+<div class="absolute inset-0 bg-primary/5"></div>
+<div class="max-w-4xl mx-auto px-8 relative text-center">
+<h2 class="text-4xl md:text-5xl font-bold mb-8 text-on-surface">
+                    あなたのLPは、<br class="md:hidden"/>競合に勝てていますか？
+                </h2>
+<p class="text-xl text-on-surface-variant mb-12">
+                    まずは無料でAIによるLP診断をお試しください。<br class="hidden md:block"/>
+                    あなたのビジネスを次のステージへ。
+                </p>
+<div class="flex flex-col items-center gap-6">
+<button class="w-full sm:w-auto bg-primary text-on-primary px-12 py-5 rounded-full font-label font-black text-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all">
+                        まずは無料で競合分析を試す
+                    </button>
+<p class="text-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-sm align-middle mr-1" data-icon="lock">lock</span>
+                        クレジットカードの登録は不要です
+                    </p>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full py-12 border-t border-stone-200/50 dark:border-emerald-900/50 bg-[#faf6f0] dark:bg-emerald-950">
+<div class="max-w-7xl mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+<div class="flex flex-col items-center md:items-start gap-2">
+<span class="font-['Literata'] text-lg font-semibold text-[#4a7c59]">Insight Studio</span>
+<p class="font-['Nunito_Sans'] text-xs uppercase tracking-widest text-stone-500 dark:text-stone-400">© 2024 Insight Studio. All rights reserved.</p>
+</div>
+<div class="flex gap-8">
+<a class="font-['Nunito_Sans'] text-xs uppercase tracking-widest text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-300 transition-colors cursor-pointer" href="#">Privacy</a>
+<a class="font-['Nunito_Sans'] text-xs uppercase tracking-widest text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-300 transition-colors cursor-pointer" href="#">Terms</a>
+<a class="font-['Nunito_Sans'] text-xs uppercase tracking-widest text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-300 transition-colors cursor-pointer" href="#">Contact</a>
+<a class="font-['Nunito_Sans'] text-xs uppercase tracking-widest text-stone-500 dark:text-stone-400 hover:text-[#4a7c59] dark:hover:text-emerald-300 transition-colors cursor-pointer" href="#">About</a>
+</div>
+</div>
+</footer>
+</body></html>

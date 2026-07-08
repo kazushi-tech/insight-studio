@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html lang="ja"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI考察：キャンペーン別 CPA ランキング - Insight Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ba1a1a",
+                    "tertiary": "#552021",
+                    "on-tertiary": "#ffffff",
+                    "on-surface-variant": "#404943",
+                    "on-secondary-fixed": "#012113",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed-dim": "#accfb9",
+                    "on-primary-container": "#85c4a2",
+                    "on-secondary-container": "#4b6b59",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2f312e",
+                    "tertiary-container": "#713636",
+                    "on-background": "#1a1c19",
+                    "surface-bright": "#fafaf5",
+                    "surface": "#fafaf5",
+                    "surface-container-high": "#e8e8e4",
+                    "on-tertiary-fixed-variant": "#703535",
+                    "surface-tint": "#2c694e",
+                    "primary-container": "#0f5238",
+                    "tertiary-fixed-dim": "#ffb3b1",
+                    "on-tertiary-container": "#f2a19f",
+                    "primary-fixed-dim": "#95d4b2",
+                    "secondary-container": "#c7ebd4",
+                    "primary": "#003925",
+                    "background": "#fafaf5",
+                    "on-surface": "#1a1c19",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#b0f1cd",
+                    "on-primary-fixed": "#002113",
+                    "on-primary": "#ffffff",
+                    "secondary": "#456553",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#0d5137",
+                    "inverse-primary": "#95d4b2",
+                    "tertiary-fixed": "#ffdad8",
+                    "surface-variant": "#e2e3de",
+                    "surface-container-low": "#f4f4ef",
+                    "on-secondary-fixed-variant": "#2e4d3c",
+                    "on-error-container": "#93000a",
+                    "inverse-on-surface": "#f1f1ec",
+                    "surface-dim": "#dadad6",
+                    "surface-container": "#eeeee9",
+                    "outline": "#707973",
+                    "on-tertiary-fixed": "#390b0d",
+                    "outline-variant": "#bfc9c1",
+                    "secondary-fixed": "#c7ebd4",
+                    "surface-container-highest": "#e2e3de"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {},
+            "fontFamily": {
+                    "headline": [
+                            "Manrope"
+                    ],
+                    "body": [
+                            "Inter"
+                    ],
+                    "label": [
+                            "Inter"
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: theme('colors.background');
+            color: theme('colors.on-surface');
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-[#fafaf5] text-[#1a1c19] antialiased">
+<!-- TopAppBar -->
+<header class="bg-[#fafaf5]/80 backdrop-blur-xl docked full-width top-0 sticky tonal depth shift from surface to surface-container shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex justify-between items-center w-full px-12 py-6 ml-72 max-w-[calc(100%-18rem)] z-50">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#003925] text-2xl" data-icon="search" data-weight="fill">search</span>
+<span class="font-['Manrope'] font-extrabold text-[#003925] text-lg tracking-widest uppercase">AI考察</span>
+</div>
+<div class="flex items-center gap-6">
+<button class="font-['Inter'] text-sm tracking-widest uppercase text-[#1a1c19]/40 hover:text-[#0f5238] transition-all opacity-80 hover:opacity-100 duration-300 flex items-center gap-2">
+                Period Selector
+            </button>
+<div class="flex items-center gap-4 text-[#003925]">
+<button class="hover:text-[#0f5238] transition-all opacity-80 hover:opacity-100 duration-300"><span class="material-symbols-outlined" data-icon="filter_list">filter_list</span></button>
+<button class="hover:text-[#0f5238] transition-all opacity-80 hover:opacity-100 duration-300"><span class="material-symbols-outlined" data-icon="download">download</span></button>
+<button class="hover:text-[#0f5238] transition-all opacity-80 hover:opacity-100 duration-300"><span class="material-symbols-outlined" data-icon="account_circle">account_circle</span></button>
+</div>
+<img alt="Chief Botanist Profile" class="w-8 h-8 rounded-full object-cover" data-alt="close-up portrait of a professional woman with a soft background in a well-lit office" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3IOZw_3ZvFqSEF4bFJlQ-iziBhwJawi1t5ElAavhPn2PxSP1KlTIaHLQK2Rl1m-8n5epBuGFLvRqWnElTeNOoOYpnkC1BEC2v5QGE7j5gaHLJJMYqXVTfDwAqp2GwMcdYOh7PHU2RV-ueP-y1P_-BBRBXc63dmGJIyJYTSWGjBRfzJvBseReou8U1XNS32lcLpEExzMWkIOIjAc6xmUPCrHQ_anICrUvm_Yht15WfJiTySYPHToWN2G3uwQi4pOpYn1Wc233r9Wcz"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="bg-[#f4f4f0] docked left-0 h-screen w-72 bg-[#f4f4f0] against surface-white tonal transition flat no shadows fixed left-0 top-0 h-full flex flex-col p-8 z-40">
+<div class="mb-12 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-[#003925] flex items-center justify-center text-[#fafaf5]">
+<span class="material-symbols-outlined" data-icon="spa" data-weight="fill">spa</span>
+</div>
+<div>
+<h1 class="text-xl font-bold text-[#003925] tracking-wide font-['Manrope']">Insight Studio</h1>
+<p class="text-xs text-[#003925]/70 font-['Inter'] tracking-widest uppercase">AI Analysis Core</p>
+</div>
+</div>
+<ul class="flex-1 space-y-2">
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#1a1c19]/60 font-medium hover:bg-[#0f5238]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+                    Ecosystem Overview
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#003925] font-bold border-r-4 border-[#003925] pr-4 bg-[#0f5238]/5 scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+                    Specimen Trends
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#1a1c19]/60 font-medium hover:bg-[#0f5238]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="database">database</span>
+                    Archival Insights
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-[#1a1c19]/60 font-medium hover:bg-[#0f5238]/5 transition-colors scale-95 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                    Lab Settings
+                </a>
+</li>
+</ul>
+<div class="mt-auto">
+<button class="w-full py-3 px-4 bg-[#003925] text-white rounded-full font-semibold hover:bg-[#0f5238] transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+                 Cultivate Insight
+             </button>
+</div>
+</nav>
+<!-- Main Canvas -->
+<main class="ml-72 pt-8 px-12 pb-24 max-w-7xl">
+<!-- Executive Summary Header -->
+<div class="mb-16">
+<h1 class="text-5xl font-bold font-headline text-primary mb-4 tracking-tight">AI考察：キャンペーン分析</h1>
+<p class="text-lg font-body text-on-surface-variant max-w-3xl leading-relaxed">
+                直近30日間のプロモーション生態系におけるパフォーマンスを俯瞰します。特定セグメントにおける獲得効率の良化が見られる一方、一部の成熟したチャネルではCPAの高騰が確認されています。予算の再配分による育成が推奨されます。
+            </p>
+</div>
+<!-- Table Section -->
+<div class="bg-surface-container-lowest rounded-DEFAULT p-8">
+<h2 class="text-2xl font-semibold font-headline text-primary mb-6">キャンペーン別 CPA ランキング</h2>
+<div class="overflow-hidden rounded-DEFAULT border border-outline-variant/15">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-primary text-on-primary">
+<th class="py-4 px-6 font-semibold text-sm tracking-wide uppercase font-label">キャンペーン名</th>
+<th class="py-4 px-6 font-semibold text-sm tracking-wide uppercase font-label">配信媒体</th>
+<th class="py-4 px-6 font-semibold text-sm tracking-wide uppercase font-label text-right">CPA (¥)</th>
+<th class="py-4 px-6 font-semibold text-sm tracking-wide uppercase font-label text-right">CVR (%)</th>
+<th class="py-4 px-6 font-semibold text-sm tracking-wide uppercase font-label text-right">流入数</th>
+</tr>
+</thead>
+<tbody class="text-on-surface font-body text-sm">
+<!-- Row 1 -->
+<tr class="bg-surface transition-colors hover:bg-surface-container-low">
+<td class="py-4 px-6 font-medium">春の新生活応援キャンペーン</td>
+<td class="py-4 px-6 text-on-surface-variant">Meta</td>
+<td class="py-4 px-6 text-right font-mono">1,250</td>
+<td class="py-4 px-6 text-right font-mono">3.2%</td>
+<td class="py-4 px-6 text-right font-mono">45,200</td>
+</tr>
+<!-- Row 2 -->
+<tr class="bg-surface-container-low transition-colors hover:bg-surface-container">
+<td class="py-4 px-6 font-medium">リターゲティング_既存顧客</td>
+<td class="py-4 px-6 text-on-surface-variant">Google</td>
+<td class="py-4 px-6 text-right font-mono">1,420</td>
+<td class="py-4 px-6 text-right font-mono">4.5%</td>
+<td class="py-4 px-6 text-right font-mono">28,500</td>
+</tr>
+<!-- Row 3 -->
+<tr class="bg-surface transition-colors hover:bg-surface-container-low">
+<td class="py-4 px-6 font-medium">指名検索ブランド保護</td>
+<td class="py-4 px-6 text-on-surface-variant">Google</td>
+<td class="py-4 px-6 text-right font-mono">850</td>
+<td class="py-4 px-6 text-right font-mono">8.1%</td>
+<td class="py-4 px-6 text-right font-mono">12,400</td>
+</tr>
+<!-- Row 4 -->
+<tr class="bg-surface-container-low transition-colors hover:bg-surface-container">
+<td class="py-4 px-6 font-medium">メルマガ会員限定</td>
+<td class="py-4 px-6 text-on-surface-variant">Newsletter</td>
+<td class="py-4 px-6 text-right font-mono">450</td>
+<td class="py-4 px-6 text-right font-mono">12.5%</td>
+<td class="py-4 px-6 text-right font-mono">8,900</td>
+</tr>
+<!-- Row 5 -->
+<tr class="bg-surface transition-colors hover:bg-surface-container-low">
+<td class="py-4 px-6 font-medium">夏のボーナス還元</td>
+<td class="py-4 px-6 text-on-surface-variant">Meta</td>
+<td class="py-4 px-6 text-right font-mono">1,890</td>
+<td class="py-4 px-6 text-right font-mono">2.1%</td>
+<td class="py-4 px-6 text-right font-mono">65,000</td>
+</tr>
+<!-- Row 6 -->
+<tr class="bg-surface-container-low transition-colors hover:bg-surface-container">
+<td class="py-4 px-6 font-medium">アフィリエイト新規</td>
+<td class="py-4 px-6 text-on-surface-variant">Affiliate</td>
+<td class="py-4 px-6 text-right font-mono">2,100</td>
+<td class="py-4 px-6 text-right font-mono">1.8%</td>
+<td class="py-4 px-6 text-right font-mono">32,100</td>
+</tr>
+<!-- Row 7 -->
+<tr class="bg-surface transition-colors hover:bg-surface-container-low">
+<td class="py-4 px-6 font-medium">YouTube動画広告</td>
+<td class="py-4 px-6 text-on-surface-variant">YouTube</td>
+<td class="py-4 px-6 text-right font-mono text-error">3,500</td>
+<td class="py-4 px-6 text-right font-mono">0.9%</td>
+<td class="py-4 px-6 text-right font-mono">110,000</td>
+</tr>
+<!-- Row 8 -->
+<tr class="bg-surface-container-low transition-colors hover:bg-surface-container">
+<td class="py-4 px-6 font-medium">LinkedIn法人営業</td>
+<td class="py-4 px-6 text-on-surface-variant">LinkedIn</td>
+<td class="py-4 px-6 text-right font-mono text-error">4,200</td>
+<td class="py-4 px-6 text-right font-mono">1.2%</td>
+<td class="py-4 px-6 text-right font-mono">15,600</td>
+</tr>
+<!-- Row 9 -->
+<tr class="bg-surface transition-colors hover:bg-surface-container-low">
+<td class="py-4 px-6 font-medium">地域限定LP誘導</td>
+<td class="py-4 px-6 text-on-surface-variant">Google</td>
+<td class="py-4 px-6 text-right font-mono">980</td>
+<td class="py-4 px-6 text-right font-mono">6.4%</td>
+<td class="py-4 px-6 text-right font-mono">4,500</td>
+</tr>
+<!-- Row 10 -->
+<tr class="bg-surface-container-low transition-colors hover:bg-surface-container">
+<td class="py-4 px-6 font-medium">年末早割</td>
+<td class="py-4 px-6 text-on-surface-variant">Native Ads</td>
+<td class="py-4 px-6 text-right font-mono">2,850</td>
+<td class="py-4 px-6 text-right font-mono">1.5%</td>
+<td class="py-4 px-6 text-right font-mono">54,000</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="mt-6 flex justify-end">
+<p class="text-xs font-label text-on-surface-variant tracking-widest uppercase">最終更新: 24時間前</p>
+</div>
+</div>
+</main>
+</body></html>
