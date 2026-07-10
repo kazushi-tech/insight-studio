@@ -114,6 +114,28 @@ def test_configured_integration_api_key_is_allowed(monkeypatch):
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize("compromised_key", ["test_key_123", "prod_key_456"])
+def test_previously_committed_integration_keys_are_never_accepted(
+    monkeypatch,
+    compromised_key,
+):
+    monkeypatch.setenv("RENDER", "true")
+    monkeypatch.setenv(
+        "INTEGRATION_API_KEYS",
+        f"pilot-integration-key,{compromised_key}",
+    )
+    client = _protected_client()
+
+    assert client.get(
+        "/api/protected",
+        headers={"X-API-Key": compromised_key},
+    ).status_code == 401
+    assert client.get(
+        "/api/protected",
+        headers={"X-API-Key": "pilot-integration-key"},
+    ).status_code == 200
+
+
 def test_render_without_auth_configuration_fails_closed(monkeypatch):
     monkeypatch.setenv("RENDER", "true")
     # Even an accidental dev override must never open a Render deployment.

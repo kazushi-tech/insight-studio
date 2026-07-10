@@ -24,6 +24,10 @@ from fastapi import Header, HTTPException, status
 
 _TRUTHY = {"1", "true", "yes", "on"}
 _PRODUCTION_ENVIRONMENTS = {"prod", "production", "staging"}
+# These values were committed as example defaults in an earlier Blueprint and
+# must never authenticate a request, even if Render preserved the old env var
+# while applying a later ``sync: false`` declaration.
+_COMPROMISED_INTEGRATION_KEYS = frozenset({"test_key_123", "prod_key_456"})
 
 
 @dataclass(frozen=True)
@@ -38,7 +42,11 @@ class AuthPrincipal:
 
 
 def _csv_keys(raw: str) -> set[str]:
-    return {key.strip() for key in raw.split(",") if key.strip()}
+    return {
+        key
+        for item in raw.split(",")
+        if (key := item.strip()) and key not in _COMPROMISED_INTEGRATION_KEYS
+    }
 
 
 # Kept as a mutable compatibility hook for the existing test suite.  Request
@@ -50,7 +58,7 @@ for _env_name in ("API_KEYS", "INTEGRATION_API_KEYS"):
 
 
 def _configured_api_keys() -> set[str]:
-    keys = set(API_KEYS)
+    keys = set(API_KEYS) - _COMPROMISED_INTEGRATION_KEYS
     for env_name in ("API_KEYS", "INTEGRATION_API_KEYS"):
         keys.update(_csv_keys(os.getenv(env_name, "")))
     return keys
