@@ -171,7 +171,7 @@ class TestValidateReviewOutput:
 
         assert report.valid is True
         assert data["improvements"][0]["point"] == "改善候補の再整理"
-        assert data["evidence"][0]["evidence_source"] == "アップロード画像の観察"
+        assert data["evidence"][0]["evidence_source"] == "評価保留（自動補完）"
         assert data["target_hypothesis"]
         assert data["message_angle"]
         assert {s["rubric_id"] for s in data["rubric_scores"]} == set(BANNER_RUBRIC_IDS)

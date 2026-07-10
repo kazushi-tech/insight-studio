@@ -2,63 +2,53 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 const GUIDE_PAGES = [
   {
-    src: null,
-    title: 'Insight Studio へようこそ',
-    description: 'このガイドでは、設定済みの分析プロバイダーで比較・発見・レビュー・Ads AI を進める流れを扱います。',
+    src: '/imagegen/data-to-action-paper-collage.webp',
+    title: 'まずはサイトの状態を確認',
+    description: '基本レポート・グラフ・根拠整理は、GeminiやClaudeのAPIキーなしで利用できます。',
     items: [
-      { icon: 'compare_arrows', title: 'LP比較・競合分析', body: 'URLを入力して、自社LPと競合LPの差分、優先施策、期待KPIを確認します。' },
-      { icon: 'travel_explore', title: '競合発見', body: 'ブランドURLから候補を発見し、直接競合・隣接競合・参考サイトを分けて分析します。' },
-      { icon: 'rate_review', title: 'クリエイティブレビュー', body: 'バナーやLPの訴求、CTA、信頼要素、広告-LP一致をレビューします。' },
+      { icon: 'summarize', title: 'まとめ', body: '重要な変化、判断を保留する項目、次に確認することを先に読みます。' },
+      { icon: 'monitoring', title: 'グラフ', body: 'アクセス数、来訪元、ページ、成果を期間と一緒に確認します。' },
+      { icon: 'tune', title: '分析条件', body: '対象サイト、期間、見る項目を選び直し、必要な範囲だけを表示します。' },
     ],
   },
   {
     src: null,
-    title: 'APIキーの設定',
-    description: 'Gemini または Claude の分析用 API キーを設定すると Compare / Discovery / Creative Review を開始できます。',
+    title: 'GA4 と BigQuery を接続',
+    description: 'Webサイトの実データを表示するには、GA4からBigQueryへのエクスポートとGoogle側の接続情報が必要です。画面の「準備」から順番に設定できます。',
     items: [
-      { icon: 'key', title: 'Gemini優先', body: 'Geminiキーが保存されている場合、分析系フローではGeminiを優先します。' },
-      { icon: 'swap_horiz', title: 'Claudeはフォールバック', body: 'Gemini未設定時はClaudeキーを分析用フォールバックとして使います。' },
-      { icon: 'lock', title: 'Ads AIは別条件', body: 'Ads AIは分析用APIキーに加えて、案件認証とセットアップ完了が必要です。' },
+      { icon: 'web', title: 'サイトを選ぶ', body: '分析するWebサイトと接続先を選択します。' },
+      { icon: 'date_range', title: '期間を選ぶ', body: 'まずは直近28日など、比較しやすい期間から始めます。' },
+      { icon: 'verified', title: '取得状態を確認', body: '未取得・一部取得・取得済みを区別し、ないデータを推測で補いません。' },
     ],
   },
   {
     src: null,
-    title: 'LP比較 & 競合発見',
-    description: 'LP比較と競合発見は、設定済みの分析プロバイダーで実行します。Gemini キーがある場合は Gemini が優先されます。',
+    title: 'AIキーは必要なときだけ',
+    description: '競合・LP分析やクリエイティブ診断を使うときに、ヘッダーの鍵アイコンからAPIキーを設定できます。Geminiを優先し、Claudeは予備として利用します。',
     items: [
-      { icon: 'flag', title: 'Action Board', body: '生成後はまず最優先施策、期待KPI、信頼度、最初の一手を確認します。' },
-      { icon: 'scatter_plot', title: 'ポジションマップ', body: '競合を獲得導線と信頼訴求の2軸で見て、勝ち筋と保留点を把握します。' },
-      { icon: 'fact_check', title: '根拠トレース', body: '評価保留と確認済み根拠を分け、低評価とデータ不足を混同しない設計です。' },
+      { icon: 'key_off', title: 'キーなし', body: '基本レポート、グラフ、根拠に基づく自動整理を利用できます。' },
+      { icon: 'smart_toy', title: 'Gemini', body: '競合・LP・画像の詳細分析で、低コストのモデルを優先します。' },
+      { icon: 'swap_horiz', title: 'Claude', body: 'Geminiを使わない場合の予備プロバイダーとして設定できます。' },
     ],
   },
   {
     src: null,
-    title: '広告分析ワークフロー',
-    description: 'Ads AI は分析用 API キーに加えて、案件認証と Ads セットアップ完了が前提です。',
+    title: '必要なら高度な分析へ',
+    description: '基本のサイト分析で課題を見つけたあとに、高度な分析を使います。最初から全機能を覚える必要はありません。',
     items: [
-      { icon: 'admin_panel_settings', title: '案件認証', body: '未認証時は安全な案内を表示し、赤い障害表示で不安を煽らないようにしています。' },
-      { icon: 'query_stats', title: 'セットアップ', body: '期間、媒体、粒度をセットしてから、グラフとAI考察へ進みます。' },
-      { icon: 'chat', title: 'Ads AI', body: '数値、期間、変化要因、次アクションに紐づく回答を目指します。' },
+      { icon: 'compare_arrows', title: '競合・LP比較', body: '自社と競合の訴求、CTA、信頼要素の違いを整理します。' },
+      { icon: 'travel_explore', title: '競合候補の発見', body: '候補を直接競合・隣接競合・参考サイトに分けて確認します。' },
+      { icon: 'rate_review', title: 'クリエイティブ診断', body: '広告画像の訴求、視線誘導、CTA、LPとの一致を確認します。' },
     ],
   },
   {
     src: null,
-    title: 'クリエイティブレビュー',
-    description: 'Creative Review は設定済みの分析プロバイダーでバナーを分析・評価します。',
+    title: '結果は根拠から読む',
+    description: 'AIの文章より先に、期間・数値・取得状態を確認します。判断できない項目は「未取得」として残します。',
     items: [
-      { icon: 'upload_file', title: '画像アップロード', body: 'PNG/JPG/WebPをアップロードし、必要に応じてブランド情報やLP URLを添えます。' },
-      { icon: 'radar', title: '評価レーダー', body: '視線誘導、訴求、CTA、信頼要素などをスコアと講評で確認します。' },
-      { icon: 'science', title: 'A/Bテスト案', body: '改善案は実務で試せる仮説として出し、効果断定を避けます。' },
-    ],
-  },
-  {
-    src: null,
-    title: 'Tips & ショートカット',
-    description: 'smoke 確認時は Compare → Discovery → Creative Review → Ads AI の順で見ると切り分けしやすくなります。',
-    items: [
-      { icon: 'content_copy', title: 'コピー', body: '生成レポートは上部のコピー導線から共有用テキストとして取り出せます。' },
-      { icon: 'print', title: '印刷', body: '詳細レポートは印刷/PDF化しやすいレイアウトで確認できます。' },
-      { icon: 'keyboard', title: 'キーボード操作', body: 'モーダル、目次、主要ボタンはフォーカス表示を保つようにしています。' },
+      { icon: 'fact_check', title: '確認済み', body: '取得できたデータと、そのデータから直接言えることを表示します。' },
+      { icon: 'help', title: '判断保留', body: 'データ不足や定義不足を、低評価と混同せずに分けて表示します。' },
+      { icon: 'task_alt', title: '次の一手', body: '誰が、何を、どの順番で確認するかまで落とし込みます。' },
     ],
   },
 ]
@@ -113,7 +103,7 @@ export default function GuideModal({ onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/30 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -122,11 +112,11 @@ export default function GuideModal({ onClose }) {
         aria-modal="true"
         aria-label="使い方ガイド"
         tabIndex={-1}
-        className="bg-surface-container-lowest rounded-xl shadow-lg w-[900px] max-w-[92vw] max-h-[90vh] flex flex-col outline-none"
+        className="flex max-h-[calc(100dvh-2rem)] w-full max-w-[900px] flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-lg outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+        <div className="flex items-start justify-between gap-4 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-secondary">menu_book</span>
             <h3 className="text-lg font-bold japanese-text">{current.title}</h3>
@@ -137,7 +127,7 @@ export default function GuideModal({ onClose }) {
             </span>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-secondary"
               aria-label="閉じる"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
@@ -146,18 +136,21 @@ export default function GuideModal({ onClose }) {
         </div>
 
         {/* Image Content */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4">
-          {current.src ? (
+        <div className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
+          {current.src && (
             <img
               src={current.src}
               alt={current.title}
-              className="w-full rounded-[0.75rem] object-contain"
+              width="1536"
+              height="1024"
+              className="max-h-64 w-full rounded-[0.75rem] object-cover object-center"
               draggable={false}
             />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          )}
+          {current.items?.length > 0 && (
+            <div className={`grid grid-cols-1 gap-4 md:grid-cols-3 ${current.src ? 'mt-4' : ''}`}>
               {current.items?.map((item) => (
-                <article key={item.title} className="rounded-[0.75rem] bg-surface-container-low p-5 min-h-[180px] flex flex-col gap-3">
+                <article key={item.title} className="flex min-w-0 flex-col gap-3 rounded-[0.75rem] bg-surface-container-low p-5 md:min-h-[180px]">
                   <span className="material-symbols-outlined text-secondary text-3xl" aria-hidden="true">{item.icon}</span>
                   <h4 className="text-base font-bold text-on-surface japanese-text">{item.title}</h4>
                   <p className="text-sm leading-6 text-on-surface-variant japanese-text">{item.body}</p>
@@ -178,25 +171,25 @@ export default function GuideModal({ onClose }) {
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-outline-variant/10">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-t border-outline-variant/10 px-4 py-3 sm:px-6 sm:py-4">
           <button
             onClick={goPrev}
             disabled={page === 0}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed text-on-surface-variant"
+            className="flex min-h-11 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-30"
           >
             <span className="material-symbols-outlined text-[18px]">chevron_left</span>
             前へ
           </button>
 
           {/* Center: dots + don't show again */}
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex min-w-0 flex-col items-center gap-1.5">
             <div className="flex items-center gap-2">
               {GUIDE_PAGES.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => setPage(i)}
                   aria-label={`ページ ${i + 1}`}
-                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                  className={`min-h-7 min-w-7 rounded-full border-8 border-transparent bg-clip-padding transition-transform ${
                     i === page
                       ? 'bg-secondary scale-110'
                       : 'bg-outline-variant/40 hover:bg-outline-variant/70'
@@ -224,7 +217,7 @@ export default function GuideModal({ onClose }) {
 
           <button
             onClick={page === GUIDE_PAGES.length - 1 ? onClose : goNext}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-surface-container text-on-surface-variant"
+            className="flex min-h-11 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container"
           >
             {page === GUIDE_PAGES.length - 1 ? (
               <>

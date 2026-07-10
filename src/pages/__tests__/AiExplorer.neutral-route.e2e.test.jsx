@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { BrowserRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../../App'
 import { AuthProvider } from '../../contexts/AuthContext'
 import { RbacProvider } from '../../contexts/RbacContext'
@@ -45,7 +45,7 @@ function seedReadyStorage() {
   sessionStorage.clear()
   localStorage.setItem('insight-studio-guide-seen', '1')
   localStorage.setItem('is_ads_token', 'test-token')
-  localStorage.setItem('is_gemini_key', 'test-gemini-key')
+  sessionStorage.setItem('is_gemini_key', 'test-gemini-key')
   localStorage.setItem('is_user', JSON.stringify({ role: 'admin', display_name: 'テスト管理者' }))
   localStorage.setItem(
     'insight-studio-current-case',
@@ -162,8 +162,9 @@ describe('/insights/ai neutral route AI Explorer', () => {
 
     const user = userEvent.setup()
     const { unmount } = renderAppAt('/insights/ai')
+    await vi.dynamicImportSettled()
 
-    expect(await screen.findByText('古い形式の回答です')).toBeInTheDocument()
+    expect(await screen.findByText('古い形式の回答です', {}, { timeout: 10000 })).toBeInTheDocument()
     expect(screen.queryByText('この回答は表示形式を整えられませんでした。新しいセッションで聞き直してください。')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'セッションをクリア' }))
@@ -217,9 +218,10 @@ describe('/insights/ai neutral route AI Explorer', () => {
     const user = userEvent.setup()
     renderAppAt('/')
 
-    await user.click(await screen.findByRole('button', { name: /サイト分析/ }))
-    const aiLink = await screen.findByRole('link', { name: /AIに聞く/ })
+    await user.click(await screen.findByRole('button', { name: /サイト分析/ }, { timeout: 10000 }))
+    const aiLink = await screen.findByRole('link', { name: /^AIに聞く$/ })
     await user.click(aiLink)
+    await vi.dynamicImportSettled()
 
     expect(window.location.pathname).toBe('/insights/ai')
     expect(await screen.findByTestId('ai-explorer-v2')).toBeInTheDocument()
@@ -237,7 +239,8 @@ describe('/insights/ai neutral route AI Explorer', () => {
 
     renderAppAt('/ads/ai?question=PV')
 
-    await waitFor(() => expect(window.location.pathname).toBe('/insights/ai'))
+    await waitFor(() => expect(window.location.pathname).toBe('/insights/ai'), { timeout: 10000 })
+    await vi.dynamicImportSettled()
     expect(window.location.search).toBe('?question=PV')
     expect(await screen.findByTestId('ai-explorer-v2')).toBeInTheDocument()
   })

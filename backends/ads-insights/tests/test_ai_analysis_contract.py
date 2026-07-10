@@ -63,6 +63,34 @@ BASE_PAYLOAD = {
 }
 
 
+EVIDENCE_PACK = {
+    "version": "chart_evidence_pack_v1",
+    "scope_label": "2026-05",
+    "chart_count": 1,
+    "charts": [
+        {
+            "chart_id": "chart_01_pv",
+            "title": "PV分析 — 日別推移",
+            "chart_type": "line",
+            "period_tag": "2026-05",
+            "series": [
+                {
+                    "label": "PV数",
+                    "points": [
+                        {"label": "5/1", "rawLabel": "20260501", "value": 100},
+                        {"label": "5/3", "rawLabel": "20260503", "value": 300},
+                    ],
+                    "latest": {"label": "5/3", "value": 300},
+                    "max": {"label": "5/3", "value": 300},
+                    "min": {"label": "5/1", "value": 100},
+                    "total": 400,
+                }
+            ],
+        }
+    ],
+}
+
+
 @pytest.fixture(autouse=True)
 def _patch_auth_and_rate(monkeypatch):
     backend_api._login_failures.clear()
@@ -115,6 +143,28 @@ async def _post_neon(monkeypatch, raw_response, path="/api/neon/generate"):
             json=BASE_PAYLOAD,
             headers={"Authorization": f"Bearer {token}", "X-Client-ID": "ai-analysis-contract-test"},
         )
+
+
+async def _post_neon_payload(payload, path="/api/neon/generate"):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=backend_api.app), base_url="http://test") as client:
+        token = await _token(client)
+        return await client.post(
+            path,
+            json=payload,
+            headers={"Authorization": f"Bearer {token}", "X-Client-ID": "ai-analysis-mode-test"},
+        )
+
+
+def _structured_payload(analysis_mode: str) -> dict:
+    return {
+        **BASE_PAYLOAD,
+        "analysis_mode": analysis_mode,
+        "message": "今回のPV状況を初心者向けに説明して",
+        "user_prompt": "今回のPV状況を初心者向けに説明して",
+        "workflow": "multi_agent_v1",
+        "report_contract_version": "insight_report_v2",
+        "chart_evidence_pack": EVIDENCE_PACK,
+    }
 
 
 @pytest.mark.anyio
@@ -216,6 +266,132 @@ async def test_empty_response_returns_user_facing_error(monkeypatch):
     assert body["ok"] is False
     assert body["error_code"] == "empty_ai_response"
     assert "AIから回答が返りませんでした" in body["detail"]
+
+
+@pytest.mark.anyio
+async def test_deterministic_mode_allows_no_api_key_and_makes_zero_llm_calls(monkeypatch):
+    monkeypatch.setattr(backend_api, "_is_client_key_required", lambda: True)
+    calls = 0
+
+    def should_not_call_llm(**_kwargs):
+        nonlocal calls
+        calls += 1
+        raise AssertionError("deterministic mode must not call Gemini")
+
+    monkeypatch.setattr(backend_api, "_gemini_generate", should_not_call_llm)
+    response = await _post_neon_payload(_structured_payload("deterministic"))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is True
+    assert body["analysis_mode"] == "deterministic"
+    assert body["execution_mode"] == "deterministic"
+    assert body["provider"] == "deterministic"
+    assert body["model"] is None
+    assert body["tokens_used"] == 0
+    assert body["llm_calls"] == 0
+    assert body["review_status"]["verdict"] == "pass"
+    assert "chart_01_pv" in body["text"]
+    assert calls == 0
+
+
+@pytest.mark.anyio
+async def test_economy_mode_uses_one_llm_call_when_first_draft_passes(monkeypatch):
+    calls = 0
+    valid_text = backend_api._build_review_safe_insight_report(
+        EVIDENCE_PACK,
+        query_text="今回のPV状況を初心者向けに説明して",
+    )
+
+    def fake_gemini(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return valid_text
+
+    monkeypatch.setattr(backend_api, "_gemini_generate", fake_gemini)
+    response = await _post_neon_payload(_structured_payload("economy"))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analysis_mode"] == "economy"
+    assert body["execution_mode"] == "economy_single_pass"
+    assert body["llm_calls"] == 1
+    assert body["tokens_used"] is None
+    assert body["token_usage_status"] == "not_reported"
+    assert body["review_status"]["verdict"] == "pass"
+    assert calls == 1
+
+
+@pytest.mark.anyio
+async def test_unspecified_structured_mode_defaults_to_economy(monkeypatch):
+    calls = 0
+    valid_text = backend_api._build_review_safe_insight_report(EVIDENCE_PACK)
+
+    def fake_gemini(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return valid_text
+
+    payload = _structured_payload("economy")
+    payload.pop("analysis_mode")
+    monkeypatch.setattr(backend_api, "_gemini_generate", fake_gemini)
+    response = await _post_neon_payload(payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["analysis_mode"] == "economy"
+    assert body["execution_mode"] == "economy_single_pass"
+    assert body["llm_calls"] == 1
+    assert calls == 1
+
+
+@pytest.mark.anyio
+async def test_economy_mode_repairs_once_then_stops(monkeypatch):
+    calls = 0
+    valid_text = backend_api._build_review_safe_insight_report(
+        EVIDENCE_PACK,
+        query_text="今回のPV状況を初心者向けに説明して",
+    )
+
+    def fake_gemini(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return "CPAは999円です。" if calls == 1 else valid_text
+
+    monkeypatch.setattr(backend_api, "_gemini_generate", fake_gemini)
+    response = await _post_neon_payload(_structured_payload("economy"))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["execution_mode"] == "economy_repair"
+    assert body["llm_calls"] == 2
+    assert body["review_status"]["verdict"] == "repaired"
+    assert body["review_status"]["repaired_from_issues"]
+    assert calls == 2
+
+
+@pytest.mark.anyio
+async def test_economy_mode_falls_back_safely_after_one_failed_repair(monkeypatch):
+    calls = 0
+
+    def always_invalid(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return "CPAは999円、ROASは500%です。"
+
+    monkeypatch.setattr(backend_api, "_gemini_generate", always_invalid)
+    response = await _post_neon_payload(_structured_payload("economy"))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["execution_mode"] == "deterministic_safe_fallback"
+    assert body["llm_calls"] == 2
+    assert body["fallback_used"] is True
+    assert body["review_status"]["verdict"] == "repaired"
+    assert body["review_status"]["verdict"] != "pass"
+    assert body["validation_warnings"]
+    assert "chart_01_pv" in body["text"]
+    assert calls == 2
 
 
 @pytest.mark.anyio

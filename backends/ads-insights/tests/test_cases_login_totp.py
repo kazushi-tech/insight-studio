@@ -2,7 +2,7 @@
 案件ログインの TOTP 2FA 動作テスト.
 
 scenarios:
-  - totp_enabled: false の案件 → パスワードだけで成功 (既存互換)
+  - totp_enabled: false の案件 → パスワードだけで成功し、trust token は発行しない
   - totp_enabled: true の案件:
       * パスワード正しい + TOTP 無し → ok=false, totp_required=true (status 200)
       * パスワード正しい + TOTP 正しい → ok=true, auth_token + device_trust_token 発行
@@ -27,6 +27,7 @@ os.environ.setdefault("DATA_PROVIDER", "mock")
 
 import bcrypt
 import httpx
+import jwt
 import pyotp
 import pytest
 
@@ -37,6 +38,7 @@ if str(ROOT) not in sys.path:
 from web.app.backend_api import (  # noqa: E402
     app,
     _login_failures,
+    _rate_buckets,
 )
 
 
@@ -77,8 +79,10 @@ def _fake_cases(*, totp_enabled: bool, totp_secret: str | None = None) -> list:
 @pytest.fixture(autouse=True)
 def _reset_rate_and_tokens():
     _login_failures.clear()
+    _rate_buckets.clear()
     yield
     _login_failures.clear()
+    _rate_buckets.clear()
 
 
 @pytest.fixture()
@@ -108,7 +112,7 @@ class TestCaseLoginNoTotp:
         body = resp.json()
         assert body["ok"] is True
         assert "token" in body
-        assert "device_trust_token" in body
+        assert "device_trust_token" not in body
 
 
 class TestCaseLoginTotpRequired:
@@ -225,6 +229,50 @@ class TestCaseLoginTotpRequired:
             body = resp.json()
             assert body["ok"] is False
             assert body["totp_required"] is True
+
+    @pytest.mark.anyio
+    async def test_legacy_trust_token_without_version_cannot_skip_totp(self, totp_enabled_cases):
+        legacy_trust = jwt.encode(
+            {
+                "typ": "device_trust",
+                "case_id": "test_case",
+                "exp": 4_102_444_800,
+                "jti": "legacy",
+            },
+            os.environ["JWT_SECRET"],
+            algorithm="HS256",
+        )
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            resp = await _post_login(c, {
+                "case_id": "test_case",
+                "password": _TEST_CASE_PASSWORD,
+                "device_trust_token": legacy_trust,
+            })
+
+        assert resp.status_code == 200
+        assert resp.json()["totp_required"] is True
+        assert "token" not in resp.json()
+
+    @pytest.mark.anyio
+    async def test_device_trust_version_change_revokes_existing_token(self, totp_enabled_cases):
+        code = pyotp.TOTP(_TEST_TOTP_SECRET).now()
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            first = await _post_login(c, {
+                "case_id": "test_case",
+                "password": _TEST_CASE_PASSWORD,
+                "totp_code": code,
+            })
+            trust_token = first.json()["device_trust_token"]
+            totp_enabled_cases[0]["device_trust_version"] = 2
+            second = await _post_login(c, {
+                "case_id": "test_case",
+                "password": _TEST_CASE_PASSWORD,
+                "device_trust_token": trust_token,
+            })
+
+        assert second.status_code == 200
+        assert second.json()["totp_required"] is True
+        assert "token" not in second.json()
 
     @pytest.mark.anyio
     async def test_valid_window_accepts_30s_drift(self, totp_enabled_cases):

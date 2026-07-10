@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import PerformanceRadar, { AXIS_GROUPS_BY_TYPE } from '../components/PerformanceRadar'
 import { useAuth } from '../contexts/AuthContext'
@@ -329,7 +330,7 @@ function RubricSection({ review }) {
       borderColor="border-secondary/20"
       bgColor="bg-surface-container-lowest"
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {items.map((item) => {
           const label = RUBRIC_LABEL_MAP[item.rubric_id] || item.rubric_id
           const isNA = item.score == null
@@ -422,7 +423,7 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
           </span>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {checks.map((item) => (
           <div key={item.label} className="rounded-xl bg-surface-container px-4 py-3 flex items-start gap-3 min-w-0">
             <span className={`material-symbols-outlined text-lg ${item.ok ? 'text-emerald-600' : 'text-amber-600'}`} aria-hidden="true">
@@ -435,128 +436,6 @@ function ReviewReadinessPanel({ fileName, assetMeta, lpUrl, hasAnalysisKey, prov
           </div>
         ))}
       </div>
-    </section>
-  )
-}
-
-function BannerImage2Overview({ onDemoSelect }) {
-  return (
-    <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>バナーレビュー</span>
-              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span className="font-bold text-primary">バナーレビュー</span>
-            </div>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">バナーレビュー</h2>
-            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-              アップロードしたバナーの成果改善ポイントを、総合スコア・最初の修正・良い点・根拠に分けて表示します。
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-outline-variant/25 bg-surface-container-lowest px-4 py-2 text-xs font-bold text-on-surface">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">download</span>
-              レポートをダウンロード
-            </button>
-            <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-700">
-              <span className="material-symbols-outlined text-base" aria-hidden="true">bookmark</span>
-              レポートを保存
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-xl border border-primary/15 bg-primary/[0.045] px-4 py-3 text-sm font-bold text-primary japanese-text">
-          <span className="material-symbols-outlined mr-2 align-[-4px] text-lg" aria-hidden="true">info</span>
-          実在ブランドではない検証用素材（架空デモ素材）です
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <article className="rounded-xl border border-outline-variant/20 bg-surface p-5">
-            <h3 className="text-lg font-extrabold text-on-surface japanese-text">架空デモ素材</h3>
-            <div className="mt-4 overflow-hidden rounded-xl border border-outline-variant/20 bg-[#f8f3df]">
-              <img
-                src="/demo-creatives/demo-creative-interior-300x250.png"
-                alt="架空デモバナー Kiri Sofa Fair"
-                className="h-auto w-full object-cover"
-              />
-            </div>
-            <p className="mt-3 text-xs text-on-surface-variant">ファイル名: demo-creative-interior-300x250.png</p>
-          </article>
-          <article className="rounded-xl border border-outline-variant/20 bg-surface p-5">
-            <h3 className="text-lg font-extrabold text-on-surface japanese-text">総合スコア <span className="font-normal text-on-surface-variant">（100点満点）</span></h3>
-            <div className="mt-8 grid place-items-center">
-              <div className="relative grid size-52 place-items-center rounded-full border-[18px] border-primary/20 border-t-primary">
-                <strong className="text-6xl font-black text-primary tabular-nums">74</strong>
-                <span className="absolute bottom-8 text-xl font-bold text-on-surface-variant">/100</span>
-              </div>
-              <span className="mt-5 rounded-lg bg-primary/[0.08] px-5 py-2 text-lg font-extrabold text-primary">良好</span>
-              <p className="mt-5 text-sm leading-7 text-on-surface-variant japanese-text">
-                訴求は明確で魅力的です。CTAと情報設計を最適化すると、さらに高い成果が期待できます。
-              </p>
-            </div>
-          </article>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <article className="rounded-xl border border-amber-300/60 bg-amber-50/60 p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-extrabold text-on-surface japanese-text">
-                <span className="material-symbols-outlined mr-2 align-[-4px] text-amber-600" aria-hidden="true">lightbulb</span>
-                最初の修正
-              </h3>
-              <span className="rounded-lg border border-amber-300 bg-surface-container-lowest px-3 py-1 text-xs font-black text-amber-700">重要度: 高</span>
-            </div>
-            <ol className="mt-4 space-y-3">
-              {['CTAボタンの視認性を上げる', 'オファーを強調', 'コピー量の最適化'].map((item, index) => (
-                <li key={item} className="flex gap-3 rounded-lg bg-surface-container-lowest px-3 py-3">
-                  <span className="grid size-7 place-items-center rounded-lg bg-primary/[0.1] text-sm font-black text-primary">{index + 1}</span>
-                  <span className="text-sm font-bold text-on-surface japanese-text">{item}</span>
-                </li>
-              ))}
-            </ol>
-            <button
-              type="button"
-              onClick={onDemoSelect}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-primary"
-            >
-              この架空デモ素材でレビューする
-              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
-            </button>
-          </article>
-          <article className="rounded-xl border border-primary/15 bg-primary/[0.045] p-5">
-            <h3 className="text-lg font-extrabold text-on-surface japanese-text">
-              <span className="material-symbols-outlined mr-2 align-[-4px] text-primary" aria-hidden="true">thumb_up</span>
-              良い点
-            </h3>
-            <ul className="mt-4 space-y-3 text-sm leading-7 text-on-surface japanese-text">
-              <li>メインコピーがシンプルで伝わりやすい</li>
-              <li>期間の表示が明確</li>
-              <li>トーンと配色が統一されている</li>
-            </ul>
-            <button type="button" className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-primary/25 bg-surface-container-lowest px-4 py-3 text-sm font-bold text-primary">
-              良い点をさらに詳しく見る
-              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
-            </button>
-          </article>
-        </div>
-      </div>
-
-      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-primary/15 bg-surface-container-lowest p-6 shadow-sm">
-        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
-        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">レビュー結果を質問</h3>
-        <p className="mt-4 rounded-xl border border-outline-variant/20 px-4 py-4 text-sm leading-7 text-on-surface japanese-text">
-          このバナーレビューについて、改善コピー・LPとのズレ・A/Bテスト案を質問できます。
-        </p>
-        <div className="mt-6 space-y-3">
-          {['最初に直す場所は？', 'CTRを上げるには？', 'LPとのズレは？'].map((prompt) => (
-            <span key={prompt} className="block rounded-full border border-primary/25 px-4 py-2 text-center text-sm font-bold text-primary japanese-text">
-              {prompt}
-            </span>
-          ))}
-        </div>
-      </aside>
     </section>
   )
 }
@@ -1237,39 +1116,43 @@ export default function CreativeReview() {
     : '画像未選択'
 
   return (
-    <div className="p-10 max-w-[1520px] mx-auto grid grid-cols-1 gap-8 xl:grid-cols-[minmax(0,1fr)_336px] xl:items-start">
+    <div className={`mx-auto grid max-w-[1520px] grid-cols-1 gap-6 p-4 sm:p-6 lg:p-8 ${isReviewed ? '2xl:grid-cols-[minmax(0,1fr)_336px] 2xl:items-start' : ''}`}>
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <header>
         <div>
-          <div className="flex items-center gap-2 text-sm text-on-surface-variant mb-2">
-            <span>競合LP分析</span>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
-            <span className="text-secondary font-bold">クリエイティブ・レビュー</span>
-          </div>
+          <nav aria-label="パンくず" className="mb-3 flex items-center gap-2 text-xs text-on-surface-variant sm:text-sm">
+            <span>追加分析</span>
+            <span className="material-symbols-outlined text-sm" aria-hidden="true">chevron_right</span>
+            <span className="font-bold text-secondary">広告画像を確認</span>
+          </nav>
           <div className="flex flex-wrap items-center gap-3">
-            <h2 className="display-md text-on-surface tracking-tight japanese-text">バナーレビュー</h2>
-            <span className="inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-secondary">
-              {providerLabel} レビュー
+            <h1 className="text-3xl font-extrabold tracking-tight text-on-surface japanese-text sm:text-4xl">広告画像を確認する</h1>
+            <span className="inline-flex items-center rounded-full bg-secondary/10 px-3 py-1 text-[11px] font-bold text-secondary">
+              バナーレビュー
             </span>
           </div>
-          <p className="text-on-surface-variant text-sm mt-1 japanese-text">バナー画像をアップロードして、現在の分析プロバイダー（{providerLabel}）でレビューします。</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-on-surface-variant japanese-text sm:text-base">
+            広告画像を1枚選ぶと、伝わりやすさ・ボタンの目立ちやすさ・最初に直す場所を確認できます。
+          </p>
         </div>
-      </div>
+      </header>
 
-      <AiContextRail
-        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
-        screenName="クリエイティブレビュー助手"
-        status={creativeRailStatus}
-        inputSummary={creativeRailInput}
-        evidence={['視覚インパクト', 'メッセージ明瞭性', 'CTA', 'ブランド適合', '欠損根拠']}
-        suggestedQuestions={[
-          '最初に直すべき要素を根拠つきで3つに絞って',
-          'A/Bテスト案を仮説・変更変数・期待指標で整理して',
-          '未観測の根拠を評価保留として分けて',
-        ]}
-        primaryAction="レビュー結果を広告改善案へ変換する"
-        helperText="スコアだけでなく、観測できた画像要素・推論・未取得情報を分けて施策化します。"
-      />
+      {isReviewed && (
+        <AiContextRail
+          className="hidden 2xl:col-start-2 2xl:row-start-1 2xl:row-span-[99] 2xl:block"
+          screenName="クリエイティブレビュー助手"
+          status={creativeRailStatus}
+          inputSummary={creativeRailInput}
+          evidence={['視覚インパクト', 'メッセージ明瞭性', 'CTA', 'ブランド適合', '欠損根拠']}
+          suggestedQuestions={[
+            '最初に直すべき要素を根拠つきで3つに絞って',
+            'A/Bテスト案を仮説・変更変数・期待指標で整理して',
+            '未観測の根拠を評価保留として分けて',
+          ]}
+          primaryAction="レビュー結果を広告改善案へ変換する"
+          helperText="スコアだけでなく、観測できた画像要素・推論・未取得情報を分けて施策化します。"
+        />
+      )}
 
       {/* Error Banner — shown whenever there's an error, regardless of phase */}
       {errorMessage && (
@@ -1291,29 +1174,41 @@ export default function CreativeReview() {
       {reviewRun && <MetaBand run={reviewRun} />}
 
       {/* ─── API Key Status ─── */}
-      {!hasAnalysisKey && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
-            <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">クリエイティブレビューには Gemini または Claude の分析用 API キーが必要です。設定画面から設定してください。</span>
+      <section
+        aria-label="分析用APIキーの状態"
+        className={`flex flex-col gap-3 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-5 ${
+          hasAnalysisKey
+            ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800 dark:border-success/30 dark:bg-success-container dark:text-on-success-container'
+            : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-warning/30 dark:bg-warning-container dark:text-on-warning-container'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">{hasAnalysisKey ? 'check_circle' : 'vpn_key'}</span>
+          <div>
+            <p className="font-bold japanese-text">{hasAnalysisKey ? '分析の準備ができています' : '分析用APIキーを設定してください'}</p>
+            <p className="mt-0.5 text-xs leading-5 japanese-text">
+              {hasAnalysisKey
+                ? `${providerLabel} を使って画像を確認します。`
+                : '画像の選択はできます。結果を作るには Gemini または Claude のAPIキーが必要です。'}
+            </p>
           </div>
         </div>
-      )}
-      <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
-        <span className="material-symbols-outlined text-lg">info</span>
-        <span className="japanese-text">クリエイティブレビューは現在 {providerLabel} で実行します。Gemini キーが設定されている場合は Gemini が優先されます。</span>
-      </div>
-
-      {!isUploaded && phase !== 'uploading' && (
-        <BannerImage2Overview onDemoSelect={() => handleDemoCreative(DEMO_CREATIVES[0])} />
-      )}
+        {!hasAnalysisKey && (
+          <Link
+            to="/settings"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            APIキーを設定する
+          </Link>
+        )}
+      </section>
 
       {/* ─── Step 1: Upload (full-width when no file uploaded) ─── */}
       {(!isUploaded && phase !== 'uploading') && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
+        <section className="rounded-xl bg-surface-container-lowest p-4 panel-card-hover sm:p-6" aria-labelledby="creative-upload-title">
           <h3 className="text-lg font-bold text-on-surface japanese-text mb-4 flex items-center gap-2">
             <span className="w-7 h-7 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary text-sm font-extrabold">1</span>
-            バナー画像アップロード
+            <span id="creative-upload-title">広告画像を選ぶ</span>
           </h3>
           <div
             ref={dropZoneRef}
@@ -1325,11 +1220,11 @@ export default function CreativeReview() {
             onDrop={onDrop}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
-            className="ghost-border-thick border-dashed rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-secondary hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[border-color,background-color,box-shadow]"
+            className="ghost-border-thick flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-dashed p-6 text-center transition-[border-color,background-color,box-shadow] hover:border-secondary hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary sm:min-h-52 sm:p-10"
           >
             <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-3" aria-hidden="true">cloud_upload</span>
-            <p className="text-sm text-on-surface-variant japanese-text">クリックまたはドラッグ＆ドロップで画像を選択</p>
-            <p className="text-xs text-on-surface-variant/60 mt-1">PNG / JPG 対応</p>
+            <p className="text-sm font-bold text-on-surface japanese-text">クリックして画像を選択</p>
+            <p className="mt-1 text-xs text-on-surface-variant japanese-text">PCではドラッグ＆ドロップにも対応しています（PNG / JPG / WebP）</p>
             <input
               ref={fileInputRef}
               aria-label="バナー画像ファイル"
@@ -1340,32 +1235,29 @@ export default function CreativeReview() {
               className="hidden"
             />
           </div>
-          <div className="mt-5 rounded-xl bg-surface-container px-5 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black tracking-[0.16em] text-secondary">デモ素材</p>
-                <p className="text-sm font-bold text-on-surface japanese-text mt-1">検証用の架空デモ素材で試す</p>
-                <p className="text-xs text-on-surface-variant japanese-text mt-1">{DEMO_NOTICE}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-4">
+          <details className="mt-4 rounded-xl bg-surface-container px-4 py-3 sm:px-5">
+            <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold text-on-surface japanese-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary">
+              自分の画像がない場合は、架空デモ素材で試す
+            </summary>
+            <p className="mt-1 text-xs leading-5 text-on-surface-variant japanese-text">{DEMO_NOTICE}</p>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {DEMO_CREATIVES.map((demo) => (
                 <button
                   key={demo.id}
                   type="button"
                   onClick={() => handleDemoCreative(demo)}
-                  className="flex items-center gap-3 rounded-[0.75rem] bg-surface-container-lowest px-3 py-3 text-left hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                  className="flex min-h-14 items-center gap-3 rounded-xl bg-surface-container-lowest px-3 py-3 text-left hover:bg-secondary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 >
-                  <img src={demo.src} alt="" className="h-12 w-[58px] rounded-md object-cover border border-outline-variant/20" />
+                  <img src={demo.src} alt="" width="58" height="48" className="h-12 w-[58px] rounded-md border border-outline-variant/20 object-cover" />
                   <span className="min-w-0">
                     <span className="block text-sm font-bold text-on-surface japanese-text">{demo.title}</span>
-                    <span className="block text-[11px] text-on-surface-variant japanese-text">架空デモ素材</span>
+                    <span className="block text-[11px] text-on-surface-variant japanese-text">この素材で試す</span>
                   </span>
                 </button>
               ))}
             </div>
-          </div>
-        </div>
+          </details>
+        </section>
       )}
 
       {phase === 'uploading' && (
@@ -1559,26 +1451,27 @@ export default function CreativeReview() {
 
       {/* ─── Flow Guide (idle only) ─── */}
       {phase === 'idle' && (
-        <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-8">
-          <h3 className="text-lg font-bold text-on-surface japanese-text mb-6 flex items-center gap-2">
-            <span className="material-symbols-outlined text-secondary">info</span>
-            使い方
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <details className="rounded-xl bg-surface-container-lowest px-4 py-3 panel-card-hover sm:px-6">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold text-on-surface japanese-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary">
+            使い方と確認できること
+          </summary>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[
-              { icon: 'cloud_upload', title: '画像をアップロード', desc: 'バナー画像（PNG/JPG）を選択' },
-              { icon: 'rate_review', title: 'AIレビュー', desc: `${providerLabel}がバナーを分析・評価` },
+              { icon: 'cloud_upload', title: '画像を選ぶ', desc: '広告に使う画像を1枚選択します' },
+              { icon: 'rate_review', title: '結果を確認', desc: `${providerLabel}が良い点と最初の修正を整理します` },
             ].map((step, i) => (
-              <div key={i} className="flex flex-col items-center text-center p-4">
-                <div className="w-12 h-12 bg-secondary/10 rounded-[0.75rem] flex items-center justify-center mb-3">
-                  <span className="material-symbols-outlined text-2xl text-secondary">{step.icon}</span>
+              <div key={i} className="flex items-start gap-3 rounded-xl bg-surface-container p-4">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-secondary/10">
+                  <span className="material-symbols-outlined text-xl text-secondary" aria-hidden="true">{step.icon}</span>
                 </div>
-                <p className="text-sm font-bold text-on-surface japanese-text">{step.title}</p>
-                <p className="text-xs text-on-surface-variant mt-1">{step.desc}</p>
+                <div>
+                  <p className="text-sm font-bold text-on-surface japanese-text">{step.title}</p>
+                  <p className="mt-1 text-xs leading-5 text-on-surface-variant japanese-text">{step.desc}</p>
+                </div>
               </div>
             ))}
           </div>
-        </div>
+        </details>
       )}
     </div>
   )

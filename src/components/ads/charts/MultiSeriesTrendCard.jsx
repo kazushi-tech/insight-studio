@@ -280,7 +280,7 @@ export default function MultiSeriesTrendCard({ group }) {
             </p>
           </div>
 
-          <svg role="img" aria-label={`${group?.title ?? 'グラフ'}の読みやすい推移`} viewBox="0 0 660 330" className="h-[380px] w-full">
+          <svg role="img" aria-label={`${group?.title ?? 'グラフ'}の読みやすい推移`} viewBox="0 0 660 330" className="h-[260px] w-full sm:h-[340px] lg:h-[380px]">
             <defs>
               <linearGradient id="trendPrimaryFill" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor={PRIMARY} stopOpacity="0.22" />

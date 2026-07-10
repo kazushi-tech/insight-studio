@@ -523,7 +523,7 @@ export default function EssentialPack() {
         {!isAdsAuthenticated && (
           <div className="bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-xl px-6 py-4 text-sm text-amber-800 dark:text-on-warning-container flex items-center gap-3">
             <span className="material-symbols-outlined text-amber-600 dark:text-warning">warning</span>
-            考察スタジオへのログインが必要です
+            Webサイト分析への接続が必要です
           </div>
         )}
 

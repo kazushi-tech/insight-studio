@@ -136,6 +136,47 @@ def test_generate_batch_returns_execution_summary_for_every_query(monkeypatch):
     assert set(summary) == {"search", "traffic", "custom_no_chart"}
 
 
+def test_generate_batch_treats_all_no_data_as_a_normal_partial_result(monkeypatch):
+    def fake_run_report(query_type, dataset, period):
+        return None
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_queries, "QUERIES", {"cv": {}})
+    monkeypatch.setattr(bq_reporter, "run_report", fake_run_report)
+
+    response = asyncio.run(api.api_bq_generate_batch(_FakeRequest({
+        "query_types": ["cv"],
+        "dataset_id": "analytics_123",
+        "period": "2026-05",
+    })))
+    body = _json_body(response)
+
+    assert response.status_code == 200
+    assert body["ok"] is True
+    assert body["data_availability"] == "partial"
+    assert body["execution_summary"][0]["status"] == "no_data"
+    assert "データがない項目" in body["missing_reason"]
+
+
+def test_bq_credentials_failure_is_service_unavailable_not_user_auth(monkeypatch):
+    class DefaultCredentialsError(Exception):
+        pass
+
+    def fake_run_query(sql, project_id):
+        raise DefaultCredentialsError("credentials were not found")
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_client, "PROJECT_ID", "demo-project")
+    monkeypatch.setattr(bq_client, "run_query", fake_run_query)
+
+    response = api.api_bq_periods(dataset_id="analytics_123", granularity="monthly", fresh=True)
+    body = _json_body(response)
+
+    assert response.status_code == 503
+    assert body["error"] == "bq_credentials_missing"
+    assert "再ログイン" not in body["message"]
+
+
 def test_dataset_ref_validation_rejects_injection_and_bad_dates():
     from bq.queries import get_query, normalize_dataset_ref
 

@@ -5,19 +5,20 @@ import { LoadingSpinner, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { buildAdsReportBundle, generateBatchWithRetry } from '../utils/adsReports'
+import { latestPeriodValue } from '../utils/wizardPeriods'
 
 const QUERY_TYPES = [
-  { id: 'pv', icon: 'trending_up', label: '見られた回数', desc: 'サイトがどれくらい見られたか、日ごとの変化を確認します。', color: 'text-orange-600' },
-  { id: 'traffic', icon: 'input', label: 'どこから来たか', desc: '検索、広告、ほかのサイトなど、主な来訪元を確認します。', color: 'text-blue-600' },
-  { id: 'cv', icon: 'target', label: '問い合わせ・予約・購入', desc: '成果として計測できた動きがあるかを確認します。', color: 'text-emerald-600' },
-  { id: 'search', icon: 'search', label: 'サイト内で検索された言葉', desc: '訪問した人がサイト内で探した言葉を確認します。', color: 'text-purple-600' },
-  { id: 'anomaly', icon: 'warning', label: '急に変わった日', desc: '普段と大きく違う動きがあった日を確認します。', color: 'text-red-600' },
-  { id: 'landing', icon: 'web', label: '入口になったページ', desc: '最初に見られたページと、改善候補を確認します。', color: 'text-cyan-700' },
-  { id: 'device', icon: 'devices', label: 'スマホ・パソコン', desc: '使われた端末による違いを確認します。', color: 'text-indigo-600' },
-  { id: 'hourly', icon: 'schedule', label: '見られた曜日・時間', desc: '訪問や成果が多い曜日・時間帯を確認します。', color: 'text-amber-700' },
-  { id: 'user_attr', icon: 'group', label: '訪問した人の傾向', desc: '取得できる範囲で、年齢・性別・地域などを確認します。', color: 'text-pink-600' },
-  { id: 'engagement', icon: 'timer', label: 'ちゃんと読まれたか', desc: 'ページを見た時間や、内容への反応を確認します。', color: 'text-teal-700' },
-  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: '有料流入への偏り（推定）', desc: '来訪元の構成から、有料流入への偏りを確認します。', color: 'text-rose-600' },
+  { id: 'pv', icon: 'trending_up', label: '見られた回数', term: 'ページビュー数（PV）・ユーザー数・セッション数', desc: 'サイトがどれくらい見られたか、日ごとの変化を確認します。', color: 'text-orange-600' },
+  { id: 'traffic', icon: 'input', label: 'どこから来たか', term: '流入元／参照元・メディア', desc: '検索、広告、ほかのサイトなど、主な来訪元を確認します。', color: 'text-blue-600' },
+  { id: 'cv', icon: 'target', label: '問い合わせ・予約・購入', term: 'キーイベント／コンバージョン（CV）', desc: '成果として計測できた動きがあるかを確認します。', color: 'text-emerald-600' },
+  { id: 'search', icon: 'search', label: 'サイト内で検索された言葉', term: 'サイト内検索クエリ', desc: '訪問した人がサイト内で探した言葉を確認します。', color: 'text-purple-600' },
+  { id: 'anomaly', icon: 'warning', label: '急に変わった日', term: '日別異常検知（Zスコア）', desc: '普段と大きく違う動きがあった日を確認します。', color: 'text-red-600' },
+  { id: 'landing', icon: 'web', label: '入口になったページ', term: 'ランディングページ（LP）', desc: '最初に見られたページと、改善候補を確認します。', color: 'text-cyan-700' },
+  { id: 'device', icon: 'devices', label: 'スマホ・パソコン', term: 'デバイスカテゴリ・OS', desc: '使われた端末による違いを確認します。', color: 'text-indigo-600' },
+  { id: 'hourly', icon: 'schedule', label: '見られた時間帯', term: '時間帯別分析', desc: '訪問や成果が多い時間帯を確認します。', color: 'text-amber-700' },
+  { id: 'user_attr', icon: 'group', label: '初めて・再訪した人と地域', term: '新規／リピーター・地域別分析', desc: '取得できる範囲で、新規・再訪と国・地域の傾向を確認します。', color: 'text-pink-600' },
+  { id: 'engagement', icon: 'timer', label: 'ちゃんと読まれたか', term: 'エンゲージメント時間', desc: 'ページを見た時間や、内容への反応を確認します。', color: 'text-teal-700' },
+  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: '有料流入への偏り', term: '流入チャネル構成比（GA4推定）', desc: '来訪元の構成から、有料流入への偏りを確認します。', color: 'text-rose-600' },
 ]
 
 const BASIC_QUERY_IDS = new Set(['pv', 'traffic', 'cv', 'landing'])
@@ -70,6 +71,9 @@ function QueryOption({ queryType, index, selected, onToggle }) {
           {selected ? 'check_circle' : 'circle'}
         </span>
       </span>
+      <span className="mt-2 block text-xs font-black leading-5 text-primary/80 japanese-text">
+        （{queryType.term}）
+      </span>
       <span className="mt-3 block text-xs font-bold leading-6 text-on-surface-variant japanese-text">{queryType.desc}</span>
     </button>
   )
@@ -88,6 +92,7 @@ export default function SetupWizard() {
   const [periods, setPeriods] = useState([])
   const [selectedPeriods, setSelectedPeriods] = useState(new Set())
   const [generatedPeriods, setGeneratedPeriods] = useState(new Set())
+  const [generatedResults, setGeneratedResults] = useState(new Map())
   const [loadResult, setLoadResult] = useState(null)
   const [granularity, setGranularity] = useState('monthly')
   const [loadingLabel, setLoadingLabel] = useState('処理中…')
@@ -103,6 +108,7 @@ export default function SetupWizard() {
     setPeriods([])
     setSelectedPeriods(new Set())
     setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
     setLoadResult(null)
     setGranularity('monthly')
     setLoadingLabel('処理中…')
@@ -119,6 +125,7 @@ export default function SetupWizard() {
     setPeriods([])
     setSelectedPeriods(new Set())
     setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
     setLoadResult(null)
     setGranularity('monthly')
     setLoadingLabel('処理中…')
@@ -130,6 +137,7 @@ export default function SetupWizard() {
     next.has(index) ? next.delete(index) : next.add(index)
     setSelected(next)
     setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
     setLoadResult(null)
   }
 
@@ -138,6 +146,7 @@ export default function SetupWizard() {
     next.has(value) ? next.delete(value) : next.add(value)
     setSelectedPeriods(next)
     setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
     setLoadResult(null)
   }
 
@@ -159,6 +168,7 @@ export default function SetupWizard() {
     setGranularity(gran)
     setSelectedPeriods(new Set())
     setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
     setError(null)
     setLoadResult(null)
     setPeriodDiagnostics(null)
@@ -173,7 +183,7 @@ export default function SetupWizard() {
         setError(diagnostics?.message || 'この粒度では利用可能な分析期間が見つかりませんでした。')
       } else {
         setPeriods(items)
-        const latestPeriod = periodValue(items[items.length - 1])
+        const latestPeriod = latestPeriodValue(items)
         setSelectedPeriods(latestPeriod ? new Set([latestPeriod]) : new Set())
       }
     } catch (e) {
@@ -200,6 +210,7 @@ export default function SetupWizard() {
           setPeriods([])
           setSelectedPeriods(new Set())
           setGeneratedPeriods(new Set())
+          setGeneratedResults(new Map())
           setLoadResult(null)
           setError(diagnostics?.message || 'BigQueryデータセットに利用可能な分析期間が見つかりませんでした。')
           setStep(1)
@@ -207,9 +218,10 @@ export default function SetupWizard() {
         }
 
         setPeriods(items)
-        const latestPeriod = periodValue(items[items.length - 1])
+        const latestPeriod = latestPeriodValue(items)
         setSelectedPeriods(latestPeriod ? new Set([latestPeriod]) : new Set())
         setGeneratedPeriods(new Set())
+        setGeneratedResults(new Map())
         setLoadResult(null)
         setStep(1)
       } catch (e) {
@@ -225,30 +237,30 @@ export default function SetupWizard() {
       if (selectedPeriods.size === 0) return
       setLoading(true)
       setLoadingLabel('レポートを生成中…')
-      let completedCount = generatedPeriods.size
+      let completedCount = generatedResults.size
 
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
         const periodsArray = [...selectedPeriods]
-        const currentGenerated = new Set(generatedPeriods)
-        const pendingPeriods = periodsArray.filter((period) => !currentGenerated.has(period))
+        const currentResults = new Map(generatedResults)
+        const pendingPeriods = periodsArray.filter((period) => !currentResults.has(period))
         setLoadingLabel(`レポートを生成中… (0/${periodsArray.length})`)
 
-        const results = []
         for (const period of pendingPeriods) {
-          setLoadingLabel(`レポートを生成中… (${currentGenerated.size}/${periodsArray.length})`)
+          setLoadingLabel(`レポートを生成中… (${currentResults.size}/${periodsArray.length})`)
           const data = await generateBatchWithRetry({
             query_types: queryTypeIds,
             dataset_id: getCurrentDatasetId(),
             period,
           })
-          currentGenerated.add(period)
-          completedCount = currentGenerated.size
-          setGeneratedPeriods(new Set(currentGenerated))
-          setLoadingLabel(`レポートを生成中… (${currentGenerated.size}/${periodsArray.length})`)
-          results.push({ ...data, period })
+          currentResults.set(period, { ...data, period })
+          completedCount = currentResults.size
+          setGeneratedResults(new Map(currentResults))
+          setGeneratedPeriods(new Set(currentResults.keys()))
+          setLoadingLabel(`レポートを生成中… (${currentResults.size}/${periodsArray.length})`)
         }
+        const results = periodsArray.map((period) => currentResults.get(period)).filter(Boolean)
         const reportBundle = buildAdsReportBundle({
           setupState: {
             queryTypes: queryTypeIds,
@@ -291,6 +303,7 @@ export default function SetupWizard() {
     if (step === 1) {
       setSelectedPeriods(new Set())
       setGeneratedPeriods(new Set())
+      setGeneratedResults(new Map())
       setLoadResult(null)
     }
     setStep((current) => current - 1)
@@ -325,7 +338,7 @@ export default function SetupWizard() {
       {!isAdsAuthenticated && !authExpiredMessage && (
         <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
           <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
+          <span className="japanese-text">Webサイト分析への接続が必要です。ヘッダーの鍵アイコンから認証してください。</span>
         </div>
       )}
 
@@ -432,8 +445,10 @@ export default function SetupWizard() {
               <button
                 type="button"
                 onClick={() => {
-                  const latest = periodValue(periods[periods.length - 1])
+                  const latest = latestPeriodValue(periods)
                   setSelectedPeriods(latest ? new Set([latest]) : new Set())
+                  setGeneratedPeriods(new Set())
+                  setGeneratedResults(new Map())
                 }}
                 disabled={loading || periods.length === 0}
                 className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-50"
@@ -442,7 +457,11 @@ export default function SetupWizard() {
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedPeriods(new Set(periods.map(periodValue).filter(Boolean)))}
+                onClick={() => {
+                  setSelectedPeriods(new Set(periods.map(periodValue).filter(Boolean)))
+                  setGeneratedPeriods(new Set())
+                  setGeneratedResults(new Map())
+                }}
                 disabled={loading || periods.length === 0}
                 className="min-h-11 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary disabled:opacity-50"
               >

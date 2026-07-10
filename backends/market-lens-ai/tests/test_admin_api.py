@@ -128,24 +128,31 @@ class TestRootRedirect:
 
 
 # ---------------------------------------------------------------------------
-# Static pages
+# Legacy static-page migration redirects
 # ---------------------------------------------------------------------------
 
-class TestStaticPages:
-    def test_admin_page(self, client):
-        res = client.get("/admin")
-        assert res.status_code == 200
-        assert "管理画面" in res.text
+class TestLegacyPageRedirects:
+    @pytest.mark.parametrize(
+        ("legacy_path", "frontend_path"),
+        [
+            ("/admin", "/settings"),
+            ("/lp", "/lp"),
+            ("/onboarding", "/ads/wizard"),
+        ],
+    )
+    def test_redirects_to_react_frontend(
+        self, client, monkeypatch, legacy_path, frontend_path
+    ):
+        monkeypatch.setenv("FRONTEND_APP_URL", "https://app.example.test")
+        res = client.get(legacy_path, follow_redirects=False)
+        assert res.status_code == 307
+        assert res.headers["location"] == f"https://app.example.test{frontend_path}"
 
-    def test_lp_page(self, client):
-        res = client.get("/lp")
-        assert res.status_code == 200
-        assert "Market Lens AI" in res.text
-
-    def test_onboarding_page(self, client):
-        res = client.get("/onboarding")
-        assert res.status_code == 200
-        assert "オンボーディング" in res.text
+    def test_missing_frontend_url_falls_back_to_api_docs(self, client, monkeypatch):
+        monkeypatch.delenv("FRONTEND_APP_URL", raising=False)
+        res = client.get("/lp", follow_redirects=False)
+        assert res.status_code == 307
+        assert res.headers["location"] == "/docs"
 
 
 # ---------------------------------------------------------------------------

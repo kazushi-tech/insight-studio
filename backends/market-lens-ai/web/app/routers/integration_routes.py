@@ -17,14 +17,19 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, HTTPException, Security, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Security, status
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
+from ..auth import verify_admin_or_integration
 from ..policies import validate_operator_url
 
 logger = logging.getLogger("market-lens.integrations")
 
-router = APIRouter(prefix="/api/integrations", tags=["integrations"])
+router = APIRouter(
+    prefix="/api/integrations",
+    tags=["integrations"],
+    dependencies=[Depends(verify_admin_or_integration)],
+)
 
 # ── Configuration ───────────────────────────────────────────────
 
@@ -266,8 +271,8 @@ async def webhook_review_request(
     })
 
     logger.info(
-        "Webhook review request %s from %s (auth=%s): %s",
-        request_id, req.source_tool, auth[:8] + "***", req.asset_url,
+        "Webhook review request %s from %s (authenticated=true): %s",
+        request_id, req.source_tool, req.asset_url,
     )
 
     return WebhookResponse(
@@ -318,7 +323,7 @@ async def import_asset(
         "created_at": now,
     })
 
-    logger.info("Asset import %s (auth=%s): %s", import_id, auth[:8] + "***", req.url)
+    logger.info("Asset import %s (authenticated=true): %s", import_id, req.url)
 
     return ImportResponse(
         import_id=import_id,

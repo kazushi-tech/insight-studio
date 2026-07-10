@@ -9,8 +9,15 @@ import { isCompatibleApiKey, normalizeApiKey } from '../utils/apiKeys'
 const AuthContext = createContext(null)
 
 const STORAGE_KEY_TOKEN = 'is_ads_token'
-const STORAGE_KEY_CLAUDE = 'is_claude_key'
-const STORAGE_KEY_GEMINI = 'is_gemini_key'
+const SESSION_KEY_CLAUDE = 'is_claude_key'
+const SESSION_KEY_GEMINI = 'is_gemini_key'
+
+function loadSessionSecret(key) {
+  const value = normalizeApiKey(sessionStorage.getItem(key) || '')
+  // 旧版がlocalStorageへ保存したキーは、永続化を避けるため移行せず削除する。
+  localStorage.removeItem(key)
+  return value
+}
 
 export function AuthProvider({ children }) {
   const onLogoutCallbacksRef = useRef(new Set())
@@ -22,12 +29,12 @@ export function AuthProvider({ children }) {
 
   // Claude API key — 分析・類推系 (Compare, Discovery, CreativeReview review, AiExplorer)
   const [claudeKey, setClaudeKeyState] = useState(
-    () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_CLAUDE) || '')
+    () => loadSessionSecret(SESSION_KEY_CLAUDE)
   )
 
   // Gemini API key — BYOK: ユーザーが自分のキーを使う (課金はユーザーのGCPアカウントへ)
   const [geminiKey, setGeminiKeyState] = useState(
-    () => normalizeApiKey(localStorage.getItem(STORAGE_KEY_GEMINI) || '')
+    () => loadSessionSecret(SESSION_KEY_GEMINI)
   )
 
   // RBAC user object { user_id, email, role, display_name }
@@ -40,14 +47,16 @@ export function AuthProvider({ children }) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [authExpiredMessage, setAuthExpiredMessage] = useState(null)
+  const clearAuthExpiredMessage = useCallback(() => setAuthExpiredMessage(null), [])
 
   const setClaudeKey = useCallback((key) => {
     const normalized = normalizeApiKey(key)
     setClaudeKeyState(normalized)
     if (normalized) {
-      localStorage.setItem(STORAGE_KEY_CLAUDE, normalized)
+      sessionStorage.setItem(SESSION_KEY_CLAUDE, normalized)
     } else {
-      localStorage.removeItem(STORAGE_KEY_CLAUDE)
+      sessionStorage.removeItem(SESSION_KEY_CLAUDE)
     }
   }, [])
 
@@ -55,9 +64,9 @@ export function AuthProvider({ children }) {
     const normalized = normalizeApiKey(key)
     setGeminiKeyState(normalized)
     if (normalized) {
-      localStorage.setItem(STORAGE_KEY_GEMINI, normalized)
+      sessionStorage.setItem(SESSION_KEY_GEMINI, normalized)
     } else {
-      localStorage.removeItem(STORAGE_KEY_GEMINI)
+      sessionStorage.removeItem(SESSION_KEY_GEMINI)
     }
   }, [])
 
@@ -66,6 +75,7 @@ export function AuthProvider({ children }) {
     setError(null)
     try {
       const data = await adsLogin(password)
+      setAuthExpiredMessage(null)
       setAdsToken(data.token)
       localStorage.setItem(STORAGE_KEY_TOKEN, data.token)
       const userData = { role: 'admin', display_name: 'オペレーター' }
@@ -86,6 +96,7 @@ export function AuthProvider({ children }) {
     setError(null)
     try {
       const data = await apiLoginWithEmail(email, password)
+      setAuthExpiredMessage(null)
       if (data.token) {
         setAdsToken(data.token)
         localStorage.setItem(STORAGE_KEY_TOKEN, data.token)
@@ -104,6 +115,7 @@ export function AuthProvider({ children }) {
 
   // Case login — パスワード1つで案件にログイン
   const handleLoginWithCase = useCallback((caseResult) => {
+    setAuthExpiredMessage(null)
     // caseResult = { case_id, name, dataset_id, token? }
     if (caseResult.token) {
       setAdsToken(caseResult.token)
@@ -129,6 +141,10 @@ export function AuthProvider({ children }) {
     adsLogout()
     setAdsToken(null)
     setUser(null)
+    setClaudeKeyState('')
+    setGeminiKeyState('')
+    sessionStorage.removeItem(SESSION_KEY_CLAUDE)
+    sessionStorage.removeItem(SESSION_KEY_GEMINI)
     localStorage.removeItem(STORAGE_KEY_TOKEN)
     localStorage.removeItem('is_user')
     onLogoutCallbacksRef.current.forEach((cb) => cb())
@@ -151,9 +167,6 @@ export function AuthProvider({ children }) {
       localStorage.setItem(STORAGE_KEY_TOKEN, response.refreshed_token)
     }
   }, [])
-
-  const [authExpiredMessage, setAuthExpiredMessage] = useState(null)
-  const clearAuthExpiredMessage = useCallback(() => setAuthExpiredMessage(null), [])
 
   useEffect(() => {
     setOnAuthError(() => {

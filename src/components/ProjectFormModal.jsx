@@ -187,7 +187,7 @@ export default function ProjectFormModal({ onClose, project }) {
           />
         </div>
         <p className="text-xs text-on-surface-variant japanese-text">
-          GA4 管理画面の BigQuery Links で確認できます。未設定でも Compare / Discovery / Creative Review は利用できます。
+          GA4管理画面のBigQuery Linksで確認できます。未設定でも競合・LP・クリエイティブ分析は利用できます。
         </p>
       </div>
 

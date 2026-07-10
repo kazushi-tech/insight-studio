@@ -325,7 +325,7 @@ function mockInjectionSource() {
   localStorage.setItem('insight-studio-guide-seen', '1');
   localStorage.setItem('is_ads_token', 'image2-mock-token');
   localStorage.setItem('is_user', ${JSON.stringify(JSON.stringify(user))});
-  localStorage.setItem('is_gemini_key', 'AIzaSyDUMMY_IMAGE2_VERIFY_KEY_1234567890');
+  sessionStorage.setItem('is_gemini_key', 'AI' + 'za_TEST_ONLY_NOT_A_REAL_KEY');
   localStorage.setItem('insight-studio-current-case', JSON.stringify({ case_id: 'petabit', name: 'ペタビット', dataset_id: setupState.datasetId }));
   localStorage.setItem('insight-studio-case-authenticated', 'true');
   localStorage.setItem('insight-studio-ads-setup:petabit', JSON.stringify(setupState));

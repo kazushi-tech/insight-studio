@@ -7,9 +7,10 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ..auth import verify_admin_or_integration
 from ..repositories.asset_repository import AssetRepository
 from ..repositories.creative_review_repository import (
     CreativeReviewRepository,
@@ -112,7 +113,11 @@ def create_review_router(
     review_repo: CreativeReviewRepository | None = None,
 ) -> APIRouter:
     """Factory that creates review routes wired to the given asset repository."""
-    router = APIRouter(prefix="/api/reviews", tags=["creative-reviews"])
+    router = APIRouter(
+        prefix="/api/reviews",
+        tags=["creative-reviews"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
 
     def _persist(review_type: str, asset_id: str, result: ReviewResult, req) -> str | None:
         """Persist review run and output if review_repo is wired.

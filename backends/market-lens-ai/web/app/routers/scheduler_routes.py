@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from croniter import croniter
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_auth_optional, verify_token
+from ..auth import verify_admin_or_integration, verify_auth_optional, verify_token
 
 from ..schemas.job import Job, JobCreate, JobResult, JobType, JobUpdate
 from ..jobs.scheduler import JobScheduler
@@ -37,7 +37,11 @@ def create_scheduler_router(
     runner: JobRunner | None = None,
 ) -> APIRouter:
     """Factory that creates scheduler routes."""
-    router = APIRouter(prefix="/api/jobs", tags=["scheduler"])
+    router = APIRouter(
+        prefix="/api/jobs",
+        tags=["scheduler"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
     _scheduler = scheduler or JobScheduler()
     _runner = runner or JobRunner(_scheduler)
 

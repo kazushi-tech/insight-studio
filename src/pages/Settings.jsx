@@ -8,9 +8,9 @@ import { useUserProfile } from '../contexts/UserProfileContext'
 import { ANALYSIS_PROVIDER_ANTHROPIC, ANALYSIS_PROVIDER_GEMINI } from '../utils/analysisProvider'
 import { getApiKeyValidationError, validateClaudeKeyRemote } from '../utils/apiKeys'
 
-function SettingsCard({ icon, title, description, children }) {
+function SettingsCard({ icon, title, description, children, className = '' }) {
   return (
-    <section className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-6">
+    <section className={`space-y-6 rounded-[0.75rem] bg-surface-container-lowest p-5 panel-card-hover sm:p-6 ${className}`}>
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-secondary">{icon}</span>
@@ -53,8 +53,8 @@ function InlineNotice({ tone = 'success', children }) {
   const icon = tone === 'error' ? 'error' : 'check_circle'
 
   return (
-    <div className={`flex items-center gap-3 rounded-[0.75rem] border px-4 py-3 text-sm ${toneClass}`}>
-      <span className="material-symbols-outlined text-lg">{icon}</span>
+    <div role={tone === 'error' ? 'alert' : 'status'} aria-live="polite" className={`flex items-center gap-3 rounded-[0.75rem] border px-4 py-3 text-sm ${toneClass}`}>
+      <span className="material-symbols-outlined text-lg" aria-hidden="true">{icon}</span>
       <span className="japanese-text">{children}</span>
     </div>
   )
@@ -161,11 +161,11 @@ function GeminiBudgetCard({ geminiKey, hasGeminiKey }) {
     return () => { alive = false }
   }, [])
 
-  const primaryBudget = budgets.ml || budgets.ads
-  const totalUsed = Number(primaryBudget?.used_usd || 0)
+  const totalUsed = Number(budgets.ml?.used_usd || 0) + Number(budgets.ads?.used_usd || 0)
+  const totalBudget = Number(budgets.ml?.budget_usd || 0) + Number(budgets.ads?.budget_usd || 0)
   const availableSources = [
-    budgets.ml ? 'Market Lens' : null,
-    budgets.ads ? 'Ads AI' : null,
+    budgets.ml ? '競合・LP分析' : null,
+    budgets.ads ? 'Webサイト分析AI' : null,
   ].filter(Boolean).join(' / ')
   const anyStopped = [budgets.ml, budgets.ads].some((b) => b?.status === 'exceeded' || b?.storage_status === 'corrupt')
 
@@ -203,38 +203,42 @@ function GeminiBudgetCard({ geminiKey, hasGeminiKey }) {
   return (
     <SettingsCard
       icon="data_usage"
-      title="Gemini 月間利用上限"
-      description="Insight Studio内のGemini API利用を月$18目安で止めます。Google側の請求アラートも併用してください。"
+      title="Gemini 利用状況（機能別）"
+      description="競合・LP分析とWebサイト分析AIは別々に上限を管理します。Google側の請求アラートも必ず併用してください。"
     >
       {loading ? (
         <div className="rounded-[0.75rem] bg-surface-container px-4 py-3 text-sm text-on-surface-variant japanese-text">
-          利用状況を確認中...
+          利用状況を確認中…
         </div>
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between rounded-[0.75rem] bg-primary/[0.06] px-4 py-3">
             <div>
               <p className="text-sm font-bold text-primary japanese-text">合計使用額</p>
-              <p className="text-xs text-on-surface-variant japanese-text">Market Lens と Ads AI 共通の月間上限です。</p>
+              <p className="text-xs text-on-surface-variant japanese-text">取得できた各分析機能の記録を合算しています。</p>
             </div>
-            <span className="text-lg font-black text-primary">{formatUsd(totalUsed)}</span>
+            <span className="text-right text-lg font-black text-primary">
+              {formatUsd(totalUsed)}
+              {totalBudget > 0 && <small className="block text-[10px] font-medium text-on-surface-variant">確認できた上限 {formatUsd(totalBudget)}</small>}
+            </span>
           </div>
-          {primaryBudget && <BudgetMeter label="Insight Studio Gemini 共通上限" budget={primaryBudget} />}
+          {budgets.ml && <BudgetMeter label="競合・LP・クリエイティブ分析" budget={budgets.ml} />}
+          {budgets.ads && <BudgetMeter label="Webサイト分析AI" budget={budgets.ads} />}
           {availableSources && (
             <p className="text-xs text-on-surface-variant japanese-text">取得元: {availableSources}</p>
           )}
           <div className="flex flex-col gap-3 rounded-[0.75rem] bg-surface-container px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-bold japanese-text">Gemini API疎通テスト</p>
-              <p className="text-xs text-on-surface-variant japanese-text">保存済みキーで短い1回だけ実行し、使用額の変化を確認します。</p>
+              <p className="text-sm font-bold japanese-text">Webサイト分析側の接続テスト</p>
+              <p className="text-xs text-on-surface-variant japanese-text">保存済みキーで短い1回だけ実行します。少額のAPI利用が発生します。</p>
             </div>
             <button
               onClick={handleSmokeTest}
               disabled={testing || !hasGeminiKey || anyStopped}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-[0.75rem] bg-primary-container px-4 py-2.5 text-sm font-bold text-on-primary transition-all hover:opacity-88 disabled:opacity-50"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-[0.75rem] bg-primary-container px-4 py-2.5 text-sm font-bold text-on-primary transition-opacity hover:opacity-88 disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-base">{testing ? 'progress_activity' : 'bolt'}</span>
-              {testing ? '確認中...' : '疎通テスト'}
+              <span className="material-symbols-outlined text-base" aria-hidden="true">{testing ? 'progress_activity' : 'bolt'}</span>
+              {testing ? '確認中…' : '少額テストを実行'}
             </button>
           </div>
           {!hasGeminiKey && (
@@ -243,7 +247,12 @@ function GeminiBudgetCard({ geminiKey, hasGeminiKey }) {
           {testResult && (
             <InlineNotice tone={testResult.tone}>{testResult.message}</InlineNotice>
           )}
-          {error && <ErrorBanner message={error} />}
+          {error && (
+            <div className="flex flex-col gap-3 rounded-[0.75rem] bg-surface-container px-4 py-3 text-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between">
+              <span className="japanese-text">利用額を取得できませんでした。分析機能そのものは、接続状態に応じて利用できます。</span>
+              <button onClick={loadBudgets} className="min-h-11 shrink-0 rounded-xl px-4 font-bold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-primary">再取得</button>
+            </div>
+          )}
           {anyStopped && (
             <InlineNotice tone="error">
               Geminiは月間上限に達したため停止中です。Claude fallbackを使うか、翌月まで待ってください。
@@ -266,8 +275,10 @@ export default function Settings() {
     hasGeminiKey,
     isAdsAuthenticated,
     logoutAds,
+    user,
   } = useAuth()
   const { isDark, toggleTheme } = useTheme()
+  const canConfigureAdvanced = user?.role === 'admin'
 
   const [localDisplayName, setLocalDisplayName] = useState(displayName)
   const [profileSaved, setProfileSaved] = useState(false)
@@ -413,69 +424,46 @@ export default function Settings() {
   }
 
   function handleAdsLogout() {
-    if (!window.confirm('考察スタジオとの接続を解除しますか？')) return
+    if (!window.confirm('Webサイト分析との接続を解除しますか？')) return
     logoutAds()
     setAuthError(null)
-    setAuthNotice('考察スタジオとの接続を解除しました。')
+    setAuthNotice('Webサイト分析との接続を解除しました。')
   }
 
   return (
-    <div className="p-10 max-w-6xl mx-auto space-y-8">
+    <div className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:space-y-8 lg:p-10">
       <div className="space-y-2">
-        <h2 className="text-3xl font-extrabold text-on-surface tracking-tight japanese-text">設定・レポート管理</h2>
-        <p className="text-on-surface-variant text-sm japanese-text">Gemini または Claude の分析用 API キーで Compare / Discovery / Creative Review を始められます。</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-on-surface japanese-text">データ連携・設定</h1>
+        <p className="text-sm text-on-surface-variant japanese-text">Webサイトの実データ接続と、必要な場合だけ使うAIキーを管理します。</p>
       </div>
 
-      <div className="grid grid-cols-12 gap-8 items-start">
-      <div className="col-span-7 space-y-8">
+      <section className="grid gap-3 rounded-2xl bg-primary p-4 text-on-primary sm:grid-cols-3 sm:p-5" aria-labelledby="availability-title">
+        <h2 id="availability-title" className="sr-only">機能ごとの利用条件</h2>
+        <div className="rounded-xl bg-white/10 p-4"><strong className="block">基本レポート・グラフ</strong><span className="text-sm text-white/75">AIキー不要</span></div>
+        <div className="rounded-xl bg-white/10 p-4"><strong className="block">競合・LP・画像分析</strong><span className="text-sm text-white/75">{canConfigureAdvanced ? (hasGeminiKey || hasClaudeKey ? '追加分析を利用できます' : '管理者が有効化できます') : '導入担当者が安全に実行します'}</span></div>
+        <div className="rounded-xl bg-white/10 p-4"><strong className="block">Webサイト実データ</strong><span className="text-sm text-white/75">{isAdsAuthenticated ? '分析データ接続済み' : 'Google接続と案件認証が必要'}</span></div>
+      </section>
 
-      <SettingsCard
-        icon="person"
-        title="プロフィール"
-        description="右上の表示名とアバター初期文字に反映されます。ブラウザごとに保存されます。"
-      >
-        <div className="space-y-3">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text" htmlFor="display-name">
-            表示名
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
-              id="display-name"
-              className="flex-1 bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-              value={localDisplayName}
-              maxLength={20}
-              onChange={(e) => setLocalDisplayName(e.target.value)}
-              placeholder="オペレーター"
-            />
-            <button
-              onClick={handleProfileSave}
-              className="px-6 py-3 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
-            >
-              保存
-            </button>
-          </div>
-          <p className="text-xs text-on-surface-variant">20文字まで。空欄で保存した場合は「オペレーター」になります。</p>
-          {profileError && <ErrorBanner message={profileError} />}
-          {profileSaved && <InlineNotice>表示名を保存しました。</InlineNotice>}
-        </div>
-      </SettingsCard>
+      <div className="grid grid-cols-1 items-start gap-6 xl:gap-8">
+      <div className="flex flex-col gap-6 xl:gap-8">
 
+      {canConfigureAdvanced && (<>
       <SettingsCard
         icon="smart_toy"
         title="Gemini API キー（推奨）"
-        description="AIエクスプローラーの分析に使います。GCP アカウントへの課金となります。Gemini キーが設定されている場合は Claude より優先されます。"
+        description="競合・LP・画像の詳細分析に使います。Google側でAPI利用料が発生し、Claudeより優先されます。"
       >
         <div className="space-y-4">
           {hasGeminiKey && !editingGemini ? (
             <>
               <div className="rounded-[0.75rem] bg-surface-container px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Saved Key</p>
+                <p className="mb-1 text-xs font-bold text-on-surface-variant">このタブで利用中のキー</p>
                 <p className="font-mono text-sm text-on-surface">{maskSecret(geminiKey)}</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => { setEditingGemini(true); setGeminiError(null) }}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="min-h-11 rounded-[0.75rem] bg-primary-container px-5 py-2.5 text-sm font-bold text-on-primary transition-opacity hover:opacity-88"
                 >
                   変更
                 </button>
@@ -489,8 +477,14 @@ export default function Settings() {
             </>
           ) : (
             <div className="space-y-3">
+              <label htmlFor="settings-gemini-key" className="text-sm font-bold text-on-surface japanese-text">Gemini APIキー</label>
               <input
+                id="settings-gemini-key"
+                name="gemini-api-key"
                 type="password"
+                autoComplete="off"
+                spellCheck={false}
+                aria-describedby="settings-gemini-help"
                 className="w-full bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="AIza..."
                 value={geminiInput}
@@ -500,14 +494,14 @@ export default function Settings() {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleGeminiSave}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="min-h-11 rounded-[0.75rem] bg-primary-container px-5 py-2.5 text-sm font-bold text-on-primary transition-opacity hover:opacity-88"
                 >
-                  保存
+                  Geminiキーを保存
                 </button>
                 {hasGeminiKey && (
                   <button
                     onClick={() => { setEditingGemini(false); setGeminiInput(geminiKey); setGeminiError(null) }}
-                    className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
+                    className="min-h-11 rounded-[0.75rem] bg-surface-container px-5 py-2.5 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container-high"
                   >
                     キャンセル
                   </button>
@@ -522,6 +516,7 @@ export default function Settings() {
                 <span className="material-symbols-outlined text-sm">open_in_new</span>
                 Google AI Studio で API キーを取得
               </a>
+              <p id="settings-gemini-help" className="text-xs text-on-surface-variant japanese-text">キーはこのタブを閉じるまでだけ保持されます。共有端末では利用後に削除してください。</p>
             </div>
           )}
           {geminiError && <ErrorBanner message={geminiError} />}
@@ -531,14 +526,14 @@ export default function Settings() {
 
       <SettingsCard
         icon="smart_toy"
-        title="分析用 API設定（Claude）"
-        description="Gemini キー未設定の場合のフォールバックとして使われます。Compare / Discovery / クリエイティブレビューで利用できます。"
+        title="Claude API キー（予備）"
+        description="Gemini未設定時の予備として、競合・LP・クリエイティブ分析で利用できます。"
       >
         <div className="space-y-4">
           {hasClaudeKey && !editingClaude ? (
             <>
               <div className="rounded-[0.75rem] bg-surface-container px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-1">Saved Key</p>
+                <p className="mb-1 text-xs font-bold text-on-surface-variant">このタブで利用中のキー</p>
                 <p className="font-mono text-sm text-on-surface">{maskSecret(claudeKey)}</p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -547,7 +542,7 @@ export default function Settings() {
                     setEditingClaude(true)
                     setClaudeError(null)
                   }}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all"
+                  className="min-h-11 rounded-[0.75rem] bg-primary-container px-5 py-2.5 text-sm font-bold text-on-primary transition-opacity hover:opacity-88"
                 >
                   変更
                 </button>
@@ -561,8 +556,14 @@ export default function Settings() {
             </>
           ) : (
             <div className="space-y-3">
+              <label htmlFor="settings-claude-key" className="text-sm font-bold text-on-surface japanese-text">Claude APIキー</label>
               <input
+                id="settings-claude-key"
+                name="claude-api-key"
                 type="password"
+                autoComplete="off"
+                spellCheck={false}
+                aria-describedby="settings-claude-help"
                 className="w-full bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="sk-ant-..."
                 value={claudeInput}
@@ -573,9 +574,9 @@ export default function Settings() {
                 <button
                   onClick={handleClaudeSave}
                   disabled={claudeValidating}
-                  className="px-5 py-2.5 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-88 transition-all disabled:opacity-50"
+                  className="min-h-11 rounded-[0.75rem] bg-primary-container px-5 py-2.5 text-sm font-bold text-on-primary transition-opacity hover:opacity-88 disabled:opacity-50"
                 >
-                  {claudeValidating ? '検証中...' : '保存'}
+                  {claudeValidating ? '検証中…' : 'Claudeキーを保存'}
                 </button>
                 {hasClaudeKey && (
                   <button
@@ -584,7 +585,7 @@ export default function Settings() {
                       setClaudeInput(claudeKey)
                       setClaudeError(null)
                     }}
-                    className="px-5 py-2.5 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
+                    className="min-h-11 rounded-[0.75rem] bg-surface-container px-5 py-2.5 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container-high"
                   >
                     キャンセル
                   </button>
@@ -599,6 +600,7 @@ export default function Settings() {
                 <span className="material-symbols-outlined text-sm">open_in_new</span>
                 Anthropic Console でAPIキーを取得
               </a>
+              <p id="settings-claude-help" className="text-xs text-on-surface-variant japanese-text">保存時に最小リクエストで確認します。キーはこのタブを閉じるまでだけ保持されます。</p>
             </div>
           )}
           {claudeError && <ErrorBanner message={claudeError} />}
@@ -607,16 +609,17 @@ export default function Settings() {
       </SettingsCard>
 
       <GeminiBudgetCard geminiKey={geminiKey} hasGeminiKey={hasGeminiKey} />
+      </>)}
 
       <SettingsCard
         icon="cloud"
-        title="接続管理"
-        description="考察スタジオとの接続を管理します。ログイン状態はこのブラウザに保持されます。"
+        title="Webサイト分析 接続"
+        description="GA4・BigQueryの分析データへ接続する認証状態を管理します。"
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between rounded-[0.75rem] bg-surface-container px-4 py-3">
             <div>
-              <p className="text-sm font-bold japanese-text">考察スタジオ</p>
+              <p className="text-sm font-bold japanese-text">Webサイト分析データ</p>
               <p className="text-xs text-on-surface-variant">{isAdsAuthenticated ? '現在接続中です。' : '現在は未接続です。'}</p>
             </div>
             <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${
@@ -662,81 +665,52 @@ export default function Settings() {
         </div>
       </SettingsCard>
 
-      </div>{/* end col-span-7 */}
+      <SettingsCard
+        icon="person"
+        title="プロフィール"
+        description="右上の表示名とアバター初期文字に反映されます。ブラウザごとに保存されます。"
+      >
+        <div className="space-y-3">
+          <label className="text-sm font-bold text-on-surface-variant japanese-text" htmlFor="display-name">
+            表示名
+          </label>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              id="display-name"
+              name="display-name"
+              autoComplete="nickname"
+              className="flex-1 bg-surface-container-low rounded-[0.75rem] py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+              value={localDisplayName}
+              maxLength={20}
+              onChange={(e) => setLocalDisplayName(e.target.value)}
+              placeholder="オペレーター"
+            />
+            <button
+              onClick={handleProfileSave}
+              className="min-h-11 rounded-[0.75rem] bg-primary-container px-6 py-3 text-sm font-bold text-on-primary transition-opacity hover:opacity-88"
+            >
+              表示名を保存
+            </button>
+          </div>
+          <p className="text-xs text-on-surface-variant">20文字まで。空欄で保存した場合は「オペレーター」になります。</p>
+          {profileError && <ErrorBanner message={profileError} />}
+          {profileSaved && <InlineNotice>表示名を保存しました。</InlineNotice>}
+        </div>
+      </SettingsCard>
 
-      <div className="col-span-5 sticky top-24">
-        <section className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6 space-y-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary">history</span>
-              <h3 className="text-lg font-bold japanese-text">レポート履歴</h3>
-            </div>
-            <p className="text-sm text-on-surface-variant japanese-text">過去に生成したレポートの一覧です。</p>
-          </div>
-          <div className="flex flex-col items-center justify-center py-12 text-on-surface-variant">
-            <span className="material-symbols-outlined text-5xl text-outline-variant mb-3">description</span>
-            <p className="text-sm font-bold japanese-text">レポート履歴はまだありません</p>
-            <p className="text-xs mt-1 japanese-text">AIエクスプローラーでレポートを生成すると、ここに履歴が表示されます。</p>
-          </div>
-        </section>
       </div>
 
-      </div>{/* end grid-cols-12 */}
-
-      <div className="mt-16 pt-8 border-t border-outline-variant/10 flex justify-end gap-4">
-        <button
-          onClick={() => {
-            setLocalDisplayName(displayName)
-            setClaudeInput(claudeKey)
-            setEditingClaude(!hasClaudeKey)
-            setToast({ tone: 'neutral', message: '変更を破棄しました。' })
-          }}
-          className="px-6 py-3 bg-surface-container text-on-surface rounded-[0.75rem] font-bold text-sm hover:bg-surface-container-high transition-all"
-        >
-          キャンセル
-        </button>
-        <button
-          onClick={() => {
-            let saved = false
-            const trimmedName = localDisplayName.trim()
-            if (trimmedName !== displayName) {
-              if (trimmedName.length > 20) {
-                setToast({ tone: 'error', message: '表示名は20文字以内にしてください。' })
-                return
-              }
-              setDisplayName(trimmedName)
-              saved = true
-            }
-            if (editingClaude && claudeInput.trim() && claudeInput.trim() !== claudeKey) {
-              const validationError = getApiKeyValidationError(claudeInput.trim(), ANALYSIS_PROVIDER_ANTHROPIC)
-              if (validationError) {
-                setToast({ tone: 'error', message: validationError })
-                return
-              }
-              setClaudeKey(claudeInput.trim())
-              setEditingClaude(false)
-              saved = true
-            }
-            setToast({
-              tone: 'success',
-              message: saved ? '設定を保存しました。' : '変更はありません。',
-            })
-          }}
-          className="px-6 py-3 bg-gradient-to-r from-primary-container to-emerald-600 text-on-primary rounded-[0.75rem] font-bold text-sm hover:opacity-90 transition-all"
-        >
-          保存する
-        </button>
       </div>
 
       {toast && (
-        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl px-6 py-4 shadow-lg text-sm font-bold transition-all animate-[slideUp_0.3s_ease-out] ${
+        <div role={toast.tone === 'error' ? 'alert' : 'status'} aria-live="polite" className={`fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 items-center gap-3 rounded-2xl px-6 py-4 text-sm font-bold shadow-lg transition-[opacity,transform] animate-[slideUp_0.3s_ease-out] lg:bottom-[calc(env(safe-area-inset-bottom)+1rem)] ${
           toast.tone === 'error'
             ? 'bg-error text-on-error'
             : toast.tone === 'neutral'
               ? 'bg-surface-container-high text-on-surface'
               : 'bg-emerald-600 text-white'
         }`}>
-          <span className="material-symbols-outlined text-lg">
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">
             {toast.tone === 'error' ? 'error' : toast.tone === 'neutral' ? 'info' : 'check_circle'}
           </span>
           <span className="japanese-text">{toast.message}</span>

@@ -69,9 +69,9 @@ vi.spyOn(console, 'error').mockImplementation(() => {})
  */
 function renderAndSubmit() {
   render(<Discovery />, { wrapper: TestProviders })
-  const input = screen.getByPlaceholderText('競合他社のURLを入力')
+  const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
   fireEvent.change(input, { target: { value: 'https://example.com' } })
-  fireEvent.click(screen.getByRole('button', { name: /競合を発見/ }))
+  fireEvent.click(screen.getByRole('button', { name: /競合候補を探す/ }))
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -83,7 +83,7 @@ describe('Discovery — polling core logic', () => {
     vi.useFakeTimers({ shouldAdvanceTime: false })
     localStorage.clear()
     sessionStorage.clear()
-    localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+    sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
 
     warmMarketLensBackend.mockResolvedValue(true)
     startDiscoveryJob.mockResolvedValue({

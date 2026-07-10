@@ -20,31 +20,50 @@ from .deterministic_evaluator import (
 from .models import ExtractedData
 
 
-# Remediation playbook: axis_key → (headline, expected_effect)
-_AXIS_PLAYBOOK: dict[str, tuple[str, str]] = {
+# Remediation playbook:
+# axis_key → (headline, expected_effect, expected_kpi, effort, first_validation)
+_AXIS_PLAYBOOK: dict[str, tuple[str, str, str, str, str]] = {
     "search_intent_match": (
         "検索意図に沿ったFV/見出しへリライト",
-        "CTR +10〜20% 見込み",
+        "検索語と訴求の一致度改善を確認",
+        "CTR / LP-CVR",
+        "中",
+        "7日間のA/Bテストで現状比を確認",
     ),
     "fv_appeal": (
         "FV訴求を購買意図ベースのコピーへ差し替え",
-        "CTR +10〜20% / 初速改善",
+        "初回接触時の理解度改善を確認",
+        "CTAクリック率 / LP-CVR",
+        "中",
+        "7日間のA/Bテストで現状比を確認",
     ),
     "cta_clarity": (
         "主要CTAを明確化（ボタン文言と配置最適化）",
-        "LP-CVR +5〜15% 見込み",
+        "次の行動への移行改善を確認",
+        "CTAクリック率 / LP-CVR",
+        "低",
+        "変更前後を7日間ずつ測定",
     ),
     "trust_building": (
         "信頼要素（L1-L3）の可視化（実績・保証・証明）",
-        "離脱率低下 / CVR底上げ",
+        "比較検討時の不安低減を確認",
+        "LP-CVR / 離脱率",
+        "中",
+        "信頼要素追加前後を2週間比較",
     ),
     "price_offer": (
         "価格・オファー条件のフルファネル訴求",
-        "価格検討離脱の抑制",
+        "価格検討時の離脱抑制を確認",
+        "LP-CVR / CTAクリック率",
+        "中",
+        "条件表示の有無を7日間A/Bテスト",
     ),
     "purchase_flow": (
         "購買導線の短縮（入力欄・フォーム削減）",
-        "フォーム完了率 +10〜20%",
+        "入力途中の離脱抑制を確認",
+        "フォーム完了率 / LP-CVR",
+        "高",
+        "変更前後を2週間比較",
     ),
 }
 
@@ -115,9 +134,15 @@ def synthesize_priority_action_block(
         if key in seen:
             continue
         seen.add(key)
-        headline, effect = _AXIS_PLAYBOOK.get(
+        headline, effect, kpi, effort, validation = _AXIS_PLAYBOOK.get(
             cand.axis_key,
-            ("弱判定軸の改善", "方向性のみ（確定値なし）"),
+            (
+                "弱判定軸の改善",
+                "改善方向を確認（確定値なし）",
+                "LP-CVR / CPA",
+                "中",
+                "7日間の変更前後比較",
+            ),
         )
         priority = priority_labels[min(len(actions), len(priority_labels) - 1)]
         actions.append(
@@ -125,6 +150,9 @@ def synthesize_priority_action_block(
             f" / 対象: {cand.brand.brand_label}"
             f" / 軸: {cand.axis_label}"
             f" / 期待効果: {effect}"
+            f" / 期待KPI: {kpi}"
+            f" / 工数: {effort}"
+            f" / 初回検証方法: {validation}"
             f" / 優先度: {priority}"
         )
 

@@ -1,26 +1,16 @@
-import { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { getCasesPublic, loginCase, getCaseTrustToken, warmAdsInsightsBackend } from '../api/adsInsights'
-
-// Dark theme tokens (isolated from app's light theme)
-const DK = {
-  bg: '#0c0c1f',
-  card: '#1A1A2E',
-  input: '#333348',
-  inputFocus: '#37374d',
-  text: '#e2e0fc',
-  textMuted: '#d2c5b1',
-  outline: '#9a8f7d',
-  gold: '#f2c35b',
-  goldDark: '#d4a843',
-  onGold: '#402d00',
-  error: '#ffb4ab',
-  errorBg: 'rgba(147,0,10,0.20)',
-  ring: '#f2c35b',
-}
+import { loginCase, getCaseTrustToken, warmAdsInsightsBackend } from '../api/adsInsights'
+import { salesContactUrl } from './landing/salesContact'
 
 const CURRENT_CASE_STORAGE_KEY = 'insight-studio-current-case'
+
+const LOGIN_STEPS = [
+  '発行されたパスワードを入力',
+  '対象サイトと見る期間を確認',
+  'まとめからレポートを読む',
+]
 
 function getCaseId(caseItem) {
   return caseItem?.case_id || caseItem?.id || ''
@@ -36,51 +26,26 @@ function getSavedCaseId() {
   }
 }
 
-function getCaseLoginPriority(caseItem) {
-  const caseId = getCaseId(caseItem)
-  const savedCaseId = getSavedCaseId()
-  let score = 0
-  if (caseId && caseId === savedCaseId) score += 20
-  if (caseId && getCaseTrustToken(caseId)) score += 10
-  return score
-}
-
-function getCaseLoginOrder(cases) {
-  return [...cases]
-    .filter((caseItem) => getCaseId(caseItem))
-    .sort((a, b) => getCaseLoginPriority(b) - getCaseLoginPriority(a))
-}
-
 export default function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  // TOTP step: pending case awaiting 6-digit code
-  const [pendingTotp, setPendingTotp] = useState(null) // { caseId, caseName, password }
+  const [pendingTotp, setPendingTotp] = useState(null)
   const [totpCode, setTotpCode] = useState('')
   const { loginAds, loginWithCase, user } = useAuth()
-
-  // Prefetch active cases for parallel login attempts
-  const [activeCases, setActiveCases] = useState([])
-  useEffect(() => {
-    getCasesPublic()
-      .then((data) => setActiveCases(data.cases || (Array.isArray(data) ? data : [])))
-      .catch(() => setActiveCases([]))
-  }, [])
 
   useEffect(() => {
     void warmAdsInsightsBackend()
   }, [])
 
-  // Already logged in — case_user は直接 wizard へ、admin はホームへ
   if (user) {
     return <Navigate to={user.role === 'case_user' ? '/ads/wizard' : '/'} replace />
   }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    // Step 2: TOTP submission
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
     if (pendingTotp) {
       const trimmed = totpCode.trim()
       if (!/^\d{6}$/.test(trimmed)) {
@@ -107,50 +72,40 @@ export default function Login() {
       return
     }
 
-    // Step 1: password submission
     if (!password) {
       setError('パスワードを入力してください')
       return
     }
+
     setLoading(true)
     setError('')
     try {
-      const orderedCases = getCaseLoginOrder(activeCases)
+      const savedCaseId = getSavedCaseId()
+      const caseResult = await loginCase('', password, {
+        deviceTrustToken: getCaseTrustToken(savedCaseId),
+      }).catch((err) => {
+        if (err?.status === 401 || err?.status === 404) return null
+        throw err
+      })
 
-      for (const caseItem of orderedCases) {
-        const caseId = getCaseId(caseItem)
-        const result = await loginCase(caseId, password, { deviceTrustToken: getCaseTrustToken(caseId) })
-          .catch((err) => {
-            if (err?.status === 401 || err?.status === 404) return null
-            throw err
-          })
-
-        if (result?.ok) {
-          loginWithCase(result)
-          return
-        }
-        if (result?.totp_required) {
-          setPendingTotp({ caseId: result.case_id, caseName: result.name, password })
-          return
-        }
+      if (caseResult?.ok) {
+        loginWithCase(caseResult)
+        return
+      }
+      if (caseResult?.totp_required) {
+        setPendingTotp({ caseId: caseResult.case_id, caseName: caseResult.name, password })
+        return
       }
 
       const adminResult = await loginAds(password).catch((err) => {
         if (err?.status === 401) return null
         throw err
       })
-      if (adminResult) {
-        // loginAds が成功 → AuthContext で処理済み
-        return
-      }
+      if (adminResult) return
 
       setError('パスワードが正しくありません')
     } catch (err) {
-      if (err?.status === 401) {
-        setError('パスワードが正しくありません')
-      } else {
-        setError(err?.message || 'ログインに失敗しました')
-      }
+      setError(err?.status === 401 ? 'パスワードが正しくありません' : err?.message || 'ログインに失敗しました')
     } finally {
       setLoading(false)
     }
@@ -162,131 +117,96 @@ export default function Login() {
     setError('')
   }
 
-  const hasError = !!error
-  const inputRing = hasError ? '1px solid #ffb4ab' : 'none'
-  const inputRingFocus = hasError ? `0 0 0 1px #ffb4ab` : `0 0 0 1px ${DK.ring}`
-
   return (
-    <div
-      className="min-h-screen flex flex-col overflow-x-hidden relative"
-      style={{ backgroundColor: DK.bg, color: DK.text, fontFamily: "'Manrope', sans-serif" }}
-    >
-      {/* Decorative Blur Gradients */}
-      <div
-        className="fixed top-0 -left-[10%] w-[40%] h-full opacity-40 blur-[120px] pointer-events-none"
-        style={{ backgroundColor: DK.card }}
-      />
-      <div
-        className="fixed top-0 -right-[10%] w-[40%] h-full opacity-40 blur-[120px] pointer-events-none"
-        style={{ backgroundColor: DK.card }}
-      />
-
-      {/* Header */}
-      <header className="flex justify-center items-center py-8 w-full z-50">
-        <div className="text-2xl font-bold tracking-tighter" style={{ color: DK.gold }}>
-          Insight Studio
+    <div className="min-h-dvh overflow-x-hidden bg-[#f8f6ef] text-on-surface">
+      <header className="border-b border-primary/10 bg-white/85 backdrop-blur-lg">
+        <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5 sm:px-8">
+          <Link to="/lp" className="font-headline text-xl font-extrabold text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">
+            Insight Studio
+          </Link>
+          <Link to="/lp#product-preview" className="inline-flex min-h-11 items-center rounded-full border border-primary/15 bg-white px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:px-5">
+            画面サンプルを見る
+          </Link>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="flex-grow flex items-center justify-center px-6 relative z-10">
-        <div
-          className="w-full max-w-[420px] rounded-2xl p-10 flex flex-col items-center"
-          style={{ backgroundColor: DK.card }}
-        >
-          {/* Logo */}
-          <div className="mb-10 text-center">
-            <h1
-              className="text-3xl font-extrabold tracking-tight mb-2"
-              style={{ color: DK.gold, letterSpacing: '-0.02em' }}
-            >
-              Insight Studio
+      <main className="mx-auto grid w-full max-w-6xl items-stretch gap-5 px-4 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-8 lg:py-16">
+        <aside className="order-2 relative overflow-hidden rounded-[2rem] bg-primary p-7 text-white shadow-[0_24px_70px_rgba(0,57,37,0.15)] sm:p-10 lg:order-1 lg:p-12" aria-labelledby="login-guide-title">
+          <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '30px 30px' }} />
+          <div className="relative z-10">
+            <p className="text-xs font-bold tracking-widest text-primary-fixed-dim">ご利用中のお客様へ</p>
+            <h1 id="login-guide-title" className="mt-4 text-pretty font-headline text-3xl font-extrabold leading-tight sm:text-4xl">
+              サイトの状態を、<br className="hidden sm:block" />見る順番から確認。
             </h1>
-            <p
-              className="text-xs uppercase font-medium"
-              style={{ color: DK.textMuted, letterSpacing: '0.2em' }}
-            >
-              AD OPS &amp; ANALYSIS
+            <p className="mt-5 max-w-md text-sm leading-7 text-primary-fixed/80 sm:text-base">
+              ログイン後は、対象サイト、見る期間、レポートの順に案内します。難しい設定名を覚える必要はありません。
             </p>
+            <ol className="mt-8 space-y-4">
+              {LOGIN_STEPS.map((step, index) => (
+                <li key={step} className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-gold text-sm font-black text-[#3f2c00]">{index + 1}</span>
+                  <span className="text-sm font-bold sm:text-base">{step}</span>
+                </li>
+              ))}
+            </ol>
           </div>
+        </aside>
 
-          {/* Error Banner */}
-          {hasError && (
-            <div
-              className="w-full rounded-xl px-4 py-3 mb-6 flex items-center gap-3"
-              style={{ backgroundColor: DK.errorBg }}
-            >
-              <span className="material-symbols-outlined text-[20px]" style={{ color: DK.error }}>
-                error
-              </span>
-              <span className="text-sm" style={{ color: DK.error }}>
-                {error}
-              </span>
-            </div>
-          )}
+        <section className="order-1 rounded-[2rem] bg-white p-6 shadow-[0_18px_55px_rgba(31,39,34,0.08)] ring-1 ring-primary/10 sm:p-10 lg:order-2 lg:p-12" aria-labelledby="login-title">
+          <div className="mx-auto max-w-md">
+            <p className="text-sm font-bold text-primary">顧客用ログイン</p>
+            <h2 id="login-title" className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface">
+              {pendingTotp ? '認証コードを入力' : 'ご利用画面へログイン'}
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-on-surface-variant">
+              {pendingTotp
+                ? `${pendingTotp.caseName} の認証アプリに表示される6桁のコードを入力してください。`
+                : '導入時に発行されたパスワードを入力してください。対象サイトは自動で選ばれます。'}
+            </p>
 
-          <form className="w-full space-y-6" onSubmit={handleSubmit}>
-            {!pendingTotp ? (
-              <>
-                {/* Password Field */}
+            {error && (
+              <div role="alert" aria-live="assertive" className="mt-6 flex items-start gap-3 rounded-2xl border border-error/20 bg-error-container/45 px-4 py-3 text-sm text-on-error-container">
+                <span className="material-symbols-outlined text-xl" aria-hidden="true">error</span>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+              {!pendingTotp ? (
                 <div className="space-y-2">
-                  <label
-                    htmlFor="login-password"
-                    className="block text-xs font-semibold ml-1"
-                    style={{ color: DK.textMuted }}
-                  >
+                  <label htmlFor="login-password" className="block text-sm font-bold text-on-surface">
                     パスワード
                   </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none transition-colors"
-                      style={{ color: DK.textMuted }}
-                    >
-                      <span className="material-symbols-outlined text-[20px]">lock</span>
-                    </div>
+                  <div className="relative">
+                    <span className="material-symbols-outlined pointer-events-none absolute inset-y-0 left-4 flex items-center text-xl text-on-surface-variant" aria-hidden="true">lock</span>
                     <input
                       id="login-password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      spellCheck={false}
+                      placeholder="発行されたパスワード"
                       value={password}
-                      onChange={(e) => { setPassword(e.target.value); setError('') }}
+                      onChange={(event) => { setPassword(event.target.value); setError('') }}
                       disabled={loading}
-                      autoFocus
-                      className="w-full h-12 pl-12 pr-12 border-none rounded-xl transition-all duration-200 outline-none"
-                      style={{
-                        backgroundColor: DK.input,
-                        color: DK.text,
-                        border: inputRing,
-                      }}
-                      onFocus={(e) => { e.target.style.boxShadow = inputRingFocus; e.target.style.backgroundColor = DK.inputFocus }}
-                      onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = DK.input }}
+                      className="h-13 w-full rounded-xl border border-outline-variant/55 bg-[#fbfbf7] py-3 pl-12 pr-12 text-base text-on-surface outline-none transition-[border-color,box-shadow,background-color] placeholder:text-on-surface-variant/60 focus:border-primary/35 focus:bg-white focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-wait disabled:opacity-60"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-4 flex items-center transition-colors"
-                      style={{ color: DK.textMuted }}
-                      onMouseEnter={(e) => e.currentTarget.style.color = DK.gold}
-                      onMouseLeave={(e) => e.currentTarget.style.color = DK.textMuted}
-                      tabIndex={-1}
+                      onClick={() => setShowPassword((value) => !value)}
+                      aria-label={showPassword ? 'パスワードを隠す' : 'パスワードを表示'}
+                      className="absolute inset-y-0 right-2 grid min-w-11 place-items-center rounded-lg text-on-surface-variant transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-primary"
                     >
-                      <span className="material-symbols-outlined text-[20px]">
-                        {showPassword ? 'visibility_off' : 'visibility'}
-                      </span>
+                      <span className="material-symbols-outlined text-xl" aria-hidden="true">{showPassword ? 'visibility_off' : 'visibility'}</span>
                     </button>
                   </div>
                 </div>
-              </>
-            ) : (
-              <>
-                {/* TOTP step */}
+              ) : (
                 <div className="space-y-2">
-                  <label
-                    className="block text-xs font-semibold ml-1"
-                    style={{ color: DK.textMuted }}
-                  >
-                    認証コード（6桁） — {pendingTotp.caseName}
-                  </label>
+                  <label htmlFor="login-totp" className="block text-sm font-bold text-on-surface">認証コード（6桁）</label>
                   <input
+                    id="login-totp"
+                    name="totp-code"
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
@@ -294,67 +214,40 @@ export default function Login() {
                     maxLength={6}
                     placeholder="123456"
                     value={totpCode}
-                    onChange={(e) => {
-                      setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                      setError('')
-                    }}
+                    onChange={(event) => { setTotpCode(event.target.value.replace(/\D/g, '').slice(0, 6)); setError('') }}
                     disabled={loading}
-                    autoFocus
-                    className="w-full h-12 px-4 border-none rounded-xl text-lg tracking-[0.4em] font-mono outline-none"
-                    style={{
-                      backgroundColor: DK.input,
-                      color: DK.text,
-                      border: inputRing,
-                    }}
-                    onFocus={(e) => { e.target.style.boxShadow = inputRingFocus; e.target.style.backgroundColor = DK.inputFocus }}
-                    onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.backgroundColor = DK.input }}
+                    className="h-13 w-full rounded-xl border border-outline-variant/55 bg-[#fbfbf7] px-4 py-3 text-center font-mono text-xl tracking-[0.35em] text-on-surface outline-none transition-[border-color,box-shadow,background-color] focus:border-primary/35 focus:bg-white focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-wait disabled:opacity-60"
                   />
-                  <p className="text-xs pt-1" style={{ color: DK.textMuted }}>
-                    Google Authenticator 等に表示されている 6 桁のコードを入力してください。
-                  </p>
+                  <button type="button" onClick={handleTotpCancel} className="min-h-11 text-sm font-bold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary">
+                    パスワード入力に戻る
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleTotpCancel}
-                  className="text-xs underline"
-                  style={{ color: DK.textMuted }}
-                >
-                  パスワード入力に戻る
-                </button>
-              </>
-            )}
+              )}
 
-            {/* Login Button */}
-            <div className="pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12 font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all shadow-lg relative"
-                style={{
-                  background: `linear-gradient(135deg, ${DK.gold}, ${DK.goldDark})`,
-                  color: DK.onGold,
-                  opacity: loading ? 0.5 : 1,
-                  boxShadow: `0 10px 25px ${DK.bg}80`,
-                }}
-              >
+              <button type="submit" disabled={loading} className="inline-flex min-h-13 w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-base font-extrabold text-on-primary shadow-lg shadow-primary/15 transition-[transform,opacity] hover:-translate-y-0.5 hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary disabled:translate-y-0 disabled:cursor-wait disabled:opacity-55">
                 {loading ? (
                   <>
-                    <span
-                      className="inline-block w-5 h-5 rounded-full border-2 animate-spin"
-                      style={{ borderColor: `${DK.onGold}40`, borderTopColor: DK.onGold }}
-                    />
-                    {pendingTotp ? '認証中...' : 'ログイン中...'}
+                    <span className="material-symbols-outlined animate-spin" aria-hidden="true">progress_activity</span>
+                    {pendingTotp ? '認証中…' : 'ログイン中…'}
                   </>
                 ) : (
                   <>
-                    {pendingTotp ? '認証' : 'ログイン'}
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    {pendingTotp ? '認証する' : 'ログインする'}
+                    <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
                   </>
                 )}
               </button>
+            </form>
+
+            <div className="mt-8 border-t border-outline-variant/40 pt-6 text-center">
+              <p className="text-sm text-on-surface-variant">パスワードをお持ちでない場合</p>
+              <a href={salesContactUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex min-h-11 items-center gap-1 font-bold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-primary">
+                導入条件を相談する
+                <span className="material-symbols-outlined text-lg" aria-hidden="true">open_in_new</span>
+              </a>
             </div>
-          </form>
-        </div>
+          </div>
+        </section>
       </main>
     </div>
   )

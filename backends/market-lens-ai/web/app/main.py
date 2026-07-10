@@ -12,7 +12,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -39,6 +39,7 @@ from .routers.scheduler_routes import create_scheduler_router
 from .routers.delivery_routes import create_delivery_router
 from .routers.admin_routes import create_admin_router
 from .gemini_budget import get_budget_summary, reset_budget_for_dev
+from .auth import verify_admin_or_integration
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -344,12 +345,20 @@ async def get_sample(sample_id: str):
     return sample
 
 
-@app.get("/api/usage/budget", tags=["usage"])
+@app.get(
+    "/api/usage/budget",
+    tags=["usage"],
+    dependencies=[Depends(verify_admin_or_integration)],
+)
 async def get_gemini_budget():
     return get_budget_summary()
 
 
-@app.post("/api/usage/reset-dev", tags=["usage"])
+@app.post(
+    "/api/usage/reset-dev",
+    tags=["usage"],
+    dependencies=[Depends(verify_admin_or_integration)],
+)
 async def reset_gemini_budget_dev():
     try:
         return reset_budget_for_dev()
@@ -357,20 +366,25 @@ async def reset_gemini_budget_dev():
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
-# ── Static pages serving (Phase 9) ──────────────────────────
-from fastapi.responses import FileResponse
+# ── Legacy page compatibility ────────────────────────────────
+# These pages moved to the React/Vite frontend. Keep explicit redirects for
+# old bookmarks instead of trying to serve deleted ``pages/*.html`` files.
+def _frontend_page_redirect(path: str) -> RedirectResponse:
+    frontend_url = os.getenv("FRONTEND_APP_URL", "").strip().rstrip("/")
+    target = f"{frontend_url}{path}" if frontend_url else "/docs"
+    return RedirectResponse(target, status_code=307)
 
 
 @app.get("/admin", include_in_schema=False)
 async def admin_page():
-    return FileResponse("pages/admin.html")
+    return _frontend_page_redirect("/settings")
 
 
 @app.get("/lp", include_in_schema=False)
 async def landing_page():
-    return FileResponse("pages/lp.html")
+    return _frontend_page_redirect("/lp")
 
 
 @app.get("/onboarding", include_in_schema=False)
 async def onboarding_page():
-    return FileResponse("pages/onboarding.html")
+    return _frontend_page_redirect("/ads/wizard")

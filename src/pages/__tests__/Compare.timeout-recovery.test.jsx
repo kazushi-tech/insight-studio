@@ -18,7 +18,7 @@ vi.spyOn(console, 'warn').mockImplementation(() => {})
 vi.spyOn(console, 'error').mockImplementation(() => {})
 
 function setup() {
-  localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+  sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
   render(<Compare />, { wrapper: TestProviders })
   const inputs = [
     screen.getByPlaceholderText(/your-site\.jp/),

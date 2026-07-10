@@ -1,13 +1,21 @@
 import { Link } from 'react-router-dom'
 import LpSection from './LpSection'
+import { demoPreviewUrl, isExternalSalesUrl, salesContactUrl } from '../salesContact'
+
+function ActionLink({ to, className, children }) {
+  if (isExternalSalesUrl(to)) {
+    return <a href={to} target="_blank" rel="noopener noreferrer" className={className}>{children}</a>
+  }
+  return <Link to={to} className={className}>{children}</Link>
+}
 
 export default function LpCta({
-  heading = '広告運用の分析を、\n次のレベルへ。',
-  body = 'データに隠れた勝ち筋を、Insight Studio で見つけましょう。まずは無料プランでその実力を体験してください。',
-  primaryLabel = '無料で始める',
-  primaryTo = '/',
-  secondaryLabel = 'デモを予約する',
-  secondaryTo = '/lp/discovery#demo',
+  heading = 'サイトの数字を、\n次の改善へ。',
+  body = 'まずは画面と接続条件を確認し、必要な分析だけを選べます。',
+  primaryLabel = '画面サンプルを見る',
+  primaryTo = demoPreviewUrl,
+  secondaryLabel = '導入条件を相談する',
+  secondaryTo = salesContactUrl,
   variant = 'light',
 }) {
   const isDark = variant === 'dark'
@@ -48,37 +56,37 @@ export default function LpCta({
           </p>
         )}
         <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
-          <Link
+          <ActionLink
             to={primaryTo}
-            className={`px-10 py-5 rounded-2xl font-extrabold text-xl shadow-xl hover:-translate-y-1 transition-all ${
+            className={`min-h-11 rounded-2xl px-10 py-5 text-xl font-extrabold shadow-xl transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-4 ${
               isDark
-                ? 'bg-primary-fixed-dim text-on-primary-fixed lp-animate-glow'
+                ? 'bg-primary-fixed-dim text-on-primary-fixed'
                 : 'bg-primary text-white shadow-primary/30'
             }`}
           >
             {primaryLabel}
-          </Link>
+          </ActionLink>
           {secondaryLabel && (
-            <Link
+            <ActionLink
               to={secondaryTo}
-              className={`px-10 py-5 rounded-2xl font-extrabold text-xl transition-all ${
+              className={`min-h-11 rounded-2xl px-10 py-5 text-xl font-extrabold transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 ${
                 isDark
                   ? 'bg-transparent border-2 border-primary-fixed-dim/50 text-primary-fixed hover:bg-white/5'
                   : 'bg-white text-primary border border-primary-fixed/40 hover:bg-primary-fixed/10'
               }`}
             >
               {secondaryLabel}
-            </Link>
+            </ActionLink>
           )}
         </div>
         {!isDark && (
           <p className="mt-8 text-sm text-on-surface-variant font-medium relative z-10">
-            クレジットカード登録不要 ・ いつでもキャンセル可能
+            基本分析はAIキー不要 ・ 実データ利用にはGA4／BigQuery接続が必要
           </p>
         )}
         {isDark && (
           <p className="mt-8 text-white/60 font-medium relative z-10">
-            導入のご相談もお気軽に。専門スタッフがサポートいたします。
+            現在は先行導入として、接続条件と運用範囲を確認してご案内します。
           </p>
         )}
       </div>

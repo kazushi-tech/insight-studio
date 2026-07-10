@@ -16,7 +16,7 @@ vi.mock('../../components/DataCoverageCard', () => ({
 
 // ── Auth helpers ──────────────────────────────────────────────
 function setClaudeKey() {
-  localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+  sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
 }
 
 function renderCompare() {

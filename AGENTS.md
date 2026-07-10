@@ -1,6 +1,6 @@
 # Insight Studio
 
-Market Lens AI と考察スタジオ(ads-insights)を統合した広告運用・競合分析SaaSダッシュボード（PC専用）。
+Market Lens AI と考察スタジオ(ads-insights)を統合した広告運用・競合分析SaaSダッシュボード（PC・スマホ対応）。
 
 ## 技術スタック
 

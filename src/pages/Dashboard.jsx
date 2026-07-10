@@ -1,29 +1,28 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Chart from 'chart.js/auto'
 import { getScans } from '../api/marketLens'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAuth } from '../contexts/AuthContext'
 import { getChartPeriodTags, getDisplayChartGroups } from '../utils/adsReports'
+import { resolveBeginnerReportAction } from '../utils/dashboardNavigation'
 import { SkeletonBlock } from '../components/ui'
 import { getAnalysisProviderLabel } from '../utils/analysisProvider'
 
-const SPARKLINE_HEIGHTS = ['40%', '65%', '45%', '80%', '55%', '70%']
 const EMPTY_LIST = []
-
-function getTrendKeywordCount(keyword, index) {
-  let hash = index * 17
-  for (const char of keyword) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 997
-  }
-  return 5 + (hash % 30)
-}
 
 function LiveStatCard({ icon, label, value, unit, subtitle, change, onClick }) {
   return (
     <div
-      className={`bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer' : ''}`}
+      className={`motion-card bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border panel-card-hover flex flex-col gap-4 ${onClick ? 'cursor-pointer focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2' : ''}`}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) return
+        event.preventDefault()
+        onClick()
+      }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className="flex items-start justify-between">
         <div className="w-10 h-10 rounded-xl bg-primary-container/10 flex items-center justify-center text-primary-container">
@@ -43,23 +42,13 @@ function LiveStatCard({ icon, label, value, unit, subtitle, change, onClick }) {
         </div>
       </div>
       {subtitle && <p className="text-xs text-on-surface-variant">{subtitle}</p>}
-      {/* Mini sparkline bar chart */}
-      <div className="h-12 flex items-end gap-1.5">
-        {SPARKLINE_HEIGHTS.map((h, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-sm bg-primary-container"
-            style={{ height: h, opacity: 0.25 + (i / SPARKLINE_HEIGHTS.length) * 0.55 }}
-          />
-        ))}
-      </div>
     </div>
   )
 }
 
 function EmptyStatCard({ icon, label, message, actionLabel, onAction }) {
   return (
-    <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border panel-card-hover flex flex-col gap-4">
+    <div className="motion-card bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border panel-card-hover flex flex-col gap-4">
       <div className="w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center text-outline-variant">
         <span className="material-symbols-outlined">{icon}</span>
       </div>
@@ -140,8 +129,15 @@ function CompactChartCard({ group, onClick }) {
 
   return (
     <div
-      className="bg-surface-container-lowest p-5 rounded-[0.75rem] panel-card-hover cursor-pointer"
+      className="motion-card bg-surface-container-lowest p-5 rounded-[0.75rem] panel-card-hover cursor-pointer focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return
+        event.preventDefault()
+        onClick?.()
+      }}
+      role="button"
+      tabIndex={0}
     >
       <p className="text-xs font-bold text-on-surface-variant japanese-text truncate mb-1">{group?.title || '無題'}</p>
       {latestValue != null && (
@@ -185,10 +181,14 @@ function ChartOverviewSection({ chartGroups, periodTags, onDrillDown }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-2xl font-bold text-on-surface japanese-text">広告データ概要</h3>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[11px] font-black tracking-[0.12em] text-secondary japanese-text">最新データ</p>
+          <h2 className="mt-1 text-2xl font-bold text-on-surface japanese-text">Webサイトデータの概要</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
           <select
+            aria-label="表示する期間"
             value={timeframe}
             onChange={(e) => setTimeframe(e.target.value)}
             className="text-sm font-bold text-on-surface bg-surface-container rounded-lg px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-secondary"
@@ -206,7 +206,7 @@ function ChartOverviewSection({ chartGroups, periodTags, onDrillDown }) {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
         {displayGroups.map((group, i) => (
           <CompactChartCard key={`${group?.title ?? i}-${i}`} group={group} onClick={onDrillDown} />
         ))}
@@ -223,9 +223,9 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 dark:bg-warning-container flex items-center justify-center text-amber-600 dark:text-warning">
             <span className="material-symbols-outlined">lock</span>
           </div>
-          <h4 className="text-lg font-bold japanese-text">広告分析</h4>
+          <h4 className="text-lg font-bold japanese-text">Webサイト分析</h4>
         </div>
-        <p className="text-sm text-on-surface-variant">考察スタジオへの認証が必要です。サイドバーの API キー設定からログインしてください。</p>
+        <p className="text-sm text-on-surface-variant">Webサイト分析への接続が必要です。サイドバーのAPIキー・接続設定から認証してください。</p>
       </div>
     )
   }
@@ -237,9 +237,9 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           <div className="w-10 h-10 rounded-[0.75rem] bg-amber-50 dark:bg-warning-container flex items-center justify-center text-amber-600 dark:text-warning">
             <span className="material-symbols-outlined">settings_suggest</span>
           </div>
-          <h4 className="text-lg font-bold japanese-text">広告分析セットアップ</h4>
+          <h4 className="text-lg font-bold japanese-text">Webサイト分析の準備</h4>
         </div>
-        <p className="text-sm text-on-surface-variant mb-3">セットアップを完了すると、分析・AIエクスプローラーが利用できます。</p>
+        <p className="text-sm text-on-surface-variant mb-3">準備を完了すると、まとめ・グラフ・AI考察を利用できます。</p>
         <button
           onClick={() => onNavigate('/ads/wizard')}
           className="text-sm font-bold text-secondary hover:underline flex items-center gap-1"
@@ -262,7 +262,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
         <div className="w-10 h-10 rounded-[0.75rem] bg-emerald-50 dark:bg-success-container flex items-center justify-center text-emerald-600 dark:text-on-success-container">
           <span className="material-symbols-outlined">check_circle</span>
         </div>
-        <h4 className="text-lg font-bold japanese-text">広告分析セットアップ</h4>
+        <h4 className="text-lg font-bold japanese-text">Webサイト分析の準備</h4>
       </div>
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
@@ -301,55 +301,55 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           onClick={() => onNavigate('/insights/ai')}
           className="py-2 text-sm font-bold text-secondary hover:bg-secondary/5 rounded-lg transition-colors text-center"
         >
-          AIエクスプローラー
+          AI考察
         </button>
       </div>
     </div>
   )
 }
 
-function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, analysisProvider, onNavigate }) {
+function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, analysisProvider, canUseAdvancedAnalysis }) {
   const providerLabel = getAnalysisProviderLabel(analysisProvider)
   const items = [
     {
+      icon: 'psychology',
+      title: '数字についてAIに聞く',
+      term: 'AI考察',
+      description: 'Webサイトの数字と根拠グラフをもとに、次に見る場所を整理します。',
+      status: !isAdsAuthenticated || !setupState
+        ? '分析の準備が必要'
+        : hasAnalysisKey
+          ? `${providerLabel}で詳しく分析`
+          : 'APIキーなしで利用可',
+      tone: isAdsAuthenticated && setupState ? 'ok' : 'need',
+      path: isAdsAuthenticated && setupState ? '/insights/ai' : '/ads/wizard',
+    },
+    {
       icon: 'compare',
-      title: 'Compare',
-      status: hasAnalysisKey ? '利用可' : '設定必要',
-      tone: hasAnalysisKey ? 'ok' : 'need',
-      next: hasAnalysisKey ? 'LP比較を始める' : '分析APIキーを設定',
-      path: hasAnalysisKey ? '/compare' : '/settings',
+      title: '自社と競合LPを比べる',
+      term: '競合LP分析',
+      description: '複数のLPを同じ観点で比べ、訴求や構成の違いを見つけます。',
+      status: canUseAdvancedAnalysis ? (hasAnalysisKey ? `${providerLabel}で利用可` : '追加分析の設定が必要') : '導入担当者が実行',
+      tone: canUseAdvancedAnalysis ? (hasAnalysisKey ? 'ok' : 'need') : 'neutral',
+      path: canUseAdvancedAnalysis ? '/compare' : '/analysis',
     },
     {
       icon: 'travel_explore',
-      title: 'Discovery',
-      status: hasAnalysisKey ? '利用可' : '設定必要',
-      tone: hasAnalysisKey ? 'ok' : 'need',
-      next: hasAnalysisKey ? '競合探索を始める' : '分析APIキーを設定',
-      path: hasAnalysisKey ? '/discovery' : '/settings',
+      title: '競合になりそうなサイトを探す',
+      term: '競合発見',
+      description: '自社サイトを起点に、比較候補と見るべきポイントを集めます。',
+      status: canUseAdvancedAnalysis ? (hasAnalysisKey ? `${providerLabel}で利用可` : '追加分析の設定が必要') : '導入担当者が実行',
+      tone: canUseAdvancedAnalysis ? (hasAnalysisKey ? 'ok' : 'need') : 'neutral',
+      path: canUseAdvancedAnalysis ? '/discovery' : '/analysis',
     },
     {
       icon: 'auto_fix_high',
-      title: 'Creative Review',
-      status: hasAnalysisKey ? '利用可' : 'デモのみ',
-      tone: hasAnalysisKey ? 'ok' : 'demo',
-      next: hasAnalysisKey ? 'Creativeをレビュー' : '架空デモ素材で確認',
-      path: '/creative-review',
-    },
-    {
-      icon: 'psychology',
-      title: 'Ads AI',
-      status: hasAnalysisKey && isAdsAuthenticated && setupState ? '利用可' : '設定必要',
-      tone: hasAnalysisKey && isAdsAuthenticated && setupState ? 'ok' : 'need',
-      next: !isAdsAuthenticated ? 'Ads認証を確認' : !setupState ? '期間と案件を設定' : 'AI考察へ',
-      path: !isAdsAuthenticated || !setupState ? '/ads/wizard' : '/insights/ai',
-    },
-    {
-      icon: 'database',
-      title: 'GA4 BigQuery',
-      status: setupState?.datasetId ? '利用可' : '未接続',
-      tone: setupState?.datasetId ? 'ok' : 'idle',
-      next: setupState?.datasetId ? '初心者レポートを見る' : 'GA4の保存先IDを設定',
-      path: setupState?.datasetId ? '/ads/report' : '/projects',
+      title: '広告画像の改善点を見つける',
+      term: 'バナーレビュー',
+      description: '画像の見やすさや伝わり方を確認し、修正案につなげます。',
+      status: canUseAdvancedAnalysis ? (hasAnalysisKey ? `${providerLabel}で利用可` : '追加分析の設定が必要') : '導入担当者が実行',
+      tone: canUseAdvancedAnalysis ? (hasAnalysisKey ? 'ok' : 'need') : 'neutral',
+      path: canUseAdvancedAnalysis ? '/creative-review' : '/analysis',
     },
   ]
 
@@ -357,48 +357,59 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
     ok: 'bg-emerald-50 text-emerald-700',
     need: 'bg-amber-50 text-amber-700',
     demo: 'bg-sky-50 text-sky-700',
-    idle: 'bg-surface-container text-on-surface-variant',
+    neutral: 'bg-surface-container-high text-on-surface-variant',
   }
 
   return (
-    <section className="bg-surface-container-lowest rounded-[0.75rem] p-6 ghost-border" aria-labelledby="today-feature-board-title">
-      <div className="flex items-start justify-between gap-6 mb-5">
+    <section className="motion-section-enter rounded-3xl bg-surface-container-lowest p-5 ring-1 ring-outline-variant/15 sm:p-7" aria-labelledby="today-feature-board-title">
+      <div className="mb-5 flex flex-col items-start gap-4 sm:flex-row sm:justify-between sm:gap-6">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-secondary">Today</p>
-          <h3 id="today-feature-board-title" className="text-xl font-bold text-on-surface japanese-text mt-1">今日使える機能</h3>
-          <p className="text-sm text-on-surface-variant japanese-text mt-1">
-            未設定のものは壊れている状態ではありません。{providerLabel}で使える機能と、追加設定で増える機能を分けて表示しています。
+          <p className="text-[11px] font-black tracking-[0.12em] text-secondary japanese-text">追加分析</p>
+          <h2 id="today-feature-board-title" className="mt-1 text-2xl font-bold text-on-surface japanese-text">もっと詳しく調べる</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-on-surface-variant japanese-text">
+            {canUseAdvancedAnalysis
+              ? '目的から選べば、そのまま分析を始められます。追加分析も、設定前から内容を確認できます。'
+              : '自社サイトのレポートはそのまま利用できます。競合・画像分析は、先行導入中は担当者が安全に実行します。'}
           </p>
         </div>
-        <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant">PC専用SaaS</span>
+        <Link
+          to="/analysis"
+          className="inline-flex min-h-11 items-center gap-1 rounded-xl bg-primary/[0.07] px-4 py-2 text-sm font-black text-primary hover:bg-primary/[0.12] focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          分析メニューを開く
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+        </Link>
       </div>
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {items.map((item) => (
-          <button
+          <Link
             key={item.title}
-            type="button"
-            onClick={() => onNavigate(item.path)}
-            className="min-w-0 rounded-[0.75rem] bg-surface-container px-4 py-4 text-left hover:bg-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+            to={item.path}
+            className="motion-card group min-w-0 rounded-2xl bg-surface-container px-5 py-5 text-left hover:bg-surface-container-high focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
           >
-            <span className="material-symbols-outlined text-lg text-primary-container" aria-hidden="true">{item.icon}</span>
-            <span className="mt-3 block text-sm font-bold text-on-surface japanese-text">{item.title}</span>
+            <span className="flex items-start justify-between gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/[0.08] text-primary" aria-hidden="true">
+                <span className="material-symbols-outlined text-xl">{item.icon}</span>
+              </span>
+              <span className="material-symbols-outlined text-lg text-on-surface-variant transition-transform group-hover:translate-x-0.5" aria-hidden="true">arrow_forward</span>
+            </span>
+            <span className="mt-4 block text-base font-bold leading-6 text-on-surface japanese-text">{item.title}</span>
+            <span className="mt-0.5 block text-xs font-bold text-on-surface-variant japanese-text">（{item.term}）</span>
+            <span className="mt-3 block text-xs leading-5 text-on-surface-variant japanese-text">{item.description}</span>
             <span className={`mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black ${toneClass[item.tone]}`}>
               {item.status}
             </span>
-            <span className="mt-2 block text-xs text-on-surface-variant japanese-text">{item.next}</span>
-          </button>
+          </Link>
         ))}
       </div>
-      <p className="mt-4 text-xs text-on-surface-variant japanese-text">
-        GA4 BigQuery は「GA4の保存先ID」を使う分析です。広告費・CPAなど媒体費が含まれない場合は、画面上ではGA4推定として扱います。
-      </p>
     </section>
   )
 }
 
-function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
-  const latestLabel = reportBundle?.generatedAt
-    ? new Date(reportBundle.generatedAt).toLocaleString('ja-JP', {
+function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, caseName }) {
+  const lastCompletedAt = reportBundle?.generatedAt || setupState?.completedAt
+  const latestLabel = lastCompletedAt
+    ? new Date(lastCompletedAt).toLocaleString('ja-JP', {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
@@ -406,86 +417,115 @@ function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, o
       })
     : '未更新'
   const hasDataset = Boolean(setupState?.datasetId)
-  const hasReport = Boolean(reportBundle?.chartGroups?.length)
-  const primaryPath = !isAdsAuthenticated || !hasDataset ? '/ads/wizard' : '/ads/report'
-  const primaryLabel = !isAdsAuthenticated
-    ? 'データ接続を確認する'
-    : !hasDataset
-      ? 'サイト分析を準備する'
-      : hasReport
-        ? '最新レポートを見る'
-        : '最初のレポートを作る'
+  const hasCurrentReport = Boolean(
+    reportBundle?.chartGroups?.length || reportBundle?.beginnerReport?.summary_cards?.length,
+  )
+  const hasPriorReport = hasCurrentReport || Boolean(setupState?.completedAt)
+  const reportAction = resolveBeginnerReportAction({
+    isAdsAuthenticated,
+    hasDataset,
+    hasReport: hasPriorReport,
+  })
+  const primaryPath = reportAction.path
+  const primaryLabel = !hasCurrentReport && setupState?.completedAt
+    ? '前回のレポートを再表示'
+    : reportAction.label
   const progressItems = [
     { label: 'サイト計測をつなぐ', done: isAdsAuthenticated && hasDataset },
     { label: '見る期間を選ぶ', done: Boolean(setupState?.periods?.length) },
-    { label: 'レポートを確認する', done: hasReport },
+    { label: 'レポートを確認する', done: hasPriorReport },
   ]
+  const sortedPeriods = [...(setupState?.periods ?? [])].sort((a, b) => String(a).localeCompare(String(b), 'ja'))
+  const dateRange = sortedPeriods.length
+    ? sortedPeriods.length === 1
+      ? sortedPeriods[0]
+      : `${sortedPeriods[0]} 〜 ${sortedPeriods[sortedPeriods.length - 1]}`
+    : '期間未選択'
 
   return (
-    <section className="space-y-5" aria-labelledby="dashboard-primary-title">
-      <div className="grid overflow-hidden rounded-[1.5rem] bg-primary text-on-primary shadow-sm xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-        <div className="p-6 sm:p-8 lg:p-10">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-on-primary/70">Webサイト分析</p>
-          <h1 id="dashboard-primary-title" className="mt-3 max-w-3xl text-3xl font-black leading-tight japanese-text sm:text-4xl">
-            サイトの状態を、30秒でつかむ
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-on-primary/80 japanese-text sm:text-base">
-            GA4に保存されたデータから、アクセス・来訪元・問い合わせ・改善するページを、専門用語を減らして表示します。
+    <section className="motion-section-enter space-y-5" aria-labelledby="dashboard-primary-title">
+      <div className="grid overflow-hidden rounded-3xl bg-primary text-on-primary shadow-sm lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.75fr)]">
+        <div className="p-5 sm:p-7 lg:p-8">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-on-primary/70">
+            {caseName || 'Webサイト分析'}
           </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              onClick={() => onNavigate(primaryPath)}
+          <h1 id="dashboard-primary-title" className="mt-2 max-w-3xl text-2xl font-black leading-tight japanese-text sm:text-3xl">
+            {hasCurrentReport
+              ? 'いまのサイトを、すぐ確認できます'
+              : hasPriorReport
+                ? '前回の条件から、すぐ再表示できます'
+                : 'サイトの状態を、30秒でつかむ'}
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-on-primary/80 japanese-text">
+            アクセス・来訪元・問い合わせ・改善するページを、初めて見る人にも分かる順番で表示します。
+          </p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Link
+              to={primaryPath}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent-gold px-6 py-3 text-sm font-black text-[#2a211c] shadow-sm hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               {primaryLabel}
               <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
-            </button>
+            </Link>
             {hasDataset && (
-              <button
-                type="button"
-                onClick={() => onNavigate('/ads/graphs')}
+              <Link
+                to="/ads/graphs"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 py-3 text-sm font-black text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 グラフを直接見る
                 <span className="material-symbols-outlined text-base" aria-hidden="true">bar_chart</span>
-              </button>
+              </Link>
             )}
           </div>
-          <p className="mt-4 text-xs font-bold leading-6 text-on-primary/65 japanese-text">
-            AI考察は任意です。まずはグラフと平易な要約だけで判断できます。
-          </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black text-on-primary/75">
+            <span className="rounded-full bg-white/10 px-3 py-1.5">対象: {dateRange}</span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5">最終更新: {latestLabel}</span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5">AIキーなしでも基本分析可</span>
+          </div>
         </div>
 
-        <aside className="border-t border-white/10 bg-black/10 p-6 sm:p-8 xl:border-l xl:border-t-0" aria-label="分析開始までの3ステップ">
-          <p className="text-sm font-black text-white japanese-text">いまの進み具合</p>
-          <ol className="mt-4 space-y-3">
-            {progressItems.map((item, index) => (
-              <li key={item.label} className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
-                <span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-black ${item.done ? 'bg-white text-primary' : 'bg-white/15 text-white'}`}>
-                  {item.done ? <span className="material-symbols-outlined text-base" aria-hidden="true">check</span> : index + 1}
-                </span>
-                <span className="min-w-0 flex-1 text-sm font-bold japanese-text">{item.label}</span>
-                <span className="text-[11px] font-black text-white/65">{item.done ? '完了' : 'これから'}</span>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-4 text-xs font-bold text-white/65 japanese-text">最終更新: {latestLabel}</p>
-        </aside>
+        <figure className="relative min-h-32 overflow-hidden border-t border-white/10 sm:min-h-44 lg:min-h-full lg:border-l lg:border-t-0">
+          <img
+            src="/imagegen/beginner-analytics-collaboration.webp"
+            alt=""
+            width="1536"
+            height="1024"
+            loading="eager"
+            fetchPriority="high"
+            className="absolute inset-0 h-full w-full object-cover object-center"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-primary/5 to-transparent" />
+          <figcaption className="absolute inset-x-0 bottom-0 p-4 text-xs font-black leading-5 text-white sm:p-5 japanese-text">
+            難しい数字も、見る順番から案内します。
+          </figcaption>
+        </figure>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <ol className="grid gap-2 rounded-2xl bg-surface-container-lowest p-3 ring-1 ring-outline-variant/15 sm:grid-cols-3" aria-label="分析開始までの3ステップ">
+        {progressItems.map((item, index) => (
+          <li key={item.label} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+            <span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-black ${item.done ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+              {item.done ? <span className="material-symbols-outlined text-base" aria-hidden="true">check</span> : index + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-on-surface japanese-text">{item.label}</span>
+              <span className="block text-[11px] font-bold text-on-surface-variant">{item.done ? '完了' : '次に進めます'}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ['summarize', 'まとめを見る', '結論・判断保留・次にやること', '/ads/report', hasDataset],
-          ['monitoring', 'グラフを見る', 'アクセス・来訪元・成果の根拠', '/ads/graphs', hasDataset],
-          ['tune', '分析内容を変える', '見る項目と期間を選び直す', '/ads/wizard', true],
-        ].map(([icon, title, body, path, enabled]) => (
-          <button
+          ['summarize', 'まとめを見る', '結論・判断保留・次にやること', hasDataset ? '/ads/report' : '/ads/wizard'],
+          ['monitoring', 'グラフを見る', 'アクセス・来訪元・成果の根拠', hasDataset ? '/ads/graphs' : '/ads/wizard'],
+          ['tune', '分析内容を変える', '見る項目と期間を選び直す', '/ads/wizard'],
+          ['apps', '分析メニュー', 'AI・競合LP・広告画像を調べる', '/analysis'],
+        ].map(([icon, title, body, path]) => (
+          <Link
             key={title}
-            type="button"
-            disabled={!enabled}
-            onClick={() => onNavigate(path)}
-            className="flex min-h-24 items-center gap-4 rounded-2xl bg-surface-container-lowest px-5 py-4 text-left ring-1 ring-outline-variant/15 transition-colors hover:bg-primary/[0.035] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-primary"
+            to={path}
+            className="motion-card flex min-h-24 items-center gap-4 rounded-2xl bg-surface-container-lowest px-5 py-4 text-left ring-1 ring-outline-variant/15 hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:outline-primary"
           >
             <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/[0.07] text-primary" aria-hidden="true">
               <span className="material-symbols-outlined">{icon}</span>
@@ -494,22 +534,84 @@ function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, o
               <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
               <small className="mt-1 block text-xs font-bold leading-5 text-on-surface-variant japanese-text">{body}</small>
             </span>
-          </button>
+          </Link>
         ))}
       </div>
     </section>
   )
 }
 
+const SUMMARY_TYPE_LABELS = {
+  what_happened: '何が起きた',
+  so_what: 'どう見るか',
+  check_first: 'まず見る',
+  data_gap: '判断保留',
+  next_action: '次の一手',
+}
+
+function CurrentSiteSnapshot({ reportBundle }) {
+  const report = reportBundle?.beginnerReport
+  const cards = report?.summary_cards?.slice(0, 2) ?? []
+  const action = report?.next_actions?.[0]
+  const gap = report?.data_gaps?.[0]
+  if (cards.length === 0 && !action && !gap) return null
+
+  return (
+    <section className="motion-section-enter space-y-4" aria-labelledby="current-site-title">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-black tracking-[0.12em] text-secondary japanese-text">ひと目で確認</p>
+          <h2 id="current-site-title" className="mt-1 text-2xl font-bold text-on-surface japanese-text">いまのサイト</h2>
+        </div>
+        <Link to="/ads/report" className="inline-flex min-h-11 items-center gap-1 text-sm font-black text-primary hover:underline">
+          まとめをすべて見る
+          <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+        </Link>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card, index) => (
+          <article key={`${card.type}-${index}`} className="rounded-2xl bg-surface-container-lowest p-5 ring-1 ring-outline-variant/15">
+            <p className="text-[11px] font-black text-secondary">{SUMMARY_TYPE_LABELS[card.type] || 'サイトの変化'}</p>
+            <h3 className="mt-2 text-base font-black leading-6 text-on-surface japanese-text">{card.title}</h3>
+            <p className="mt-2 line-clamp-3 text-xs font-medium leading-6 text-on-surface-variant japanese-text">{card.body}</p>
+          </article>
+        ))}
+        {action && (
+          <article className="rounded-2xl bg-primary p-5 text-on-primary shadow-sm">
+            <p className="text-[11px] font-black text-on-primary/70">次にやること</p>
+            <h3 className="mt-2 text-base font-black leading-6 japanese-text">{action.title}</h3>
+            {action.reason && <p className="mt-2 text-xs font-bold leading-6 text-on-primary/75 japanese-text">{action.reason}</p>}
+          </article>
+        )}
+        {gap && (
+          <article className="rounded-2xl bg-warning-container p-5 text-on-warning-container ring-1 ring-warning/20">
+            <p className="text-[11px] font-black">まだ判断できないこと</p>
+            <h3 className="mt-2 text-base font-black leading-6 japanese-text">{gap.label}</h3>
+            {gap.impact && <p className="mt-2 text-xs font-bold leading-6 japanese-text">{gap.impact}</p>}
+          </article>
+        )}
+      </div>
+    </section>
+  )
+}
+
 export default function Dashboard() {
+  const { isAdsAuthenticated, hasAnalysisKey, analysisProvider, user } = useAuth()
+  const canUseAdvancedAnalysis = user?.role === 'admin'
+  const canLoadAdvancedHistory = canUseAdvancedAnalysis && hasAnalysisKey
   const [history, setHistory] = useState([])
-  const [historyLoading, setHistoryLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(canLoadAdvancedHistory)
   const [historyError, setHistoryError] = useState(null)
-  const { setupState, reportBundle } = useAdsSetup()
-  const { isAdsAuthenticated, hasAnalysisKey, analysisProvider } = useAuth()
+  const { setupState, reportBundle, currentCase } = useAdsSetup()
   const navigate = useNavigate()
 
   const fetchHistory = useCallback(() => {
+    if (!canLoadAdvancedHistory) {
+      setHistory([])
+      setHistoryError(null)
+      setHistoryLoading(false)
+      return
+    }
     setHistoryLoading(true)
     setHistoryError(null)
     getScans()
@@ -521,9 +623,11 @@ export default function Dashboard() {
         setHistoryError(e.message)
       })
       .finally(() => setHistoryLoading(false))
-  }, [])
+  }, [canLoadAdvancedHistory])
 
   useEffect(() => {
+    if (!canLoadAdvancedHistory) return undefined
+
     let cancelled = false
 
     getScans()
@@ -544,55 +648,59 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [canLoadAdvancedHistory])
 
   const latestScan = history.length > 0 ? history[0] : null
   const latestDate = latestScan?.date ?? latestScan?.created_at ?? null
   const coreConnectionCount = [hasAnalysisKey, isAdsAuthenticated].filter(Boolean).length
-  const adsAiStatusLabel = !hasAnalysisKey
-    ? '要分析API'
-    : !isAdsAuthenticated
+  const adsAiStatusLabel = !isAdsAuthenticated
       ? '要認証'
       : !setupState
         ? '要セットアップ'
-        : '利用可'
+        : hasAnalysisKey
+          ? `${getAnalysisProviderLabel(analysisProvider)} 詳細分析可`
+          : 'キーなし整理可'
 
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-5 pb-24 sm:px-6 lg:px-8 lg:py-8">
+    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-5 pb-4 sm:px-6 lg:px-8 lg:py-8">
       <BeginnerDashboardHero
         setupState={setupState}
         reportBundle={reportBundle}
         isAdsAuthenticated={isAdsAuthenticated}
-        onNavigate={navigate}
+        caseName={currentCase?.name || currentCase?.display_name}
       />
 
-      <details className="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
-        <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-5 py-4 font-extrabold text-on-surface japanese-text">
-          競合分析など、高度な機能を見る
-          <span className="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span>
-        </summary>
-        <div className="border-t border-outline-variant/15 p-5">
-          <TodayFeatureBoard
-            hasAnalysisKey={hasAnalysisKey}
-            isAdsAuthenticated={isAdsAuthenticated}
-            setupState={setupState}
-            analysisProvider={analysisProvider}
-            onNavigate={navigate}
-          />
-        </div>
-      </details>
+      <CurrentSiteSnapshot reportBundle={reportBundle} />
 
-      <details className="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
+      {reportBundle?.chartGroups?.length > 0 && (
+        <section className="motion-section-enter rounded-3xl bg-surface-container-lowest p-5 ring-1 ring-outline-variant/15 sm:p-7">
+          <ChartOverviewSection
+            chartGroups={reportBundle.chartGroups}
+            periodTags={getChartPeriodTags(reportBundle.chartGroups)}
+            onDrillDown={() => navigate('/ads/graphs')}
+          />
+        </section>
+      )}
+
+      <TodayFeatureBoard
+        hasAnalysisKey={hasAnalysisKey}
+        isAdsAuthenticated={isAdsAuthenticated}
+        setupState={setupState}
+        analysisProvider={analysisProvider}
+        canUseAdvancedAnalysis={canUseAdvancedAnalysis}
+      />
+
+      <details className="motion-section-enter rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
         <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-5 py-4 font-extrabold text-on-surface japanese-text">
-          運用履歴と管理情報を見る
+          最近の分析と接続状況を見る
           <span className="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span>
         </summary>
         {/* Asymmetric two-column layout */}
-        <div className="flex gap-8 border-t border-outline-variant/15 p-5">
+        <div className="flex flex-col gap-6 border-t border-outline-variant/15 p-4 sm:p-5 xl:flex-row xl:gap-8">
         {/* ── Left data canvas ── */}
         <div className="flex-1 flex flex-col gap-8 min-w-0">
           {/* Stat Cards — grid-cols-3 */}
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 xl:gap-6">
             {historyLoading ? (
               <>
                 <div className="bg-surface-container-lowest p-6 rounded-[0.75rem]">
@@ -613,7 +721,6 @@ export default function Dashboard() {
                     label="比較分析履歴数"
                     value={history.length.toLocaleString()}
                     unit="件"
-                    change={history.length > 1 ? `+${history.length}` : undefined}
                     subtitle={latestDate ? `最新: ${latestDate}` : undefined}
                     onClick={() => navigate('/compare')}
                   />
@@ -635,10 +742,10 @@ export default function Dashboard() {
                 />
                 <LiveStatCard
                   icon="key"
-                  label="Core 接続状況"
+                  label="接続状況"
                   value={coreConnectionCount}
                   unit={`/ 2`}
-                  subtitle={`Compare / Discovery / Review: ${hasAnalysisKey ? `${getAnalysisProviderLabel(analysisProvider)} で利用可` : '要分析API'} / Ads AI: ${adsAiStatusLabel}`}
+                  subtitle={`競合・LP・画像分析: ${hasAnalysisKey ? `${getAnalysisProviderLabel(analysisProvider)}で利用可` : 'AIキーが必要'} / WebサイトAI: ${adsAiStatusLabel}`}
                 />
               </>
             )}
@@ -694,7 +801,8 @@ export default function Dashboard() {
                 </button>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container text-on-surface-variant">
                     <th className="py-4 px-6 font-bold text-xs uppercase tracking-wider japanese-text">案件名</th>
@@ -735,43 +843,15 @@ export default function Dashboard() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             )}
           </div>
 
-          {/* Chart Overview (GA-like compact charts from reportBundle) */}
-          {reportBundle?.chartGroups?.length > 0 && (
-            <ChartOverviewSection
-              chartGroups={reportBundle.chartGroups}
-              periodTags={getChartPeriodTags(reportBundle.chartGroups)}
-              onDrillDown={() => navigate('/ads/report')}
-            />
-          )}
-
-          {/* Setup Status Card */}
-          <SetupStatusCard
-            setupState={setupState}
-            reportBundle={reportBundle}
-            isAdsAuthenticated={isAdsAuthenticated}
-            onNavigate={navigate}
-          />
-
-          {/* Trend Keywords placeholder */}
-          <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] panel-card-hover">
-            <h3 className="text-lg font-bold text-on-surface japanese-text mb-4">トレンドキーワード</h3>
-            <div className="flex flex-wrap gap-2">
-              {['LP改善', 'CVR最適化', 'CPA削減', 'ファーストビュー', 'CTA配置', '離脱率', 'A/Bテスト'].map((kw, i) => (
-                <span key={kw} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-surface-container text-on-surface-variant">
-                  {kw}
-                  <span className="text-xs text-outline-variant tabular-nums">+{getTrendKeywordCount(kw, i)}</span>
-                </span>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* ── Right sidebar actions (w-[280px]) ── */}
-        <div className="w-[280px] flex flex-col gap-6 shrink-0">
+        <div className="flex w-full flex-col gap-6 xl:w-[280px] xl:shrink-0">
           {/* Quick Actions Card */}
           <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border">
             <h4 className="text-sm font-bold text-on-surface-variant mb-4 japanese-text">クイックアクション</h4>
@@ -800,35 +880,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Activity Feed */}
-          <div className="bg-surface-container-lowest p-6 rounded-[0.75rem] ghost-border">
-            <div className="flex items-center justify-between mb-5">
-              <h4 className="text-sm font-bold text-on-surface-variant japanese-text">最近のアクティビティ</h4>
-              <span className="rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-bold text-on-surface-variant">デモ表示</span>
-            </div>
-            <div className="relative pl-5">
-              {/* Vertical timeline line */}
-              <div className="absolute left-[7px] top-1 bottom-1 w-0.5 bg-outline-variant/30" />
-              <div className="space-y-5">
-                {[
-                  { icon: 'compare', text: 'LP比較分析を実行', sub: '新規案件の比較結果を生成', time: '2時間前' },
-                  { icon: 'bar_chart', text: '広告レポート更新', sub: '月次データを自動取得', time: '5時間前' },
-                  { icon: 'auto_fix_high', text: 'クリエイティブ診断', sub: `${getAnalysisProviderLabel(analysisProvider)} レビュー結果を確認`, time: '1日前' },
-                  { icon: 'settings', text: 'セットアップ完了', sub: 'クエリ種別を追加設定', time: '3日前' },
-                ].map((item, i) => (
-                  <div key={i} className="relative flex gap-3">
-                    {/* Dot marker */}
-                    <div className="absolute -left-5 top-1 w-3.5 h-3.5 rounded-full bg-surface-container-lowest border-2 border-primary-container shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-on-surface japanese-text leading-snug">{item.text}</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">{item.sub}</p>
-                      <p className="text-[11px] text-outline-variant mt-1 tabular-nums">{item.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <SetupStatusCard
+            setupState={setupState}
+            reportBundle={reportBundle}
+            isAdsAuthenticated={isAdsAuthenticated}
+            onNavigate={navigate}
+          />
         </div>
         </div>
       </details>

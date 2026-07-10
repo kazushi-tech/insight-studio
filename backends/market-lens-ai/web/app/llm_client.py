@@ -58,6 +58,16 @@ async def call_multimodal_model(
     max_output_tokens: int | None = None,
     api_key: str | None = None,
 ) -> tuple[str, object]:
+    if normalize_provider(provider, model) == PROVIDER_GEMINI:
+        from .gemini_client import call_gemini_multimodal
+        return await call_gemini_multimodal(
+            prompt,
+            image_data=image_data,
+            mime_type=mime_type,
+            model=model,
+            max_output_tokens=max_output_tokens,
+            api_key=api_key,
+        )
     return await call_anthropic_multimodal(
         prompt,
         image_data=image_data,

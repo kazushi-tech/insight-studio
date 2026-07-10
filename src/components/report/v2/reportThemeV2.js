@@ -123,7 +123,7 @@ export function applyChartDefaultsV2(Chart) {
     theme: currentTheme,
   }
 
-  Chart.defaults.font.family = 'Manrope, Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+  Chart.defaults.font.family = 'Manrope, "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif'
   Chart.defaults.font.size = 12
   Chart.defaults.color = c.onSurface
   Chart.defaults.borderColor = c.outlineVariant

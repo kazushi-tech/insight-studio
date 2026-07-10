@@ -478,16 +478,16 @@ class TestAnalyzeBranching:
             assert result_text == "Comparison result"
 
     @pytest.mark.asyncio
-    async def test_multi_url_passes_6144_max_tokens(self):
+    async def test_two_url_uses_full_comparison_token_budget(self):
         data = [_sample_extracted("https://a.com"), _sample_extracted("https://b.com")]
         mock_return = ("result", TokenUsage())
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
-            await analyze(data)
-            assert mock_text.call_args[1]["max_output_tokens"] == 6144
+            await analyze(data, two_phase=False)
+            assert mock_text.call_args[1]["max_output_tokens"] == 10240
 
     @pytest.mark.asyncio
-    async def test_three_url_passes_7168_max_tokens(self):
+    async def test_three_url_uses_expanded_comparison_token_budget(self):
         data = [
             _sample_extracted("https://a.com"),
             _sample_extracted("https://b.com"),
@@ -496,11 +496,11 @@ class TestAnalyzeBranching:
         mock_return = ("result", TokenUsage())
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
-            await analyze(data)
-            assert mock_text.call_args[1]["max_output_tokens"] == 7168
+            await analyze(data, two_phase=False)
+            assert mock_text.call_args[1]["max_output_tokens"] == 14336
 
     @pytest.mark.asyncio
-    async def test_four_url_passes_6144_max_tokens(self):
+    async def test_four_url_uses_safe_compact_wide_token_budget(self):
         data = [
             _sample_extracted("https://a.com"),
             _sample_extracted("https://b.com"),
@@ -510,7 +510,7 @@ class TestAnalyzeBranching:
         mock_return = ("result", TokenUsage())
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
-            await analyze(data)
+            await analyze(data, two_phase=False)
             assert mock_text.call_args[1]["max_output_tokens"] == 6144
 
     @pytest.mark.asyncio
@@ -524,7 +524,7 @@ class TestAnalyzeBranching:
         mock_return = ("result", TokenUsage())
 
         with patch("web.app.analyzer._call_text_model", new_callable=AsyncMock, return_value=mock_return) as mock_text:
-            await analyze(data)
+            await analyze(data, two_phase=False)
             called_prompt = mock_text.call_args[0][0]
             assert "高シグナル優先" in called_prompt
 

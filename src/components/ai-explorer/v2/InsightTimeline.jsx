@@ -103,7 +103,9 @@ export default function InsightTimeline({
 
   useEffect(() => {
     if (typeof endRef.current?.scrollIntoView === 'function') {
-      endRef.current.scrollIntoView({ behavior: 'smooth' })
+      const reduceMotion = typeof window !== 'undefined'
+        && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      endRef.current.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
     }
   }, [messages, loading])
 
@@ -144,15 +146,15 @@ export default function InsightTimeline({
           <div className={`${styles.banner} ${styles.bannerWarning}`}>
             <span className="material-symbols-outlined" aria-hidden="true">warning</span>
             <span className="japanese-text">
-              考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。
+              Webサイト分析への接続が必要です。ヘッダーの鍵アイコンから認証してください。
             </span>
           </div>
         )}
         {!hasAnalysisKey && (
-          <div className={`${styles.banner} ${styles.bannerWarning}`}>
-            <span className="material-symbols-outlined" aria-hidden="true">warning</span>
+          <div className={`${styles.banner} ${styles.bannerInfo}`}>
+            <span className="material-symbols-outlined" aria-hidden="true">data_check</span>
             <span className="japanese-text">
-              ブラウザ保存の分析用 API キーは未設定です。バックエンド側にキーが設定済みなら、このまま送信できます。
+              APIキーなしの根拠整理モードで利用できます。Geminiを設定すると、安価な1回生成と厳格検査で詳しい考察に切り替わります。
             </span>
           </div>
         )}

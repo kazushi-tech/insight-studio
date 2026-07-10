@@ -178,7 +178,7 @@ export function AdsSetupProvider({ children }) {
     migrateLegacyStorage()
     // If no case is set and not a case_user, auto-select petabit
     if (!currentCase && user?.role !== 'case_user') {
-      const petabitCase = { case_id: 'petabit', name: 'ペタビット', dataset_id: 'analytics_311324674' }
+      const petabitCase = { case_id: 'petabit', name: 'ペタサイト', dataset_id: 'analytics_311324674' }
       setCurrentCase(petabitCase) // eslint-disable-line react-hooks/set-state-in-effect -- mount init
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))
     }
@@ -252,11 +252,15 @@ export function AdsSetupProvider({ children }) {
 
   useEffect(() => {
     return onAdsLogout(() => {
-      resetSetup()
+      setSetupState(null)
+      setReportBundle(null)
+      setCurrentCase(null)
       setIsCaseAuthenticated(false)
+      localStorage.removeItem(CASE_STORAGE_KEY)
       localStorage.removeItem(CASE_AUTH_KEY)
+      sessionStorage.removeItem(AI_EXPLORER_DRAFT_KEY)
     })
-  }, [onAdsLogout, resetSetup])
+  }, [onAdsLogout])
 
   const completeSetup = useCallback((payload, nextReportBundle = null) => {
     const state = {

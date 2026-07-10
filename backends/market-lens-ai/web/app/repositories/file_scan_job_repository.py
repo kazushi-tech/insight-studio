@@ -32,7 +32,13 @@ class FileScanJobRepository(ScanJobRepository):
     def save_job(self, record: ScanJobRecord) -> None:
         path = self._job_path(record.job_id)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
+        # Defense in depth: never persist BYOK fields even if a future schema
+        # accidentally reintroduces one. The request-scoped key is only needed
+        # by the in-process task and must not survive in job.json.
+        path.write_text(
+            record.model_dump_json(indent=2, exclude={"api_key", "search_api_key"}),
+            encoding="utf-8",
+        )
 
     def load_job(self, job_id: str) -> Optional[ScanJobRecord]:
         path = self._job_path(job_id)

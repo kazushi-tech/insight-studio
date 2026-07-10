@@ -174,6 +174,24 @@ def _has_items(value: object) -> bool:
     return isinstance(value, list) and len(value) > 0
 
 
+def missing_rubric_ids(data: dict) -> list[str]:
+    """Return rubric IDs omitted from an otherwise parseable model response.
+
+    The low-level validator may conservatively repair omissions for preview
+    purposes, but review services use this helper to reject rubric drift before
+    a result is delivered as a completed review.
+    """
+    expected = RUBRIC_SETS.get(str(data.get("review_type") or ""))
+    if expected is None:
+        return []
+    actual = {
+        str(score.get("rubric_id"))
+        for score in _coerce_list(data.get("rubric_scores"))
+        if isinstance(score, dict) and score.get("rubric_id")
+    }
+    return sorted(expected - actual)
+
+
 def _repair_required_review_fields(data: dict) -> tuple[dict, list[str]]:
     """Fill known Gemini omissions without relaxing the public schema.
 

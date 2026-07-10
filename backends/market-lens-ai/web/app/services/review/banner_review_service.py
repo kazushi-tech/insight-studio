@@ -14,7 +14,11 @@ from ...repositories.asset_repository import AssetRepository
 from ...schemas.review_result import ReviewResult
 from .commentary_guardrail import check_commentary_guardrails
 from .evidence_grounding_service import validate_evidence_grounding
-from .review_output_validator import parse_review_json, validate_review_output
+from .review_output_validator import (
+    missing_rubric_ids,
+    parse_review_json,
+    validate_review_output,
+)
 from .review_prompt_builder import build_banner_review_prompt
 
 # Max retries for evidence grounding violations
@@ -146,6 +150,10 @@ async def review_banner(
 
         if parse_err or data is None:
             raise BannerReviewError(f"LLM output parse failed: {parse_err}")
+
+        missing_rubrics = missing_rubric_ids(data)
+        if missing_rubrics:
+            raise BannerReviewError(f"Missing rubric IDs: {missing_rubrics}")
 
         report = validate_review_output(data)
         if not report.valid:

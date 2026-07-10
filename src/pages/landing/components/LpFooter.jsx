@@ -1,10 +1,16 @@
 import { Link } from 'react-router-dom'
+import {
+  companyPrivacyUrl,
+  companyProfileUrl,
+  demoPreviewUrl,
+  isExternalSalesUrl,
+  salesContactUrl,
+} from '../salesContact'
 
 const footerLinks = [
-  { label: '利用規約', status: '準備中' },
-  { label: 'プライバシーポリシー', status: '準備中' },
-  { label: 'お問い合わせ', status: '料金ページから相談' },
-  { label: '会社概要', status: '準備中' },
+  { label: 'プライバシーポリシー', to: companyPrivacyUrl },
+  { label: '導入相談', to: salesContactUrl },
+  { label: '会社概要', to: companyProfileUrl },
 ]
 
 export default function LpFooter() {
@@ -16,20 +22,9 @@ export default function LpFooter() {
             Insight Studio
           </Link>
           <p className="text-on-surface-variant text-sm max-w-sm mb-8 leading-relaxed">
-            AIの力で、マーケティングデータを価値あるインサイトへ。Insight
-            Studioは、次世代の広告運用を支援する分析プラットフォームです。
+            GA4とBigQueryのデータを、初心者にも読めるレポートとグラフへ。
+            必要なときだけ競合・LP・クリエイティブ分析を追加できます。
           </p>
-          <div className="flex gap-4">
-            <span className="material-symbols-outlined text-on-surface-variant/60 hover:text-primary cursor-pointer">
-              public
-            </span>
-            <span className="material-symbols-outlined text-on-surface-variant/60 hover:text-primary cursor-pointer">
-              mail
-            </span>
-            <span className="material-symbols-outlined text-on-surface-variant/60 hover:text-primary cursor-pointer">
-              chat
-            </span>
-          </div>
         </div>
         <div className="grid grid-cols-2 gap-8">
           <div>
@@ -41,13 +36,18 @@ export default function LpFooter() {
                 </Link>
               </li>
               <li>
-                <Link to="/lp/discovery#demo" className="hover:text-primary transition-colors">
-                  分析デモ
+                <Link to={demoPreviewUrl} className="hover:text-primary transition-colors">
+                  画面サンプル
                 </Link>
               </li>
               <li>
                 <Link to="/lp/pricing" className="hover:text-primary transition-colors">
                   料金プラン
+                </Link>
+              </li>
+              <li>
+                <Link to="/login" className="hover:text-primary transition-colors">
+                  ご利用中の方
                 </Link>
               </li>
             </ul>
@@ -57,13 +57,13 @@ export default function LpFooter() {
             <ul className="space-y-3 text-on-surface-variant text-sm">
               {footerLinks.map((link) => (
                 <li key={link.label}>
-                  <span
-                    className="inline-flex flex-col gap-1 text-on-surface-variant/80"
-                    aria-disabled="true"
-                  >
-                    <span>{link.label}</span>
-                    <span className="text-[10px] text-on-surface-variant/55">{link.status}</span>
-                  </span>
+                  {link.to ? (
+                    isExternalSalesUrl(link.to) ? (
+                      <a href={link.to} target="_blank" rel="noopener noreferrer" className="hover:text-primary">{link.label}</a>
+                    ) : (
+                      <Link to={link.to} className="hover:text-primary">{link.label}</Link>
+                    )
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -75,9 +75,7 @@ export default function LpFooter() {
           © {new Date().getFullYear()} Insight Studio. All rights reserved.
         </p>
         <div className="flex gap-6">
-          <span className="text-on-surface-variant/60 text-xs hover:text-primary cursor-pointer">
-            JP / English
-          </span>
+          <span className="text-on-surface-variant/60 text-xs">先行導入受付中</span>
         </div>
       </div>
     </footer>

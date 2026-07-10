@@ -6,7 +6,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_auth_optional, verify_token
+from ..auth import verify_admin_or_integration, verify_auth_optional, verify_token
 
 from ..schemas.watchlist_v2 import (
     DiffResult,
@@ -37,7 +37,11 @@ def create_watchlist_router(
     monitor=None,
 ) -> APIRouter:
     """Factory that creates watchlist routes."""
-    router = APIRouter(prefix="/api/watchlists", tags=["watchlists"])
+    router = APIRouter(
+        prefix="/api/watchlists",
+        tags=["watchlists"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
     _repo = repo or WatchlistRepository()
     _monitor = monitor
 

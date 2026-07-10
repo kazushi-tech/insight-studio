@@ -6,7 +6,8 @@ const BASE = '/api/ads'
 const ADS_BACKEND_ORIGIN =
   import.meta.env.VITE_ADS_INSIGHTS_API_ORIGIN?.replace(/\/$/, '') ||
   'https://ads-insights-9q5s.onrender.com'
-const ADS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api/ads`
+export const ADS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api`
+const ADS_DIRECT_HEALTH_URL = `${ADS_BACKEND_ORIGIN}/api/ads/health`
 export const AI_GENERATE_ENDPOINT = '/api/insights/neon/generate'
 const INSIGHTS_BASE = '/api/insights'
 const INSIGHTS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api/insights`
@@ -38,7 +39,7 @@ async function ensureDirectAdsBackend() {
     for (const delay of RETRY_DELAYS) {
       try {
         if (delay) await new Promise(r => setTimeout(r, delay))
-        const res = await fetch(`${ADS_DIRECT_BASE}/health`, {
+        const res = await fetch(ADS_DIRECT_HEALTH_URL, {
           method: 'GET',
           signal: AbortSignal.timeout(30000),
         })
@@ -127,8 +128,17 @@ function isBackendConfigAuthError(status, body = {}) {
     marker.includes('gemini api') ||
     marker.includes('gemini_api_key') ||
     marker.includes('google_api_key') ||
-    marker.includes('anthropic_api_key')
+    marker.includes('anthropic_api_key') ||
+    marker.startsWith('bq_') ||
+    marker === 'credentials_missing'
   )
+}
+
+function defaultApiErrorMessage(status) {
+  if (status === 502 || status === 503) {
+    return '分析サーバーに接続できません。少し待ってから再試行してください。ローカル確認ではAdsバックエンド（8001番）の起動も確認してください。'
+  }
+  return `Ads Insights API error: ${status}`
 }
 
 async function request(path, options = {}) {
@@ -235,7 +245,7 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const error = new Error(
-      body.detail || body.error || body.message || `Ads Insights API error: ${res.status}`,
+      body.detail || body.message || body.error || defaultApiErrorMessage(res.status),
     )
     error.status = res.status
     error.body = body
@@ -288,7 +298,7 @@ async function requestLocalAds(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     const error = new Error(
-      body.detail || body.message || body.error || `Ads Insights API error: ${res.status}`,
+      body.detail || body.message || body.error || defaultApiErrorMessage(res.status),
     )
     error.status = res.status
     error.body = body
@@ -328,18 +338,47 @@ export function getToken() {
 /** ログアウト — 全セッション状態を一括 purge */
 export function logout() {
   authToken = null
-  // case trust tokens を全て削除
+  // 共有端末で別顧客の分析内容が残らないよう、認証・案件・履歴を一括削除する。
   try {
     const keysToRemove = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith(CASE_TRUST_TOKEN_KEY_PREFIX)) keysToRemove.push(key)
+      if (!key) continue
+      if (
+        key.startsWith(CASE_TRUST_TOKEN_KEY_PREFIX)
+        || key.startsWith('insight-studio-ads-report-history')
+        || key.startsWith('insight-studio-ads-setup')
+        || key.startsWith('insight-studio-market-lens-scan-history')
+        || key === 'insight-studio-current-case'
+        || key === 'insight-studio-case-authenticated'
+        || key === 'insight-studio-market-lens-profile-id'
+        || key === 'insight-studio-client-id'
+        || key === 'is-score-history'
+      ) {
+        keysToRemove.push(key)
+      }
     }
     keysToRemove.forEach((k) => localStorage.removeItem(k))
-    localStorage.removeItem('insight-studio-market-lens-profile-id')
   } catch { /* ignore storage failures */ }
-  // Discovery active job をクリア
-  try { sessionStorage.removeItem('is-discovery-active-job') } catch { /* ignore */ }
+  try {
+    const keysToRemove = []
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i)
+      if (
+        key
+        && (
+          key.startsWith('is-draft-')
+          || key === 'is-discovery-active-job'
+          || key === 'is-compare-active-scan-job'
+          || key === 'is_gemini_key'
+          || key === 'is_claude_key'
+        )
+      ) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach((key) => sessionStorage.removeItem(key))
+  } catch { /* ignore storage failures */ }
 }
 
 /** GET /api/folders — 案件フォルダ一覧 */
@@ -441,11 +480,6 @@ export function runAdsGeminiBudgetSmokeTest(apiKey) {
 /** GET /api/cases — 案件一覧 */
 export function getCases() {
   return request('/cases')
-}
-
-/** GET /api/cases — 案件一覧（認証なし・ログイン画面用） */
-export function getCasesPublic() {
-  return request('/cases', { skipAuth: true, suppressAuthErrorHandler: true })
 }
 
 /** localStorage key for case-specific device trust token (TOTP skip) */

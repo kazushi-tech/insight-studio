@@ -13,6 +13,7 @@
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 4rem);
+  min-height: calc(100dvh - 4rem);
   padding: 0.75rem 1.5rem 0;
   gap: 0.5rem;
 }
@@ -767,7 +768,45 @@
   font-size: 1rem;
 }
 
+@media (max-width: 1023px) {
+  .root {
+    min-height: calc(100dvh - 8.75rem);
+    padding-inline: 0.75rem;
+  }
+
+  .composerBar {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+    z-index: 30;
+  }
+
+  .timelineWrap {
+    scroll-padding-bottom: 8rem;
+  }
+}
+
 @media (max-width: 767px) {
+  .turnCard,
+  .skeletonRoot {
+    padding: 1rem;
+  }
+
+  .quickPromptCard {
+    padding: 1.125rem;
+  }
+
+  .emptyState {
+    padding-block: 2rem;
+  }
+
+  .emptyTitle {
+    font-size: 1.75rem;
+  }
+
+  .composerSecurity {
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+
   .sessionToolbar,
   .sessionActions {
     align-items: stretch;

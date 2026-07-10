@@ -19,8 +19,12 @@ export default function LpLayout() {
 
   useEffect(() => {
     if (hash) {
-      const el = document.querySelector(hash)
-      if (el) el.scrollIntoView({ behavior: 'smooth' })
+      const id = decodeURIComponent(hash.slice(1))
+      const el = document.getElementById(id)
+      if (el) {
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
+      }
     } else {
       window.scrollTo(0, 0)
     }

@@ -4,9 +4,6 @@ import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
 import MarkdownRenderer from '../components/MarkdownRenderer'
 import SourceBadge from '../components/ads/SourceBadge'
-import ExcelImportBanner from '../components/ads/ExcelImportBanner'
-import ExcelImportPreview from '../components/ads/ExcelImportPreview'
-import ExcelImportStatusStrip from '../components/ads/ExcelImportStatusStrip'
 import AiContextRail from '../components/ai-assistant/AiContextRail'
 import { LoadingSpinner, SkeletonBlock, ErrorBanner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
@@ -31,7 +28,6 @@ import {
   computeThemeSummary,
   THEME_DEFINITIONS,
 } from '../utils/chartThemeClassifier'
-import { parseExcelFile } from '../utils/excelImporter'
 import {
   extractExecutiveCards,
   extractRefinedInsights,
@@ -1149,8 +1145,8 @@ function AdsImage2KpiBoard({
           onClick={onScrollToGraphs}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-5 py-3 text-sm font-bold text-on-surface hover:border-primary/30 hover:text-primary transition-colors"
         >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">download</span>
-          レポートをダウンロード
+          <span className="material-symbols-outlined text-base" aria-hidden="true">south</span>
+          グラフへ移動
         </button>
       </div>
 
@@ -1512,7 +1508,7 @@ function GraphAiQuestionRail({
       return
     }
     if (!isAdsAuthenticated) {
-      setInlineStatus('考察スタジオへのログインが必要です。')
+      setInlineStatus('Webサイト分析への接続が必要です。')
       return
     }
     if (!reportBundle?.reportMd) {
@@ -1521,7 +1517,7 @@ function GraphAiQuestionRail({
     }
 
     setInlineLoading(true)
-    setInlineStatus('右カラムで考察中…')
+    setInlineStatus(analysisKey ? '低コストAIで考察中…' : '根拠データを自動整理中…')
     setInlineAnswer('')
     setInlineReport(null)
     setInlineAgentTrace([])
@@ -1547,6 +1543,7 @@ function GraphAiQuestionRail({
       )
       const payload = {
         mode: 'question',
+        analysis_mode: analysisKey ? 'economy' : 'deterministic',
         model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
         provider: analysisProvider || 'anthropic',
         temperature: 0.3,
@@ -1783,12 +1780,6 @@ export default function AnalysisGraphs() {
     }
   })
 
-  /* ── Excel import state ── */
-  const [excelState, setExcelState] = useState('none')
-  const [excelPreview, setExcelPreview] = useState(null)
-  const [excelImport, setExcelImport] = useState(null)
-  const [excelError, setExcelError] = useState(null)
-
   /* ── Data fetch ── */
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
@@ -1866,8 +1857,10 @@ export default function AnalysisGraphs() {
     [reportBundle?.executionSummary],
   )
 
-  /* ── Creative refs ── */
-  const creativeRefs = useMemo(() => excelImport?.creativeRefs ?? [], [excelImport?.creativeRefs])
+  /* ── Creative refs ──
+   * 顧客アップロードExcelのブラウザ解析は安全なparserへ移行するまで販売版では無効。
+   */
+  const creativeRefs = useMemo(() => [], [])
   const textAds = useMemo(() => creativeRefs.filter((r) => !r.imageUrl), [creativeRefs])
   const bannerAds = useMemo(() => creativeRefs.filter((r) => r.imageUrl), [creativeRefs])
   const filteredCreatives = useMemo(() => {
@@ -1959,53 +1952,14 @@ export default function AnalysisGraphs() {
     navigate('/ads/wizard', { state: { resetAt: Date.now() } })
   }
 
-  async function handleExcelFile(file) {
-    if (!file || !file.name.endsWith('.xlsx')) {
-      setExcelError('対応形式は .xlsx のみです')
-      return
-    }
-    setExcelState('uploading')
-    setExcelError(null)
-    try {
-      const result = await parseExcelFile(file)
-      setExcelPreview(result)
-      setExcelState('preview')
-    } catch (e) {
-      setExcelError(e.message)
-      setExcelState('none')
-    }
-  }
-
-  function handleExcelApply() {
-    if (!excelPreview) return
-    setExcelImport(excelPreview)
-    setExcelPreview(null)
-    setExcelState('applied')
-  }
-
-  function handleExcelCancel() {
-    setExcelPreview(null)
-    setExcelState('none')
-    setExcelError(null)
-  }
-
-  function handleExcelRemove() {
-    setExcelImport(null)
-    setExcelPreview(null)
-    setExcelState('none')
-    setExcelError(null)
-  }
-
-  function handleExcelReupload() {
-    setExcelImport(null)
-    setExcelPreview(null)
-    setExcelState('none')
-    setExcelError(null)
-  }
-
   function scrollToSection(sectionId) {
     setActiveSection(sectionId)
-    document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const reduceMotion = typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    document.getElementById(`section-${sectionId}`)?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start',
+    })
   }
 
   function handleOpenDetailFromSimple(sectionId = 'graphs') {
@@ -2015,7 +1969,7 @@ export default function AnalysisGraphs() {
 
   return (
     <div className="min-w-0 flex-1 overflow-x-hidden">
-      <div className="max-w-[1680px] space-y-8 px-4 py-5 pb-20 sm:px-6 lg:space-y-10 lg:px-8 lg:py-8">
+      <div className="mx-auto w-full max-w-[1680px] space-y-8 px-4 py-5 pb-20 sm:px-6 lg:space-y-10 lg:px-8 lg:py-8">
 
         {/* ═══ 1. PAGE HEADER ═══ */}
         <section className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
@@ -2054,7 +2008,6 @@ export default function AnalysisGraphs() {
             {/* Source chips */}
             <div className="flex gap-2 pt-1">
               <SourceBadge source="ga4" />
-              {excelState === 'applied' && <SourceBadge source="excel" />}
             </div>
           </div>
 
@@ -2175,41 +2128,6 @@ export default function AnalysisGraphs() {
           </>
         ) : (
           <>
-        {excelError && (
-          <div className="bg-error/5 border border-error/20 rounded-xl px-4 py-3 flex items-center gap-3">
-            <span className="material-symbols-outlined text-error text-lg">error</span>
-            <p className="text-sm text-on-surface">{excelError}</p>
-            <button onClick={() => setExcelError(null)} className="ml-auto text-on-surface-variant hover:text-on-surface">
-              <span className="material-symbols-outlined text-sm">close</span>
-            </button>
-          </div>
-        )}
-
-        {excelState === 'applied' && excelImport?.warnings?.length > 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-primary-container/5 border border-primary-container/10 rounded-xl">
-            <span className="material-symbols-outlined text-primary text-lg">lightbulb</span>
-            <div className="text-sm text-on-surface japanese-text">
-              {excelImport.warnings.map((w, i) => <p key={i}>{w}</p>)}
-            </div>
-          </div>
-        )}
-
-        {/* Excel import states */}
-        {excelState === 'applied' && (
-          <ExcelImportStatusStrip excelImport={excelImport} onReupload={handleExcelReupload} onRemove={handleExcelRemove} />
-        )}
-        {excelState === 'none' && (
-          <ExcelImportBanner onFileSelected={handleExcelFile} disabled={loading} />
-        )}
-        {excelState === 'uploading' && (
-          <div className="bg-surface-container-lowest rounded-xl p-8 flex items-center gap-4">
-            <LoadingSpinner size="md" label="Excelファイルを解析中…" />
-          </div>
-        )}
-        {excelState === 'preview' && (
-          <ExcelImportPreview result={excelPreview} onApply={handleExcelApply} onCancel={handleExcelCancel} />
-        )}
-
         {/* ═══ 3. LOCAL SECTION NAV ═══ */}
         <nav className="flex gap-6 overflow-x-auto border-b border-outline-variant/15 pb-2">
           {visibleSections.map((sec) => (
@@ -2443,7 +2361,7 @@ export default function AnalysisGraphs() {
         )}
 
         {/* Empty state when no data at all */}
-        {!loading && !error && !hasGraphData && excelState !== 'applied' && (
+        {!loading && !error && !hasGraphData && (
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 text-center space-y-3">
             <span className="material-symbols-outlined text-5xl text-outline-variant">analytics</span>
             <h3 className="text-xl font-bold japanese-text">この期間は十分なデータがありません</h3>

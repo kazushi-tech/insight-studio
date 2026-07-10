@@ -6,7 +6,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ScanJobStatus(str, Enum):
@@ -87,7 +87,9 @@ class ScanJobRecord(BaseModel):
     urls: list[str]
     provider: Optional[str] = None
     model: Optional[str] = None
-    api_key: Optional[str] = Field(default=None, repr=False)
+    # BYOK credentials are deliberately absent from the durable job schema.
+    # Pydantic ignores unknown fields by default, so legacy job.json files that
+    # contain ``api_key`` remain readable while the value is discarded.
     status: ScanJobStatus = ScanJobStatus.queued
     stage: ScanJobStage = ScanJobStage.queued
     progress_pct: int = 0

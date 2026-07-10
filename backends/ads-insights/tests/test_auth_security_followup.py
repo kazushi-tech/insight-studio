@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from web.app.backend_api import app, _login_failures
+from web.app.backend_api import app, _login_failures, _rate_buckets
 
 
 # ---------------------------------------------------------------------------
@@ -38,8 +38,10 @@ from web.app.backend_api import app, _login_failures
 def _clear_login_state():
     """Reset brute-force counter between every test."""
     _login_failures.clear()
+    _rate_buckets.clear()
     yield
     _login_failures.clear()
+    _rate_buckets.clear()
 
 
 @pytest.fixture()
@@ -219,18 +221,16 @@ class TestDebugEndpointMatrix:
 # ---------------------------------------------------------------------------
 
 class TestApiCasesAuthGating:
-    """/api/cases は Authorization ヘッダの有無で挙動を切り分ける."""
+    """/api/cases は認証必須で、公開案件識別子を列挙しない."""
 
     @pytest.mark.anyio
-    async def test_api_cases_without_auth_returns_200_without_dataset_id(self):
+    async def test_api_cases_without_auth_returns_401(self):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
             resp = await c.get("/api/cases")
-        assert resp.status_code == 200
+        assert resp.status_code == 401
         body = resp.json()
-        assert body["ok"] is True
-        assert isinstance(body["cases"], list)
-        for case in body["cases"]:
-            assert "dataset_id" not in case
+        assert body["ok"] is False
+        assert body["error"].lower() == "unauthorized"
 
     @pytest.mark.anyio
     async def test_api_cases_with_invalid_token_returns_401(self):

@@ -7,7 +7,7 @@ export default function DiscoveredLpGrid({ discoveries }) {
     <section className="space-y-4 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">Competitor Candidates</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary japanese-text">競合候補一覧</p>
           <h3 className="mt-1 flex items-center gap-2 text-xl font-extrabold text-on-surface japanese-text">
             <span className="material-symbols-outlined text-primary" aria-hidden="true">verified</span>
             取得できた競合候補

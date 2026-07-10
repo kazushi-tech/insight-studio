@@ -38,4 +38,37 @@ describe('adsInsights neutral AI endpoint', () => {
     expect(options.headers.get('X-Gemini-API-Key')).toBe('AIza-test-key')
     expect(result.answer_markdown).toContain('中立API')
   })
+
+  it('explains a proxy 502 as an unavailable analysis server', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 502,
+      json: async () => ({}),
+    })))
+
+    const { bqPeriods } = await import('../adsInsights')
+
+    await expect(bqPeriods({
+      dataset_id: 'analytics_311324674',
+      granularity: 'monthly',
+    })).rejects.toThrow('分析サーバーに接続できません')
+  })
+
+  it('does not treat a BigQuery configuration error as an expired customer session', async () => {
+    const onAuthError = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: false,
+      status: 401,
+      json: async () => ({
+        error: 'bq_credentials_missing',
+        message: 'BigQuery認証情報が未設定です。',
+      }),
+    })))
+
+    const { bqPeriods, setOnAuthError } = await import('../adsInsights')
+    setOnAuthError(onAuthError)
+
+    await expect(bqPeriods({ dataset_id: 'analytics_311324674' })).rejects.toThrow('BigQuery認証情報')
+    expect(onAuthError).not.toHaveBeenCalled()
+  })
 })

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { demoPreviewUrl } from '../salesContact'
 
 const navLinks = [
   { label: '機能', to: '/lp#features' },
+  { label: '導入まで', to: '/lp#onboarding' },
   { label: '料金', to: '/lp/pricing' },
 ]
 
@@ -53,12 +55,20 @@ export default function LpNavbar() {
             })}
           </div>
         </div>
-        <Link
-          to="/"
-          className="px-6 py-2.5 rounded-full bg-primary text-on-primary font-semibold text-sm hover:opacity-90 transition-opacity active:scale-95"
-        >
-          無料で始める
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/login"
+            className="hidden min-h-11 items-center px-3 text-sm font-bold text-on-surface-variant transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:inline-flex"
+          >
+            ご利用中の方
+          </Link>
+          <Link
+            to={demoPreviewUrl}
+            className="inline-flex min-h-11 items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:px-6"
+          >
+            画面サンプルを見る
+          </Link>
+        </div>
       </nav>
     </header>
   )

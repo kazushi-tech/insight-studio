@@ -33,7 +33,7 @@ export default function AdsChartCardShell({
   const selectionLabel = group?.selectionLabel || group?.metadata?.selectionLabel
 
   return (
-    <article className={`overflow-hidden rounded-2xl border border-primary/10 bg-surface-container-lowest shadow-sm ${featured ? 'ring-1 ring-primary/10' : ''}`}>
+    <article className={`motion-card overflow-hidden rounded-2xl border border-primary/10 bg-surface-container-lowest shadow-sm ${featured ? 'ring-1 ring-primary/10' : ''}`}>
       <div className={`border-b border-primary/10 bg-[#fbfcf7] ${compact ? 'px-4 py-3' : 'px-5 py-4'}`}>
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
@@ -56,7 +56,7 @@ export default function AdsChartCardShell({
               ))}
             </div>
 
-            <h3 className={`${compact ? 'mt-2 text-lg' : 'mt-3 text-xl'} truncate font-black text-on-surface japanese-text`} title={group?.title}>
+            <h3 className={`${compact ? 'mt-2 text-lg' : 'mt-3 text-xl'} line-clamp-2 break-words font-black text-on-surface japanese-text`} title={group?.title}>
               {group?.title || '無題グラフ'}
             </h3>
             <p className="mt-1 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
@@ -84,7 +84,7 @@ export default function AdsChartCardShell({
             aria-expanded={!collapsed}
             aria-controls={contentId}
             onClick={() => setCollapsed((value) => !value)}
-            className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/15 bg-white text-primary shadow-sm transition-colors hover:bg-primary hover:text-on-primary"
+            className="grid size-11 shrink-0 place-items-center rounded-xl border border-primary/15 bg-white text-primary shadow-sm transition-colors hover:bg-primary hover:text-on-primary"
           >
             <span className={`material-symbols-outlined text-xl transition-transform ${collapsed ? '' : 'rotate-180'}`} aria-hidden="true">
               expand_more

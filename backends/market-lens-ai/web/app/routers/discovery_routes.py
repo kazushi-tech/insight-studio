@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..auth import verify_byok_or_token
+from ..auth import verify_admin_or_integration, verify_byok_or_token
 from ..analyzer import analyze
 from ..extractor import extract
 from ..fetcher import fetch_html, take_screenshot
@@ -187,7 +187,11 @@ def create_discovery_router(
         db_session_factory: Optional SQLAlchemy session factory for persistence.
         job_repo: Optional job repository for async job support.
     """
-    router = APIRouter(prefix="/api/discovery", tags=["discovery"])
+    router = APIRouter(
+        prefix="/api/discovery",
+        tags=["discovery"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
 
     def _daily_limit_reached() -> bool:
         return _daily_search_count >= _daily_limit

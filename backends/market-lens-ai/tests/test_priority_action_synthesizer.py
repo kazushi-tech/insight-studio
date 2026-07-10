@@ -46,6 +46,9 @@ def test_synthesize_priority_action_block_emits_weak_axis_actions():
         assert "対象:" in line
         assert "軸:" in line
         assert "期待効果:" in line
+        assert "期待KPI:" in line
+        assert "工数:" in line
+        assert "初回検証方法:" in line
         assert "優先度:" in line
 
 

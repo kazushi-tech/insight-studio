@@ -75,10 +75,10 @@ async function renderAndClickDiscover() {
   const user = userEvent.setup()
   render(<Discovery />, { wrapper: TestProviders })
 
-  const input = screen.getByPlaceholderText('競合他社のURLを入力')
+  const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
   await user.type(input, 'https://example.com')
 
-  const button = screen.getByRole('button', { name: /競合を発見/ })
+  const button = screen.getByRole('button', { name: /競合候補を探す/ })
   await user.click(button)
 
   return user
@@ -90,7 +90,7 @@ describe('Discovery — error scenarios', () => {
     sessionStorage.clear()
     // Set a valid Claude API key so that the component proceeds past the
     // auth guard and actually hits the network.
-    localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+    sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
 
     // Restore default mock implementations (mockReset: true in vitest config
     // clears them between tests).
@@ -181,16 +181,16 @@ describe('Discovery — error scenarios', () => {
 
   // ── 6. Missing API key / provider triggers disabled button ──
   it('shows warning and disables button when no API key is configured', async () => {
-    localStorage.removeItem('is_claude_key')
+    sessionStorage.removeItem('is_claude_key')
 
     const user = userEvent.setup()
     render(<Discovery />, { wrapper: TestProviders })
 
-    const input = screen.getByPlaceholderText('競合他社のURLを入力')
+    const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
     await user.type(input, 'https://example.com')
 
     expect(screen.getByText(/分析用 API キーが必要です/)).toBeInTheDocument()
-    const button = screen.getByRole('button', { name: /競合を発見/ })
+    const button = screen.getByRole('button', { name: /競合候補を探す/ })
     expect(button).toBeDisabled()
   })
 
@@ -218,7 +218,7 @@ describe('Discovery — error scenarios', () => {
     })
 
     // The discover button should be visible again
-    expect(screen.getByRole('button', { name: /競合を発見/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /競合候補を探す/ })).toBeInTheDocument()
   })
 
   // ── 8. Error banner shows the error message text ────────

@@ -30,6 +30,24 @@ describe('Transport — proxy path routing', () => {
     // Should NOT contain the direct Render backend URL
     expect(capturedUrl).not.toContain('market-lens-ai.onrender.com')
   })
+
+  it('forwards the existing Ads bearer token to Market Lens', async () => {
+    let authorization = null
+    window.localStorage.setItem('is_ads_token', 'signed-admin-jwt')
+    server.use(
+      http.get('/api/ml/health', ({ request }) => {
+        authorization = request.headers.get('Authorization')
+        return HttpResponse.json({ status: 'ok' })
+      }),
+    )
+
+    try {
+      await health()
+      expect(authorization).toBe('Bearer signed-admin-jwt')
+    } finally {
+      window.localStorage.removeItem('is_ads_token')
+    }
+  })
 })
 
 describe('Transport — HTTP error structure', () => {

@@ -24,7 +24,7 @@ MOCK_AUTH_SCRIPT = """() => {
         display_name: 'Test User'
     }));
     localStorage.setItem('is_ads_token', 'test-token-for-playwright');
-    localStorage.setItem('is_claude_key', 'sk-ant-api03-testkey00000000000000000000000000000000000000000000000000000000000000000000000');
+    sessionStorage.setItem('is_claude_key', 'sk-' + 'ant-test-only-not-a-real-key');
 }"""
 
 def setup_auth(page):

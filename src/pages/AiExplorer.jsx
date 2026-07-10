@@ -408,7 +408,7 @@ export default function AiExplorer() {
     const nextMessages = [...messages, userMessage]
     setMessages(nextMessages)
     setLoading(true)
-    setStatus('考察生成中...')
+    setStatus(hasAnalysisKey ? '低コストAIで考察中…' : '根拠データを自動整理中…')
 
     try {
       const analysisInstructions = buildAnalysisInstructions(
@@ -419,7 +419,7 @@ export default function AiExplorer() {
         analysisInstructions,
         HTML_REPORT_OUTPUT_INSTRUCTIONS,
         contextMode === 'ads-with-ml' && mlContextSummary
-          ? `[補助コンテキスト: Market Lens]\n${mlContextSummary}`
+          ? `[補助コンテキスト: 競合・LP分析]\n${mlContextSummary}`
           : '',
         `---\n${prompt}`,
       ].filter(Boolean).join('\n\n')
@@ -438,6 +438,7 @@ export default function AiExplorer() {
 
       const neonPayload = {
         mode: 'question',
+        analysis_mode: hasAnalysisKey ? 'economy' : 'deterministic',
         model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
         provider: analysisProvider || 'anthropic',
         temperature: messages.length === 0 ? 0.3 : 0.6,
@@ -699,13 +700,13 @@ export default function AiExplorer() {
         {!isAdsAuthenticated && (
           <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
-            <span className="japanese-text">考察スタジオへのログインが必要です。ヘッダーの鍵アイコンから認証してください。</span>
+            <span className="japanese-text">Webサイト分析への接続が必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
       {!hasAnalysisKey && (
-        <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
-          <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">ブラウザ保存の分析用 API キーは未設定です。バックエンド側にキーが設定済みなら、このまま送信できます。</span>
+        <div className="mb-4 flex items-center gap-3 rounded-[0.75rem] border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-900 dark:border-info/30 dark:bg-info-container dark:text-on-info-container">
+          <span className="material-symbols-outlined text-lg">data_check</span>
+          <span className="japanese-text">APIキーなしの根拠整理モードで利用できます。Geminiを設定すると、安価な1回生成と厳格検査で詳しい考察に切り替わります。</span>
         </div>
       )}
         {reportError && (
@@ -758,7 +759,7 @@ export default function AiExplorer() {
                       : 'text-on-surface-variant hover:bg-surface-container-high'
                   }`}
                 >
-                  + Market Lens
+                  + 競合・LP分析
                 </button>
               </div>
               {contextMode === 'ads-with-ml' && (
@@ -813,17 +814,17 @@ export default function AiExplorer() {
 
         {contextMode === 'ads-with-ml' && mlStatus === 'unavailable' && (
           <p className="text-xs text-amber-700 dark:text-warning japanese-text">
-            Market Lens の履歴 API が停止中のため、広告データのみで回答します。
+            競合・LP分析の履歴取得が停止中のため、Webサイトデータのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'cold_start' && (
           <p className="text-xs text-sky-700 dark:text-on-info-container japanese-text">
-            Market Lens バックエンドが起動中です。1〜2分後にコンテキスト更新を試してください。広告データのみで回答します。
+            競合・LP分析サービスが起動中です。1〜2分後にコンテキスト更新を試してください。Webサイトデータのみで回答します。
           </p>
         )}
         {contextMode === 'ads-with-ml' && mlStatus === 'error' && (
           <p className="text-xs text-red-700 dark:text-on-error-container japanese-text">
-            Market Lens の履歴取得に失敗しました。広告データのみで回答します。
+            競合・LP分析の履歴取得に失敗しました。Webサイトデータのみで回答します。
           </p>
         )}
 

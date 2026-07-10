@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import verify_admin_or_integration
 from ..repositories.scan_repository import ScanRepository
 from ..schemas.report_envelope import build_envelope_from_md, report_envelope_enabled
 from ..services import history_service
@@ -12,7 +13,7 @@ from ..user_context import get_optional_user_id
 
 def create_history_router(repo: ScanRepository) -> APIRouter:
     """Factory that creates a history router wired to the given repository."""
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(verify_admin_or_integration)])
 
     @router.get("/api/scans")
     async def list_scans(owner_id: str | None = Depends(get_optional_user_id)):

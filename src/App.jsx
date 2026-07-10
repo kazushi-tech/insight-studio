@@ -1,30 +1,49 @@
-import { Component } from 'react'
+import { Component, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Compare from './pages/Compare'
-import Discovery from './pages/Discovery'
-import CreativeReview from './pages/CreativeReview'
-import SetupWizard from './pages/SetupWizard'
-import EssentialPack from './pages/EssentialPack'
-import BeginnerReport from './pages/BeginnerReport'
-import AnalysisGraphs from './pages/AnalysisGraphs'
-import AiExplorer from './pages/AiExplorer'
-import Settings from './pages/Settings'
-import ProjectManagement from './pages/ProjectManagement'
-import Login from './pages/Login'
-import LpLayout from './pages/landing/LpLayout'
-import LandingPage from './pages/landing/LandingPage'
-import LpPricing from './pages/landing/LpPricing'
-import LpCompare from './pages/landing/LpCompare'
-import LpPerformance from './pages/landing/LpPerformance'
-import LpCreative from './pages/landing/LpCreative'
-import LpDiscovery from './pages/landing/LpDiscovery'
-import ReportV2Debug from './pages/debug/ReportV2Debug'
-import UiUxReview from './pages/debug/UiUxReview'
 import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 import { useRbac } from './contexts/RbacContext'
+import { isProjectManagementEnabled } from './config/features'
+
+const Layout = lazy(() => import('./components/Layout'))
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const AnalysisHub = lazy(() => import('./pages/AnalysisHub'))
+const Compare = lazy(() => import('./pages/Compare'))
+const Discovery = lazy(() => import('./pages/Discovery'))
+const CreativeReview = lazy(() => import('./pages/CreativeReview'))
+const SetupWizard = lazy(() => import('./pages/SetupWizard'))
+const BeginnerReport = lazy(() => import('./pages/BeginnerReport'))
+const AnalysisGraphs = lazy(() => import('./pages/AnalysisGraphs'))
+const AiExplorer = lazy(() => import('./pages/AiExplorer'))
+const Settings = lazy(() => import('./pages/Settings'))
+const ProjectManagement = lazy(() => import('./pages/ProjectManagement'))
+const Login = lazy(() => import('./pages/Login'))
+const LpLayout = lazy(() => import('./pages/landing/LpLayout'))
+const LandingPage = lazy(() => import('./pages/landing/LandingPage'))
+const LpPricing = lazy(() => import('./pages/landing/LpPricing'))
+const LpCompare = lazy(() => import('./pages/landing/LpCompare'))
+const LpPerformance = lazy(() => import('./pages/landing/LpPerformance'))
+const LpCreative = lazy(() => import('./pages/landing/LpCreative'))
+const LpDiscovery = lazy(() => import('./pages/landing/LpDiscovery'))
+const ReportV2Debug = import.meta.env.DEV ? lazy(() => import('./pages/debug/ReportV2Debug')) : null
+const UiUxReview = import.meta.env.DEV ? lazy(() => import('./pages/debug/UiUxReview')) : null
+
+function RouteLoading() {
+  return (
+    <div className="grid min-h-48 place-items-center px-6 py-12" role="status" aria-live="polite">
+      <div className="flex items-center gap-3 text-sm font-bold text-on-surface-variant japanese-text">
+        <span className="material-symbols-outlined animate-spin text-xl text-primary motion-reduce:animate-none" aria-hidden="true">
+          progress_activity
+        </span>
+        画面を準備しています
+      </div>
+    </div>
+  )
+}
+
+function RouteSuspense({ children }) {
+  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
+}
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -98,36 +117,44 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
-        {/* Login — outside Layout, dark standalone page */}
-        <Route path="login" element={<Login />} />
+        {/* Login — outside Layout, brand-aligned standalone page */}
+        <Route path="login" element={<RouteSuspense><Login /></RouteSuspense>} />
         {/* LP pages — outside Layout, own navbar/footer */}
-        <Route path="lp" element={<LpLayout />}>
-          <Route index element={<LandingPage />} />
-          <Route path="pricing" element={<LpPricing />} />
-          <Route path="compare" element={<LpCompare />} />
-          <Route path="performance" element={<LpPerformance />} />
-          <Route path="creative" element={<LpCreative />} />
-          <Route path="discovery" element={<LpDiscovery />} />
+        <Route path="lp" element={<RouteSuspense><LpLayout /></RouteSuspense>}>
+          <Route index element={<RouteSuspense><LandingPage /></RouteSuspense>} />
+          <Route path="pricing" element={<RouteSuspense><LpPricing /></RouteSuspense>} />
+          <Route path="compare" element={<RouteSuspense><LpCompare /></RouteSuspense>} />
+          <Route path="performance" element={<RouteSuspense><LpPerformance /></RouteSuspense>} />
+          <Route path="creative" element={<RouteSuspense><LpCreative /></RouteSuspense>} />
+          <Route path="discovery" element={<RouteSuspense><LpDiscovery /></RouteSuspense>} />
         </Route>
         {/* App pages — require login */}
-        <Route element={<AuthGuard><Layout /></AuthGuard>}>
-          <Route index element={<Dashboard />} />
-          <Route path="compare" element={<Compare />} />
-          <Route path="discovery" element={<Discovery />} />
-          <Route path="creative-review" element={<CreativeReview />} />
-          <Route path="ads/wizard" element={<SetupWizard />} />
+        <Route element={<AuthGuard><RouteSuspense><Layout /></RouteSuspense></AuthGuard>}>
+          <Route index element={<RouteSuspense><Dashboard /></RouteSuspense>} />
+          <Route path="analysis" element={<RouteSuspense><AnalysisHub /></RouteSuspense>} />
+          <Route path="compare" element={<AdminGuard><RouteSuspense><Compare /></RouteSuspense></AdminGuard>} />
+          <Route path="discovery" element={<AdminGuard><RouteSuspense><Discovery /></RouteSuspense></AdminGuard>} />
+          <Route path="creative-review" element={<AdminGuard><RouteSuspense><CreativeReview /></RouteSuspense></AdminGuard>} />
+          <Route path="ads/wizard" element={<RouteSuspense><SetupWizard /></RouteSuspense>} />
           <Route path="ads/pack" element={<Navigate to="/ads/report" replace />} />
-          <Route path="ads/report" element={<SetupGuard><BeginnerReport /></SetupGuard>} />
-          <Route path="ads/graphs" element={<SetupGuard><AnalysisGraphs /></SetupGuard>} />
+          <Route path="ads/report" element={<SetupGuard><RouteSuspense><BeginnerReport /></RouteSuspense></SetupGuard>} />
+          <Route path="ads/graphs" element={<SetupGuard><RouteSuspense><AnalysisGraphs /></RouteSuspense></SetupGuard>} />
           <Route path="ads/ai" element={<SetupGuard><LegacyAdsAiRedirect /></SetupGuard>} />
-          <Route path="insights/ai" element={<SetupGuard><AiExplorer /></SetupGuard>} />
-          <Route path="cases" element={<Navigate to="/projects" replace />} />
-          <Route path="projects" element={<AdminGuard><ProjectManagement /></AdminGuard>} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="insights/ai" element={<SetupGuard><RouteSuspense><AiExplorer /></RouteSuspense></SetupGuard>} />
+          <Route path="cases" element={<Navigate to={isProjectManagementEnabled ? '/projects' : '/settings'} replace />} />
+          <Route
+            path="projects"
+            element={isProjectManagementEnabled
+              ? <AdminGuard><RouteSuspense><ProjectManagement /></RouteSuspense></AdminGuard>
+              : <Navigate to="/settings" replace />}
+          />
+          <Route path="settings" element={<RouteSuspense><Settings /></RouteSuspense>} />
           {import.meta.env.DEV && (
-            <Route path="debug/report-v2" element={<ReportV2Debug />} />
+            <>
+              <Route path="debug/report-v2" element={<RouteSuspense><ReportV2Debug /></RouteSuspense>} />
+              <Route path="debug/ui-ux-review" element={<RouteSuspense><UiUxReview /></RouteSuspense>} />
+            </>
           )}
-          <Route path="debug/ui-ux-review" element={<UiUxReview />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

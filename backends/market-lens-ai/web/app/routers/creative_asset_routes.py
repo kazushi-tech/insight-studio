@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import Response
 
+from ..auth import verify_admin_or_integration
 from ..repositories.asset_repository import AssetRepository
 from ..schemas.creative_asset import CreativeAssetResponse
 from ..services.intake.asset_upload_service import UploadError, upload_asset
@@ -16,7 +17,11 @@ logger = logging.getLogger("market-lens")
 
 def create_asset_router(repo: AssetRepository) -> APIRouter:
     """Factory that creates creative-asset routes wired to the given repository."""
-    router = APIRouter(prefix="/api/assets", tags=["creative-assets"])
+    router = APIRouter(
+        prefix="/api/assets",
+        tags=["creative-assets"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
 
     @router.post("", response_model=CreativeAssetResponse, status_code=201)
     async def upload(file: UploadFile):

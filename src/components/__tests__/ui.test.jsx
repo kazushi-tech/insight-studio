@@ -38,7 +38,7 @@ describe('ErrorBanner', () => {
     )
 
     expect(screen.queryByRole('button', { name: '再試行' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('次に確認すること')).toHaveTextContent('設定画面で分析用APIキーを確認')
+    expect(screen.getByLabelText('次に確認すること')).toHaveTextContent('追加分析の設定を確認')
   })
 
   it('calls retry when retry is available', async () => {

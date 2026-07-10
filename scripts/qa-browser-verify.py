@@ -1,8 +1,9 @@
 """
 Insight Studio — deterministic browser QA (Claude side, 95点化検証).
 
-Connects to the already-running dev server on :3002, seeds auth/setup
-localStorage so guarded app pages render, then sweeps every required route
+Connects to the already-running dev server on :3002. Public sales/login pages
+run in a clean context; guarded app pages run in a separate seeded context.
+The script then sweeps every required route
 at multiple viewports. For each route it records: final URL (redirects),
 console errors/warnings, page errors, failed network requests, broken images,
 leftover '#' anchors, horizontal overflow, suspicious unsupported-claim copy,
@@ -26,6 +27,7 @@ ROUTES = [
     ("/lp/pricing", "lp-pricing"),
     ("/login", "login"),
     ("/", "dashboard"),
+    ("/analysis", "analysis-hub"),
     ("/ads/wizard", "ads-wizard"),
     ("/ads/graphs", "ads-graphs"),
     ("/insights/ai?ui=v2", "insights-ai-v2"),
@@ -59,6 +61,7 @@ try {{
   localStorage.setItem('insight-studio-current-case', JSON.stringify({json.dumps(CURRENT_CASE)}));
   localStorage.setItem('insight-studio-case-authenticated', 'true');
   localStorage.setItem('insight-studio-ads-setup:petabit', JSON.stringify({json.dumps(SETUP_STATE)}));
+  localStorage.setItem('insight-studio-guide-seen', '1');
 }} catch (e) {{}}
 """
 
@@ -195,10 +198,26 @@ def run_route(context, path, slug, viewport_label, zoom):
     return result
 
 
+def verify_public_sales_flow(context, viewport_label):
+    """The public sample CTA must never dead-end at the password screen."""
+    page = context.new_page()
+    try:
+        page.goto(f"{BASE}/lp", wait_until="domcontentloaded", timeout=30000)
+        page.get_by_role("link", name="画面サンプルを見る").first.click()
+        page.wait_for_timeout(300)
+        final_url = page.evaluate("location.pathname + location.hash")
+        preview_visible = page.get_by_role("heading", name="開いたら、見る順番が分かります。").is_visible()
+        if final_url != "/lp#product-preview" or not preview_visible:
+            raise AssertionError(f"public sample CTA failed: url={final_url}, visible={preview_visible}")
+        print(f"[{viewport_label}] public sample CTA          -> {final_url:30s} [OK]")
+    finally:
+        page.close()
+
+
 def main():
     zoom = float(sys.argv[1]) if len(sys.argv) > 1 else 1.0
     if zoom == 1.0:
-        viewports = [(1366, 768, "1366x768"), (1440, 900, "1440x900")]
+        viewports = [(390, 844, "390x844"), (1366, 768, "1366x768"), (1440, 900, "1440x900")]
     else:
         viewports = [(1366, 768, f"1366x768-zoom{zoom}")]
 
@@ -206,10 +225,9 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         for w, h, label in viewports:
-            context = browser.new_context(viewport={"width": w, "height": h})
-            context.add_init_script(SEED_JS)
-            for path, slug in ROUTES:
-                res = run_route(context, path, slug, label, zoom)
+            public_context = browser.new_context(viewport={"width": w, "height": h})
+            for path, slug in ROUTES[:3]:
+                res = run_route(public_context, path, slug, label, zoom)
                 all_results.append(res)
                 flag = "OK"
                 if res["consoleErrors"] or res["pageErrors"]:
@@ -224,7 +242,28 @@ def main():
                       f"ovf={res['overflowXpx']:>4}px img={len(res['brokenImgs'])} "
                       f"cerr={len(res['consoleErrors'])} perr={len(res['pageErrors'])} "
                       f"net={len(res['realFailedNet'])} claim={len(res['suspiciousClaims'])} [{flag}]")
-            context.close()
+            verify_public_sales_flow(public_context, label)
+            public_context.close()
+
+            app_context = browser.new_context(viewport={"width": w, "height": h})
+            app_context.add_init_script(SEED_JS)
+            for path, slug in ROUTES[3:]:
+                res = run_route(app_context, path, slug, label, zoom)
+                all_results.append(res)
+                flag = "OK"
+                if res["consoleErrors"] or res["pageErrors"]:
+                    flag = "CONSOLE_ERR"
+                if res["brokenImgs"]:
+                    flag = "BROKEN_IMG"
+                if res["realFailedNet"]:
+                    flag = "NET_ERR"
+                if res["suspiciousClaims"]:
+                    flag = "CLAIM"
+                print(f"[{label}] {path:28s} -> {res['finalUrl']:30s} "
+                      f"ovf={res['overflowXpx']:>4}px img={len(res['brokenImgs'])} "
+                      f"cerr={len(res['consoleErrors'])} perr={len(res['pageErrors'])} "
+                      f"net={len(res['realFailedNet'])} claim={len(res['suspiciousClaims'])} [{flag}]")
+            app_context.close()
         browser.close()
 
     OUT.mkdir(parents=True, exist_ok=True)

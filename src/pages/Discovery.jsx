@@ -76,63 +76,39 @@ function getActiveJob() {
 
 function DiscoveryImage2Guide({ providerLabel }) {
   return (
-    <section className="grid min-w-0 grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-6 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-              <span>競合発見</span>
-              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span>発見レポート</span>
-              <span className="material-symbols-outlined text-base" aria-hidden="true">chevron_right</span>
-              <span className="font-bold text-primary">レポート</span>
-            </div>
-            <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">発見レポート</h2>
-            <p className="mt-2 text-sm leading-7 text-on-surface-variant japanese-text">
-              発見したURLを分類し、直接競合・隣接競合・参考ブランド・対象外を混ぜずに判断します。
-            </p>
-          </div>
-          <span className="inline-flex items-center rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
-            {providerLabel} 競合発見
+    <details className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+      <summary className="cursor-pointer list-none focus-visible:ring-2 focus-visible:ring-secondary">
+        <span className="flex items-center justify-between gap-4">
+          <span>
+            <strong className="block text-sm text-on-surface japanese-text">候補の分け方を見る</strong>
+            <span className="mt-1 block text-xs text-on-surface-variant japanese-text">見つけた公開ページを4種類に分けます</span>
           </span>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary/[0.06] px-3 py-2 text-xs font-bold text-primary">
+            {providerLabel}
+            <span className="material-symbols-outlined text-base" aria-hidden="true">expand_more</span>
+          </span>
+        </span>
+      </summary>
+      <div className="mt-5 border-t border-outline-variant/15 pt-5">
+        <p className="max-w-3xl text-sm leading-7 text-on-surface-variant japanese-text">
+          URLやページ内の説明を手がかりに分類します。公開されていない売上・アクセス数・広告成果は判定できません。
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
             ['直接競合', '主比較', 'shopping_cart'],
             ['隣接競合', '補助', 'hub'],
             ['参考ブランド', '観測', 'visibility'],
             ['対象外', '除外', 'block'],
           ].map(([label, note, icon]) => (
-            <article key={label} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-5">
+            <article key={label} className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-4">
               <span className="material-symbols-outlined text-primary" aria-hidden="true">{icon}</span>
-              <h3 className="mt-4 text-base font-extrabold text-on-surface japanese-text">{label}</h3>
+              <h3 className="mt-3 text-sm font-extrabold text-on-surface japanese-text">{label}</h3>
               <p className="mt-1 text-xs font-bold text-on-surface-variant japanese-text">{note}</p>
             </article>
           ))}
         </div>
       </div>
-
-      <aside className="sticky top-20 max-h-[calc(100vh-6rem)] min-w-0 overflow-y-auto rounded-xl border border-primary/15 bg-primary/[0.045] p-5 shadow-sm">
-        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-primary">AIに質問</p>
-        <h3 className="mt-2 text-xl font-extrabold text-primary japanese-text">どの競合から比較するか</h3>
-        <ol className="mt-4 space-y-4">
-          {[
-            ['オファーの明確さが高い', '初回特典・送料無料など、具体的で強いオファーを確認します。'],
-            ['CTAの強さで優位', '主要ボタンが目立つ競合を優先します。'],
-            ['差分が明確で改善しやすい', '自社LPとの差が大きい候補を次に送ります。'],
-          ].map(([title, body], index) => (
-            <li key={title} className="flex gap-3">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-on-primary text-xs font-black">{index + 1}</span>
-              <span>
-                <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
-                <small className="mt-1 block text-xs leading-6 text-on-surface-variant japanese-text">{body}</small>
-              </span>
-            </li>
-          ))}
-        </ol>
-      </aside>
-    </section>
+    </details>
   )
 }
 
@@ -153,7 +129,7 @@ function DiscoveryActionPreview({ discoveries, result }) {
     <section className="rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">Discovery Result</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary japanese-text">競合候補</p>
           <h2 className="mt-1 text-2xl font-extrabold text-on-surface japanese-text">比較候補を先に確認</h2>
           <p className="mt-2 max-w-3xl text-sm leading-7 text-on-surface-variant japanese-text">
             長文レポートを読む前に、取得できた競合候補・補完分析・未分析数を確認します。
@@ -163,7 +139,7 @@ function DiscoveryActionPreview({ discoveries, result }) {
           to="/compare"
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-secondary"
         >
-          Compareへ進む
+          LP比較へ進む
           <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
         </Link>
       </div>
@@ -694,74 +670,88 @@ export default function Discovery() {
   }, [clearRun, stopPolling])
 
   return (
-    <div className="mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-8 p-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start 2xl:p-8 2xl:grid-cols-[minmax(0,1fr)_336px]">
+    <div className={`mx-auto grid w-full max-w-[1480px] grid-cols-1 gap-6 p-4 sm:p-6 2xl:p-8 ${result ? '2xl:grid-cols-[minmax(0,1fr)_336px] 2xl:items-start' : ''}`}>
       <div className="min-w-0">
-        <h2 className="display-lg text-on-surface tracking-tight japanese-text">Discovery Hub</h2>
-        <p className="body-lg text-on-surface-variant max-w-2xl mt-4">URLを入力するだけで、市場の競合他社とそのパフォーマンスを瞬時に可視化します。</p>
+        <span className="inline-flex items-center gap-2 rounded-full bg-primary/[0.07] px-3 py-1.5 text-xs font-bold text-primary japanese-text">
+          <span className="material-symbols-outlined text-base" aria-hidden="true">travel_explore</span>
+          競合発見
+        </span>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-on-surface sm:text-4xl japanese-text">似ている競合サイトを探す</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-on-surface-variant sm:text-base japanese-text">
+          自社サイトの公開情報を手がかりに、比較候補になりそうな公開ページを検索して分類します。
+        </p>
       </div>
 
-      <AiContextRail
-        className="xl:col-start-2 xl:row-start-1 xl:row-span-[99]"
-        screenName="競合発見アシスタント"
-        status={discoveryRailStatus}
-        inputSummary={discoveryRailInput}
-        evidence={['直接競合', '隣接競合', '参考ブランド', '対象外']}
-        suggestedQuestions={[
-          '直接競合の妥当性を確認して',
-          '除外したサイトの理由を詳しく教えて',
-          '他に不足している情報は？',
-        ]}
-        questionGroups={[
-          {
-            title: '分類の基準について',
-            questions: [
-              'この分類ロジックを教えて',
-              '信頼度の基準は？',
-              '理由トレースの根拠を表示して',
-            ],
-          },
-          {
-            title: '次のアクション',
-            questions: [
-              'Compareに送る前に確認したい',
-              '比較分析レポートで何が分かる？',
-              '市場トレンドも合わせて見たい',
-            ],
-          },
-        ]}
-        contextItems={[
-          '機能の重複度が高い候補を優先',
-          '提供価値が近い候補を主比較へ',
-          'ターゲット一致を除外理由まで確認',
-        ]}
-        nextActions={[
-          { label: '比較分析へ送る', to: '/compare', icon: 'auto_awesome', primary: true },
-          { label: '選択をリセット', question: '競合候補の選択をリセットする前に、残すべき候補を教えて', icon: 'delete' },
-        ]}
-        primaryAction="競合発見レポートを次の比較に渡す"
-        primaryActionLabel="AI考察で分類を確認"
-        helperText="発見候補を同列に扱わず、市場適合・除外理由・次に比較すべき順番を確認します。"
-      />
+      {result && (
+        <AiContextRail
+          className="hidden 2xl:col-start-2 2xl:row-start-1 2xl:row-span-[99] 2xl:block"
+          screenName="競合発見アシスタント"
+          status={discoveryRailStatus}
+          inputSummary={discoveryRailInput}
+          evidence={['直接競合', '隣接競合', '参考ブランド', '対象外']}
+          suggestedQuestions={[
+            '直接競合の妥当性を確認して',
+            '除外したサイトの理由を詳しく教えて',
+            '他に不足している情報は？',
+          ]}
+          questionGroups={[
+            {
+              title: '分類の基準について',
+              questions: [
+                'この分類ロジックを教えて',
+                '信頼度の基準は？',
+                '理由トレースの根拠を表示して',
+              ],
+            },
+            {
+              title: '次のアクション',
+              questions: [
+                'LP比較に送る前に確認したい',
+                '比較分析レポートで何が分かる？',
+                '不足している公開情報は？',
+              ],
+            },
+          ]}
+          contextItems={[
+            '機能の重複度が高い候補を優先',
+            '提供価値が近い候補を主比較へ',
+            'ターゲット一致を除外理由まで確認',
+          ]}
+          nextActions={[
+            { label: 'LP比較へ送る', to: '/compare', icon: 'compare_arrows', primary: true },
+            { label: 'ホームに戻る', to: '/', icon: 'home' },
+          ]}
+          primaryAction="競合発見レポートを次の比較に渡す"
+          primaryActionLabel="AI考察で分類を確認"
+          helperText="発見候補を同列に扱わず、分類理由と次に比較すべき順番を確認します。"
+        />
+      )}
 
-      {!hasAnalysisKey && (
-        <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
-          <span className="material-symbols-outlined text-lg">warning</span>
-          <span className="japanese-text">競合発見には分析用 API キーが必要です（Gemini または Claude API キーが必要です）。設定画面から設定してください。</span>
+      {hasAnalysisKey ? (
+        <div className="flex items-start gap-3 rounded-xl border border-emerald-200/70 bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 dark:border-success/30 dark:bg-success-container dark:text-on-success-container">
+          <span className="material-symbols-outlined mt-0.5 text-lg" aria-hidden="true">check_circle</span>
+          <span className="japanese-text"><strong>分析の準備はできています。</strong> 現在は {providerLabel} を使用します。</span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-warning/30 dark:bg-warning-container dark:text-on-warning-container sm:flex-row sm:items-center">
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">key</span>
+          <span className="flex-1 japanese-text"><strong>分析用 API キーが必要です。</strong> Gemini または Claude のキーを登録すると実行できます。</span>
+          <Link to="/settings" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-900 px-4 py-2 text-sm font-bold text-white focus-visible:ring-2 focus-visible:ring-secondary dark:bg-warning dark:text-on-warning">
+            設定画面を開く
+          </Link>
         </div>
       )}
-      <div className="flex items-center gap-3 bg-surface-container rounded-[0.75rem] px-5 py-3 text-sm text-on-surface-variant">
-        <span className="material-symbols-outlined text-lg">travel_explore</span>
-        <span className="japanese-text">競合発見の分析は現在 {providerLabel} で実行します。必要な検索設定はサーバー側で処理します。</span>
-      </div>
-
-      {!result?.report_md && <DiscoveryImage2Guide providerLabel={providerLabel} />}
 
       {/* URL Input */}
-      <div className="min-w-0 bg-surface-container-lowest p-6 2xl:p-8 rounded-xl ghost-border">
+      <section className="min-w-0 rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h2 className="text-lg font-extrabold text-on-surface japanese-text">自社サイトを入力</h2>
+          <p className="mt-1 text-sm text-on-surface-variant japanese-text">競合を探したい商品・サービスのページを指定してください。</p>
+        </div>
         <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
           <div className="relative min-w-0 flex-1">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" aria-hidden="true">link</span>
-            <label htmlFor="discovery-brand-url" className="sr-only">競合発見の対象URL</label>
+            <label htmlFor="discovery-brand-url" className="sr-only">競合を探したい自社サイトのURL</label>
             <input
               id="discovery-brand-url"
               name="discovery-brand-url"
@@ -769,7 +759,7 @@ export default function Discovery() {
               autoComplete="off"
               spellCheck={false}
               className="w-full bg-surface-container-low rounded-[0.75rem] py-4 pl-12 pr-4 text-base outline-none focus-visible:ring-2 focus-visible:ring-secondary transition-[box-shadow,background-color]"
-              placeholder="競合他社のURLを入力"
+              placeholder="調べたい自社サイトのURLを入力"
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value)
@@ -790,12 +780,12 @@ export default function Discovery() {
             ) : (
               <>
                 <span className="material-symbols-outlined">search</span>
-                競合を発見
+                競合候補を探す
               </>
             )}
           </button>
         </div>
-        <div className="flex items-center gap-2 mt-4">
+        <div className="mt-4 flex items-center gap-2 border-t border-outline-variant/15 pt-4">
           <span className={`w-2 h-2 rounded-full ${
             backendStatus.ready ? 'bg-emerald-500' :
             backendStatus.warming ? 'bg-orange-400 animate-pulse' :
@@ -807,7 +797,9 @@ export default function Discovery() {
              'サーバー状態確認中'}
           </span>
         </div>
-      </div>
+      </section>
+
+      {!result?.report_md && <DiscoveryImage2Guide providerLabel={providerLabel} />}
 
       {/* Meta Band */}
       <MetaBand run={run} now={tickNow} />
@@ -997,13 +989,6 @@ export default function Discovery() {
         )
       })()}
 
-      {!loading && discoveries.length === 0 && !result && !error && (
-        <div className="text-center py-20 text-on-surface-variant">
-          <span className="material-symbols-outlined text-6xl text-outline-variant mb-4 block">explore</span>
-          <p className="text-lg font-bold japanese-text">URLを入力して競合を発見しましょう</p>
-          <p className="text-sm mt-1">AIが自動的に競合LPを検出・分析します</p>
-        </div>
-      )}
     </div>
   )
 }

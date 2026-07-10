@@ -86,14 +86,14 @@ export default function CaseSelector({ onCaseSelect }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-surface-container-low rounded-xl text-sm font-medium hover:bg-surface-container transition-colors focus-visible:outline-2 focus-visible:outline-secondary"
+        className="flex max-w-full items-center gap-2 rounded-xl bg-surface-container-low px-3 py-2 text-sm font-medium transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-secondary sm:px-4"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
       >
         <span className="material-symbols-outlined text-lg text-on-surface-variant">
           {currentCase ? 'folder_open' : 'folder'}
         </span>
-        <span className="japanese-text truncate max-w-[200px]">
+        <span className="japanese-text max-w-[100px] truncate sm:max-w-[200px]">
           {currentCase ? currentCase.name : '案件を選択'}
         </span>
         {currentCase?.dataset_id && (
@@ -109,7 +109,7 @@ export default function CaseSelector({ onCaseSelect }) {
       {isOpen && (
         <div
           role="listbox"
-          className="absolute top-full left-0 mt-2 w-80 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/20 z-50 overflow-hidden"
+          className="absolute left-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-lg"
           onKeyDown={handleKeyDown}
         >
           {/* Confirm dialog */}

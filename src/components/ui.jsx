@@ -67,18 +67,18 @@ const ERROR_CATEGORY_STYLES = {
 }
 
 const ERROR_NEXT_STEPS = {
-  timeout: ['30秒ほど待って同じ条件で再試行', '同じURLで再発する場合は対象URLを1件減らす'],
-  cold_start: ['1〜2分待ってから再試行', 'サーバー準備完了表示に変わるか確認'],
-  network: ['ローカルプレビューを再読み込み', 'Render backend または Vite proxy の起動状態を確認'],
-  auth_error: ['設定画面で分析用APIキーを確認', 'Gemini / Claude のどちらで実行するか確認'],
-  invalid_input: ['URL形式と必須項目を確認', 'LP URL は https:// から入力'],
-  upstream: ['同じ条件で再試行', '再発時は対象URLや画像を変えて切り分け'],
-  not_found: ['対象URLまたはアセットを再確認', '必要なら再アップロードして再実行'],
-  rate_limit: ['時間を置いて再試行', '別プロバイダーのキーが使えるか確認'],
-  overloaded: ['数分待って再試行', '急ぎの場合は別プロバイダーへ切り替え'],
-  stale: ['ジョブを再実行', '同じステージで止まる場合は対象URLを変えて確認'],
-  billing: ['APIクレジットと請求設定を確認', '別プロバイダーの分析キーで再試行'],
-  conflict: ['数秒待ってから再試行', '画像処理中ならアップロード完了後に実行'],
+  timeout: ['入力内容はそのままです', '少し待ってから再試行してください'],
+  cold_start: ['サービスの準備に時間がかかっています', '1〜2分待ってから再試行してください'],
+  network: ['通信状態を確認してください', '入力内容を確認してから再試行してください'],
+  auth_error: ['追加分析の設定を確認してください', '設定後に同じ画面から再試行できます'],
+  invalid_input: ['URL形式と必須項目を確認してください', 'URLは https:// から入力してください'],
+  upstream: ['入力内容はそのままです', '少し待ってから同じ条件で再試行してください'],
+  not_found: ['入力したURLや画像を確認してください', '必要な場合は選び直して再試行してください'],
+  rate_limit: ['利用上限に達している可能性があります', '時間を置いてから再試行してください'],
+  overloaded: ['現在、処理が混み合っています', '数分待ってから再試行してください'],
+  stale: ['処理をもう一度実行してください', '同じ状態が続く場合は導入担当者へご連絡ください'],
+  billing: ['追加分析の利用設定を確認してください', '確認後に同じ画面から再試行できます'],
+  conflict: ['別の処理が完了するまでお待ちください', '完了後にもう一度実行してください'],
 }
 
 /**
@@ -101,7 +101,7 @@ export function ErrorBanner({ message, onRetry, errorInfo }) {
         <span className="material-symbols-outlined text-lg" aria-hidden="true">{icon}</span>
         <span className="flex-1">{message}</span>
         {errorInfo?.label && (
-          <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${bg} ${border} border`}>
+          <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-bold ${bg} ${border}`}>
             {errorInfo.label}
           </span>
         )}
@@ -120,7 +120,7 @@ export function ErrorBanner({ message, onRetry, errorInfo }) {
       {nextSteps && (
         <div className="ml-8 flex flex-wrap gap-2" aria-label="次に確認すること">
           {nextSteps.map((step) => (
-            <span key={step} className={`inline-flex items-center gap-1 rounded-full border ${border} bg-white/40 dark:bg-black/10 px-2.5 py-1 text-[11px] font-bold`}>
+            <span key={step} className={`inline-flex items-center gap-1 rounded-full border ${border} bg-white/40 dark:bg-black/10 px-2.5 py-1 text-xs font-bold`}>
               <span className="material-symbols-outlined text-sm" aria-hidden="true">checklist</span>
               {step}
             </span>

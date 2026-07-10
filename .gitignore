@@ -68,6 +68,7 @@ backends/*/venv/
 # === Backend runtime data ===
 backends/.runtime/
 backends/*/.pytest_cache/
+backends/*/.pytest_tmp/
 backends/*/tmp*/
 backends/*/data/
 

@@ -1290,39 +1290,151 @@ _AUTH_TOKEN_TTL = 24 * 3600  # 24 hours
 _DEVICE_TRUST_TTL = 14 * 24 * 3600  # 14 days — tweak this single constant to change skip window
 
 def _generate_auth_token() -> str:
+    """Generate a global administrator token.
+
+    Role claims are mandatory so a token issued for a customer case can never
+    be mistaken for a global token by downstream authorization checks.
+    """
     payload = {
         "typ": "auth",
+        "role": "admin",
         "exp": int(time.time()) + _AUTH_TOKEN_TTL,
         "jti": secrets.token_urlsafe(8),
     }
     return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALG)
 
-def _validate_token(token: str) -> bool:
+
+def _generate_case_auth_token(case: dict) -> str:
+    """Generate a case-scoped token with a server-signed dataset binding."""
+    payload = {
+        "typ": "auth",
+        "role": "case_user",
+        "case_id": case["case_id"],
+        "dataset_id": case.get("dataset_id", ""),
+        "exp": int(time.time()) + _AUTH_TOKEN_TTL,
+        "jti": secrets.token_urlsafe(8),
+    }
+    return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALG)
+
+
+def _decode_auth_token(token: str) -> Optional[dict]:
     if not token:
-        return False
+        return None
     try:
         payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALG])
     except jwt.InvalidTokenError:
-        return False
-    return payload.get("typ") == "auth"
+        return None
+    if payload.get("typ") != "auth" or payload.get("role") not in {"admin", "case_user"}:
+        return None
+    if payload.get("role") == "case_user" and not (
+        payload.get("case_id") and payload.get("dataset_id")
+    ):
+        return None
+    return payload
 
-def _generate_device_trust_token(case_id: str) -> str:
+
+def _validate_token(token: str) -> bool:
+    return _decode_auth_token(token) is not None
+
+
+def _get_request_auth_claims(request: Optional[Request]) -> Optional[dict]:
+    """Read claims attached by middleware, with a header fallback.
+
+    Direct function calls used by legacy unit tests have no HTTP headers and
+    retain administrator semantics. Actual HTTP requests always pass through
+    the authentication middleware first.
+    """
+    if request is None or not hasattr(request, "headers"):
+        return {"typ": "auth", "role": "admin"}
+    state = getattr(request, "state", None)
+    claims = getattr(state, "auth_claims", None) if state is not None else None
+    if isinstance(claims, dict):
+        return claims
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
+    return _decode_auth_token(token)
+
+
+def _same_dataset_ref(left: str, right: str) -> bool:
+    """Compare configured dataset refs without weakening explicit project refs."""
+    left = str(left or "").strip()
+    right = str(right or "").strip()
+    if left == right:
+        return True
+    if not left or not right:
+        return False
+    if "." in left and "." in right:
+        return False
+    return left.rsplit(".", 1)[-1] == right.rsplit(".", 1)[-1]
+
+
+def _resolve_bq_dataset_for_request(
+    request: Optional[Request],
+    requested_dataset_id: Optional[str],
+    *,
+    admin_default: str = "analytics_311324674",
+) -> str:
+    """Resolve a dataset under the authenticated tenant boundary.
+
+    Administrators retain explicit dataset selection. Case users are bound to
+    the active server-side case record; a conflicting client value is rejected.
+    """
+    claims = _get_request_auth_claims(request)
+    if not claims:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if claims.get("role") == "admin":
+        return str(requested_dataset_id or admin_default).strip()
+
+    case_id = str(claims.get("case_id") or "")
+    signed_dataset_id = str(claims.get("dataset_id") or "").strip()
+    case = next(
+        (
+            item
+            for item in _load_cases_master()
+            if item.get("case_id") == case_id and item.get("is_active", True)
+        ),
+        None,
+    )
+    if not case:
+        raise HTTPException(status_code=403, detail="Authenticated case is no longer active")
+    server_dataset_id = str(case.get("dataset_id") or "").strip()
+    if not server_dataset_id or not signed_dataset_id:
+        raise HTTPException(status_code=403, detail="Authenticated case has no dataset scope")
+    if not _same_dataset_ref(signed_dataset_id, server_dataset_id):
+        raise HTTPException(status_code=403, detail="Authenticated case dataset scope has changed; sign in again")
+    if requested_dataset_id and not _same_dataset_ref(str(requested_dataset_id), server_dataset_id):
+        raise HTTPException(status_code=403, detail="Requested dataset is outside authenticated case scope")
+    return server_dataset_id
+
+def _device_trust_version(case: dict) -> int:
+    try:
+        return max(1, int(case.get("device_trust_version", 1)))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _generate_device_trust_token(case: dict) -> str:
     payload = {
         "typ": "device_trust",
-        "case_id": case_id,
+        "case_id": case["case_id"],
+        "version": _device_trust_version(case),
         "exp": int(time.time()) + _DEVICE_TRUST_TTL,
         "jti": secrets.token_urlsafe(8),
     }
     return jwt.encode(payload, _JWT_SECRET, algorithm=_JWT_ALG)
 
-def _validate_device_trust_token(token: str, case_id: str) -> bool:
+def _validate_device_trust_token(token: str, case: dict) -> bool:
     if not token:
         return False
     try:
         payload = jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALG])
     except jwt.InvalidTokenError:
         return False
-    return payload.get("typ") == "device_trust" and payload.get("case_id") == case_id
+    return (
+        payload.get("typ") == "device_trust"
+        and payload.get("case_id") == case.get("case_id")
+        and payload.get("version") == _device_trust_version(case)
+    )
 
 # Public paths that don't require auth
 _AUTH_PUBLIC_PATHS = {
@@ -1330,42 +1442,89 @@ _AUTH_PUBLIC_PATHS = {
     "/api/auth/login",
     "/api/health",
     "/api/ads/health",
-    "/api/cases",
     "/api/cases/login",
     "/api/neon/health",
     "/api/ads/neon/health",
     "/api/insights/neon/health",
 }
 
+_ADMIN_ONLY_API_PATHS = {
+    ("GET", "/api/config"),
+    ("POST", "/api/config"),
+    ("POST", "/api/gdrive/sync"),
+    ("POST", "/api/gdrive/sync_files"),
+    ("POST", "/api/gdrive/clear_all_folders"),
+    ("POST", "/api/cross_source_map"),
+    ("DELETE", "/api/cross_source_map"),
+    ("GET", "/api/cross_source_map"),
+    ("GET", "/api/cross_source_candidates"),
+}
+
+# case_user is deny-by-default.  Keep this list deliberately small and tied to
+# the customer UI's GA4 report flow.  Any new API route remains administrator
+# only until it is reviewed and explicitly added here.
+_CASE_USER_ALLOWED_API_PATHS = {
+    ("GET", "/api/cases"),
+    ("GET", "/api/bq/datasets"),
+    ("GET", "/api/bq/query_types"),
+    ("GET", "/api/bq/periods"),
+    ("POST", "/api/bq/generate"),
+    ("POST", "/api/bq/generate_batch"),
+    ("POST", "/api/neon/generate"),
+    ("POST", "/api/ads/neon/generate"),
+    ("POST", "/api/insights/neon/generate"),
+}
+
+
+def _is_admin_only_api_path(method: str, path: str) -> bool:
+    if (method.upper(), path) in _ADMIN_ONLY_API_PATHS:
+        return True
+    return method.upper() == "POST" and path.startswith("/api/cases/") and path.endswith("/totp/setup")
+
+
+def _is_case_user_allowed_api_path(method: str, path: str) -> bool:
+    method = method.upper()
+    if (method, path) in _CASE_USER_ALLOWED_API_PATHS:
+        return True
+    if method == "GET" and path.startswith("/api/cases/") and path.endswith("/bq-status"):
+        case_id = path[len("/api/cases/"):-len("/bq-status")]
+        return bool(case_id) and "/" not in case_id
+    return False
+
 # ── ログイン専用 brute-force 対策 ─────────────────────────
 _LOGIN_MAX_FAILURES = 5       # 最大失敗回数
 _LOGIN_LOCKOUT_SECONDS = 600  # ロックアウト期間（10分）
-_login_failures: dict[str, list] = {}  # ip -> [timestamp, ...]
+_login_failures: dict[str, list] = {}  # "realm:ip" -> [timestamp, ...]
 
 def _get_login_client_ip(request: Request) -> str:
     """request.client.host を使う（X-Client-ID は信頼しない）"""
     return request.client.host if request.client else "unknown"
 
-def _is_login_locked(ip: str) -> bool:
-    failures = _login_failures.get(ip)
+def _login_failure_key(ip: str, realm: str) -> str:
+    return f"{realm}:{ip}"
+
+
+def _is_login_locked(ip: str, realm: str) -> bool:
+    key = _login_failure_key(ip, realm)
+    failures = _login_failures.get(key)
     if not failures:
         return False
     now = time.time()
     # 古い失敗記録を除去
-    _login_failures[ip] = [t for t in failures if now - t < _LOGIN_LOCKOUT_SECONDS]
-    return len(_login_failures[ip]) >= _LOGIN_MAX_FAILURES
+    _login_failures[key] = [t for t in failures if now - t < _LOGIN_LOCKOUT_SECONDS]
+    return len(_login_failures[key]) >= _LOGIN_MAX_FAILURES
 
-def _record_login_failure(ip: str) -> None:
-    _login_failures.setdefault(ip, []).append(time.time())
+def _record_login_failure(ip: str, realm: str) -> None:
+    _login_failures.setdefault(_login_failure_key(ip, realm), []).append(time.time())
 
-def _clear_login_failures(ip: str) -> None:
-    _login_failures.pop(ip, None)
+def _clear_login_failures(ip: str, realm: str) -> None:
+    _login_failures.pop(_login_failure_key(ip, realm), None)
 
 @app.post("/api/auth/login")
 async def auth_login(request: Request):
     from starlette.responses import JSONResponse
     ip = _get_login_client_ip(request)
-    if _is_login_locked(ip):
+    if _is_login_locked(ip, "admin"):
         return JSONResponse(
             {"ok": False, "error": "Too many failed attempts. Try again later."},
             status_code=429,
@@ -1380,9 +1539,9 @@ async def auth_login(request: Request):
     if not isinstance(password, str):
         return JSONResponse({"ok": False, "error": "Invalid request"}, status_code=400)
     if not secrets.compare_digest(password, _AUTH_PASSWORD):
-        _record_login_failure(ip)
+        _record_login_failure(ip, "admin")
         return JSONResponse({"ok": False, "error": "Invalid password"}, status_code=401)
-    _clear_login_failures(ip)
+    _clear_login_failures(ip, "admin")
     token = _generate_auth_token()
     return JSONResponse({"ok": True, "token": token})
 
@@ -1396,9 +1555,17 @@ async def _auth_middleware(request, call_next):
     # Check Authorization header
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not _validate_token(token):
+    claims = _decode_auth_token(token)
+    if not claims:
         from starlette.responses import JSONResponse
         return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+    request.state.auth_claims = claims
+    if claims.get("role") == "case_user" and not _is_case_user_allowed_api_path(request.method, path):
+        from starlette.responses import JSONResponse
+        return JSONResponse({"ok": False, "error": "Admin access required"}, status_code=403)
+    if _is_admin_only_api_path(request.method, path) and claims.get("role") != "admin":
+        from starlette.responses import JSONResponse
+        return JSONResponse({"ok": False, "error": "Admin access required"}, status_code=403)
     return await call_next(request)
 
 # ── レート制限 (V2.6) ──────────────────────────────────────
@@ -1406,6 +1573,8 @@ import collections
 _RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "30"))
 _RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 _RATE_LIMITED_PATHS = {
+    "/api/auth/login",
+    "/api/cases/login",
     "/api/generate_insights",
     "/api/neon/generate",
     "/api/ads/neon/generate",
@@ -1415,11 +1584,25 @@ _RATE_LIMITED_PATHS = {
 }
 _rate_buckets: dict[str, collections.deque] = {}
 
+
+def _get_rate_limit_bucket_key(request: Request) -> str:
+    """Use authenticated identity or socket IP, never caller-controlled headers."""
+    auth_header = request.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
+    claims = _decode_auth_token(token)
+    if claims and claims.get("role") == "case_user":
+        return f"case:{claims.get('case_id')}"
+    if claims and claims.get("role") == "admin":
+        signed_identity = claims.get("sub") or claims.get("jti") or "admin"
+        return f"admin:{signed_identity}"
+    client_ip = request.client.host if request.client else "unknown"
+    return f"ip:{client_ip}"
+
 @app.middleware("http")
 async def _rate_limit_middleware(request, call_next):
     """インメモリ簡易レート制限 (V2.6)."""
     if request.method != "OPTIONS" and request.url.path in _RATE_LIMITED_PATHS:
-        client_id = request.headers.get("X-Client-ID") or (request.client.host if request.client else "unknown")
+        client_id = _get_rate_limit_bucket_key(request)
         now = time.time()
         bucket = _rate_buckets.setdefault(client_id, collections.deque())
         # 古いタイムスタンプを除去
@@ -2611,13 +2794,18 @@ def _get_user_base_dir(request: Request) -> Path:
 
 @app.get("/api/config")
 def api_get_config():
-    """Get current configuration."""
+    """Get non-secret configuration and secret-presence metadata."""
     config = _load_config()
-    # Mask API key for security
-    if config.get("gemini_api_key"):
-        key = config["gemini_api_key"]
-        config["gemini_api_key_masked"] = key[:8] + "..." if len(key) > 8 else "***"
-    return _json({"ok": True, "config": config})
+    safe_config = {}
+    secret_markers = ("api_key", "secret", "token", "password", "credential")
+    for key, value in config.items():
+        if any(marker in key.lower() for marker in secret_markers):
+            safe_config[f"has_{key}"] = bool(value)
+            if value:
+                safe_config[f"{key}_masked"] = "***"
+            continue
+        safe_config[key] = value
+    return _json({"ok": True, "config": safe_config})
 
 
 @app.post("/api/config")
@@ -2655,14 +2843,76 @@ def api_key_status():
         "allow_server_fallback": not client_key_required,
     })
 
+def _has_duplicate_active_case_datasets(cases: list) -> bool:
+    seen = set()
+    default_project = str(os.getenv("GCP_PROJECT_ID") or "analyzedataplatform").strip()
+    for case in cases:
+        if not case.get("is_active", True):
+            continue
+        dataset_id = str(case.get("dataset_id") or "").strip()
+        if not dataset_id:
+            continue
+        scope = dataset_id if "." in dataset_id else f"{default_project}.{dataset_id}"
+        if scope in seen:
+            return True
+        seen.add(scope)
+    return False
+
+
+def _has_duplicate_active_password_hashes(cases: list) -> bool:
+    """Catch exact hash reuse; runtime matching also rejects same plaintext passwords."""
+    seen = set()
+    for case in cases:
+        if not case.get("is_active", True):
+            continue
+        password_hash = str(case.get("password_hash") or "").strip()
+        if not password_hash:
+            continue
+        if password_hash in seen:
+            return True
+        seen.add(password_hash)
+    return False
+
+
 def _load_cases_master() -> list:
-    """Load cases from cases/cases.json master file."""
+    """Load cases from secret env in production, with local-file fallback only."""
+    cases_json = os.getenv("ADS_CASES_JSON")
+    if cases_json is not None:
+        try:
+            cases = json.loads(cases_json)
+            if not isinstance(cases, list) or not all(isinstance(item, dict) for item in cases):
+                raise ValueError("ADS_CASES_JSON must be a JSON array of objects")
+            if _has_duplicate_active_case_datasets(cases):
+                if _IS_PRODUCTION:
+                    print("[api_cases] duplicate active dataset scopes are forbidden in production")
+                    return []
+                print("[api_cases] warning: duplicate active dataset scopes in local ADS_CASES_JSON")
+            if _has_duplicate_active_password_hashes(cases):
+                if _IS_PRODUCTION:
+                    print("[api_cases] duplicate active password hashes are forbidden in production")
+                    return []
+                print("[api_cases] warning: duplicate active password hashes in local ADS_CASES_JSON")
+            return cases
+        except Exception as exc:
+            print(f"[api_cases] ADS_CASES_JSON is invalid ({type(exc).__name__})")
+            return []
+
+    # Render must never fall back to a repository-tracked credential file.
+    if _IS_PRODUCTION:
+        print("[api_cases] ADS_CASES_JSON is required in production")
+        return []
+
     cases_file = BASE_DIR / "cases" / "cases.json"
     if not cases_file.exists():
         return []
     try:
         with open(cases_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+            cases = json.load(f)
+            if isinstance(cases, list) and _has_duplicate_active_case_datasets(cases):
+                print("[api_cases] warning: duplicate active dataset scopes in local cases file")
+            if isinstance(cases, list) and _has_duplicate_active_password_hashes(cases):
+                print("[api_cases] warning: duplicate active password hashes in local cases file")
+            return cases
     except Exception as e:
         print(f"[api_cases] Error loading cases.json: {e}")
         return []
@@ -2683,14 +2933,18 @@ def api_cases(request: Request):
     has_bearer = auth_header.startswith("Bearer ")
     token = auth_header.replace("Bearer ", "") if has_bearer else ""
 
-    if has_bearer and not _validate_token(token):
+    claims = _decode_auth_token(token) if has_bearer else None
+    if has_bearer and not claims:
         return _json({"ok": False, "error": "Unauthorized"}, status=401)
 
-    is_authenticated = bool(token)
+    is_authenticated = bool(claims)
+    authenticated_case_id = claims.get("case_id") if claims and claims.get("role") == "case_user" else None
 
     cases = []
     for c in cases_master:
         if not c.get("is_active", True):
+            continue
+        if authenticated_case_id and c.get("case_id") != authenticated_case_id:
             continue
         entry = {
             "case_id": c["case_id"],
@@ -2707,11 +2961,15 @@ def api_cases(request: Request):
 
 
 @app.get("/api/cases/{case_id}/bq-status")
-def api_case_bq_status(case_id: str):
+def api_case_bq_status(case_id: str, request: Request = None):
     """
     Test BigQuery connectivity for a case's dataset.
     Returns: {ok, connected, tables_found?, error?}
     """
+    claims = _get_request_auth_claims(request)
+    if claims and claims.get("role") == "case_user" and claims.get("case_id") != case_id:
+        raise HTTPException(status_code=403, detail="Requested case is outside authenticated case scope")
+
     cases_master = _load_cases_master()
     case = next((c for c in cases_master if c.get("case_id") == case_id), None)
     if not case:
@@ -2731,19 +2989,20 @@ def api_case_bq_status(case_id: str):
         return _json({"ok": True, "connected": False, "error": str(e)})
 
 
-def _case_login_success_payload(case: dict) -> dict:
-    auth_token = _generate_auth_token()
-    trust_token = _generate_device_trust_token(case["case_id"])
-    return {
+def _case_login_success_payload(case: dict, *, issue_device_trust: bool = False) -> dict:
+    auth_token = _generate_case_auth_token(case)
+    response = {
         "ok": True,
         "case_id": case["case_id"],
         "name": case.get("name", case["case_id"]),
         "dataset_id": case.get("dataset_id", ""),
         "description": case.get("description", ""),
         "token": auth_token,
-        "device_trust_token": trust_token,
-        "device_trust_ttl_seconds": _DEVICE_TRUST_TTL,
     }
+    if issue_device_trust:
+        response["device_trust_token"] = _generate_device_trust_token(case)
+        response["device_trust_ttl_seconds"] = _DEVICE_TRUST_TTL
+    return response
 
 
 @app.post("/api/cases/login")
@@ -2751,7 +3010,7 @@ async def api_cases_login(request: Request):
     """
     Case authentication endpoint with optional TOTP 2FA.
     Request: {
-      "case_id": "xxx",
+      "case_id": "xxx"?,  # optional; password-only login is the customer default
       "password": "xxx",
       "totp_code": "123456"?,
       "device_trust_token": "xxx"?
@@ -2762,7 +3021,7 @@ async def api_cases_login(request: Request):
     """
     from starlette.responses import JSONResponse
     ip = _get_login_client_ip(request)
-    if _is_login_locked(ip):
+    if _is_login_locked(ip, "case"):
         return JSONResponse(
             {"ok": False, "error": "Too many failed attempts. Try again later."},
             status_code=429,
@@ -2772,7 +3031,7 @@ async def api_cases_login(request: Request):
         body = await request.json()
         if not isinstance(body, dict):
             return _json({"ok": False, "error": "Invalid request body"}, status=400)
-        case_id = body.get("case_id", "")
+        case_id = body.get("case_id") or ""
         password = body.get("password", "")
         totp_code = body.get("totp_code") or ""
         device_trust_token = body.get("device_trust_token") or ""
@@ -2781,43 +3040,58 @@ async def api_cases_login(request: Request):
 
     if not isinstance(case_id, str) or not isinstance(password, str):
         return _json({"ok": False, "error": "case_id and password must be strings"}, status=400)
-    if not case_id or not password:
-        return _json({"ok": False, "error": "case_id and password are required"}, status=400)
+    if not password:
+        return _json({"ok": False, "error": "password is required"}, status=400)
 
     cases_master = _load_cases_master()
-    case = next((c for c in cases_master if c.get("case_id") == case_id), None)
+    active_cases = [case for case in cases_master if case.get("is_active", True)]
+    candidates = (
+        [case for case in active_cases if case.get("case_id") == case_id]
+        if case_id
+        else active_cases
+    )
 
-    if not case or not case.get("is_active", True):
-        _record_login_failure(ip)
+    if case_id and not candidates:
+        _record_login_failure(ip, "case")
         return _json({"ok": False, "error": "案件が見つかりません"}, status=404)
 
-    password_hash = case.get("password_hash", "")
-    if not password_hash:
-        return _json({"ok": False, "error": "案件の設定が不正です"}, status=500)
+    matched_cases = []
+    for candidate in candidates:
+        password_hash = candidate.get("password_hash", "")
+        if not password_hash:
+            continue
+        try:
+            if bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8")):
+                matched_cases.append(candidate)
+        except Exception as exc:
+            print(f"[api_cases_login] Password verification error ({type(exc).__name__})")
 
-    try:
-        password_ok = bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
-    except Exception as e:
-        print(f"[api_cases_login] Password verification error: {e}")
-        return _json({"ok": False, "error": "認証エラーが発生しました"}, status=500)
-
-    if not password_ok:
-        _record_login_failure(ip)
+    if not matched_cases:
+        _record_login_failure(ip, "case")
         return _json({"ok": False, "error": "パスワードが正しくありません"}, status=401)
+
+    if len(matched_cases) > 1:
+        return _json({
+            "ok": False,
+            "error": "同じパスワードの案件が複数あります。管理者にパスワード再発行を依頼してください",
+        }, status=409)
+
+    case = matched_cases[0]
+    case_id = str(case.get("case_id") or "")
 
     totp_enabled = bool(case.get("totp_enabled", False))
     totp_secret = case.get("totp_secret") or ""
 
     # Case 1: TOTP disabled for this case → password is enough
     if not totp_enabled or not totp_secret:
-        _clear_login_failures(ip)
+        _clear_login_failures(ip, "case")
         return _json(_case_login_success_payload(case))
 
     # Case 2: valid device_trust_token → skip TOTP
     if isinstance(device_trust_token, str) and device_trust_token and \
-            _validate_device_trust_token(device_trust_token, case_id):
-        _clear_login_failures(ip)
-        return _json(_case_login_success_payload(case))
+            _validate_device_trust_token(device_trust_token, case):
+        _clear_login_failures(ip, "case")
+        return _json(_case_login_success_payload(case, issue_device_trust=True))
 
     # Case 3: TOTP required but not provided
     if not isinstance(totp_code, str) or not totp_code.strip():
@@ -2836,7 +3110,7 @@ async def api_cases_login(request: Request):
         return _json({"ok": False, "error": "認証エラーが発生しました"}, status=500)
 
     if not totp_valid:
-        _record_login_failure(ip)
+        _record_login_failure(ip, "case")
         return _json({
             "ok": False,
             "totp_required": True,
@@ -2845,8 +3119,8 @@ async def api_cases_login(request: Request):
             "name": case.get("name", case["case_id"]),
         }, status=401)
 
-    _clear_login_failures(ip)
-    return _json(_case_login_success_payload(case))
+    _clear_login_failures(ip, "case")
+    return _json(_case_login_success_payload(case, issue_device_trust=True))
 
 
 @app.post("/api/cases/{case_id}/totp/setup")
@@ -2862,8 +3136,11 @@ async def api_case_totp_setup(case_id: str, request: Request):
 
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    if not _validate_token(token):
+    claims = _decode_auth_token(token)
+    if not claims:
         return _json({"ok": False, "error": "Unauthorized"}, status=401)
+    if claims.get("role") != "admin":
+        return _json({"ok": False, "error": "Admin access required"}, status=403)
 
     cases_master = _load_cases_master()
     case = next((c for c in cases_master if c.get("case_id") == case_id), None)
@@ -6025,6 +6302,14 @@ async def _force_load_to_compat(request: Request, call_next):
 
 
     if p in ("/api/load", "/api/load_point_pack", "/api/get_point_pack", "/api/point_pack"):
+        # This compatibility middleware can return before the central auth
+        # middleware runs. Only a valid administrator may take the shortcut;
+        # all other callers continue through the normal auth/RBAC chain.
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
+        claims = _decode_auth_token(token)
+        if not claims or claims.get("role") != "admin":
+            return await call_next(request)
 
 
 
@@ -13314,6 +13599,37 @@ def _compact_agent_text(text: str, limit: int = 12000) -> str:
     return compact[:limit] + "\n\n[context compacted for multi_agent_v1]"
 
 
+ANALYSIS_MODES = frozenset({"deterministic", "economy", "deep"})
+
+
+def _analysis_response_metadata(
+    *,
+    analysis_mode: str,
+    execution_mode: str,
+    model: str | None,
+    provider: str | None,
+    llm_calls: int,
+    text: str = "",
+) -> dict[str, Any]:
+    """Return honest execution metadata for the AI analysis endpoint.
+
+    The provider wrappers currently return text only, so an exact token count is
+    not available at this layer.  Do not repeat the historical mistake of
+    labelling output character count as tokens.
+    """
+    used_llm = llm_calls > 0
+    return {
+        "analysis_mode": analysis_mode,
+        "execution_mode": execution_mode,
+        "model": model if used_llm else None,
+        "provider": provider if used_llm else "deterministic",
+        "tokens_used": None if used_llm else 0,
+        "token_usage_status": "not_reported" if used_llm else "not_applicable",
+        "output_chars": len(str(text or "")),
+        "llm_calls": llm_calls,
+    }
+
+
 def _query_mentions_point(query_text: str, point: dict | None) -> bool:
     if not query_text or not isinstance(point, dict):
         return False
@@ -13889,6 +14205,64 @@ def _build_review_safe_insight_report(
 async def neon_generate(request: Request) -> Dict[str, Any]:
     # V3.1: Request型に変更しヘッダーからAPIキーも読み取り
     payload = await request.json()
+    if not isinstance(payload, dict):
+        return _json({"ok": False, "error": "invalid_request", "message": "JSON object is required"}, status=400)
+
+    claims = _get_request_auth_claims(request)
+    if claims and claims.get("role") == "case_user":
+        if payload.get("point_pack_path"):
+            raise HTTPException(
+                status_code=403,
+                detail="File-based point packs are not available to customer cases",
+            )
+        requested_data_source = str(payload.get("data_source") or "").strip().lower()
+        if requested_data_source and requested_data_source != "bq":
+            raise HTTPException(
+                status_code=403,
+                detail="Customer case analysis is limited to its BigQuery data source",
+            )
+        # Missing/legacy values are normalized to the tenant-scoped BQ path;
+        # case users never enter Excel/cross/shared-filesystem analysis modes.
+        payload["data_source"] = "bq"
+        meta = payload.get("analysis_context_meta")
+        meta = dict(meta) if isinstance(meta, dict) else {}
+        requested_datasets = [
+            payload.get("datasetId"),
+            payload.get("dataset_id"),
+            meta.get("datasetId"),
+            meta.get("dataset_id"),
+        ]
+        requested_datasets = [str(value).strip() for value in requested_datasets if str(value or "").strip()]
+        # Validate every client-supplied reference before any BQ or LLM work.
+        scoped_dataset = _resolve_bq_dataset_for_request(request, None)
+        for requested_dataset in requested_datasets:
+            if not _same_dataset_ref(requested_dataset, scoped_dataset):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Requested dataset is outside authenticated case scope",
+                )
+        from bq.client import PROJECT_ID as default_bq_project_id
+        scoped_project = (
+            scoped_dataset.rsplit(".", 1)[0]
+            if "." in scoped_dataset
+            else str(os.getenv("GCP_PROJECT_ID") or default_bq_project_id).strip()
+        )
+        requested_projects = [payload.get("bq_project_id"), payload.get("projectId")]
+        requested_projects = [str(value).strip() for value in requested_projects if str(value or "").strip()]
+        if any(project != scoped_project for project in requested_projects):
+            raise HTTPException(
+                status_code=403,
+                detail="Requested BigQuery project is outside authenticated case scope",
+            )
+        meta["datasetId"] = scoped_dataset
+        meta.pop("dataset_id", None)
+        payload["analysis_context_meta"] = meta
+        payload["datasetId"] = scoped_dataset
+        payload.pop("dataset_id", None)
+        # The server-side BQ configuration chooses the project for an
+        # unqualified case dataset.  A customer cannot override that project.
+        payload["bq_project_id"] = scoped_project
+        payload.pop("projectId", None)
 
     # V4: provider ルーティング — anthropic / google(gemini)
     provider = str(
@@ -13904,8 +14278,19 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     else:
         client_key = request.headers.get("X-Gemini-API-Key") or payload.get("api_key")
 
+    requested_analysis_mode = str(payload.get("analysis_mode") or "economy").strip().lower()
+    if requested_analysis_mode not in ANALYSIS_MODES:
+        return _json({
+            "ok": False,
+            "error": "invalid_analysis_mode",
+            "message": "analysis_mode は deterministic / economy / deep のいずれかを指定してください。",
+        }, status=400)
+    analysis_mode = requested_analysis_mode
+
     # V3.1: クライアントキー必須ガード
-    if _is_client_key_required() and not client_key:
+    # deterministic は既存のPython evidence builder/validatorだけを使うため、
+    # BYOK必須モードでもキーなしで実行できる。
+    if analysis_mode != "deterministic" and _is_client_key_required() and not client_key:
         provider_label = "Claude API" if is_anthropic else "Gemini API"
         return _json({
             "ok": False,
@@ -13931,6 +14316,9 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     conversation_history = payload.get("conversation_history") or []
     ai_chart_context = payload.get("ai_chart_context")  # V3.9: グラフ要約用
     workflow = str(payload.get("workflow") or "legacy").strip()
+    if analysis_mode == "deep":
+        # deep は従来の7段LLMワークフローを明示的に選んだ場合だけ実行する。
+        workflow = "multi_agent_v1"
     report_contract_version = str(payload.get("report_contract_version") or "").strip()
     chart_evidence_pack = payload.get("chart_evidence_pack")
     beginner_report = payload.get("beginner_report")
@@ -13954,6 +14342,57 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
 
     if not pp_md:
         return {"ok": False, "error": "point pack is not loaded"}
+
+    if analysis_mode == "deterministic":
+        from .bq_chart_builder import validate_ai_insight_output
+
+        text = _build_review_safe_insight_report(
+            chart_evidence_pack,
+            [],
+            data_availability=data_availability,
+            query_text=user_prompt_for_matching,
+        )
+        agent_trace = _extract_agent_trace_from_insight_report(text) or []
+        review_result = validate_ai_insight_output(
+            text,
+            chart_evidence_pack,
+            data_source=data_source,
+            agent_trace=agent_trace,
+            require_agent_trace=True,
+        )
+        response_review_status = _build_enhanced_review_status(
+            review_result,
+            agent_trace,
+            text=text,
+        )
+        # Safe builder already embeds a validator-compatible review_status.
+        # Replacing it with the richer response metadata would add the names of
+        # unsupported KPIs back into claim validation, so keep the public text
+        # unchanged and expose the detailed status only at the response level.
+        final_review_result = review_result
+        normalized_response = normalize_ai_model_response(text)
+        normalized_response.update({
+            "ok": True,
+            "text": text,
+            "answer_markdown": text,
+            "parse_status": "deterministic",
+            "fallback_used": False,
+            "workflow": "deterministic_v1",
+            "report_contract_version": report_contract_version or "insight_report_v2",
+            "review_status": response_review_status,
+            "agent_trace": agent_trace,
+            "validation_warnings": final_review_result.get("issues", []),
+            "request_id": request_id,
+            **_analysis_response_metadata(
+                analysis_mode=analysis_mode,
+                execution_mode="deterministic",
+                model=None,
+                provider=None,
+                llm_calls=0,
+                text=text,
+            ),
+        })
+        return normalized_response
 
     # データソースに応じてシステムプロンプトを切り替え
     if data_source in ("bq", "cross"):
@@ -14346,8 +14785,11 @@ insight-report JSON の必須キー:
 """
 
     _neon_max_tokens = int(os.getenv("NEON_MAX_OUTPUT_TOKENS", "8192"))
+    llm_call_count = 0
     try:
         async def _run_ai(current_prompt: str, current_temperature: float, max_tokens_override: int | None = None) -> str:
+            nonlocal llm_call_count
+            llm_call_count += 1
             max_tokens = max_tokens_override or _neon_max_tokens
             if is_anthropic:
                 return await asyncio.to_thread(
@@ -14379,6 +14821,95 @@ insight-report JSON の必須キー:
                 excerpt="検査完了。詳細出力は最終レポートへ反映済みです。",
             ))
             return output
+
+        structured_review_required = (
+            workflow == "multi_agent_v1"
+            or report_contract_version == "insight_report_v2"
+        )
+        if analysis_mode == "economy" and structured_review_required:
+            # Economy deliberately compresses the former seven sequential LLM
+            # stages into one synthesis call.  Deterministic evidence selection
+            # and validation remain authoritative; a single repair is allowed.
+            from .bq_chart_builder import validate_ai_insight_output
+
+            execution_mode = "economy_single_pass"
+            validation_warnings: list[str] = []
+            text = await _run_ai(prompt, min(temperature, 0.25))
+            review_result = validate_ai_insight_output(
+                text,
+                chart_evidence_pack,
+                data_source=data_source,
+                require_agent_trace=False,
+            )
+
+            if not review_result.get("ok"):
+                validation_warnings.extend(review_result.get("issues", []))
+                execution_mode = "economy_repair"
+                repair_prompt = f"""{prompt}
+
+━━━ Deterministic Review 指摘 ━━━
+次の不合格理由だけを修正し、insight_report_v2 の完全な最終回答を返してください。
+根拠パックにない数値は削除し、evidence_table の source/metric/value/period を一致させてください。
+修正はこの1回だけです。
+{chr(10).join('- ' + issue for issue in review_result.get('issues', []))}
+
+━━━ 不合格だった回答 ━━━
+{_compact_agent_text(text, 12000)}
+"""
+                text = await _run_ai(repair_prompt, min(temperature, 0.15))
+                review_result = validate_ai_insight_output(
+                    text,
+                    chart_evidence_pack,
+                    data_source=data_source,
+                    require_agent_trace=False,
+                )
+
+            if not review_result.get("ok"):
+                validation_warnings.extend(review_result.get("issues", []))
+                execution_mode = "deterministic_safe_fallback"
+                text = _build_review_safe_insight_report(
+                    chart_evidence_pack,
+                    validation_warnings,
+                    data_availability=data_availability,
+                    query_text=user_prompt_for_matching,
+                )
+                review_result = validate_ai_insight_output(
+                    text,
+                    chart_evidence_pack,
+                    data_source=data_source,
+                    require_agent_trace=False,
+                )
+
+            agent_trace = _extract_agent_trace_from_insight_report(text) or []
+            response_review_status = dict(review_result or {})
+            if validation_warnings and response_review_status.get("verdict") == "pass":
+                # The final repaired/safe report may pass, but do not erase the
+                # fact that deterministic validation rejected an earlier draft.
+                response_review_status["verdict"] = "repaired"
+                response_review_status["repaired_from_issues"] = list(dict.fromkeys(validation_warnings))
+
+            normalized_response = normalize_ai_model_response(text, context=ai_analysis_context)
+            normalized_response.update({
+                "ok": True,
+                "text": text,
+                "answer_markdown": text,
+                "workflow": "economy_v1",
+                "report_contract_version": report_contract_version or "insight_report_v2",
+                "review_status": response_review_status,
+                "agent_trace": agent_trace,
+                "validation_warnings": list(dict.fromkeys(validation_warnings)),
+                "fallback_used": execution_mode == "deterministic_safe_fallback",
+                "request_id": request_id,
+                **_analysis_response_metadata(
+                    analysis_mode=analysis_mode,
+                    execution_mode=execution_mode,
+                    model=model,
+                    provider=provider,
+                    llm_calls=llm_call_count,
+                    text=text,
+                ),
+            })
+            return normalized_response
 
         if (
             workflow == "multi_agent_v1"
@@ -14449,7 +14980,7 @@ insight-report JSON の必須キー:
                 text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
             if not review_result.get("ok"):
                 validation_warnings = review_result.get("issues", [])
-                review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
                 text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
                 return {
                     "ok": True,
@@ -14463,6 +14994,14 @@ insight-report JSON の必須キー:
                     "agent_trace": agent_trace,
                     "validation_warnings": validation_warnings,
                     "request_id": request_id,
+                    **_analysis_response_metadata(
+                        analysis_mode=analysis_mode,
+                        execution_mode="deterministic_safe_fallback",
+                        model=None,
+                        provider=None,
+                        llm_calls=llm_call_count,
+                        text=text,
+                    ),
                 }
             return {
                 "ok": True,
@@ -14474,6 +15013,14 @@ insight-report JSON の必須キー:
                 "report_contract_version": report_contract_version,
                 "review_status": review_status,
                 "agent_trace": agent_trace,
+                **_analysis_response_metadata(
+                    analysis_mode=analysis_mode,
+                    execution_mode="deterministic_safe_fallback",
+                    model=None,
+                    provider=None,
+                    llm_calls=llm_call_count,
+                    text=text,
+                ),
             }
 
         if workflow == "multi_agent_v1":
@@ -14701,6 +15248,14 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                     "agent_trace": agent_trace,
                     "validation_warnings": ["empty_ai_response"],
                     "request_id": request_id,
+                    **_analysis_response_metadata(
+                        analysis_mode=analysis_mode,
+                        execution_mode="deep_multi_agent" if analysis_mode == "deep" else "economy_single_pass",
+                        model=model,
+                        provider=provider,
+                        llm_calls=llm_call_count,
+                        text=text,
+                    ),
                 })
                 return JSONResponse(normalized_response, status_code=502)
             review_result = validate_ai_insight_output(
@@ -14748,7 +15303,7 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                         query_text=user_prompt_for_matching,
                     )
                     agent_trace = _extract_agent_trace_from_insight_report(text) or _normalize_agent_trace(agent_trace)
-                    review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                    review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
                     text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
                     review_result = validate_ai_insight_output(
                         text,
@@ -14774,6 +15329,14 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                 "agent_trace": agent_trace,
                 "validation_warnings": validation_warnings,
                 "request_id": request_id,
+                **_analysis_response_metadata(
+                    analysis_mode=analysis_mode,
+                    execution_mode="deep_multi_agent" if analysis_mode == "deep" else "economy_single_pass",
+                    model=model,
+                    provider=provider,
+                    llm_calls=llm_call_count,
+                    text=text,
+                ),
             })
             log_ai_debug(
                 logger,
@@ -14840,7 +15403,7 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                 )
                 if not review_result.get("ok"):
                     validation_warnings = review_result.get("issues", [])
-                    review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                    review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
                     text = _attach_agent_trace_and_review_status(text, agent_trace, review_status)
                     return {
                         "ok": True,
@@ -14854,6 +15417,14 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                         "agent_trace": agent_trace,
                         "validation_warnings": validation_warnings,
                         "request_id": request_id,
+                        **_analysis_response_metadata(
+                            analysis_mode=analysis_mode,
+                            execution_mode="deterministic_safe_fallback",
+                            model=model,
+                            provider=provider,
+                            llm_calls=llm_call_count,
+                            text=text,
+                        ),
                     }
             if workflow == "multi_agent_v1":
                 agent_trace = _normalize_agent_trace(agent_trace)
@@ -14875,7 +15446,7 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                         query_text=user_prompt_for_matching,
                     )
                     agent_trace = _extract_agent_trace_from_insight_report(text) or _normalize_agent_trace(agent_trace)
-                    enhanced_review_status = _build_enhanced_review_status({"ok": True, "issues": []}, agent_trace, text=text)
+                    enhanced_review_status = _build_enhanced_review_status(review_result, agent_trace, text=text)
                     text = _attach_agent_trace_and_review_status(text, agent_trace, enhanced_review_status)
                     return {
                         "ok": True,
@@ -14889,6 +15460,14 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
                         "agent_trace": agent_trace,
                         "validation_warnings": validation_warnings,
                         "request_id": request_id,
+                        **_analysis_response_metadata(
+                            analysis_mode=analysis_mode,
+                            execution_mode="deterministic_safe_fallback",
+                            model=model,
+                            provider=provider,
+                            llm_calls=llm_call_count,
+                            text=text,
+                        ),
                     }
         response_review_status = (
             _build_enhanced_review_status(review_result, agent_trace, text=text)
@@ -14905,6 +15484,14 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
             "report_contract_version": report_contract_version,
             "review_status": response_review_status,
             "agent_trace": agent_trace,
+            **_analysis_response_metadata(
+                analysis_mode=analysis_mode,
+                execution_mode="deep_multi_agent" if analysis_mode == "deep" else "economy_single_pass",
+                model=model,
+                provider=provider,
+                llm_calls=llm_call_count,
+                text=text,
+            ),
         }
     except RuntimeError as e:
         msg = str(e)
@@ -16021,19 +16608,21 @@ def _bq_availability_from_summary(summary: list[dict], requested_count: int) -> 
 
     success_statuses = {"success", "no_chart"}
     success_count = sum(1 for item in summary if item.get("status") in success_statuses)
-    error_items = [
+    no_data_count = sum(1 for item in summary if item.get("status") == "no_data")
+    gap_items = [
         item for item in summary
         if item.get("status") in {"error", "no_data", "unknown"}
     ]
 
     if success_count == requested_count:
         return "full", ""
-    if success_count > 0:
+    if success_count > 0 or no_data_count > 0:
         labels = [
             f"{item.get('query_type', 'unknown')}:{item.get('status', 'unknown')}"
-            for item in error_items[:5]
+            for item in gap_items[:5]
         ]
-        return "partial", "一部クエリが未取得です: " + ", ".join(labels)
+        prefix = "選択した期間にデータがない項目があります" if no_data_count > 0 else "一部クエリが未取得です"
+        return "partial", prefix + ": " + ", ".join(labels)
 
     labels = [
         f"{item.get('query_type', 'unknown')}:{item.get('status', 'unknown')}"
@@ -16048,8 +16637,14 @@ def _bq_response_status(data_availability: str) -> int:
 
 
 @app.get("/api/bq/datasets")
-def api_bq_datasets():
+def api_bq_datasets(request: Request = None):
     """利用可能なBQデータセット一覧を返す（analytics_*のみ）。"""
+    claims = _get_request_auth_claims(request)
+    if claims and claims.get("role") == "case_user":
+        dataset_id = _resolve_bq_dataset_for_request(request, None)
+        label = _DATASET_LABELS.get(dataset_id, f"GA4: {dataset_id}")
+        return _json({"ok": True, "datasets": [{"dataset_id": dataset_id, "label": label}]})
+
     cache_key = "datasets:all"
     cached = _bq_cache.get(cache_key)
     if cached and (_time.time() - cached[0]) < _BQ_DATASETS_CACHE_TTL:
@@ -16072,8 +16667,8 @@ def api_bq_datasets():
                        "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
-            return _json({"ok": False, "error": "credentials_missing",
-                           "message": "BigQuery認証情報が未設定です。gcloud auth application-default login を実行してください。"}, 401)
+            return _json({"ok": False, "error": "bq_credentials_missing",
+                           "message": "BigQuery認証情報が未設定です。管理者に接続設定の確認を依頼してください。"}, 503)
         return _json({"ok": False, "error": "query_error", "message": str(e)}, 500)
 
 
@@ -16093,7 +16688,12 @@ def api_bq_query_types():
 
 
 @app.get("/api/bq/periods")
-def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "monthly", fresh: bool = False):
+def api_bq_periods(
+    dataset_id: Optional[str] = None,
+    granularity: str = "monthly",
+    fresh: bool = False,
+    request: Request = None,
+):
     """BigQueryのevents_*テーブルから利用可能な期間一覧を取得する。
 
     Args:
@@ -16101,6 +16701,7 @@ def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "
         granularity: 粒度 — "monthly" | "weekly" | "daily"
         fresh: Trueの場合キャッシュをバイパスして最新データを取得
     """
+    dataset_id = _resolve_bq_dataset_for_request(request, dataset_id)
     cache_key = f"periods:{dataset_id}:{granularity}"
     if not fresh:
         cached = _bq_cache.get(cache_key)
@@ -16208,12 +16809,12 @@ def api_bq_periods(dataset_id: str = "analytics_311324674", granularity: str = "
                        "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
-            return _json({"ok": False, "error": "credentials_missing",
-                           "message": "BigQuery認証情報が未設定です。gcloud auth application-default login を実行してください。"}, 401)
+            return _json({"ok": False, "error": "bq_credentials_missing",
+                           "message": "BigQuery認証情報が未設定です。管理者に接続設定の確認を依頼してください。"}, 503)
         err_name = type(e).__name__
         if "Forbidden" in err_name or "PermissionDenied" in err_name or "Unauthenticated" in err_name:
-            return _json({"ok": False, "error": "auth_error",
-                           "message": "BigQuery認証エラー: gcloud auth application-default login を実行してください"}, 401)
+            return _json({"ok": False, "error": "bq_auth_error",
+                           "message": "BigQueryへの接続権限を確認できません。管理者に権限設定の確認を依頼してください。"}, 503)
         if "NotFound" in err_name:
             return _json({"ok": False, "error": "not_found",
                            "message": f"データセット {dataset_id} が見つかりません"}, 404)
@@ -16232,7 +16833,7 @@ async def api_bq_generate(request: Request):
     try:
         body = await request.json()
         query_type = body.get("query_type", "pv")
-        dataset_id = body.get("dataset_id", "analytics_311324674")
+        dataset_id = _resolve_bq_dataset_for_request(request, body.get("dataset_id"))
         period = body.get("period", "")
 
         if not period:
@@ -16294,6 +16895,8 @@ async def api_bq_generate(request: Request):
         _bq_cache_put(cache_key, response_data)
         return _json(response_data)
 
+    except HTTPException:
+        raise
     except ImportError as _ie:
         import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
@@ -16301,15 +16904,15 @@ async def api_bq_generate(request: Request):
                        "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
-            return _json({"ok": False, "error": "credentials_missing",
-                           "message": "BigQuery認証情報が未設定です。gcloud auth application-default login を実行してください。"}, 401)
+            return _json({"ok": False, "error": "bq_credentials_missing",
+                           "message": "BigQuery認証情報が未設定です。管理者に接続設定の確認を依頼してください。"}, 503)
         import traceback
         traceback.print_exc()
         err_str = str(e).lower()
         err_name = type(e).__name__
         if "Forbidden" in err_name or "PermissionDenied" in err_name or "Unauthenticated" in err_name:
-            return _json({"ok": False, "error": "auth_error",
-                           "message": "BigQuery認証エラー: gcloud auth application-default login を実行してください"}, 401)
+            return _json({"ok": False, "error": "bq_auth_error",
+                           "message": "BigQueryへの接続権限を確認できません。管理者に権限設定の確認を依頼してください。"}, 503)
         # BigQuery レート制限エラーをユーザーフレンドリーに返す (HTTP 200で返しフロントでハンドリング)
         if any(kw in err_str for kw in ["429", "resource_exhausted", "rate limit", "quota exceeded"]):
             return _json({"ok": False, "error": "rate_limited",
@@ -16329,7 +16932,7 @@ async def api_bq_generate_batch(request: Request):
     try:
         body = await request.json()
         query_types = body.get("query_types", [])
-        dataset_id = body.get("dataset_id", "analytics_311324674")
+        dataset_id = _resolve_bq_dataset_for_request(request, body.get("dataset_id"))
         period = body.get("period", "")
 
         if not period:
@@ -16514,6 +17117,8 @@ async def api_bq_generate_batch(request: Request):
             "query_count": len(all_results),
         }, _bq_response_status(data_availability))
 
+    except HTTPException:
+        raise
     except ImportError as _ie:
         import traceback as _tb
         return _json({"ok": False, "error": "bigquery_not_configured",
@@ -16521,8 +17126,8 @@ async def api_bq_generate_batch(request: Request):
                        "debug_traceback": _tb.format_exc()}, 500)
     except Exception as e:
         if _is_credentials_error(e):
-            return _json({"ok": False, "error": "credentials_missing",
-                           "message": "BigQuery認証情報が未設定です。gcloud auth application-default login を実行してください。"}, 401)
+            return _json({"ok": False, "error": "bq_credentials_missing",
+                           "message": "BigQuery認証情報が未設定です。管理者に接続設定の確認を依頼してください。"}, 503)
         import traceback
         traceback.print_exc()
         return _json({"ok": False, "error": "query_error", "message": str(e)}, 500)

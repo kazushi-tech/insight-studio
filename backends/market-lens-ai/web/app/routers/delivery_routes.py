@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import verify_auth_optional, verify_token
+from ..auth import verify_admin_or_integration, verify_auth_optional, verify_token
 
 from ..schemas.delivery import (
     DeliveryChannel,
@@ -59,7 +59,11 @@ def create_delivery_router(
     slack_service: SlackDeliveryService | None = None,
 ) -> APIRouter:
     """Factory that creates delivery routes."""
-    router = APIRouter(prefix="/api/delivery", tags=["delivery"])
+    router = APIRouter(
+        prefix="/api/delivery",
+        tags=["delivery"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
     _email = email_service or EmailDeliveryService()
     _slack = slack_service or SlackDeliveryService()
 

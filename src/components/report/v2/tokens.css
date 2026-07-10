@@ -47,9 +47,9 @@
   --md-v2-verdict-pending-bg: #f3f4f6;
   --md-v2-verdict-pending-fg: #374151;
 
-  /* ── Typography (Manrope display + Inter body) ── */
+  /* ── Typography (Manrope with Japanese system fallbacks) ── */
   --md-v2-font-display: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --md-v2-font-body: "Inter", "Manrope", system-ui, -apple-system, sans-serif;
+  --md-v2-font-body: "Manrope", "Noto Sans JP", "Yu Gothic UI", system-ui, sans-serif;
 
   --md-v2-display-lg-size: 3.5rem;
   --md-v2-display-lg-weight: 700;

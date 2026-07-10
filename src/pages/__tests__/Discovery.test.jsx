@@ -49,10 +49,10 @@ describe('Discovery — happy path & basic rendering', () => {
   it('renders URL input and the discovery button', () => {
     render(<Discovery />, { wrapper: TestProviders })
 
-    const input = screen.getByPlaceholderText('競合他社のURLを入力')
+    const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
     expect(input).toBeInTheDocument()
 
-    const button = screen.getByRole('button', { name: /競合を発見/ })
+    const button = screen.getByRole('button', { name: /競合候補を探す/ })
     expect(button).toBeInTheDocument()
   })
 
@@ -61,7 +61,7 @@ describe('Discovery — happy path & basic rendering', () => {
     const user = userEvent.setup()
     render(<Discovery />, { wrapper: TestProviders })
 
-    const input = screen.getByPlaceholderText('競合他社のURLを入力')
+    const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
     await user.type(input, 'https://example.com')
 
     expect(input).toHaveValue('https://example.com')
@@ -82,29 +82,29 @@ describe('Discovery — happy path & basic rendering', () => {
     const user = userEvent.setup()
     render(<Discovery />, { wrapper: TestProviders })
 
-    const input = screen.getByPlaceholderText('競合他社のURLを入力')
+    const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
     await user.type(input, 'https://example.com')
 
-    const button = screen.getByRole('button', { name: /競合を発見/ })
+    const button = screen.getByRole('button', { name: /競合候補を探す/ })
     expect(button).toBeDisabled()
   })
 
   // ── 5. Button is enabled when API key is set and URL is typed ──
   it('enables the submit button when a valid API key is set and URL is typed', async () => {
-    localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+    sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
     const user = userEvent.setup()
     render(<Discovery />, { wrapper: TestProviders })
 
-    const input = screen.getByPlaceholderText('競合他社のURLを入力')
+    const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
     await user.type(input, 'https://example.com')
 
-    const button = screen.getByRole('button', { name: /競合を発見/ })
+    const button = screen.getByRole('button', { name: /競合候補を探す/ })
     expect(button).toBeEnabled()
   })
 
   // ── 6. No API-key warning is hidden when key is present ─
   it('hides the API key warning when a valid key is configured', () => {
-    localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+    sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
     render(<Discovery />, { wrapper: TestProviders })
 
     expect(screen.queryByText(/分析用 API キーが必要です/)).not.toBeInTheDocument()
@@ -112,7 +112,7 @@ describe('Discovery — happy path & basic rendering', () => {
 
   // ── 7. Shows loading state after clicking discover button ─
   it('enters loading state after clicking the discover button', async () => {
-    localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+    sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
 
     // warmMarketLensBackend makes a health check. The default MSW handler
     // returns { status: 'ok' } for /api/ml/health.  After warm-up the
@@ -120,10 +120,10 @@ describe('Discovery — happy path & basic rendering', () => {
     const user = userEvent.setup()
     render(<Discovery />, { wrapper: TestProviders })
 
-    const input = screen.getByPlaceholderText('競合他社のURLを入力')
+    const input = screen.getByPlaceholderText('調べたい自社サイトのURLを入力')
     await user.type(input, 'https://example.com')
 
-    const button = screen.getByRole('button', { name: /競合を発見/ })
+    const button = screen.getByRole('button', { name: /競合候補を探す/ })
     await user.click(button)
 
     // After clicking, the component should enter a loading / running state.
@@ -138,9 +138,9 @@ describe('Discovery — happy path & basic rendering', () => {
   it('renders the page heading and description', () => {
     render(<Discovery />, { wrapper: TestProviders })
 
-    expect(screen.getByText('Discovery Hub')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: '似ている競合サイトを探す' })).toBeInTheDocument()
     expect(
-      screen.getByText(/URLを入力するだけで/)
+      screen.getByText(/自社サイトの公開情報を手がかりに/)
     ).toBeInTheDocument()
   })
 

@@ -293,7 +293,7 @@ function buildErrorMessage(path, status, body) {
 
   if (status === 404) {
     if (path.includes('/assets')) return 'アセットが見つかりません。再アップロードしてください。'
-    return `Market Lens API endpoint ${path} が見つかりません。`
+    return `競合・LP分析の接続先 ${path} が見つかりません。`
   }
 
   if (status === 409) {
@@ -311,7 +311,7 @@ function buildErrorMessage(path, status, body) {
   if (status === 529) return 'AIサービスが一時的に混み合っています。数分後に再試行してください。'
   if (status === 503) return 'バックエンドサーバーが起動中です。1〜2分待って再試行してください。'
 
-  return `Market Lens API が応答できませんでした（status ${status}）。しばらく待って再試行してください。`
+  return `競合・LP分析サービスが応答できませんでした（status ${status}）。しばらく待って再試行してください。`
 }
 
 function sleep(ms) {
@@ -324,8 +324,8 @@ function isFetchNetworkError(error) {
 
 function buildBackendConnectionErrorMessage(usingDirectBackend) {
   return usingDirectBackend
-    ? 'Market Lens backend に接続できませんでした。CORS 設定またはバックエンドの起動状態を確認してください。'
-    : 'Market Lens backend に接続できませんでした。しばらく待って再試行してください。'
+    ? '競合・LP分析サービスに接続できませんでした。CORS設定またはローカルサービスの起動状態を確認してください。'
+    : '競合・LP分析サービスに接続できませんでした。しばらく待って再試行してください。'
 }
 
 function createTimeoutError(path) {
@@ -583,9 +583,16 @@ async function resolveInsightUserHeader() {
   return scope ? { 'X-Insight-User': scope } : {}
 }
 
+function resolveAdsAuthorizationHeader() {
+  if (typeof window === 'undefined') return {}
+  const token = window.localStorage.getItem(STORAGE_KEY_ADS_TOKEN)
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function buildRequestHeaders(customHeaders = {}) {
   const identityHeaders = await resolveInsightUserHeader()
-  return { ...identityHeaders, ...customHeaders }
+  const authorizationHeaders = resolveAdsAuthorizationHeader()
+  return { ...authorizationHeaders, ...identityHeaders, ...customHeaders }
 }
 
 /**

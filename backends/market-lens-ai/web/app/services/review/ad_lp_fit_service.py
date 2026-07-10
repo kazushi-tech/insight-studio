@@ -16,7 +16,11 @@ from ...schemas.review_result import ReviewResult
 from ..intake.landing_page_capture_service import capture_landing_page
 from .commentary_guardrail import check_commentary_guardrails
 from .evidence_grounding_service import validate_evidence_grounding
-from .review_output_validator import parse_review_json, validate_review_output
+from .review_output_validator import (
+    missing_rubric_ids,
+    parse_review_json,
+    validate_review_output,
+)
 from .review_prompt_builder import build_ad_lp_review_prompt
 
 # Max retries for LLM output parse failures
@@ -149,6 +153,10 @@ async def review_ad_lp_fit(
 
     if parse_err or data is None:
         raise AdLpReviewError(f"LLM output parse failed: {parse_err}")
+
+    missing_rubrics = missing_rubric_ids(data)
+    if missing_rubrics:
+        raise AdLpReviewError(f"Missing rubric IDs: {missing_rubrics}")
 
     report = validate_review_output(data)
     if not report.valid:

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import re
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
+from ..auth import verify_admin_or_integration
 from ..schemas.banner_generation import BannerGenRequest, BannerGenResult, BannerGenStatus
 from ..schemas.review_result import ReviewResult
 from ..services.generation.banner_gen_service import BannerGenService
@@ -28,7 +29,11 @@ def create_generation_router(
         asset_loader: Callable(asset_id) -> bytes | None. Loads original image.
         asset_metadata_loader: Callable(asset_id) -> metadata | None. Loads asset metadata.
     """
-    router = APIRouter(prefix="/api/generation", tags=["generation"])
+    router = APIRouter(
+        prefix="/api/generation",
+        tags=["generation"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
     svc = gen_service or BannerGenService()
 
     @router.post("/banner", response_model=BannerGenResult)

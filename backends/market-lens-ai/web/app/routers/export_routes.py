@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
+from ..auth import verify_admin_or_integration
 from ..schemas.review_result import ReviewResult
 from ..services.exports.onepager_render_service import render_onepager_html
 from ..services.exports.pdf_export_service import PdfExportError, export_pdf
@@ -25,7 +26,11 @@ class ExportRequest(BaseModel):
     review_date: Optional[str] = None
 
 
-router = APIRouter(prefix="/api/exports", tags=["exports"])
+router = APIRouter(
+    prefix="/api/exports",
+    tags=["exports"],
+    dependencies=[Depends(verify_admin_or_integration)],
+)
 
 
 @router.post("/onepager", response_class=HTMLResponse)

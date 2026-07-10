@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from ..auth import verify_admin_or_integration
 from ..models import ScanRequest, ScanResponse, ScanResult, ExtractedData
 from ..policies import validate_urls
 from ..repositories.scan_repository import ScanRepository
@@ -42,7 +43,7 @@ def _now() -> datetime:
 
 def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None = None) -> APIRouter:
     """Factory that creates a scan router wired to the given repository."""
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(verify_admin_or_integration)])
 
     # ── Sync endpoint (legacy) ─────────────────────────────────
 
@@ -115,7 +116,6 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
             urls=req.urls,
             provider=req.provider,
             model=req.model,
-            api_key=req.api_key,
             status=ScanJobStatus.queued,
             stage=ScanJobStage.queued,
             progress_pct=0,
@@ -185,7 +185,13 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
                     retryable=True,
                 )
                 job_repo.save_job(record)
-                logger.error("Scan job unexpected error: job_id=%s error=%s", job_id, exc, exc_info=True)
+                # Do not emit the exception message or traceback: provider
+                # errors may echo a user-supplied API key.
+                logger.error(
+                    "Scan job unexpected error: job_id=%s error_type=%s",
+                    job_id,
+                    type(exc).__name__,
+                )
 
             finally:
                 if heartbeat_task and not heartbeat_task.done():

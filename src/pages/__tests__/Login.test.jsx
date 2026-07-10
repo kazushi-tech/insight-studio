@@ -6,7 +6,6 @@ import Login from '../Login'
 
 const loginAds = vi.fn()
 const loginWithCase = vi.fn()
-const getCasesPublic = vi.fn()
 const loginCase = vi.fn()
 const getCaseTrustToken = vi.fn()
 const warmAdsInsightsBackend = vi.fn()
@@ -20,7 +19,6 @@ vi.mock('../../contexts/AuthContext', () => ({
 }))
 
 vi.mock('../../api/adsInsights', () => ({
-  getCasesPublic: (...args) => getCasesPublic(...args),
   loginCase: (...args) => loginCase(...args),
   getCaseTrustToken: (...args) => getCaseTrustToken(...args),
   warmAdsInsightsBackend: (...args) => warmAdsInsightsBackend(...args),
@@ -39,21 +37,14 @@ describe('Login', () => {
     localStorage.clear()
     loginAds.mockReset()
     loginWithCase.mockReset()
-    getCasesPublic.mockReset()
     loginCase.mockReset()
     getCaseTrustToken.mockReset()
     warmAdsInsightsBackend.mockReset()
-    getCasesPublic.mockResolvedValue({
-      cases: [
-        { case_id: 'petabit', name: 'ペタビット' },
-        { case_id: 'demo', name: 'Demo' },
-      ],
-    })
     getCaseTrustToken.mockReturnValue(null)
     warmAdsInsightsBackend.mockResolvedValue(false)
   })
 
-  it('keeps the login screen simple and tries the saved case first', async () => {
+  it('keeps the login screen simple and sends one password-only case request', async () => {
     const user = userEvent.setup()
     localStorage.setItem('insight-studio-current-case', JSON.stringify({ case_id: 'demo' }))
     loginCase.mockResolvedValue({
@@ -72,11 +63,21 @@ describe('Login', () => {
     await user.click(screen.getByRole('button', { name: /ログイン|ログイン中/ }))
 
     await waitFor(() => {
-      expect(loginCase).toHaveBeenCalledWith('demo', 'case-password', { deviceTrustToken: null })
+      expect(loginCase).toHaveBeenCalledWith('', 'case-password', { deviceTrustToken: null })
     })
     expect(loginAds).not.toHaveBeenCalled()
     expect(loginCase).toHaveBeenCalledTimes(1)
     expect(loginWithCase).toHaveBeenCalledWith(expect.objectContaining({ case_id: 'demo' }))
+  })
+
+  it('explains the customer login and provides public preview and consultation paths', () => {
+    renderLogin()
+
+    expect(screen.getByRole('heading', { name: 'ご利用画面へログイン' })).toBeInTheDocument()
+    expect(screen.getByText(/導入時に発行されたパスワード/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '画面サンプルを見る' })).toHaveAttribute('href', '/lp#product-preview')
+    expect(screen.getByRole('link', { name: /導入条件を相談する/ })).toHaveAttribute('href', 'https://www.petabit.co.jp/contact/')
+    expect(screen.getByRole('button', { name: 'パスワードを表示' })).toBeInTheDocument()
   })
 
   it('falls back to admin login when no case password matches', async () => {
@@ -92,6 +93,6 @@ describe('Login', () => {
     await waitFor(() => {
       expect(loginAds).toHaveBeenCalledWith('admin-password')
     })
-    expect(loginCase).toHaveBeenCalledTimes(2)
+    expect(loginCase).toHaveBeenCalledTimes(1)
   })
 })

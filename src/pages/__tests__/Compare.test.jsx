@@ -16,7 +16,7 @@ vi.mock('../../components/DataCoverageCard', () => ({
 
 // ── Auth helpers ──────────────────────────────────────────────
 function setClaudeKey() {
-  localStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
+  sessionStorage.setItem('is_claude_key', 'sk-ant-test-key-for-testing')
 }
 
 // ── Helpers ───────────────────────────────────────────────────
@@ -61,7 +61,7 @@ describe('Compare — basic rendering', () => {
 
   it('renders the page heading', () => {
     renderCompare()
-    expect(screen.getByText('LP比較・競合分析')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: '自社と競合のページを比べる' })).toBeInTheDocument()
   })
 
   it('shows a warning when no Claude API key is set', () => {

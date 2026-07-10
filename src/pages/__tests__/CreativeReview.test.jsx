@@ -23,7 +23,7 @@ vi.mock('../../components/PerformanceRadar', () => ({
 }))
 
 function setGeminiKey() {
-  localStorage.setItem('is_gemini_key', 'AIza-test-key-for-creative-review')
+  sessionStorage.setItem('is_gemini_key', 'AIza-test-key-for-creative-review')
 }
 
 function renderCreativeReview() {
@@ -88,17 +88,29 @@ describe('CreativeReview', () => {
   it('keeps the upload target keyboard accessible', () => {
     renderCreativeReview()
 
+    expect(screen.getByRole('heading', { level: 1, name: '広告画像を確認する' })).toBeInTheDocument()
     const uploadButton = screen.getByRole('button', { name: 'バナー画像をアップロード' })
     expect(uploadButton).toHaveAttribute('tabindex', '0')
+    expect(screen.queryByText('レポートをダウンロード')).not.toBeInTheDocument()
+    expect(screen.queryByText('レポートを保存')).not.toBeInTheDocument()
   })
 
   it('shows fictional demo creative entry points in the empty state', () => {
     renderCreativeReview()
 
-    expect(screen.getByText('検証用の架空デモ素材で試す')).toBeInTheDocument()
+    expect(screen.getByText('自分の画像がない場合は、架空デモ素材で試す')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /架空インテリアEC/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /架空スキンケアEC/ })).toBeInTheDocument()
     expect(screen.getByText('架空の検証用クリエイティブです。実在ブランド・実在商品ではありません。')).toBeInTheDocument()
+  })
+
+  it('guides users without an analysis key to settings', () => {
+    sessionStorage.removeItem('is_gemini_key')
+
+    renderCreativeReview()
+
+    expect(screen.getByText('分析用APIキーを設定してください')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'APIキーを設定する' })).toHaveAttribute('href', '/settings')
   })
 
 })

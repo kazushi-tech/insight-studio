@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from ..auth import verify_token
+from ..auth import verify_admin_or_integration, verify_token
 
 
 class UsageEvent(BaseModel):
@@ -48,7 +48,11 @@ class SystemStatus(BaseModel):
 
 def create_admin_router() -> APIRouter:
     """Factory that creates admin routes."""
-    router = APIRouter(prefix="/api/admin", tags=["admin"])
+    router = APIRouter(
+        prefix="/api/admin",
+        tags=["admin"],
+        dependencies=[Depends(verify_admin_or_integration)],
+    )
 
     _events: deque[UsageEvent] = deque(maxlen=10_000)
     _failures: deque[FailureEntry] = deque(maxlen=1_000)

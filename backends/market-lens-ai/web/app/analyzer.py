@@ -89,7 +89,7 @@ _SECONDARY_CTA_LIMIT = 3
 _FAQ_LIMIT = 3
 _REVIEW_LIMIT = 2
 _SIGNAL_LIMIT = 3
-_COMPARISON_BODY_SNIPPET_LIMIT = 300
+_COMPARISON_BODY_SNIPPET_LIMIT = 180
 _COMPARISON_LIST_LIMIT = 3
 _SINGLE_URL_MAX_OUTPUT_TOKENS = 2560
 # Phase Q0-1: raised from 6144 → 10240 so Section 5 can complete in a single pass.
@@ -645,11 +645,11 @@ _TRUST_ELEMENT_TAXONOMY = """
 ### 階層定義:
 | 階層 | 分類 | 広告コピーへの転用 | 表現例 |
 |------|------|-------------------|--------|
-| **L1 第三者認証 confirmed** | 第三者機関の認証・登録を**機関名・認証番号付き**で確認 | ✅ 強い訴求として使用可 | 「インフォームドチョイス認証」「NSF認証取得」「WADA準拠確認」 |
-| **L2 自社品質主張 confirmed** | サイト内での品質に関する自社の主張（本文に具体的説明あり） | ⚠️ 「〇〇を宣言」「〇〇に対応」程度 | 「GMP基準で製造」「品質管理徹底」「国内製造」 |
-| **L3 外部実績 confirmed** | 提携先・共催・使用実績の記載 | ✅ 実績として使用可 | 「〇〇大会公式サプリ」「〇〇陸上競技部使用」 |
+| **L1 第三者認証 confirmed** | 第三者機関の認証・登録を**機関名・認証番号付き**で確認 | ✅ 強い訴求として使用可 | 「第三者機関の認証取得」「登録番号を確認」 |
+| **L2 自社品質主張 confirmed** | サイト内での品質に関する自社の主張（本文に具体的説明あり） | ⚠️ 「〇〇を宣言」「〇〇に対応」程度 | 「品質基準を明記」「検査工程を説明」 |
+| **L3 外部実績 confirmed** | 提携先・共催・使用実績の記載 | ✅ 実績として使用可 | 「導入実績を掲載」「外部企業との提携」 |
 | **L4 コミュニティ/UGC** | ユーザー投稿・レビュー・SNS言及 | ✅ ソーシャルプルーフとして可 | 「レビュー〇〇件」「Instagram〇〇投稿」 |
-| **L5 文言存在 only** | ナビゲーションやラベルに文言が存在するのみ。内容の裏付けなし | ❌ 広告コピーに転用不可・認証と書くのは絶対禁止 | 「ANTI DOPING」リンク、「安心」バナー |
+| **L5 文言存在 only** | ナビゲーションやラベルに文言が存在するのみ。内容の裏付けなし | ❌ 広告コピーに転用不可・認証と書くのは絶対禁止 | 「品質保証」リンク、「安心」バナー |
 
 ### 絶対禁止ルール:
 1. **L5（文言存在 only）から「認証取得済み」を言うことは禁止**:
@@ -681,12 +681,10 @@ _TRUST_ELEMENT_TAXONOMY = """
    - L5は必ず `（認証内容は未確認）` の注釈を添える
 6. **L5 only からの広告見出し案作成禁止（Task B v3 強化）**:
    - L5 only 情報を広告見出し案・推奨訴求・エグゼクティブサマリーの勝ち筋に直接使ってはならない
-   - 例: ナビに `ANTI DOPING` があるだけの状態で:
-     - ❌: 推奨訴求「アンチドーピング対応」「公式ランナーサプリ・アンチドーピング対応」
-     - ❌: 「アンチドーピング情報」を施策の広告見出し案に組み込む
-     - ✅: 「アンチドーピング関連情報の記載あり（内容未確認・L5）」
-     - ✅: 「競技者向け品質情報の掲載有無を確認」
-     - ✅: 「L1確認後に主要訴求へ昇格」
+   - 例: ナビに `品質保証` があるだけの状態で:
+     - ❌: 推奨訴求「品質保証済み」「第三者認証取得」
+     - ✅: 「品質関連情報の記載あり（内容未確認・L5）」
+     - ✅: 「裏付け確認後に主要訴求へ昇格」
    - 施策表の推奨訴求列に L5 only の情報を載せる場合は `（L5・要確認）` を必ず付記
 """
 
@@ -1361,7 +1359,6 @@ def build_deep_comparison_prompt(
 入力ブランド数は常に1。残りの全URLは「実競合比較対象」または「参考観測枠」に振り分ける。
 主比較表・主ランキングは「入力ブランド + 実競合比較対象」のみで構成すること。
 
-{_SPORTS_SUPPLEMENT_TEMPLATE if is_sports_supplement else ""}
 {_WATER_INDUSTRY_TEMPLATE if is_water_industry else ""}
 
 ## 見出し固定ルール（必須）
@@ -1763,9 +1760,12 @@ def _load_screenshot(path: str | None) -> bytes | None:
 def _comparison_output_token_budget(site_count: int, *, compact: bool = False) -> int:
     """Scale comparison output budget to avoid truncating later sections."""
     if compact:
-        # Phase Q0-1: expanded compact ceiling (was 2560/3072) so Section 5 survives
-        # even in compact fallback mode.
-        return 5120 if site_count >= 3 else 4096
+        # Wide 4+ site reports still need enough room to close Section 5. Keep
+        # the smaller 3-site recovery budget, but give the wide contract the
+        # same 6k safety margin as the execution-plan repair call.
+        if site_count >= 4:
+            return 6144
+        return 5120 if site_count == 3 else 4096
     if site_count >= 5:
         # Wide-prompt mode: less per-brand detail, so 12288 covers it
         return _MULTI_URL_MAX_OUTPUT_TOKENS_5PLUS_SITES
@@ -1955,8 +1955,9 @@ async def analyze(
 
     if len(extracted_list) == 1:
         prompt = build_competitive_lp_prompt(extracted_list[0])
-    elif len(extracted_list) >= 5:
-        # Wide prompt for 5+ sites; deep preserves Section 5 kill-logic for 3-4 sites
+    elif len(extracted_list) >= 4:
+        # Four or more sites use the compact high-signal prompt so model context
+        # is spent on comparison quality rather than repeated per-brand prose.
         prompt = build_wide_comparison_prompt(extracted_list, discovery_metadata=discovery_metadata)
     else:
         prompt = build_deep_comparison_prompt(extracted_list, discovery_metadata=discovery_metadata)

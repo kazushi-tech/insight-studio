@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -9,7 +9,6 @@ import { useRbac } from '../contexts/RbacContext'
 import {
   ANALYSIS_PROVIDER_ANTHROPIC,
   ANALYSIS_PROVIDER_GEMINI,
-  getAnalysisProviderLabel,
 } from '../utils/analysisProvider'
 import { warmMarketLensBackend } from '../api/marketLens'
 import { warmAdsInsightsBackend } from '../api/adsInsights'
@@ -18,9 +17,11 @@ import GuideModal from './GuideModal'
 import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
+import { isProjectManagementEnabled } from '../config/features'
 
 const SETUP_GATED_PATHS = ['/ads/report', '/ads/graphs', '/ads/ai', '/insights/ai']
 const AI_EXPLORER_PATH = '/insights/ai'
+const ANALYSIS_NAV_PATHS = ['/analysis', AI_EXPLORER_PATH, '/compare', '/discovery', '/creative-review']
 
 const NAV_ITEMS = [
   { to: '/', icon: 'home', label: 'ホーム' },
@@ -36,15 +37,18 @@ const NAV_ITEMS = [
   },
   {
     icon: 'apps',
-    label: '高度な分析',
+    label: '追加分析',
     children: [
-      { to: '/compare', icon: 'balance', label: '競合LP分析' },
-      { to: '/discovery', icon: 'search', label: '競合発見' },
-      { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
+      { to: '/analysis', icon: 'dashboard', label: '分析メニュー' },
+      { to: '/compare', icon: 'balance', label: '競合LP分析', adminOnly: true },
+      { to: '/discovery', icon: 'search', label: '競合発見', adminOnly: true },
+      { to: '/creative-review', icon: 'image', label: 'バナーレビュー', adminOnly: true },
     ],
   },
   { to: '/settings', icon: 'settings', label: 'データ連携・設定' },
-  { to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true },
+  ...(isProjectManagementEnabled
+    ? [{ to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true }]
+    : []),
 ]
 
 function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
@@ -60,7 +64,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         className={`mx-4 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-3 rounded-xl ${spacingClass} py-2.5 text-[15px] text-[#a8b5a0]/40 cursor-not-allowed`}
         title="セットアップを完了してください"
       >
-        {icon && <span className="material-symbols-outlined row-span-2 shrink-0 self-start text-[20px] leading-6">{icon}</span>}
+        {icon && <span className="material-symbols-outlined row-span-2 shrink-0 self-start text-[20px] leading-6" aria-hidden="true">{icon}</span>}
         <span className="japanese-text min-w-0 truncate leading-6">{label}</span>
         {badge ? (
           <span className="col-start-2 mt-0.5 inline-flex w-fit max-w-full items-center gap-1 rounded bg-amber-900/30 px-1.5 py-0.5 text-[10px] font-bold leading-none text-amber-300/80">
@@ -68,7 +72,7 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
             {badge}
           </span>
         ) : (
-          <span className="material-symbols-outlined col-start-2 mt-0.5 shrink-0 text-[14px] leading-none">lock</span>
+          <span className="material-symbols-outlined col-start-2 mt-0.5 shrink-0 text-[14px] leading-none" aria-hidden="true">lock</span>
         )}
       </a>
     )
@@ -85,38 +89,51 @@ function SidebarLink({ to, icon, label, isChild, disabled, badge }) {
         }`
       }
     >
-      {icon && <span className="material-symbols-outlined shrink-0 text-[20px]">{icon}</span>}
+      {icon && <span className="material-symbols-outlined shrink-0 text-[20px]" aria-hidden="true">{icon}</span>}
       <span className="japanese-text min-w-0 flex-1 truncate">{label}</span>
       {badge && <span className="shrink-0 text-[10px] font-bold text-amber-300 bg-amber-900/30 px-1.5 py-0.5 rounded">{badge}</span>}
     </NavLink>
   )
 }
 
-function SidebarGroup({ item, disabledPaths }) {
+function SidebarGroup({ item, disabledPaths, canManageProjects }) {
   const location = useLocation()
-  const isGroupActive = item.children?.some((c) => location.pathname === c.to)
+  const visibleChildren = item.children?.filter((child) => !child.adminOnly || canManageProjects) || []
+  const isGroupActive = visibleChildren.some((child) => location.pathname === child.to)
   const [open, setOpen] = useState(isGroupActive)
+  const [closedActivePath, setClosedActivePath] = useState(null)
+  const isOpen = open || (isGroupActive && closedActivePath !== location.pathname)
+
+  function toggleGroup() {
+    if (isOpen) {
+      setOpen(false)
+      if (isGroupActive) setClosedActivePath(location.pathname)
+      return
+    }
+    setOpen(true)
+    setClosedActivePath(null)
+  }
 
   return (
     <div className="py-0.5">
       <button
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-[#2d6a4f] focus-visible:outline-offset-[-2px] ${
+        onClick={toggleGroup}
+        aria-expanded={isOpen}
+        className={`w-full flex items-center gap-3 px-6 py-2.5 text-[15px] transition-colors border-l-2 focus-visible:outline-2 focus-visible:outline-[#b1f0ce] focus-visible:outline-offset-[-2px] ${
           isGroupActive
             ? 'text-white border-[#2d6a4f] bg-[#2d6a4f] font-bold'
             : 'text-[#a8b5a0] hover:text-white/80 hover:bg-white/5 border-transparent'
         }`}
       >
-        <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+        <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{item.icon}</span>
         <span className="japanese-text flex-1 text-left">{item.label}</span>
-        <span className={`material-symbols-outlined text-[16px] transition-transform ${open ? 'rotate-180' : ''}`}>
+        <span className={`material-symbols-outlined text-[16px] transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true">
           expand_more
         </span>
       </button>
-      {open && (
+      {isOpen && (
         <div className="mt-1.5 mb-2 flex flex-col gap-1">
-          {item.children.map((child) => (
+          {visibleChildren.map((child) => (
             <SidebarLink
               key={child.to}
               to={child.to}
@@ -133,8 +150,14 @@ function SidebarGroup({ item, disabledPaths }) {
   )
 }
 
-function MobileNavLink({ to, icon, label, disabled }) {
-  const baseClass = 'flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-black japanese-text'
+function MobileNavLink({ to, icon, label, disabled, activePaths }) {
+  const baseClass = 'flex min-h-14 min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-black japanese-text transition-[color,background-color,transform] active:translate-y-px motion-reduce:transition-none'
+  const location = useLocation()
+  const isActive = activePaths
+    ? activePaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`))
+    : to === '/'
+      ? location.pathname === '/'
+      : location.pathname === to || location.pathname.startsWith(`${to}/`)
 
   if (disabled) {
     return (
@@ -144,27 +167,31 @@ function MobileNavLink({ to, icon, label, disabled }) {
         className={`${baseClass} cursor-not-allowed text-on-surface-variant/40`}
         aria-label={`${label}はセットアップ完了後に利用できます`}
       >
-        <span className="material-symbols-outlined text-[21px]" aria-hidden="true">{icon}</span>
+        <span className="grid size-8 place-items-center rounded-xl bg-surface-container text-on-surface-variant/45">
+          <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{icon}</span>
+        </span>
         <span className="max-w-full truncate">{label}</span>
       </button>
     )
   }
 
   return (
-    <NavLink
+    <Link
       to={to}
-      end={to === '/'}
-      className={({ isActive }) =>
-        `${baseClass} rounded-2xl transition-colors ${
-          isActive
-            ? 'bg-primary text-on-primary shadow-sm'
-            : 'text-on-surface-variant hover:bg-primary/[0.06] hover:text-primary'
-        }`
-      }
+      aria-current={isActive ? (location.pathname === to ? 'page' : 'location') : undefined}
+      className={`${baseClass} ${
+        isActive
+          ? 'bg-primary/[0.06] text-primary'
+          : 'text-on-surface-variant hover:bg-primary/[0.06] hover:text-primary'
+      }`}
     >
-      <span className="material-symbols-outlined text-[21px]" aria-hidden="true">{icon}</span>
+      <span className={`grid size-8 place-items-center rounded-xl transition-[background-color,color,transform] motion-reduce:transition-none ${
+        isActive ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container text-on-surface-variant'
+      }`}>
+        <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{icon}</span>
+      </span>
       <span className="max-w-full truncate">{label}</span>
-    </NavLink>
+    </Link>
   )
 }
 
@@ -264,26 +291,35 @@ function KeySettingsModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/30 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="key-settings-title"
-        className="bg-surface-container-lowest rounded-xl shadow-lg w-[520px] max-h-[90vh] overflow-y-auto p-8 space-y-6"
+        className="w-full max-w-[520px] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-xl bg-surface-container-lowest p-5 shadow-lg sm:p-8 space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 id="key-settings-title" className="text-xl font-bold japanese-text">API キー設定</h3>
-          <button onClick={onClose} className="text-on-surface-variant hover:text-primary" aria-label="閉じる">
+          <h3 id="key-settings-title" className="text-xl font-bold japanese-text">APIキー・分析接続</h3>
+          <button onClick={onClose} className="grid min-h-11 min-w-11 place-items-center rounded-xl text-on-surface-variant hover:bg-surface-container hover:text-primary" aria-label="閉じる">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
+        <div className="space-y-2 rounded-xl bg-surface-container p-4" aria-label="機能ごとのAPIキー要否">
+          <p className="text-sm font-bold text-on-surface japanese-text">使える機能</p>
+          <div className="grid gap-2 text-xs text-on-surface-variant sm:grid-cols-3">
+            <p><strong className="block text-on-surface">キーなし</strong>基本レポート・グラフ・根拠整理</p>
+            <p><strong className="block text-on-surface">Gemini</strong>競合・LP・画像の詳細分析</p>
+            <p><strong className="block text-on-surface">Claude</strong>詳細分析の予備接続</p>
+          </div>
+        </div>
+
         {/* Gemini Key */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（推奨・分析用）</label>
-          <p className="text-xs text-on-surface-variant">設定されている場合は競合LP分析・競合発見・バナーレビューで Gemini を優先します</p>
+          <label htmlFor="header-gemini-key" className="text-sm font-bold text-on-surface-variant japanese-text">Gemini API キー（任意・詳細分析用）</label>
+          <p id="header-gemini-help" className="text-xs text-on-surface-variant">設定すると、競合分析や詳細考察で低コストのGeminiを優先します。キーはこのタブを閉じるまでだけ保持されます。</p>
           <a
             href="https://aistudio.google.com/app/apikey"
             target="_blank"
@@ -294,7 +330,12 @@ function KeySettingsModal({ onClose }) {
             Google AI Studio で API キーを取得
           </a>
           <input
+            id="header-gemini-key"
+            name="gemini-api-key"
             type="password"
+            autoComplete="off"
+            spellCheck={false}
+            aria-describedby="header-gemini-help"
             className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
             placeholder="AIza..."
             value={localGeminiKey}
@@ -306,20 +347,20 @@ function KeySettingsModal({ onClose }) {
           />
           <button
             onClick={handleSaveGemini}
-            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all"
+            className="min-h-11 px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-opacity"
           >
-            保存
+            Geminiキーを保存
           </button>
-          {geminiError && <p className="text-xs text-error">{geminiError}</p>}
-          {geminiSaved && <p className="text-xs text-emerald-700 dark:text-on-success-container">Gemini API キーを保存しました。</p>}
+          {geminiError && <p role="alert" className="text-xs text-error">{geminiError}</p>}
+          {geminiSaved && <p role="status" aria-live="polite" className="text-xs text-emerald-700 dark:text-on-success-container">Gemini API キーを保存しました。</p>}
         </div>
 
         <hr className="border-surface-container" />
 
         {/* Claude Key */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（フォールバック）</label>
-          <p className="text-xs text-on-surface-variant">Gemini キー未設定時の分析用フォールバックとして使用します</p>
+          <label htmlFor="header-claude-key" className="text-sm font-bold text-on-surface-variant japanese-text">Claude API キー（任意・予備）</label>
+          <p className="text-xs text-on-surface-variant">Geminiを使わない詳細分析や、対応機能の予備プロバイダーとして使用します。</p>
           <a
             href="https://console.anthropic.com/settings/keys"
             target="_blank"
@@ -330,7 +371,11 @@ function KeySettingsModal({ onClose }) {
             Anthropic Console でAPIキーを取得
           </a>
           <input
+            id="header-claude-key"
+            name="claude-api-key"
             type="password"
+            autoComplete="off"
+            spellCheck={false}
             className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
             placeholder="sk-ant-..."
             value={localClaudeKey}
@@ -343,19 +388,19 @@ function KeySettingsModal({ onClose }) {
           <button
             onClick={handleSaveClaude}
             disabled={claudeValidating}
-            className="px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-all disabled:opacity-50"
+            className="min-h-11 px-5 py-2 bg-primary-container text-on-primary rounded-xl font-bold text-sm hover:opacity-88 transition-opacity disabled:opacity-50"
           >
-            {claudeValidating ? '検証中...' : '保存'}
+            {claudeValidating ? '検証中…' : 'Claudeキーを保存'}
           </button>
-          {claudeError && <p className="text-xs text-error">{claudeError}</p>}
-          {claudeWarning && <p className="text-xs text-amber-600 dark:text-warning">{claudeWarning}</p>}
+          {claudeError && <p role="alert" className="text-xs text-error">{claudeError}</p>}
+          {claudeWarning && <p role="status" aria-live="polite" className="text-xs text-amber-600 dark:text-warning">{claudeWarning}</p>}
         </div>
 
         <hr className="border-surface-container" />
 
         {/* Ads Insights Auth */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-on-surface-variant japanese-text">考察スタジオ 認証</label>
+          <p className="text-sm font-bold text-on-surface-variant japanese-text">Webサイト分析 接続</p>
           {isAdsAuthenticated ? (
             <div className="flex items-center justify-between bg-emerald-50 dark:bg-success-container rounded-xl px-4 py-3">
               <span className="text-sm text-emerald-700 dark:text-on-success-container font-bold flex items-center gap-2">
@@ -369,20 +414,24 @@ function KeySettingsModal({ onClose }) {
           ) : (
             <>
               <input
+                id="header-ads-password"
+                name="analysis-connection-password"
                 type="password"
+                autoComplete="current-password"
+                aria-label="Webサイト分析の接続パスワード"
                 className="w-full bg-surface-container-low rounded-xl py-3 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-secondary"
                 placeholder="パスワードを入力"
                 value={adsPassword}
                 onChange={(e) => setAdsPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAdsLogin()}
               />
-              {adsError && <p className="text-xs text-error">{adsError}</p>}
+              {adsError && <p role="alert" className="text-xs text-error">{adsError}</p>}
               <button
                 onClick={handleAdsLogin}
                 disabled={loading}
-                className="px-5 py-2 bg-secondary text-on-secondary rounded-xl font-bold text-sm hover:opacity-90 transition-all disabled:opacity-50"
+                className="min-h-11 px-5 py-2 bg-secondary text-on-secondary rounded-xl font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
               >
-                {loading ? 'ログイン中...' : 'ログイン'}
+                {loading ? '接続中…' : '分析データに接続'}
               </button>
             </>
           )}
@@ -430,18 +479,18 @@ export default function Layout() {
   const [selectedCase, setSelectedCase] = useState(null)
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
   const location = useLocation()
-  const { hasAnalysisKey, analysisProvider, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
+  const { hasAnalysisKey, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
-  const { isSetupComplete, setupState, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
+  const { isSetupComplete, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
   const { canManageProjects, isCaseUser } = useRbac()
   const navigate = useNavigate()
 
   // Pre-warm backends (fire-and-forget) to avoid cold-start delays
   useEffect(() => {
-    void warmMarketLensBackend()
-    void warmAdsInsightsBackend()
-  }, [])
+    if (hasAnalysisKey) void warmMarketLensBackend()
+    if (isAdsAuthenticated) void warmAdsInsightsBackend()
+  }, [hasAnalysisKey, isAdsAuthenticated])
 
   // Auth guard in App.jsx handles login redirect for all roles
   const disabledPaths = isAdsAuthenticated && isSetupComplete ? [] : SETUP_GATED_PATHS
@@ -516,30 +565,18 @@ export default function Layout() {
     }
   }, [])
 
-  const profileCaption = isAdsAuthenticated ? '考察スタジオ接続済' : 'ローカルプロフィール'
-  const aiInsightProviderLabel = getAnalysisProviderLabel(analysisProvider)
-  const coreAnalysisStatusLabel = hasAnalysisKey ? `${aiInsightProviderLabel} で利用可` : '分析キー未設定'
-  const adsAiReady = hasAnalysisKey && isAdsAuthenticated && isSetupComplete
-  const adsAiStatusLabel = !hasAnalysisKey
-    ? '分析キー未設定'
-    : !isAdsAuthenticated
-      ? '要認証'
-      : !isSetupComplete
-        ? '要セットアップ'
-        : `${aiInsightProviderLabel} で利用可`
-  const adsAiTone = adsAiReady ? 'text-emerald-400' : hasAnalysisKey || isAdsAuthenticated ? 'text-amber-400' : 'text-white/40'
-  const adsAiDot = adsAiReady ? 'bg-emerald-400' : hasAnalysisKey || isAdsAuthenticated ? 'bg-amber-400' : 'bg-white/20'
-  const showKeyAttention = !hasAnalysisKey || !isAdsAuthenticated
+  const profileCaption = isAdsAuthenticated ? 'Webサイト分析 接続済' : 'ローカルプロフィール'
+  const showKeyAttention = !isAdsAuthenticated
   const mobileNavItems = [
     { to: '/', icon: 'home', label: 'ホーム' },
-    { to: '/ads/wizard', icon: 'tune', label: '準備' },
     { to: '/ads/report', icon: 'summarize', label: 'レポート', requiresSetup: true },
-    { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI', requiresSetup: true },
-    { to: '/settings', icon: 'settings', label: 'データ' },
+    { to: '/ads/graphs', icon: 'monitoring', label: 'グラフ', requiresSetup: true },
+    { to: '/analysis', icon: 'apps', label: '分析', activePaths: ANALYSIS_NAV_PATHS },
+    { to: '/settings', icon: 'settings', label: '設定' },
   ]
 
   return (
-    <div className="min-h-screen bg-surface lg:flex">
+    <div className="min-h-dvh bg-surface lg:flex">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-primary focus:text-on-primary focus:rounded-lg focus:font-bold focus:text-sm focus:shadow-lg"
@@ -572,6 +609,7 @@ export default function Layout() {
                 key={item.label}
                 item={item}
                 disabledPaths={disabledPaths}
+                canManageProjects={canManageProjects}
               />
             ) : (
               <SidebarLink
@@ -591,51 +629,22 @@ export default function Layout() {
 
           {/* Connection Status */}
           <div className="px-6 mb-3">
-            <div className="bg-white/5 rounded-xl p-3 space-y-2 text-xs">
+            <Link to="/settings" className="block space-y-3 rounded-xl bg-white/[0.06] p-3 text-xs transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-fixed">
               <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/50">競合LP分析 / 競合発見</span>
-                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                  {coreAnalysisStatusLabel}
-                </span>
-              </div>
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/50">クリエイティブレビュー</span>
-                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                  {coreAnalysisStatusLabel}
-                </span>
-              </div>
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/50">分析API</span>
-                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-400' : 'text-white/40'}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                  {hasAnalysisKey ? `${aiInsightProviderLabel} 設定済` : '未設定'}
-                </span>
-              </div>
-              <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/50">考察スタジオ</span>
-                <span className={`flex shrink-0 items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-400' : 'text-white/40'}`}>
+                <span className="min-w-0 truncate text-white/75">Webサイトデータ</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-300' : 'text-white/70'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                  {isAdsAuthenticated ? '接続済' : '未接続'}
+                  {isAdsAuthenticated ? '接続済み' : '準備が必要'}
                 </span>
               </div>
               <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/50">AI考察</span>
-                <span className={`flex shrink-0 items-center gap-1 font-bold ${adsAiTone}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${adsAiDot}`} />
-                  {adsAiStatusLabel}
+                <span className="min-w-0 truncate text-white/75">追加分析</span>
+                <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-300' : 'text-white/70'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
+                  {hasAnalysisKey ? '利用できます' : '設定が必要'}
                 </span>
               </div>
-              {isSetupComplete && setupState?.completedAt && (
-                <div className="flex min-w-0 items-center justify-between gap-2 text-[10px]">
-                  <span className="min-w-0 truncate text-white/40">最終セットアップ</span>
-                  <span className="shrink-0 text-white/40 tabular-nums">
-                    {new Date(setupState.completedAt).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              )}
-            </div>
+            </Link>
           </div>
 
           {/* New Setup Button */}
@@ -665,22 +674,22 @@ export default function Layout() {
       {/* Main Content */}
       <main
         id="main-content"
-        className="flex min-h-screen min-w-0 flex-1 flex-col pb-20 lg:ml-[var(--sidebar-width)] lg:pb-0"
+        className="flex min-h-dvh min-w-0 flex-1 flex-col pb-20 lg:ml-[var(--sidebar-width)] lg:pb-0"
         style={{ '--sidebar-width': `${sidebarWidth}px` }}
       >
         {/* Top Header */}
-        <header className="sticky top-0 z-50 flex min-h-16 w-full flex-wrap items-center justify-between gap-3 border-b border-outline-variant/10 bg-surface/90 px-4 py-3 backdrop-blur-md lg:h-16 lg:flex-nowrap lg:px-8 lg:py-0">
+        <header className="sticky top-0 z-50 flex min-h-16 w-full flex-nowrap items-center justify-between gap-2 border-b border-outline-variant/10 bg-surface/90 px-4 py-2 backdrop-blur-md lg:h-16 lg:gap-3 lg:px-8 lg:py-0">
           <div className="min-w-0 flex-1">
             {isCaseUser ? (
-              <div className="flex items-center gap-2 text-on-surface font-bold">
+              <div className="flex min-w-0 items-center gap-2 font-bold text-on-surface">
                 <span className="material-symbols-outlined text-secondary">folder</span>
-                {authUser?.display_name || '案件'}
+                <span className="truncate whitespace-nowrap">{authUser?.display_name || '案件'}</span>
               </div>
             ) : (
               <CaseSelector onCaseSelect={handleCaseSelect} />
             )}
           </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 lg:gap-6">
+          <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 lg:gap-6">
             <div className="flex items-center gap-2">
               {/* Report History Drawer Trigger */}
               <button
@@ -688,16 +697,16 @@ export default function Layout() {
                   if (location.pathname !== AI_EXPLORER_PATH) navigate(AI_EXPLORER_PATH)
                   setShowHistoryDrawer(true)
                 }}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                className="hidden size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container sm:flex"
                 title="レポート履歴"
                 aria-label="レポート履歴を開く"
               >
                 <span className="material-symbols-outlined">history</span>
               </button>
               {/* API Key Settings */}
-              <button
+              {canManageProjects && <button
                 onClick={() => setShowKeyModal(true)}
-                className={`w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors relative ${
+                className={`relative flex size-11 items-center justify-center rounded-full hover:bg-surface-container transition-colors ${
                   !showKeyAttention ? 'text-emerald-600 dark:text-success' : 'text-secondary'
                 }`}
                 title="API キー・接続設定"
@@ -707,10 +716,10 @@ export default function Layout() {
                 {showKeyAttention && (
                   <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full" />
                 )}
-              </button>
+              </button>}
               <button
                 onClick={() => setShowGuide(true)}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                className="hidden size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container sm:flex"
                 title="使い方ガイド"
                 aria-label="使い方ガイドを開く"
               >
@@ -718,7 +727,7 @@ export default function Layout() {
               </button>
               <button
                 onClick={toggleTheme}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                className="hidden size-11 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container sm:flex"
                 title={isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
                 aria-label={isDark ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}
               >
@@ -735,7 +744,7 @@ export default function Layout() {
               </div>
               <button
                 onClick={logoutAds}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
+                className="flex size-11 items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant"
                 title="ログアウト"
                 aria-label="ログアウト"
               >
@@ -746,13 +755,13 @@ export default function Layout() {
         </header>
 
         {/* Page Content */}
-        <div className="flex-1">
+        <div key={location.key || location.pathname} className="page-motion flex-1">
           <Outlet />
         </div>
       </main>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 gap-1 border-t border-outline-variant/15 bg-surface-container-lowest/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 gap-1 border-t border-outline-variant/15 bg-surface-container-lowest/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-1.5 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden"
         aria-label="モバイル主要ナビゲーション"
       >
         {mobileNavItems.map((item) => (
@@ -762,12 +771,13 @@ export default function Layout() {
             icon={item.icon}
             label={item.label}
             disabled={item.requiresSetup && disabledPaths?.includes(item.to)}
+            activePaths={item.activePaths}
           />
         ))}
       </nav>
 
       {/* Key Settings Modal */}
-      {showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
+      {canManageProjects && showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
       {/* Case Auth Modal */}
       {showAuthModal && selectedCase && (
         <CaseAuthModal

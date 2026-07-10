@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,10 +15,16 @@ import pytest
 # ---------------------------------------------------------------------------
 
 def pytest_configure(config):
-    """Redirect pytest temp directory to a local folder to avoid permission errors."""
-    local_tmp = Path(__file__).parent.parent / ".pytest_tmp"
-    local_tmp.mkdir(exist_ok=True)
-    os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(local_tmp))
+    """Give each pytest process an isolated Windows-safe temp root.
+
+    A shared repository-local ``.pytest_tmp`` can be left with an ACL or an
+    open handle from an interrupted run.  Once that happens every ``tmp_path``
+    fixture fails before the test body starts.  A process-scoped directory in
+    the OS temp root avoids cross-run locking while keeping tests API-key free.
+    """
+    process_tmp = Path(tempfile.gettempdir()) / f"insight-studio-pytest-{os.getpid()}"
+    process_tmp.mkdir(parents=True, exist_ok=True)
+    os.environ["PYTEST_DEBUG_TEMPROOT"] = str(process_tmp)
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"

@@ -36,7 +36,7 @@ services:
         value: camera=(), microphone=(), geolocation=()
       - path: /*
         name: Content-Security-Policy
-        value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://market-lens-ai.onrender.com https://ads-insights-9q5s.onrender.com https://api.anthropic.com; frame-ancestors 'none'"
+        value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://market-lens-ai.onrender.com https://ads-insights-9q5s.onrender.com https://api.anthropic.com; frame-ancestors 'none'"
 
   - type: web
     name: market-lens-ai
@@ -58,7 +58,9 @@ services:
       - key: RATE_LIMIT_PER_MIN
         value: "60"
       - key: INTEGRATION_API_KEYS
-        value: test_key_123,prod_key_456
+        sync: false
+      - key: ALLOW_INSECURE_DEV_AUTH
+        value: "false"
       # Render Dashboard で設定する項目 (sync: false)
       - key: GEMINI_API_KEY
         sync: false
@@ -112,6 +114,10 @@ services:
       - key: GOOGLE_CREDENTIALS_JSON
         sync: false
       - key: APP_PASSWORD
+        sync: false
+      # Customer case records include password hashes/TOTP seeds. Keep the
+      # entire JSON array in Render's secret environment, never in git.
+      - key: ADS_CASES_JSON
         sync: false
       - key: CORS_ALLOWED_ORIGINS
         sync: false
