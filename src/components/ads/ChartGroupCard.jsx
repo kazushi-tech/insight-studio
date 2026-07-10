@@ -16,8 +16,15 @@ import RankingBarTableCard from './charts/RankingBarTableCard'
 import SeriesSummaryBarCard from './charts/SeriesSummaryBarCard'
 import SmallMultipleTrendCard from './charts/SmallMultipleTrendCard'
 
-function isAnomalyGroup(group) {
-  return /異常|anomaly|z-score|zscore|急変|検知/i.test(String(group?.title ?? ''))
+function isAnomalyScoreGroup(group) {
+  const title = String(group?.title ?? '')
+  const displayMode = String(group?.displayMode ?? group?.metadata?.displayMode ?? '')
+  const datasetLabels = Array.isArray(group?.datasets)
+    ? group.datasets.map((dataset) => dataset?.label).filter(Boolean).join(' ')
+    : ''
+
+  return displayMode === 'anomaly_zscore' ||
+    /z[-_\s]?score|標準化スコア/i.test(`${title} ${datasetLabels}`)
 }
 
 function isDailyTrend(group, chartType) {
@@ -49,7 +56,7 @@ function shouldUseHeatmapTable(group, chartType) {
 function getCardMode(group, effectiveChartType, readability) {
   if (readability.recommendedDisplayMode === 'flat_diagnostic') return 'flat_diagnostic'
   if (readability.recommendedDisplayMode === 'low_sample_table') return 'low_sample'
-  if (isAnomalyGroup(group)) return 'anomaly'
+  if (isAnomalyScoreGroup(group)) return 'anomaly'
   if (effectiveChartType === 'doughnut') return 'composition'
   if (shouldUseHeatmapTable(group, effectiveChartType)) return 'heatmap_table'
   if (effectiveChartType === 'bar_horizontal' || readability.recommendedDisplayMode === 'readable_ranking') return 'ranking'
@@ -67,7 +74,7 @@ function getModeLabel(mode) {
     case 'low_sample':
       return '低サンプル'
     case 'anomaly':
-      return '異常検知'
+      return '急な変化'
     case 'ranking':
       return 'ランキング'
     case 'composition':
@@ -92,15 +99,15 @@ function getModeMessage(mode) {
     case 'flat_diagnostic':
       return '値が同一のため、棒グラフではなく診断と次アクションを表示します。'
     case 'low_sample':
-      return '件数が少ないため、線グラフで傾向を誇張せず、発生日と raw count を表示します。'
+      return 'データが少ないため、線で傾向を誇張せず、確認できた日と実際の件数を表示します。'
     case 'anomaly':
-      return '複数系列を重ねず、1指標フォーカスと切替で異常候補を確認します。'
+      return '標準化した変化量だけを使い、普段と違う動きの候補を1指標ずつ確認します。'
     case 'ranking':
       return '上位15件まで、ラベル・値・シェアを欠けずに確認できます。'
     case 'composition':
       return '色と項目の対応を固定し、ホバーなしで構成比を確認できます。'
     case 'multi_trend':
-      return '主線・比較線・文脈線を分け、読み順を固定しています。'
+      return '一番見たい線・比較する線・補助線を分け、読む順番を固定しています。'
     case 'series_bar_summary':
       return '3系列以上は重ね折れ線を使わず、項目別の横棒で比較します。'
     case 'heatmap_table':
@@ -139,7 +146,7 @@ function renderBody(mode, group) {
   }
 }
 
-export default function ChartGroupCard({ group, featured = false }) {
+export default function ChartGroupCard({ group, featured = false, compact = false }) {
   const normalizedGroup = useMemo(() => normalizeChartGroupShape(group ?? {}), [group])
   const presentation = useMemo(() => resolveChartPresentation(normalizedGroup), [normalizedGroup])
   const effectiveChartType = presentation.chartType
@@ -164,6 +171,7 @@ export default function ChartGroupCard({ group, featured = false }) {
       message={getModeMessage(mode)}
       defaultCollapsed={defaultCollapsed}
       featured={featured}
+      compact={compact}
     >
       {hasRenderableData ? renderBody(mode, normalizedGroup) : <ChartEmptyState />}
     </AdsChartCardShell>

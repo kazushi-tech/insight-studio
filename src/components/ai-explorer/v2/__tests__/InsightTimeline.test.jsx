@@ -50,10 +50,10 @@ describe('InsightTimeline', () => {
     expect(screen.queryByTestId('ads-ai-setup-guide')).not.toBeInTheDocument()
     expect(screen.getByTestId('ai-explorer-v2-empty')).toBeInTheDocument()
     expect(screen.getByText('AI考察を始めましょう')).toBeInTheDocument()
-    expect(screen.getByText('CV悪化の原因を特定')).toBeInTheDocument()
-    expect(screen.getByText('CPA改善の優先施策')).toBeInTheDocument()
-    expect(screen.getByText('流入チャネル別の勝ち筋')).toBeInTheDocument()
-    expect(screen.getByText('LP/広告/配信設定のどこを直すべきか')).toBeInTheDocument()
+    expect(screen.getByText('今回、何が起きているか教えて')).toBeInTheDocument()
+    expect(screen.getByText('問い合わせにつながる動きを見たい')).toBeInTheDocument()
+    expect(screen.getByText('よく見られたページで直す場所は？')).toBeInTheDocument()
+    expect(screen.getByText('今日やることを3つに絞って')).toBeInTheDocument()
     expect(screen.queryByText('参照データ')).not.toBeInTheDocument()
     expect(screen.queryByText('文字サイズ')).not.toBeInTheDocument()
     expect(screen.queryByText('チャット消去')).not.toBeInTheDocument()
@@ -114,7 +114,7 @@ describe('InsightTimeline', () => {
   it('shows the composer placeholder text', () => {
     render(<InsightTimeline {...baseProps} />)
     expect(
-      screen.getByPlaceholderText('データに対する質問や分析したい仮説を入力してください…'),
+      screen.getByPlaceholderText('例: 今日やることを3つに絞って'),
     ).toBeInTheDocument()
   })
 

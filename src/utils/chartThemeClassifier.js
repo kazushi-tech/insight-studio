@@ -44,10 +44,36 @@ const THEME_DEFINITIONS = [
   },
 ]
 
+const QUERY_TYPE_THEME = {
+  pv: 'lp',
+  traffic: 'traffic',
+  cv: 'cv',
+  landing: 'lp',
+  engagement: 'lp',
+  device: 'device',
+  hourly: 'time',
+  anomaly: 'anomaly',
+  auction_proxy: 'traffic',
+}
+
+function isTimeSeriesGroup(group) {
+  const dimensionType = String(group?.dimensionType ?? group?.metadata?.dimensionType ?? '')
+  if (dimensionType) return dimensionType === 'time'
+  const labels = Array.isArray(group?.labels) ? group.labels : []
+  if (labels.length < 2) return false
+  const dateLike = labels.filter((label) => /^(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{8}|\d{4}[-/]\d{1,2})$/.test(String(label ?? '').trim()))
+  return dateLike.length / labels.length >= 0.6
+}
+
 /**
  * 単一チャートグループのテーマを判定
  */
 export function classifyChartTheme(group) {
+  const queryType = String(
+    group?.queryType ?? group?.query_type ?? group?.metadata?.queryType ?? group?.metadata?.query_type ?? '',
+  )
+  if (QUERY_TYPE_THEME[queryType]) return QUERY_TYPE_THEME[queryType]
+
   const title = (group?.title ?? '').toLowerCase()
 
   for (const theme of THEME_DEFINITIONS) {
@@ -93,7 +119,7 @@ export function extractTopInsights(chartGroups = []) {
     const datasets = Array.isArray(group?.datasets) ? group.datasets : []
     const labels = Array.isArray(group?.labels) ? group.labels : []
 
-    if (datasets.length === 0 || labels.length === 0) continue
+    if (datasets.length === 0 || labels.length === 0 || !isTimeSeriesGroup(group)) continue
 
     const data = (datasets[0]?.data ?? []).map((v) => {
       if (v == null || v === '') return null
@@ -151,6 +177,7 @@ export function computeThemeSummary(themeGroups) {
   let criticalShifts = 0
 
   for (const group of themeGroups) {
+    if (!isTimeSeriesGroup(group)) continue
     const datasets = Array.isArray(group?.datasets) ? group.datasets : []
     for (const ds of datasets) {
       const data = (Array.isArray(ds?.data) ? ds.data : [])

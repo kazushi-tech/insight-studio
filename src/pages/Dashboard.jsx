@@ -396,7 +396,7 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
   )
 }
 
-function DashboardImage2StatusPanel({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
+function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, onNavigate }) {
   const latestLabel = reportBundle?.generatedAt
     ? new Date(reportBundle.generatedAt).toLocaleString('ja-JP', {
         month: '2-digit',
@@ -405,100 +405,97 @@ function DashboardImage2StatusPanel({ setupState, reportBundle, isAdsAuthenticat
         minute: '2-digit',
       })
     : '未更新'
-  const dataWindow = setupState?.periods?.length
-    ? `${setupState.periods.length} 期間`
-    : '過去 90 日間'
-  const statusRows = [
-    ['database', '広告データ', isAdsAuthenticated ? '利用可' : '認証待ち', isAdsAuthenticated],
-    ['bar_chart', 'Web解析', setupState?.datasetId ? '利用可' : '設定必要', Boolean(setupState?.datasetId)],
-    ['folder', 'データ連携', setupState?.datasetId ? '利用可' : '設定必要', Boolean(setupState?.datasetId)],
-    ['cloud', 'AI分析エンジン', '利用可', true],
+  const hasDataset = Boolean(setupState?.datasetId)
+  const hasReport = Boolean(reportBundle?.chartGroups?.length)
+  const primaryPath = !isAdsAuthenticated || !hasDataset ? '/ads/wizard' : '/ads/report'
+  const primaryLabel = !isAdsAuthenticated
+    ? 'データ接続を確認する'
+    : !hasDataset
+      ? 'サイト分析を準備する'
+      : hasReport
+        ? '最新レポートを見る'
+        : '最初のレポートを作る'
+  const progressItems = [
+    { label: 'サイト計測をつなぐ', done: isAdsAuthenticated && hasDataset },
+    { label: '見る期間を選ぶ', done: Boolean(setupState?.periods?.length) },
+    { label: 'レポートを確認する', done: hasReport },
   ]
 
   return (
-    <section className="space-y-8">
-      <div>
-        <h1 className="text-[2.35rem] font-black leading-tight tracking-normal text-primary japanese-text">ようこそ、Insight Studioへ！</h1>
-        <p className="mt-2 text-base font-bold text-on-surface-variant japanese-text">まずは3つのステップから、かんたんに分析を始めましょう。</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-7 xl:grid-cols-3">
-        <article className="rounded-[1.15rem] border border-outline-variant/25 bg-surface-container-lowest p-8 shadow-sm">
-          <div className="mx-auto grid size-24 place-items-center rounded-full bg-primary/[0.10] text-primary">
-            <span className="material-symbols-outlined text-5xl" aria-hidden="true">fact_check</span>
+    <section className="space-y-5" aria-labelledby="dashboard-primary-title">
+      <div className="grid overflow-hidden rounded-[1.5rem] bg-primary text-on-primary shadow-sm xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        <div className="p-6 sm:p-8 lg:p-10">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-on-primary/70">Webサイト分析</p>
+          <h1 id="dashboard-primary-title" className="mt-3 max-w-3xl text-3xl font-black leading-tight japanese-text sm:text-4xl">
+            サイトの状態を、30秒でつかむ
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-on-primary/80 japanese-text sm:text-base">
+            GA4に保存されたデータから、アクセス・来訪元・問い合わせ・改善するページを、専門用語を減らして表示します。
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <button
+              type="button"
+              onClick={() => onNavigate(primaryPath)}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-accent-gold px-6 py-3 text-sm font-black text-[#2a211c] shadow-sm hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              {primaryLabel}
+              <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+            </button>
+            {hasDataset && (
+              <button
+                type="button"
+                onClick={() => onNavigate('/ads/graphs')}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-6 py-3 text-sm font-black text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                グラフを直接見る
+                <span className="material-symbols-outlined text-base" aria-hidden="true">bar_chart</span>
+              </button>
+            )}
           </div>
-          <h2 className="mt-7 text-center text-3xl font-black text-primary japanese-text">今日やること</h2>
-          <p className="mt-3 text-center text-sm leading-7 text-on-surface japanese-text">まずはLP比較から始めて、気づきを得ましょう。</p>
-          <ol className="mt-8 space-y-4">
-            {['LPを選ぶ', '自動で比較・分析', '改善のヒントを確認'].map((item, index) => (
-              <li key={item} className="flex items-center gap-4 border-b border-dashed border-outline-variant/25 pb-4 last:border-b-0">
-                <span className="grid size-8 place-items-center rounded-full bg-primary-container text-sm font-black text-on-primary">{index + 1}</span>
-                <span className="font-bold text-on-surface japanese-text">{item}</span>
+          <p className="mt-4 text-xs font-bold leading-6 text-on-primary/65 japanese-text">
+            AI考察は任意です。まずはグラフと平易な要約だけで判断できます。
+          </p>
+        </div>
+
+        <aside className="border-t border-white/10 bg-black/10 p-6 sm:p-8 xl:border-l xl:border-t-0" aria-label="分析開始までの3ステップ">
+          <p className="text-sm font-black text-white japanese-text">いまの進み具合</p>
+          <ol className="mt-4 space-y-3">
+            {progressItems.map((item, index) => (
+              <li key={item.label} className="flex items-center gap-3 rounded-xl bg-white/10 px-4 py-3">
+                <span className={`grid size-8 shrink-0 place-items-center rounded-full text-xs font-black ${item.done ? 'bg-white text-primary' : 'bg-white/15 text-white'}`}>
+                  {item.done ? <span className="material-symbols-outlined text-base" aria-hidden="true">check</span> : index + 1}
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-bold japanese-text">{item.label}</span>
+                <span className="text-[11px] font-black text-white/65">{item.done ? '完了' : 'これから'}</span>
               </li>
             ))}
           </ol>
-          <button type="button" onClick={() => onNavigate('/compare')} className="mt-8 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 py-4 text-base font-black text-on-primary">
-            LP比較を始める
-            <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-          </button>
-        </article>
+          <p className="mt-4 text-xs font-bold text-white/65 japanese-text">最終更新: {latestLabel}</p>
+        </aside>
+      </div>
 
-        <article className="rounded-[1.15rem] border border-accent-gold/35 bg-surface-container-lowest p-8 shadow-sm">
-          <div className="mx-auto grid size-24 place-items-center rounded-full bg-accent-gold/20 text-accent-gold">
-            <span className="material-symbols-outlined text-5xl" aria-hidden="true">star</span>
-          </div>
-          <h2 className="mt-7 text-center text-3xl font-black text-primary japanese-text">使える機能</h2>
-          <p className="mt-3 text-center text-sm leading-7 text-on-surface japanese-text">目的に合わせて、必要な機能を使い分けましょう。</p>
-          <div className="mt-6 overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-lowest">
-            {[
-              ['search', '競合を探す', '自社と近い競合サイトを見つけます。', '/discovery'],
-              ['balance', 'LP比較をする', 'LPを並べて、強みや改善点を明確にします。', '/compare'],
-              ['auto_awesome', 'AIに聞く', '分析の疑問や次の打ち手をAIに相談できます。', '/ads/ai'],
-            ].map(([icon, title, body, path]) => (
-              <button key={title} type="button" onClick={() => onNavigate(path)} className="flex w-full items-center gap-4 border-b border-outline-variant/15 px-4 py-4 text-left last:border-b-0 hover:bg-primary/[0.04]">
-                <span className="grid size-11 place-items-center rounded-full bg-primary/[0.08] text-primary">
-                  <span className="material-symbols-outlined" aria-hidden="true">{icon}</span>
-                </span>
-                <span className="min-w-0 flex-1">
-                  <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
-                  <small className="block text-xs leading-5 text-on-surface-variant japanese-text">{body}</small>
-                </span>
-                <span className="material-symbols-outlined text-outline" aria-hidden="true">chevron_right</span>
-              </button>
-            ))}
-          </div>
-          <button type="button" onClick={() => onNavigate('/ads/report')} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-accent-gold px-5 py-4 text-base font-black text-white">
-            機能一覧を見る
-            <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+      <div className="grid gap-3 md:grid-cols-3">
+        {[
+          ['summarize', 'まとめを見る', '結論・判断保留・次にやること', '/ads/report', hasDataset],
+          ['monitoring', 'グラフを見る', 'アクセス・来訪元・成果の根拠', '/ads/graphs', hasDataset],
+          ['tune', '分析内容を変える', '見る項目と期間を選び直す', '/ads/wizard', true],
+        ].map(([icon, title, body, path, enabled]) => (
+          <button
+            key={title}
+            type="button"
+            disabled={!enabled}
+            onClick={() => onNavigate(path)}
+            className="flex min-h-24 items-center gap-4 rounded-2xl bg-surface-container-lowest px-5 py-4 text-left ring-1 ring-outline-variant/15 transition-colors hover:bg-primary/[0.035] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/[0.07] text-primary" aria-hidden="true">
+              <span className="material-symbols-outlined">{icon}</span>
+            </span>
+            <span className="min-w-0">
+              <strong className="block text-sm text-on-surface japanese-text">{title}</strong>
+              <small className="mt-1 block text-xs font-bold leading-5 text-on-surface-variant japanese-text">{body}</small>
+            </span>
           </button>
-        </article>
-
-        <article className="rounded-[1.15rem] border border-outline-variant/25 bg-surface-container-lowest p-8 shadow-sm">
-          <div className="mx-auto grid size-24 place-items-center rounded-full bg-primary/[0.10] text-primary">
-            <span className="material-symbols-outlined text-5xl" aria-hidden="true">database</span>
-          </div>
-          <h2 className="mt-7 text-center text-3xl font-black text-primary japanese-text">接続状態</h2>
-          <p className="mt-3 text-center text-sm leading-7 text-on-surface japanese-text">データや各機能の接続状況を確認しましょう。</p>
-          <div className="mt-6 overflow-hidden rounded-xl border border-outline-variant/20">
-            {statusRows.map(([icon, label, value, ok]) => (
-              <div key={label} className="flex items-center gap-4 border-b border-outline-variant/15 px-4 py-4 last:border-b-0">
-                <span className="material-symbols-outlined text-2xl text-primary" aria-hidden="true">{icon}</span>
-                <strong className="flex-1 text-sm text-on-surface japanese-text">{label}</strong>
-                <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${ok ? 'text-emerald-700' : 'text-amber-700'}`}>
-                  <span className="material-symbols-outlined text-base" aria-hidden="true">{ok ? 'check_circle' : 'error'}</span>
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 rounded-xl border border-primary/15 bg-primary/[0.045] px-4 py-3 text-xs leading-6 text-primary japanese-text">
-            最終更新: {latestLabel} / 取得データ期間: {dataWindow}
-          </div>
-          <button type="button" onClick={() => onNavigate('/settings')} className="mt-5 inline-flex w-full items-center justify-center gap-3 rounded-xl border border-primary px-5 py-4 text-base font-black text-primary">
-            接続設定を開く
-            <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-          </button>
-        </article>
+        ))}
       </div>
     </section>
   )
@@ -561,30 +558,37 @@ export default function Dashboard() {
         : '利用可'
 
   return (
-    <div className="p-10 max-w-[1400px] mx-auto space-y-10">
-      {/* Page Header — title + subtitle only */}
-      <div>
-        <h2 className="text-4xl font-extrabold text-on-surface tracking-tight">Dashboard</h2>
-        <p className="text-on-surface-variant mt-2 text-lg japanese-text">すぐに分析を始められる状態を、接続・機能・次の順番で確認します。</p>
-      </div>
-
-      <DashboardImage2StatusPanel
+    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-5 pb-24 sm:px-6 lg:px-8 lg:py-8">
+      <BeginnerDashboardHero
         setupState={setupState}
         reportBundle={reportBundle}
         isAdsAuthenticated={isAdsAuthenticated}
         onNavigate={navigate}
       />
 
-      <TodayFeatureBoard
-        hasAnalysisKey={hasAnalysisKey}
-        isAdsAuthenticated={isAdsAuthenticated}
-        setupState={setupState}
-        analysisProvider={analysisProvider}
-        onNavigate={navigate}
-      />
+      <details className="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
+        <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-5 py-4 font-extrabold text-on-surface japanese-text">
+          競合分析など、高度な機能を見る
+          <span className="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span>
+        </summary>
+        <div className="border-t border-outline-variant/15 p-5">
+          <TodayFeatureBoard
+            hasAnalysisKey={hasAnalysisKey}
+            isAdsAuthenticated={isAdsAuthenticated}
+            setupState={setupState}
+            analysisProvider={analysisProvider}
+            onNavigate={navigate}
+          />
+        </div>
+      </details>
 
-      {/* Asymmetric two-column layout */}
-      <div className="flex gap-8">
+      <details className="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
+        <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-5 py-4 font-extrabold text-on-surface japanese-text">
+          運用履歴と管理情報を見る
+          <span className="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span>
+        </summary>
+        {/* Asymmetric two-column layout */}
+        <div className="flex gap-8 border-t border-outline-variant/15 p-5">
         {/* ── Left data canvas ── */}
         <div className="flex-1 flex flex-col gap-8 min-w-0">
           {/* Stat Cards — grid-cols-3 */}
@@ -826,7 +830,8 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
     </div>
   )
 }

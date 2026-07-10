@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 
 const WARNING_LABELS = {
   low_sample: '低サンプル',
@@ -20,16 +20,21 @@ export default function AdsChartCardShell({
   children,
   defaultCollapsed = false,
   featured = false,
+  compact = false,
 }) {
   const [collapsed, setCollapsed] = useState(Boolean(defaultCollapsed))
-  const contentId = useMemo(() => safeId(`${group?.title ?? ''}-${group?._periodTag ?? ''}`), [group])
+  const reactId = useId()
+  const contentId = useMemo(
+    () => `${safeId(`${group?.title ?? ''}-${group?._periodTag ?? ''}`)}-${reactId.replace(/:/g, '')}`,
+    [group, reactId],
+  )
   const warnings = Array.isArray(group?.warnings) ? group.warnings : []
   const coverageLabel = group?.coverageLabel || group?.metadata?.coverageLabel
   const selectionLabel = group?.selectionLabel || group?.metadata?.selectionLabel
 
   return (
     <article className={`overflow-hidden rounded-2xl border border-primary/10 bg-surface-container-lowest shadow-sm ${featured ? 'ring-1 ring-primary/10' : ''}`}>
-      <div className="border-b border-primary/10 bg-[#fbfcf7] px-5 py-4">
+      <div className={`border-b border-primary/10 bg-[#fbfcf7] ${compact ? 'px-4 py-3' : 'px-5 py-4'}`}>
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -44,21 +49,21 @@ export default function AdsChartCardShell({
                   {group._periodTag}
                 </span>
               )}
-              {warnings.map((warning) => (
+              {!compact && warnings.map((warning) => (
                 <span key={warning} className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-black text-amber-800">
                   {WARNING_LABELS[warning] ?? warning}
                 </span>
               ))}
             </div>
 
-            <h3 className="mt-3 truncate text-xl font-black text-on-surface japanese-text" title={group?.title}>
+            <h3 className={`${compact ? 'mt-2 text-lg' : 'mt-3 text-xl'} truncate font-black text-on-surface japanese-text`} title={group?.title}>
               {group?.title || '無題グラフ'}
             </h3>
             <p className="mt-1 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
               {message || '主指標を先に見せ、詳細値はホバー・表で確認できます。'}
             </p>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            {!compact && <div className="mt-3 flex flex-wrap gap-2">
               {selectionLabel && (
                 <span className="rounded-lg border border-primary/10 bg-primary/[0.045] px-3 py-1 text-[11px] font-black text-primary">
                   {selectionLabel}
@@ -69,16 +74,17 @@ export default function AdsChartCardShell({
                   実数: {coverageLabel}
                 </span>
               )}
-            </div>
+            </div>}
           </div>
 
           <button
             type="button"
             title={collapsed ? 'グラフを開く' : 'グラフを閉じる'}
+            aria-label={collapsed ? `${group?.title ?? 'グラフ'}を開く` : `${group?.title ?? 'グラフ'}を閉じる`}
             aria-expanded={!collapsed}
             aria-controls={contentId}
             onClick={() => setCollapsed((value) => !value)}
-            className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/15 bg-white text-primary shadow-sm transition hover:bg-primary hover:text-on-primary"
+            className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/15 bg-white text-primary shadow-sm transition-colors hover:bg-primary hover:text-on-primary"
           >
             <span className={`material-symbols-outlined text-xl transition-transform ${collapsed ? '' : 'rotate-180'}`} aria-hidden="true">
               expand_more
@@ -88,7 +94,7 @@ export default function AdsChartCardShell({
       </div>
 
       {!collapsed && (
-        <div id={contentId} className="space-y-5 p-5 lg:p-6">
+        <div id={contentId} className={`${compact ? 'beginner-chart-card space-y-4 p-4' : 'space-y-5 p-5 lg:p-6'}`}>
           {children}
         </div>
       )}

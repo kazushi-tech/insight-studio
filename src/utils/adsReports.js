@@ -198,6 +198,22 @@ function normalizeRankingTitle(group, selectionLabel) {
   return title
 }
 
+function inferQueryTypeFromTitle(title) {
+  const text = String(title ?? '')
+  if (/PV分析|ページビュー|見られた回数/i.test(text)) return 'pv'
+  if (/流入分析|来訪元|チャネル|source|medium/i.test(text)) return 'traffic'
+  if (/CV分析|コンバージョン|成果|問い合わせ|予約|購入/i.test(text)) return 'cv'
+  if (/検索クエリ|サイト内.*検索/i.test(text)) return 'search'
+  if (/異常検知|z[-_\s]?score|急に変わった/i.test(text)) return 'anomaly'
+  if (/LP分析|ランディング|入口ページ/i.test(text)) return 'landing'
+  if (/デバイス|スマホ|パソコン|OS/i.test(text)) return 'device'
+  if (/時間帯|曜日|hourly/i.test(text)) return 'hourly'
+  if (/ユーザー属性|年齢|性別|地域/i.test(text)) return 'user_attr'
+  if (/エンゲージメント|ちゃんと読まれた/i.test(text)) return 'engagement'
+  if (/競合影響|有料流入への偏り/i.test(text)) return 'auction_proxy'
+  return ''
+}
+
 export function normalizeChartGroupShape(group = {}) {
   const groupForTitle = {
     ...group,
@@ -214,6 +230,9 @@ export function normalizeChartGroupShape(group = {}) {
     trendTitle !== originalTitle
       ? trendTitle
       : normalizeRankingTitle(groupForTitle, inferredSelectionLabel)
+  const queryType = String(
+    group?.queryType ?? group?.query_type ?? group?.metadata?.queryType ?? group?.metadata?.query_type ?? inferQueryTypeFromTitle(finalTitle),
+  )
   const rawLabels = Array.isArray(group?.labels) ? group.labels : []
   const rawDatasets = Array.isArray(group?.datasets) ? group.datasets : []
   const maxDataLength = rawDatasets.reduce(
@@ -268,6 +287,7 @@ export function normalizeChartGroupShape(group = {}) {
 
   return {
     ...group,
+    ...(queryType ? { queryType } : {}),
     title: normalizeFriendlyChartTitle(finalTitle),
     selectionLabel: inferredSelectionLabel,
     labels,

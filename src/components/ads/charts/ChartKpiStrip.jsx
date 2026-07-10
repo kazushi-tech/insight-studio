@@ -2,7 +2,7 @@ export default function ChartKpiStrip({ items = [] }) {
   if (!items.length) return null
 
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div className="chart-kpi-strip grid grid-cols-2 gap-3 xl:grid-cols-4">
       {items.map((item) => (
         <div key={item.label} className="rounded-xl border border-primary/10 bg-surface-container-low px-4 py-3">
           <p className="text-[10px] font-black tracking-[0.12em] text-on-surface-variant">{item.label}</p>

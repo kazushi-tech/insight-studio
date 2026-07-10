@@ -31,6 +31,7 @@ describe('ChartGroupCard', () => {
     expect(screen.getByText('実数: 上位2件 / 最大20件')).toBeInTheDocument()
     expect(screen.getByText('低サンプル')).toBeInTheDocument()
     expect(screen.getByTitle('グラフを開く')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('button', { name: /検索クエリ.*を開く/ })).toBeInTheDocument()
   })
 
   it('does not treat all-null series as renderable chart data', () => {
@@ -145,7 +146,7 @@ describe('ChartGroupCard', () => {
     )
 
     expect(screen.getByText('凡例 / 読みどころ')).toBeInTheDocument()
-    expect(screen.getByText('比較系列')).toBeInTheDocument()
+    expect(screen.getByText('比較する線')).toBeInTheDocument()
     expect(screen.getByText('最大日')).toBeInTheDocument()
     expect(screen.queryByText(/ピーク /)).not.toBeInTheDocument()
     expect(screen.getAllByTestId('trend-point')).toHaveLength(6)
@@ -200,10 +201,64 @@ describe('ChartGroupCard', () => {
     )
 
     expect(screen.getByText('横棒比較')).toBeInTheDocument()
-    expect(screen.getByText('1位 / シェア 55.6%')).toBeInTheDocument()
+    expect(screen.getByText('1位 / 表示内シェア 55.6%')).toBeInTheDocument()
 
-    fireEvent.mouseEnter(screen.getByRole('button', { name: /2位 beta 60/ }))
+    fireEvent.mouseEnter(screen.getByRole('listitem', { name: /2位 beta 60/ }))
 
-    expect(screen.getByText('2位 / シェア 33.3%')).toBeInTheDocument()
+    expect(screen.getByText('2位 / 表示内シェア 33.3%')).toBeInTheDocument()
+  })
+
+  it('does not add percentages or present them as composition share', () => {
+    render(
+      <ChartGroupCard
+        group={{
+          title: '入口ページ — すぐ帰った人の割合',
+          chartType: 'bar_horizontal',
+          labels: ['/a', '/b', '/c'],
+          datasets: [{ label: '直帰率', data: [62, 48, 35], isPercent: true }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('平均')).toBeInTheDocument()
+    expect(screen.getByText('割合は合計せず、値の高い順と平均を同じ画面で確認します。')).toBeInTheDocument()
+    expect(screen.queryByText('トップ占有')).not.toBeInTheDocument()
+    expect(screen.queryByText('表示内合計')).not.toBeInTheDocument()
+  })
+
+  it('routes only z-score anomaly charts to the anomaly card', () => {
+    const { rerender } = render(
+      <ChartGroupCard
+        group={{
+          title: '異常検知 — メトリクス推移',
+          queryType: 'anomaly',
+          chartType: 'line',
+          labels: ['2026-05-01', '2026-05-02', '2026-05-03'],
+          datasets: [
+            { label: 'ユーザー', data: [100, 110, 95] },
+            { label: 'セッション', data: [120, 125, 108] },
+            { label: 'PV', data: [180, 190, 170] },
+          ],
+        }}
+      />,
+    )
+
+    expect(screen.queryByText('Z-score フォーカスチャート')).not.toBeInTheDocument()
+
+    rerender(
+      <ChartGroupCard
+        group={{
+          title: '異常検知 — Z-score',
+          queryType: 'anomaly',
+          chartType: 'line',
+          labels: ['2026-05-01', '2026-05-02', '2026-05-03'],
+          datasets: [{ label: 'Sessions Z', data: [0.2, 2.3, -0.5] }],
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Z-score フォーカスチャート')).toBeInTheDocument()
+    const focusablePoints = screen.getAllByTestId('anomaly-point').filter((point) => point.tabIndex === 0)
+    expect(focusablePoints).toHaveLength(2)
   })
 })

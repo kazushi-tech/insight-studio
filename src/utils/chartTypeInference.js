@@ -8,6 +8,7 @@ export const CHART_TYPE_LABELS = {
 }
 
 const PERCENT_KEYWORDS = /構成|構成比|割合|比率|シェア|%|％|share|ratio/i
+const COMPOSITION_KEYWORDS = /構成|構成比|内訳|シェア|share|composition/i
 const RANKING_KEYWORDS = /top\s*\d|ランキング|地域別|os別|検索|クエリ|lp分析/i
 const AREA_KEYWORDS = /推移|日別|月別|週別|トレンド|trend/i
 
@@ -57,6 +58,8 @@ function isPromotableDoughnut(group) {
   if (labels.length < 2 || labels.length > 8) return false
 
   const dataset = datasets[0]
+  const displayMode = String(group?.displayMode ?? group?.metadata?.displayMode ?? '')
+  if (displayMode !== 'composition' && !COMPOSITION_KEYWORDS.test(textOf(group, dataset))) return false
   if (hasRankingSignal(group, dataset)) return false
 
   const data = Array.isArray(dataset?.data) ? dataset.data : []

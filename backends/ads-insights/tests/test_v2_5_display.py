@@ -1,5 +1,5 @@
 """
-V2.5表示テスト - CV値・売上がMarkdownに表示されることを確認
+V2.5表示テスト - 現行の売上・売上単価・ROAS表示を確認
 
 Usage:
     python tests/test_v2_5_display.py
@@ -32,12 +32,12 @@ def test_new_kpis_in_markdown():
 
     md = point_pack_generator.generate_point_pack_md(current, base, client_name="TestClient")
 
-    # CV値と売上が含まれていることを確認
-    assert "CV値" in md, "CV値 should appear in markdown"
+    # 現行のKPI_DISPLAYに含まれる売上系指標を確認
     assert "売上" in md, "売上 should appear in markdown"
+    assert "売上単価" in md, "売上単価 should appear in markdown"
+    assert "ROAS" in md, "ROAS should appear in markdown"
 
     # 数値が含まれていることを確認（円記号付き）
-    assert "¥900,000" in md, "conversion_value (¥900,000) should appear"
     assert "¥960,000" in md, "revenue (¥960,000) should appear"
 
     print("  [PASS] test_new_kpis_in_markdown")
@@ -52,8 +52,9 @@ def test_kpi_display_order():
         ("impr", "表示回数"),
         ("click", "クリック"),
         ("cv", "CV"),
-        ("conversion_value", "CV値"),
         ("revenue", "売上"),
+        ("revenue_per_cv", "売上単価"),
+        ("roas", "ROAS"),
         ("ctr", "CTR"),
         ("cvr", "CVR"),
         ("cpa", "CPA"),

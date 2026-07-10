@@ -9,7 +9,7 @@ import {
 import ChartKpiStrip from './ChartKpiStrip'
 import ChartLegendList from './ChartLegendList'
 
-const PALETTE = ['#003925', '#0f5238', '#456553', '#d4a843', '#713638', '#2e7d32', '#0369a1', '#707973']
+const PALETTE = ['#003925', '#2563eb', '#b87512', '#b4533c', '#7c3aed', '#0f766e', '#64748b', '#be185d']
 const RADIUS = 84
 const STROKE_WIDTH = 34
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS

@@ -4,6 +4,7 @@ import InsightTurnCard from './InsightTurnCard'
 import LoadingSkeleton from './LoadingSkeleton'
 import QuickPromptCard from './QuickPromptCard'
 import styles from './AiExplorerV2.module.css'
+import { CUSTOMER_AI_PROMPT_CARDS } from '../../../utils/customerReport'
 
 /**
  * InsightTimeline — v2 container replacing the bubble feed in AiExplorer.jsx.
@@ -12,32 +13,7 @@ import styles from './AiExplorerV2.module.css'
  * in AiExplorer so v1 parity is preserved when ?ui=v1.
  */
 
-const DEFAULT_QUICK_PROMPTS = [
-  {
-    icon: 'warning',
-    title: 'CV悪化の原因を特定',
-    description:
-      '直近期間のファネル変化から、CV悪化の主因と最初に潰すべき箇所を出します。',
-  },
-  {
-    icon: 'lightbulb',
-    title: 'CPA改善の優先施策',
-    description:
-      'CPAへの影響が大きい順に、配信・LP・訴求の修正タスクへ分解します。',
-  },
-  {
-    icon: 'compare_arrows',
-    title: '流入チャネル別の勝ち筋',
-    description:
-      'チャネル別に伸ばすべき導線、止めるべき配信、追加で見るKPIを整理します。',
-  },
-  {
-    icon: 'construction',
-    title: 'LP/広告/配信設定のどこを直すべきか',
-    description:
-      'LP改善、広告文、入札・ターゲティングを混ぜずに担当別タスクへ落とします。',
-  },
-]
+const DEFAULT_QUICK_PROMPTS = CUSTOMER_AI_PROMPT_CARDS
 
 const LEGACY_FORMAT_ERROR_TEXT = 'この回答は表示形式を整えられませんでした。'
 
@@ -242,7 +218,7 @@ export default function InsightTimeline({
               </div>
               <h2 className={`${styles.emptyTitle} japanese-text`}>AI考察を始めましょう</h2>
               <p className={`${styles.emptyBody} japanese-text`}>
-                分析データとグラフ要約を根拠に、BQデータの質問へ具体的に回答します。以下のプロンプトから始めるか、独自の質問を入力してください。
+                Web成果データと根拠グラフをもとに、専門用語を使わず回答します。以下の質問から始めるか、知りたいことを入力してください。
               </p>
               <div className={`${styles.emptyQuickPrompts} ${styles.quickPromptGrid}`}>
                 {quickPrompts.map(renderQuickPromptCard)}
@@ -312,7 +288,7 @@ export default function InsightTimeline({
         <div className={styles.composerInput}>
           <input
             className={`${styles.composerField} japanese-text`}
-            placeholder="データに対する質問や分析したい仮説を入力してください…"
+            placeholder="例: 今日やることを3つに絞って"
             value={input}
             onChange={(e) => setInput?.(e.target.value)}
             onKeyDown={handleKeyDown}

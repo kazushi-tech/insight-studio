@@ -3,6 +3,7 @@ import {
   buildSeries,
   formatMetricValue,
   formatShortDate,
+  getSeriesAggregate,
   getLabels,
   getPeakPoint,
   shortenChartLabel,
@@ -23,12 +24,13 @@ export default function SeriesSummaryBarCard({ group }) {
   const labels = getLabels(group)
   const rows = useMemo(() => {
     return buildSeries(group)
-      .sort((a, b) => b.total - a.total)
+      .sort((a, b) => (getSeriesAggregate(b) ?? 0) - (getSeriesAggregate(a) ?? 0))
       .map((series, index) => {
         const latest = getLatest(series, labels)
         const peak = getPeakPoint(series, labels)
         return {
           ...series,
+          aggregate: getSeriesAggregate(series),
           color: SERIES_COLORS[index % SERIES_COLORS.length],
           latest,
           peak,
@@ -36,15 +38,16 @@ export default function SeriesSummaryBarCard({ group }) {
         }
       })
   }, [group, labels])
-  const maxTotal = Math.max(...rows.map((row) => row.total), 1)
+  const maxAggregate = Math.max(...rows.map((row) => row.aggregate ?? 0), 1)
   const latestLeader = [...rows]
     .filter((row) => row.latest)
     .sort((a, b) => b.latest.value - a.latest.value)[0]
+  const isRate = Boolean(rows[0]?.usePercent)
   const kpis = [
     { label: '系列数', value: `${rows.length}系列`, note: '折れ線なし' },
-    { label: '最大合計', value: formatMetricValue(rows[0]?.total, rows[0]?.usePercent), note: rows[0] ? shortenChartLabel(rows[0].label, 24) : '-' },
+    { label: isRate ? '高い平均' : '最大合計', value: formatMetricValue(rows[0]?.aggregate, isRate), note: rows[0] ? shortenChartLabel(rows[0].label, 24) : '-' },
     { label: '最新最大', value: formatMetricValue(latestLeader?.latest?.value, latestLeader?.usePercent), note: latestLeader ? shortenChartLabel(latestLeader.label, 24) : '-' },
-    { label: '比較軸', value: '横棒', note: '合計順' },
+    { label: '比較軸', value: '横棒', note: isRate ? '期間平均順' : '合計順' },
   ]
 
   if (!rows.length) return null
@@ -57,13 +60,13 @@ export default function SeriesSummaryBarCard({ group }) {
         <div className="mb-4">
           <p className="text-[10px] font-black tracking-[0.14em] text-primary">項目別サマリー棒グラフ</p>
           <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">
-            3系列以上は重ね折れ線を使わず、合計・最新値・最大日を横棒で比較します。
+            3系列以上は重ね折れ線を使わず、{isRate ? '期間平均' : '合計'}・最新値・最大日を横棒で比較します。
           </p>
         </div>
 
         <div className="space-y-3">
           {rows.slice(0, 12).map((row) => {
-            const width = Math.max(3, (row.total / maxTotal) * 100)
+            const width = Math.max(3, ((row.aggregate ?? 0) / maxAggregate) * 100)
             return (
               <article
                 key={row.id}
@@ -83,7 +86,7 @@ export default function SeriesSummaryBarCard({ group }) {
                     </p>
                   </div>
                   <strong className="col-span-2 justify-self-start rounded-full bg-white px-3 py-1 text-xs font-black text-primary shadow-sm tabular-nums sm:col-span-1 sm:justify-self-auto">
-                    {formatMetricValue(row.total, row.usePercent)}
+                    {formatMetricValue(row.aggregate, row.usePercent)}
                   </strong>
                 </div>
 

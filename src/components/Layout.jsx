@@ -23,27 +23,27 @@ const SETUP_GATED_PATHS = ['/ads/report', '/ads/graphs', '/ads/ai', '/insights/a
 const AI_EXPLORER_PATH = '/insights/ai'
 
 const NAV_ITEMS = [
-  { to: '/', icon: 'home', label: 'ダッシュボード' },
+  { to: '/', icon: 'home', label: 'ホーム' },
   {
-    icon: 'balance',
-    label: '競合分析',
+    icon: 'monitoring',
+    label: 'サイト分析',
+    children: [
+      { to: '/ads/wizard', icon: 'tune', label: '分析の準備' },
+      { to: '/ads/report', icon: 'summarize', label: 'まとめ', requiresSetup: true },
+      { to: '/ads/graphs', icon: 'monitoring', label: 'グラフ', requiresSetup: true },
+      { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AIに聞く', requiresSetup: true },
+    ],
+  },
+  {
+    icon: 'apps',
+    label: '高度な分析',
     children: [
       { to: '/compare', icon: 'balance', label: '競合LP分析' },
       { to: '/discovery', icon: 'search', label: '競合発見' },
       { to: '/creative-review', icon: 'image', label: 'バナーレビュー' },
     ],
   },
-  {
-    icon: 'monitoring',
-    label: '広告分析',
-    children: [
-      { to: '/ads/wizard', icon: 'tune', label: 'セットアップ' },
-      { to: '/ads/report', icon: 'summarize', label: '初心者レポート', requiresSetup: true },
-      { to: '/ads/graphs', icon: 'monitoring', label: '詳細グラフ', requiresSetup: true },
-      { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI考察', requiresSetup: true },
-    ],
-  },
-  { to: '/settings', icon: 'settings', label: '設定' },
+  { to: '/settings', icon: 'settings', label: 'データ連携・設定' },
   { to: '/projects', icon: 'account_tree', label: 'プロジェクト', adminOnly: true },
 ]
 
@@ -532,10 +532,10 @@ export default function Layout() {
   const showKeyAttention = !hasAnalysisKey || !isAdsAuthenticated
   const mobileNavItems = [
     { to: '/', icon: 'home', label: 'ホーム' },
-    { to: '/ads/wizard', icon: 'tune', label: '設定' },
+    { to: '/ads/wizard', icon: 'tune', label: '準備' },
     { to: '/ads/report', icon: 'summarize', label: 'レポート', requiresSetup: true },
     { to: AI_EXPLORER_PATH, icon: 'auto_awesome', label: 'AI', requiresSetup: true },
-    { to: '/settings', icon: 'settings', label: '管理' },
+    { to: '/settings', icon: 'settings', label: 'データ' },
   ]
 
   return (
@@ -558,7 +558,7 @@ export default function Layout() {
               Insight Studio
             </h1>
             <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
-              広告運用分析
+              Webサイト分析
             </p>
           </div>
         </div>

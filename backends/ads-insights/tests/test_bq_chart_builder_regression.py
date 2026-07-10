@@ -12,6 +12,41 @@ sys.path.insert(0, str(_PROJECT_ROOT))
 from web.app.bq_chart_builder import build_beginner_report, build_bq_chart_data
 
 
+def test_build_bq_chart_data_adds_query_type_to_every_group(monkeypatch):
+    source_groups = [
+        {
+            "title": "First chart",
+            "chartType": "line",
+            "labels": ["2026-07-01"],
+            "datasets": [{"label": "Sessions", "data": [10]}],
+        },
+        {
+            "title": "Second chart",
+            "chartType": "bar",
+            "labels": ["Organic"],
+            "datasets": [{"label": "Users", "data": [7]}],
+            "warnings": ["low_sample"],
+        },
+    ]
+    monkeypatch.setitem(
+        sys.modules[build_bq_chart_data.__module__]._BUILDERS,
+        "regression_query",
+        lambda _df: source_groups,
+    )
+
+    result = build_bq_chart_data(pd.DataFrame({"value": [1]}), "regression_query")
+
+    assert [group["queryType"] for group in result["groups"]] == [
+        "regression_query",
+        "regression_query",
+    ]
+    assert [
+        {key: value for key, value in group.items() if key != "queryType"}
+        for group in result["groups"]
+    ] == source_groups
+    assert all("queryType" not in group for group in source_groups)
+
+
 def test_search_uses_actual_coverage_instead_of_fixed_top20():
     df = pd.DataFrame({
         "search_term": ["alpha", "beta", "gamma"],
@@ -52,8 +87,14 @@ def test_ranking_builders_report_actual_counts():
     })
 
     landing_group = build_bq_chart_data(landing_df, "landing")["groups"][0]
-    device_group = next(g for g in build_bq_chart_data(device_df, "device")["groups"] if g.get("queryType") == "device")
-    user_group = next(g for g in build_bq_chart_data(user_df, "user_attr")["groups"] if g.get("queryType") == "user_attr")
+    device_group = next(
+        g for g in build_bq_chart_data(device_df, "device")["groups"]
+        if g.get("coverageLabel")
+    )
+    user_group = next(
+        g for g in build_bq_chart_data(user_df, "user_attr")["groups"]
+        if g.get("coverageLabel")
+    )
 
     assert landing_group["coverageLabel"] == "上位2件 / 最大20件"
     assert landing_group["title"] == "LP分析 — セッション数上位2LP"

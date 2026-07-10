@@ -4,6 +4,7 @@ import {
   buildSvgPath,
   formatMetricValue,
   formatShortDate,
+  getSeriesAggregate,
   getLabels,
   getPeakPoint,
   getPointPosition,
@@ -14,7 +15,7 @@ import ChartKpiStrip from './ChartKpiStrip'
 import ChartTooltip from './ChartTooltip'
 
 const FRAME = { x: 62, y: 28, width: 616, height: 236 }
-const COLORS = ['#003925', '#0f5238', '#456553', '#d4a843', '#713638', '#2e7d32', '#0369a1', '#707973']
+const COLORS = ['#003925', '#2563eb', '#b87512', '#b4533c', '#7c3aed', '#0f766e', '#64748b', '#be185d']
 
 function getLatestPoint(series, labels) {
   for (let index = series.values.length - 1; index >= 0; index -= 1) {
@@ -39,9 +40,10 @@ export default function SmallMultipleTrendCard({ group }) {
   const rows = useMemo(
     () =>
       buildSeries(group)
-        .sort((a, b) => b.total - a.total)
+        .sort((a, b) => (getSeriesAggregate(b) ?? 0) - (getSeriesAggregate(a) ?? 0))
         .map((series, index) => ({
           ...series,
+          aggregate: getSeriesAggregate(series),
           color: COLORS[index % COLORS.length],
           latest: getLatestPoint(series, labels),
           peak: getPeakPoint(series, labels),
@@ -59,13 +61,25 @@ export default function SmallMultipleTrendCard({ group }) {
   const displayPoint = activePoint ?? latestPoint
   const total = rows.reduce((sum, row) => sum + row.total, 0)
   const top = rows[0]
+  const isRate = Boolean(top?.usePercent)
+  const visibleRateValues = rows.flatMap((row) => row.finiteValues ?? [])
+  const visibleAverage = visibleRateValues.length > 0
+    ? visibleRateValues.reduce((sum, value) => sum + value, 0) / visibleRateValues.length
+    : null
   const latestLeader = [...rows].filter((row) => row.latest).sort((a, b) => b.latest.value - a.latest.value)[0]
-  const kpis = [
-    { label: '系列数', value: `${rows.length}系列`, note: '左で切替' },
-    { label: '最大合計', value: formatMetricValue(top?.total, top?.usePercent), note: top ? shortenChartLabel(top.label, 24) : '-' },
-    { label: '最新最大', value: formatMetricValue(latestLeader?.latest?.value, latestLeader?.usePercent), note: latestLeader ? shortenChartLabel(latestLeader.label, 24) : '-' },
-    { label: '合計', value: formatMetricValue(total, top?.usePercent), note: `${labels.length}日分` },
-  ]
+  const kpis = isRate
+    ? [
+        { label: '系列数', value: `${rows.length}系列`, note: '選んで比較' },
+        { label: '高い平均', value: formatMetricValue(top?.aggregate, true), note: top ? shortenChartLabel(top.label, 24) : '-' },
+        { label: '最新最大', value: formatMetricValue(latestLeader?.latest?.value, true), note: latestLeader ? shortenChartLabel(latestLeader.label, 24) : '-' },
+        { label: '表示値の平均', value: formatMetricValue(visibleAverage, true), note: '割合は合計しません' },
+      ]
+    : [
+        { label: '系列数', value: `${rows.length}系列`, note: '選んで比較' },
+        { label: '最大合計', value: formatMetricValue(top?.total, false), note: top ? shortenChartLabel(top.label, 24) : '-' },
+        { label: '最新最大', value: formatMetricValue(latestLeader?.latest?.value, false), note: latestLeader ? shortenChartLabel(latestLeader.label, 24) : '-' },
+        { label: '表示内合計', value: formatMetricValue(total, false), note: `${labels.length}日分` },
+      ]
 
   if (!rows.length) return null
 
@@ -133,8 +147,8 @@ export default function SmallMultipleTrendCard({ group }) {
                     <p className="truncate text-sm font-black text-primary tabular-nums">{formatMetricValue(row.latest?.value, row.usePercent)}</p>
                   </div>
                   <div className="rounded-lg bg-white px-2 py-1.5">
-                    <p className="text-[9px] font-black tracking-[0.1em] text-on-surface-variant">合計</p>
-                    <p className="truncate text-sm font-black text-on-surface tabular-nums">{formatMetricValue(row.total, row.usePercent)}</p>
+                    <p className="text-[9px] font-black tracking-[0.1em] text-on-surface-variant">{row.usePercent ? '期間平均' : '合計'}</p>
+                    <p className="truncate text-sm font-black text-on-surface tabular-nums">{formatMetricValue(row.aggregate, row.usePercent)}</p>
                   </div>
                 </div>
               </button>
@@ -157,8 +171,8 @@ export default function SmallMultipleTrendCard({ group }) {
                   <p className="text-2xl font-black text-primary tabular-nums">{formatMetricValue(displayPoint?.value, activeRow?.usePercent)}</p>
                 </div>
                 <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm">
-                  <p className="text-[10px] font-black tracking-[0.1em] text-on-surface-variant">合計</p>
-                  <p className="text-2xl font-black text-on-surface tabular-nums">{formatMetricValue(activeRow?.total, activeRow?.usePercent)}</p>
+                  <p className="text-[10px] font-black tracking-[0.1em] text-on-surface-variant">{activeRow?.usePercent ? '期間平均' : '合計'}</p>
+                  <p className="text-2xl font-black text-on-surface tabular-nums">{formatMetricValue(activeRow?.aggregate, activeRow?.usePercent)}</p>
                 </div>
               </div>
             </div>
@@ -201,7 +215,7 @@ export default function SmallMultipleTrendCard({ group }) {
                       r="14"
                       fill="transparent"
                       pointerEvents="all"
-                      tabIndex={0}
+                      tabIndex={index === activeRow.latest?.index || index === activeRow.peak?.index ? 0 : -1}
                       onFocus={() => showPoint(value, index)}
                       onMouseEnter={() => showPoint(value, index)}
                       onMouseMove={() => showPoint(value, index)}

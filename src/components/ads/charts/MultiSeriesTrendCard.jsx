@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import {
   buildSeries,
+  buildSvgAreaPath,
   buildSvgPath,
+  getSeriesAggregate,
   formatCompactValue,
   formatMetricValue,
   formatShortDate,
@@ -28,26 +30,6 @@ const SERIES_COLORS = [
   '#8a8f63',
 ]
 
-function buildAreaPath(values = [], bounds, frame) {
-  const finiteIndexes = values
-    .map((value, index) => ({ value, index }))
-    .filter((point) => point.value != null)
-  if (finiteIndexes.length === 0) return ''
-
-  const first = finiteIndexes[0]
-  const last = finiteIndexes[finiteIndexes.length - 1]
-  const line = finiteIndexes
-    .map((point, pointIndex) => {
-      const { x, y } = getPointPosition(point.value, point.index, values.length, bounds, frame)
-      return `${pointIndex === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-    })
-    .join(' ')
-  const firstX = getPointPosition(first.value, first.index, values.length, bounds, frame).x
-  const lastX = getPointPosition(last.value, last.index, values.length, bounds, frame).x
-  const baseline = frame.y + frame.height
-  return `${line} L ${lastX.toFixed(1)} ${baseline.toFixed(1)} L ${firstX.toFixed(1)} ${baseline.toFixed(1)} Z`
-}
-
 function getTickIndexes(length) {
   if (length <= 1) return [0]
   if (length <= 6) return Array.from({ length }, (_, index) => index)
@@ -65,7 +47,7 @@ export default function MultiSeriesTrendCard({ group }) {
   const labels = getLabels(group)
   const [activePoint, setActivePoint] = useState(null)
   const allSeries = useMemo(
-    () => buildSeries(group).sort((a, b) => b.total - a.total),
+    () => buildSeries(group).sort((a, b) => (getSeriesAggregate(b) ?? 0) - (getSeriesAggregate(a) ?? 0)),
     [group],
   )
   const seriesKey = allSeries.map((series) => series.id).join('|')
@@ -86,6 +68,14 @@ export default function MultiSeriesTrendCard({ group }) {
   const primaryTotal = primary?.total ?? null
   const allTotal = rankedSeries.reduce((sum, series) => sum + series.total, 0)
   const average = rankedSeries.length > 0 ? allTotal / rankedSeries.length : null
+  const isRate = Boolean(primary?.usePercent)
+  const primaryAverage = primary?.finiteValues?.length
+    ? primary.total / primary.finiteValues.length
+    : null
+  const visibleRateValues = rankedSeries.flatMap((series) => series.finiteValues ?? [])
+  const visibleRateAverage = visibleRateValues.length > 0
+    ? visibleRateValues.reduce((sum, value) => sum + value, 0) / visibleRateValues.length
+    : null
   const visibleActivePoint = activePoint?.seriesKey === seriesKey ? activePoint : null
   const activeX = visibleActivePoint?.x ?? null
 
@@ -94,8 +84,8 @@ export default function MultiSeriesTrendCard({ group }) {
   function getSeriesVisual(series) {
     const index = Math.max(0, allSeries.findIndex((item) => item.id === series.id))
     if (index === 0) return { color: PRIMARY, width: 6.2, opacity: 1, dash: '', pointRadius: 4.9, priority: 3 }
-    if (index === 1) return { color: COMPARISON, width: 4.2, opacity: 0.9, dash: '', pointRadius: 4.3, priority: 2 }
-    return { color: SERIES_COLORS[index % SERIES_COLORS.length], width: 2.8, opacity: 0.74, dash: '', pointRadius: 3.3, priority: 1 }
+    if (index === 1) return { color: COMPARISON, width: 4.2, opacity: 0.9, dash: '10 6', pointRadius: 4.3, priority: 2 }
+    return { color: SERIES_COLORS[index % SERIES_COLORS.length], width: 2.8, opacity: 0.74, dash: '3 7', pointRadius: 3.3, priority: 1 }
   }
 
   function toggleSeries(item) {
@@ -137,21 +127,28 @@ export default function MultiSeriesTrendCard({ group }) {
     return { x, y, width, height }
   }
 
-  const kpis = [
-    { label: '合計値', value: formatMetricValue(allTotal, primary?.usePercent), note: `${rankedSeries.length}系列` },
-    { label: '主系列', value: formatMetricValue(primaryTotal, primary?.usePercent), note: primary ? shortenChartLabel(primary.label, 26) : '-' },
-    { label: '系列平均', value: formatMetricValue(average, primary?.usePercent), note: '表示系列あたり' },
-    { label: '最大日', value: peak ? formatMetricValue(peak.value, primary?.usePercent) : '-', note: peak ? formatShortDate(peak.label) : '-' },
-  ]
+  const kpis = isRate
+    ? [
+        { label: '表示系列', value: `${rankedSeries.length}系列`, note: '割合は合計しません' },
+        { label: '主系列の平均', value: formatMetricValue(primaryAverage, true), note: primary ? shortenChartLabel(primary.label, 26) : '-' },
+        { label: '表示値の平均', value: formatMetricValue(visibleRateAverage, true), note: '表示中の全データ点' },
+        { label: '高い日', value: peak ? formatMetricValue(peak.value, true) : '-', note: peak ? formatShortDate(peak.label) : '-' },
+      ]
+    : [
+        { label: '表示内合計', value: formatMetricValue(allTotal, false), note: `${rankedSeries.length}系列` },
+        { label: '主系列', value: formatMetricValue(primaryTotal, false), note: primary ? shortenChartLabel(primary.label, 26) : '-' },
+        { label: '系列平均', value: formatMetricValue(average, false), note: '表示系列あたり' },
+        { label: '最大日', value: peak ? formatMetricValue(peak.value, false) : '-', note: peak ? formatShortDate(peak.label) : '-' },
+      ]
 
   const legendItems = allSeries.slice(0, 8).map((series, index) => ({
     id: series.id,
     label: series.label,
-    value: series.total,
+    value: getSeriesAggregate(series),
     usePercent: series.usePercent,
     color: SERIES_COLORS[index % SERIES_COLORS.length],
     lineStyle: index >= 2 ? 'muted' : 'solid',
-    note: index === 0 ? '主系列を強調' : index === 1 ? '比較系列' : '文脈線',
+    note: index === 0 ? '一番見たい線' : index === 1 ? '比較する線' : '補助線',
     disabled: hiddenSeriesIds.has(series.id),
   }))
 
@@ -161,7 +158,7 @@ export default function MultiSeriesTrendCard({ group }) {
   function renderPrimaryArea() {
     const originalPrimary = allSeries[0]
     if (!originalPrimary || hiddenSeriesIds.has(originalPrimary.id)) return null
-    return <path d={buildAreaPath(originalPrimary.values, bounds, FRAME)} fill="url(#trendPrimaryFill)" />
+    return <path d={buildSvgAreaPath(originalPrimary.values, bounds, FRAME)} fill="url(#trendPrimaryFill)" />
   }
 
   function renderPaths() {
@@ -185,6 +182,7 @@ export default function MultiSeriesTrendCard({ group }) {
 
   function renderSeriesPoints(series) {
     const visual = getSeriesVisual(series)
+    const latestIndex = series.values.reduce((lastIndex, value, index) => value != null ? index : lastIndex, -1)
     return series.values.map((value, index) => {
       if (value == null) return null
       const point = getPointPosition(value, index, series.values.length, bounds, FRAME)
@@ -208,7 +206,7 @@ export default function MultiSeriesTrendCard({ group }) {
             cy={point.y}
             r="10"
             fill="transparent"
-            tabIndex={0}
+            tabIndex={isPeak || index === latestIndex ? 0 : -1}
             onFocus={() => showPointTooltip(series, value, index)}
             onMouseEnter={() => showPointTooltip(series, value, index)}
             onMouseLeave={() => setActivePoint(null)}
@@ -272,7 +270,7 @@ export default function MultiSeriesTrendCard({ group }) {
         <div className="rounded-xl border border-outline-variant/20 bg-white p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black tracking-[0.14em] text-primary">主線 + 比較線 + 文脈線</p>
+              <p className="text-[10px] font-black tracking-[0.14em] text-primary">一番見たい線 + 比較する線 + 補助線</p>
               <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">
                 初期表示は上位3系列までに絞り、4系列目以降は凡例クリックで追加できます。
               </p>

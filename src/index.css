@@ -153,6 +153,10 @@
 /* ── Shared Primitives ── */
 
 @layer components {
+  .beginner-chart-card .chart-kpi-strip {
+    display: none !important;
+  }
+
   .page-shell {
     max-width: 1400px;
     margin-inline: auto;

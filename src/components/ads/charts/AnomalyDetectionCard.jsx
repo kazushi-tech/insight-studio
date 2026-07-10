@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   buildSeries,
+  buildSvgAreaPath,
   buildSvgPath,
   formatCompactValue,
   formatMetricValue,
@@ -16,26 +17,6 @@ import ChartTooltip from './ChartTooltip'
 const FRAME = { x: 46, y: 20, width: 570, height: 230 }
 const PRIMARY = '#003925'
 const ALERT = '#c83232'
-
-function buildFocusedAreaPath(values = [], bounds, frame) {
-  const finiteIndexes = values
-    .map((value, index) => ({ value, index }))
-    .filter((point) => point.value != null)
-  if (finiteIndexes.length === 0) return ''
-
-  const first = finiteIndexes[0]
-  const last = finiteIndexes[finiteIndexes.length - 1]
-  const line = finiteIndexes
-    .map((point, pointIndex) => {
-      const { x, y } = getPointPosition(point.value, point.index, values.length, bounds, frame)
-      return `${pointIndex === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-    })
-    .join(' ')
-  const firstX = getPointPosition(first.value, first.index, values.length, bounds, frame).x
-  const lastX = getPointPosition(last.value, last.index, values.length, bounds, frame).x
-  const zeroY = getPointPosition(0, 0, 1, bounds, frame).y
-  return `${line} L ${lastX.toFixed(1)} ${zeroY.toFixed(1)} L ${firstX.toFixed(1)} ${zeroY.toFixed(1)} Z`
-}
 
 export default function AnomalyDetectionCard({ group }) {
   const labels = getLabels(group)
@@ -55,6 +36,9 @@ export default function AnomalyDetectionCard({ group }) {
         .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
     : []
   const strongest = events[0]
+  const latestIndex = selected
+    ? selected.values.reduce((latest, value, index) => (value == null ? latest : index), -1)
+    : -1
 
   const kpis = [
     { label: '検知数', value: `${events.length}件`, note: selected ? shortenChartLabel(selected.label, 24) : '-' },
@@ -75,11 +59,12 @@ export default function AnomalyDetectionCard({ group }) {
             <button
               key={series.id}
               type="button"
+              aria-pressed={selected.id === series.id}
               onClick={() => {
                 setSelectedId(series.id)
                 setActivePoint(null)
               }}
-              className={`rounded-xl px-3 py-2 text-xs font-black transition ${
+              className={`rounded-xl px-3 py-2 text-xs font-black transition-colors ${
                 selected.id === series.id
                   ? 'bg-primary text-on-primary shadow-sm'
                   : 'border border-outline-variant/20 bg-white text-on-surface hover:border-primary/30'
@@ -126,7 +111,7 @@ export default function AnomalyDetectionCard({ group }) {
                 </g>
               )
             })}
-            <path d={buildFocusedAreaPath(selected.values, bounds, FRAME)} fill="url(#anomalyFocusFill)" />
+            <path d={buildSvgAreaPath(selected.values, bounds, FRAME, 0)} fill="url(#anomalyFocusFill)" />
             <path d={buildSvgPath(selected.values, bounds, FRAME)} fill="none" stroke={PRIMARY} strokeLinecap="round" strokeLinejoin="round" strokeWidth="6.2" />
             {activeX != null && (
               <line x1={activeX} x2={activeX} y1={FRAME.y} y2={FRAME.y + FRAME.height} stroke={PRIMARY} strokeDasharray="5 7" strokeWidth="1.5" opacity="0.36" />
@@ -135,6 +120,7 @@ export default function AnomalyDetectionCard({ group }) {
               if (value == null) return null
               const point = getPointPosition(value, index, selected.values.length, bounds, FRAME)
               const anomalous = Math.abs(value) >= 2
+              const keyboardReachable = anomalous || index === latestIndex
               return (
                 <g key={`${selected.id}-${index}`}>
                   <circle cx={point.x} cy={point.y} r={anomalous ? 7 : 4.8} fill={anomalous ? ALERT : PRIMARY} stroke="#fbfcf7" strokeWidth="2.2" />
@@ -144,7 +130,7 @@ export default function AnomalyDetectionCard({ group }) {
                     cy={point.y}
                     r="12"
                     fill="transparent"
-                    tabIndex={0}
+                    tabIndex={keyboardReachable ? 0 : -1}
                     onFocus={() => setActivePoint({ ...point, value, index, label: labels[index], seriesLabel: selected.label, seriesId: selected.id })}
                     onMouseEnter={() => setActivePoint({ ...point, value, index, label: labels[index], seriesLabel: selected.label, seriesId: selected.id })}
                     onMouseLeave={() => setActivePoint(null)}

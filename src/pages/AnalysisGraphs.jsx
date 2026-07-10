@@ -37,6 +37,11 @@ import {
   extractRefinedInsights,
   extractDataQualityAlerts,
 } from '../utils/executiveSummaryExtractor'
+import {
+  buildCustomerSimpleReport,
+  friendlyDataMessage,
+  replaceCustomerTerms,
+} from '../utils/customerReport'
 
 /* ── Section IDs for local nav ── */
 const SECTIONS = [
@@ -46,16 +51,16 @@ const SECTIONS = [
 ]
 
 const ADS_QUERY_LABELS = {
-  pv: 'PV分析',
-  traffic: '流入分析',
-  cv: 'CV分析',
+  pv: '見られた回数',
+  traffic: 'どこから来たか',
+  cv: '問い合わせ・予約・購入などの成果',
   search: '検索クエリ分析',
-  anomaly: '異常検知',
-  landing: 'LP分析',
+  anomaly: '急に変わったこと',
+  landing: '入口ページ分析',
   device: 'デバイス分析',
   hourly: '時間帯分析',
   user_attr: 'ユーザー属性',
-  engagement: 'エンゲージメント時間',
+  engagement: 'ちゃんと読まれたか',
   auction_proxy: '流入の競合影響チェック（推定）',
 }
 
@@ -66,22 +71,22 @@ const QUERY_STATUS_STYLES = {
     valueClassName: 'text-primary',
   },
   no_chart: {
-    label: '取得済み / グラフ0件',
+    label: '取得済み / 表示できるグラフなし',
     className: 'border-amber-200 bg-amber-50/60',
     valueClassName: 'text-amber-700',
   },
   no_data: {
-    label: 'データ0件',
+    label: '十分なデータなし',
     className: 'border-outline-variant/25 bg-surface-container-low',
     valueClassName: 'text-on-surface-variant',
   },
   error: {
-    label: 'エラー',
+    label: '確認が必要',
     className: 'border-error/25 bg-error-container/50',
     valueClassName: 'text-error',
   },
   unknown: {
-    label: '実行結果未取得',
+    label: 'まだ確認中',
     className: 'border-outline-variant/25 bg-surface-container-low',
     valueClassName: 'text-on-surface-variant',
   },
@@ -102,7 +107,7 @@ function summarizeQueryExecution(selectedQueryTypes, executionSummary = [], char
           message: 'チャートメタデータから反映を確認しました。再取得後は行数も表示されます。',
         }
       }
-      return { queryType, status: 'unknown', rowCount: null, chartGroupCount: 0, message: 'バックエンド実行結果がまだありません。' }
+      return { queryType, status: 'unknown', rowCount: null, chartGroupCount: 0, message: 'まだ確認中です。少し待ってから再取得してください。' }
     }
 
     const status = entries
@@ -114,7 +119,7 @@ function summarizeQueryExecution(selectedQueryTypes, executionSummary = [], char
       .filter((value) => Number.isFinite(Number(value)))
       .map(Number)
     const rowCount = rowValues.length > 0 ? rowValues.reduce((sum, value) => sum + value, 0) : null
-    const message = entries.map((entry) => entry.message).filter(Boolean)[0] || ''
+    const message = friendlyDataMessage(entries.map((entry) => entry.message).filter(Boolean)[0] || status)
 
     return { queryType, status, rowCount, chartGroupCount, message }
   })
@@ -134,9 +139,9 @@ function QueryCoverageSummary({ setupState, reportBundle, filteredGroups, period
             <span className="material-symbols-outlined text-base" aria-hidden="true">fact_check</span>
             反映状況
           </span>
-          <h3 className="mt-2 text-xl font-extrabold text-on-surface japanese-text">選択クエリと表示期間グラフの対応</h3>
+          <h3 className="mt-2 text-xl font-extrabold text-on-surface japanese-text">選択した分析項目と表示期間の対応</h3>
           <p className="mt-1 text-sm leading-6 text-on-surface-variant japanese-text">
-            バックエンドの実行結果ごとに、取得行数・グラフ件数・0件/エラーを切り分けます。
+            取得できた項目、データが少ない項目、接続確認が必要な項目を分けて表示します。
           </p>
         </div>
         <div className="rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-3 text-right">
@@ -157,14 +162,14 @@ function QueryCoverageSummary({ setupState, reportBundle, filteredGroups, period
               <p className="mt-1 text-[11px] font-bold text-on-surface-variant">
                 {style.label}{rowCount != null ? ` / ${rowCount.toLocaleString('ja-JP')}行` : ''}
               </p>
-              {message && <p className="mt-2 line-clamp-2 text-[10px] font-bold leading-4 text-on-surface-variant">{message}</p>}
+              {message && <p className="mt-2 line-clamp-2 text-[10px] font-bold leading-4 text-on-surface-variant japanese-text">{message}</p>}
             </div>
           )
         })}
       </div>
 
       <p className="mt-3 text-xs font-bold text-on-surface-variant japanese-text">
-        現在表示中: {filteredGroups.length}グラフ。少ない場合でも「未取得」「データ0件」「グラフ生成0件」「エラー」を分けて確認できます。
+        現在表示中: {filteredGroups.length}グラフ。少ない場合でも「まだ確認中」「十分なデータなし」「表示できるグラフなし」「確認が必要」を分けて確認できます。
       </p>
     </section>
   )
@@ -387,22 +392,6 @@ function BannerAdCard({ adRef, index }) {
   )
 }
 
-/* ── Key Chart Picker (pick 2 most insightful) ── */
-function pickKeyCharts(chartGroups) {
-  if (!chartGroups || chartGroups.length === 0) return []
-  const scored = chartGroups.map((g) => {
-    const title = (g.title ?? '').toLowerCase()
-    let score = 0
-    if (/click|cvr|cv数|cpa|ctr|コンバージョン|推移|trend/i.test(title)) score += 3
-    if (/比較|ranking|campaign|キャンペーン|広告グループ/i.test(title)) score += 2
-    if (Array.isArray(g.datasets) && g.datasets.length > 0) score += 1
-    if (Array.isArray(g.labels) && g.labels.length >= 3) score += 1
-    return { group: g, score }
-  })
-  scored.sort((a, b) => b.score - a.score)
-  return scored.slice(0, 2).map((s) => s.group)
-}
-
 /* ── Theme Tabs (analyst supplement) ── */
 function ThemeTabs({ activeTheme, onThemeChange, themes }) {
   const allTabs = [{ id: 'all', label: '全件', icon: 'select_all' }, ...THEME_DEFINITIONS]
@@ -414,6 +403,8 @@ function ThemeTabs({ activeTheme, onThemeChange, themes }) {
         return (
           <button
             key={tab.id}
+            type="button"
+            aria-pressed={activeTheme === tab.id}
             onClick={() => onThemeChange(tab.id)}
             disabled={!hasData}
             className={`whitespace-nowrap px-6 py-2 rounded-full text-sm font-bold transition-colors ${
@@ -753,7 +744,15 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
 function AnomalySection({ chartGroups }) {
   const anomalies = useMemo(() => {
     const detected = []
-    for (const group of chartGroups) {
+    const zScoreGroups = chartGroups.filter((group) => {
+      const queryType = String(group?.queryType ?? group?.query_type ?? group?.metadata?.queryType ?? '')
+      const datasetLabels = Array.isArray(group?.datasets)
+        ? group.datasets.map((dataset) => dataset?.label).filter(Boolean).join(' ')
+        : ''
+      return queryType === 'anomaly' && /z[-_\s]?score|標準化スコア/i.test(`${group?.title ?? ''} ${datasetLabels}`)
+    })
+
+    for (const group of zScoreGroups) {
       const datasets = Array.isArray(group?.datasets) ? group.datasets : []
       const labels = Array.isArray(group?.labels) ? group.labels : []
 
@@ -764,30 +763,17 @@ function AnomalySection({ chartGroups }) {
           return Number.isFinite(n) ? n : null
         })
 
-        const validData = data.filter((v) => v !== null)
-        if (validData.length < 3) continue
-
-        const mean = validData.reduce((s, v) => s + v, 0) / validData.length
-        const variance = validData.reduce((s, v) => s + (v - mean) ** 2, 0) / validData.length
-        const stdDev = Math.sqrt(variance)
-        if (stdDev === 0) continue
-
-        const title = (group.title ?? '').toLowerCase()
-        const isNonNegative = !/率|%|％|cvr|ctr|rate|ratio|share/i.test(title)
-
         for (let i = 0; i < data.length; i++) {
           if (data[i] === null) continue
-          const zScore = Math.abs((data[i] - mean) / stdDev)
+          const zScore = Math.abs(data[i])
           if (zScore >= 2) {
-            const lowerBound = mean - stdDev
             detected.push({
               chartTitle: group.title ?? '無題',
               date: labels[i] ?? `point-${i}`,
               actual: data[i],
-              expected: mean,
-              expectedRange: [isNonNegative ? Math.max(0, lowerBound) : lowerBound, mean + stdDev],
+              expectedRange: [-2, 2],
               zScore: zScore.toFixed(1),
-              direction: data[i] < mean ? 'down' : 'up',
+              direction: data[i] < 0 ? 'down' : 'up',
               seriesLabel: ds.label ?? '',
             })
           }
@@ -805,9 +791,9 @@ function AnomalySection({ chartGroups }) {
         <div className="flex items-center gap-6">
           <span className="material-symbols-outlined text-tertiary">warning</span>
           <div className="flex items-center gap-3">
-            <h3 className="font-bold text-lg japanese-text">異常検知</h3>
+            <h3 className="font-bold text-lg japanese-text">普段と違う動きの候補</h3>
             <span className="text-[10px] font-bold bg-tertiary-container text-on-tertiary px-2 py-0.5 rounded uppercase">
-              {anomalies.length} detected
+              {anomalies.length}件
             </span>
           </div>
         </div>
@@ -824,14 +810,267 @@ function AnomalySection({ chartGroups }) {
                 <span className="text-[10px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded">{anomaly.date}</span>
               </div>
               <p className="text-xs text-on-surface-variant mt-1">
-                実測: <span className="font-bold text-error">{anomaly.actual.toLocaleString('ja-JP')}</span>
-                {' / '}期待帯域: <span className="font-bold">{anomaly.expectedRange[0].toFixed(0)} - {anomaly.expectedRange[1].toFixed(0)}</span>
-                {' / '}<span className="font-bold text-error">{anomaly.zScore}σ 逸脱</span>
+                標準化スコア: <span className="font-bold text-error">{anomaly.actual.toLocaleString('ja-JP')}</span>
+                {' / '}通常範囲: <span className="font-bold">{anomaly.expectedRange[0]}〜{anomaly.expectedRange[1]}</span>
+                {' / '}<span className="font-bold text-error">基準から {anomaly.zScore}σ</span>
               </p>
             </div>
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function CustomerDataNotice({ notices }) {
+  if (!Array.isArray(notices) || notices.length === 0) return null
+
+  return (
+    <section className="rounded-2xl border border-amber-200/70 bg-amber-50/75 p-5">
+      <div className="flex items-start gap-3">
+        <span className="material-symbols-outlined rounded-xl bg-white/70 p-2 text-amber-700" aria-hidden="true">info</span>
+        <div className="min-w-0">
+          <h2 className="text-base font-extrabold text-amber-950 japanese-text">まだ判断を急がない項目があります</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {notices.map((notice) => (
+              <div key={notice.key} className="rounded-xl bg-white/70 px-4 py-3">
+                <p className="text-sm font-black text-on-surface japanese-text">{notice.label}</p>
+                <p className="mt-1 text-xs font-bold leading-5 text-on-surface-variant japanese-text">{notice.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CustomerListSection({ section }) {
+  return (
+    <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className="material-symbols-outlined rounded-xl bg-primary/[0.06] p-2 text-primary" aria-hidden="true">{section.icon}</span>
+        <h2 className="text-lg font-extrabold text-on-surface japanese-text">{section.title}</h2>
+      </div>
+
+      {section.items.length > 0 ? (
+        <div className="mt-4 divide-y divide-outline-variant/10">
+          {section.items.map((item, index) => (
+            <div key={`${item.label}-${index}`} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3">
+              <span className="grid size-8 place-items-center rounded-lg bg-surface-container-low text-xs font-black text-primary">
+                {index + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-on-surface japanese-text" title={item.label}>{item.label}</p>
+                <p className="mt-0.5 text-xs font-bold text-on-surface-variant japanese-text">{item.note}</p>
+              </div>
+              <strong className="rounded-full bg-primary/[0.06] px-3 py-1 text-sm font-black tabular-nums text-primary">
+                {item.value}
+              </strong>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-xl bg-surface-container-low px-4 py-3 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
+          {section.empty}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function ActionChecklist({ title, icon, items }) {
+  return (
+    <section className="rounded-2xl border border-primary/15 bg-primary/[0.045] p-5">
+      <div className="flex items-center gap-3">
+        <span className="material-symbols-outlined rounded-xl bg-primary text-on-primary p-2" aria-hidden="true">{icon}</span>
+        <h2 className="text-lg font-extrabold text-primary japanese-text">{title}</h2>
+      </div>
+      <ol className="mt-4 space-y-3">
+        {items.map((item, index) => (
+          <li key={`${item}-${index}`} className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3 rounded-xl bg-surface-container-lowest px-4 py-3">
+            <span className="grid size-8 place-items-center rounded-full bg-primary/[0.08] text-xs font-black text-primary">{index + 1}</span>
+            <p className="text-sm font-bold leading-6 text-on-surface japanese-text">{item}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function selectCustomerKeyCharts(groups = []) {
+  const normalized = (Array.isArray(groups) ? groups : []).map((group) => normalizeChartGroupShape(group))
+  const selected = []
+  const used = new Set()
+  const definitions = [
+    {
+      key: 'pv',
+      question: 'アクセスは増えた？',
+      displayTitle: '見られた回数 — 日別の変化',
+      pattern: /pv|ページビュー|見られた回数/i,
+    },
+    {
+      key: 'traffic',
+      question: 'どこから来た？',
+      displayTitle: '来訪元 — 多い順',
+      pattern: /流入|来訪元|チャネル|source|medium/i,
+    },
+    {
+      key: 'cv',
+      question: '問い合わせにつながった？',
+      displayTitle: '問い合わせ・予約・購入 — 日別の件数',
+      pattern: /cv|コンバージョン|成果|問い合わせ|予約|購入/i,
+    },
+    {
+      key: 'landing',
+      question: 'どのページを見る？',
+      displayTitle: 'よく見られる入口ページ — 多い順',
+      pattern: /landing|入口ページ|ランディング|lp分析/i,
+    },
+  ]
+
+  definitions.forEach((definition) => {
+    if (selected.length >= 3) return
+    const group = normalized.find((candidate) => {
+      if (used.has(candidate)) return false
+      const queryType = String(candidate.queryType ?? candidate.query_type ?? candidate.metadata?.queryType ?? '')
+      return queryType === definition.key || definition.pattern.test(`${candidate.title ?? ''} ${candidate.selectionLabel ?? ''}`)
+    })
+    if (!group) return
+    used.add(group)
+    selected.push({
+      question: definition.question,
+      group: {
+        ...group,
+        title: definition.displayTitle,
+        sourceTitle: group.title,
+        defaultCollapsed: false,
+      },
+    })
+  })
+
+  return selected
+}
+
+function CustomerSimpleReport({ report, groups, onOpenDetail }) {
+  if (!report) return null
+  const keyCharts = selectCustomerKeyCharts(groups)
+
+  return (
+    <div className="space-y-6" data-testid="ads-graphs-simple-report">
+      <section className="rounded-[1.35rem] border border-primary/15 bg-primary/[0.045] p-5 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-4xl">
+            <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-primary">
+              <span className="material-symbols-outlined text-base" aria-hidden="true">summarize</span>
+              Web成果レポート
+            </span>
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">
+              {report.summary.title}
+            </h2>
+            <p className="mt-3 text-base font-bold leading-8 text-on-surface japanese-text">
+              {report.summary.body}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenDetail('graphs')}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-on-primary transition hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">bar_chart</span>
+            根拠データを見る
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {report.summary.chips.map((chip) => (
+            <div key={chip.label} className="rounded-2xl bg-surface-container-lowest px-4 py-3">
+              <p className="text-[11px] font-black text-on-surface-variant japanese-text">{chip.label}</p>
+              <p className="mt-1 text-sm font-black text-primary japanese-text">{chip.value}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section aria-labelledby="customer-key-charts-title" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">まず見る3グラフ</p>
+            <h2 id="customer-key-charts-title" className="mt-1 text-xl font-extrabold text-on-surface japanese-text">数字を見れば分かるところ</h2>
+            <p className="mt-1 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
+              AIを使わなくても判断できる、アクセス・来訪元・成果の根拠だけを先に表示します。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenDetail('graphs')}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary hover:bg-primary/[0.05] focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            すべてのグラフを見る
+            <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_forward</span>
+          </button>
+        </div>
+
+        {keyCharts.length > 0 ? (
+          <div className="space-y-5">
+            {keyCharts.map(({ question, group }) => (
+              <article key={`${question}-${group.title ?? ''}`} className="space-y-2">
+                <h3 className="text-base font-extrabold text-primary japanese-text">{question}</h3>
+                <ChartGroupCard group={group} featured compact />
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-6 text-center">
+            <span className="material-symbols-outlined text-4xl text-outline-variant" aria-hidden="true">bar_chart</span>
+            <h3 className="mt-3 text-base font-extrabold text-on-surface japanese-text">表示できるグラフを準備中です</h3>
+            <p className="mt-2 text-sm font-bold text-on-surface-variant japanese-text">接続と期間を確認してから、もう一度取得してください。</p>
+          </div>
+        )}
+      </section>
+
+      <CustomerDataNotice notices={report.notices} />
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        {report.sections.map((section) => (
+          <CustomerListSection key={section.title} section={section} />
+        ))}
+      </div>
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <ActionChecklist title="今日やるべき改善" icon="today" items={report.actions.today} />
+        <ActionChecklist title="今月やるべき改善" icon="calendar_month" items={report.actions.month} />
+      </section>
+
+      <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-lg font-extrabold text-on-surface japanese-text">AIに聞くなら</h2>
+            <p className="mt-1 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
+              顧客向けの言葉で、そのまま質問できます。
+            </p>
+          </div>
+          <Link
+            to={`/insights/ai?question=${encodeURIComponent(report.aiPrompts[0]?.label ?? '今回、何が起きているか教えて')}`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary hover:bg-primary/[0.05] focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden="true">auto_awesome</span>
+            AI考察で開く
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {report.aiPrompts.map((prompt) => (
+            <Link
+              key={prompt.label}
+              to={`/insights/ai?question=${encodeURIComponent(prompt.label)}`}
+              className="rounded-xl border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-left transition hover:border-primary/25 hover:bg-primary/[0.035] focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              <span className={`material-symbols-outlined text-xl ${prompt.color}`} aria-hidden="true">{prompt.icon}</span>
+              <p className="mt-2 text-sm font-black leading-6 text-on-surface japanese-text">{prompt.label}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
@@ -1232,12 +1471,12 @@ function GraphAiQuestionRail({
   const [inlineStatus, setInlineStatus] = useState('')
   const [inlineLoading, setInlineLoading] = useState(false)
   const prompts = topInsights.length > 0
-    ? topInsights.slice(0, 4).map((insight) => `${insight.title} の変化を、広告運用ではどう読むべき？`)
+    ? topInsights.slice(0, 4).map((insight) => `${replaceCustomerTerms(insight.title)} について、何が起きているか教えて`)
     : [
-        'CVイベントが減った場合、どのグラフから確認すべき？',
-        'CPAを判断するには、追加でどの媒体データが必要？',
-        '今週優先して見るべき数値を3つに絞って',
-        '異常値が施策判断に影響するか確認したい',
+        '問い合わせにつながる動きは確認できていますか？',
+        'よく見られたページで、今日直すならどこですか？',
+        'すぐ帰った可能性があるページを教えて',
+        '今月やるべき改善を3つに絞って',
       ]
   const selectedQuestion = inlineQuestion.trim() || prompts[0] || ''
   const wideAiHref = `/insights/ai?question=${encodeURIComponent(selectedQuestion)}`
@@ -1316,7 +1555,7 @@ function GraphAiQuestionRail({
           GRAPH_AI_HTML_REPORT_INSTRUCTIONS,
           `対象期間: ${activeScopeLabel}`,
           `根拠範囲: ${inlineScopeLabel}`,
-          `右カラムのグラフ確認中の質問です。回答は広告運用者向けに、根拠グラフ・読むべき指標・次の一手を短く示してください。`,
+          `右カラムのグラフ確認中の質問です。回答は顧客にもそのまま読める言葉で、何が起きたか・可能性がある理由・次にやることを短く示してください。根拠が弱い場合は断定せず「可能性があります」と書いてください。`,
           `---\n${prompt}`,
         ].filter(Boolean).join('\n\n'),
         user_prompt: prompt,
@@ -1393,7 +1632,7 @@ function GraphAiQuestionRail({
           </button>
         </div>
         <p className="mt-3 text-xs leading-6 text-on-surface-variant japanese-text">
-          右カラムは考察専用です。期間とGA4保存先を固定したまま、気になったグラフの読み解きをAIに聞きます。
+          右カラムは考察専用です。表示期間を固定したまま、気になった数字の読み解きをAIに聞きます。
         </p>
       </div>
 
@@ -1404,7 +1643,7 @@ function GraphAiQuestionRail({
             <strong className="text-primary text-right">{activeScopeLabel}</strong>
           </span>
           <span className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2">
-            <b className="text-on-surface-variant">GA4保存先ID</b>
+            <b className="text-on-surface-variant">計測データ</b>
             <strong className="text-primary truncate max-w-[170px]">{setupState?.datasetId || '未設定'}</strong>
           </span>
         </div>
@@ -1452,7 +1691,7 @@ function GraphAiQuestionRail({
           <textarea
             id="graph-ai-draft"
             className="mt-2 min-h-28 w-full resize-none rounded-xl border border-outline-variant/20 bg-surface-container-lowest p-3 text-xs leading-6 text-on-surface outline-none focus-visible:ring-2 focus-visible:ring-secondary japanese-text"
-            placeholder="例: LP別セッションとCVイベントを見て、次に確認すべき追加データを知りたい"
+            placeholder="例: よく見られたページと問い合わせの動きを見て、今日確認することを知りたい"
             value={inlineQuestion}
             onChange={(e) => setInlineQuestion(e.target.value)}
           />
@@ -1528,7 +1767,8 @@ export default function AnalysisGraphs() {
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
   const [activeTheme, setActiveTheme] = useState('all')
-  const [viewMode, setViewMode] = useState('analyst')
+  const [graphSurfaceMode, setGraphSurfaceMode] = useState('simple')
+  const [viewMode, setViewMode] = useState('exec')
   const [openSections, setOpenSections] = useState({})
   const [activeSection, setActiveSection] = useState('graphs')
   const [creativeFilter, setCreativeFilter] = useState('all')
@@ -1593,7 +1833,6 @@ export default function AnalysisGraphs() {
   }, [themes, activeTheme])
 
   const topInsights = useMemo(() => extractTopInsights(filteredGroups), [filteredGroups])
-  const keyCharts = useMemo(() => pickKeyCharts(filteredGroups), [filteredGroups])
 
   /* ── Summary data (from EssentialPack extractors) ── */
   const currentReport = useMemo(() => reportBundle?.reportMd ?? '', [reportBundle?.reportMd])
@@ -1602,14 +1841,14 @@ export default function AnalysisGraphs() {
   const isFailedReport = dataAvailability === 'failed'
   const isFallbackReport = dataAvailability === 'fallback' || reportBundle?.source === 'bq_generate_fallback'
   const reportAvailabilityLabel = isFailedReport
-    ? 'BQ取得失敗'
+    ? '接続確認が必要'
     : isFallbackReport
-      ? '暫定表示'
+      ? '確認中'
       : isPartialReport
-        ? 'BQ一部未取得'
+        ? '一部確認中'
         : reportBundle?.source === 'bq_generate_batch'
-          ? 'BQ取得済み'
-          : '暫定'
+          ? '取得済み'
+          : '確認中'
   const reportAvailabilityClass = isFailedReport || isPartialReport || isFallbackReport
     ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
     : 'bg-primary-container text-on-primary-container'
@@ -1621,6 +1860,10 @@ export default function AnalysisGraphs() {
   const qualityAlerts = useMemo(
     () => extractDataQualityAlerts(currentReport, chartGroups),
     [currentReport, chartGroups],
+  )
+  const executionSummary = useMemo(
+    () => reportBundle?.executionSummary ?? [],
+    [reportBundle?.executionSummary],
   )
 
   /* ── Creative refs ── */
@@ -1642,7 +1885,9 @@ export default function AnalysisGraphs() {
   useEffect(() => {
     setOpenSections((current) => {
       const next = {}
-      for (const theme of themes) next[theme.id] = current[theme.id] ?? true
+      themes.forEach((theme, index) => {
+        next[theme.id] = current[theme.id] ?? index === 0
+      })
       return next
     })
   }, [themes])
@@ -1670,6 +1915,14 @@ export default function AnalysisGraphs() {
     periodFilter === 'all' ? '全期間まとめ'
     : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
     : `対象期間: ${periodFilter}`
+  const customerSimpleReport = useMemo(
+    () => buildCustomerSimpleReport(filteredGroups, executionSummary, {
+      periodLabel: activeScopeLabel,
+      dataAvailability,
+      missingReason: reportBundle?.missingReason,
+    }),
+    [activeScopeLabel, dataAvailability, executionSummary, filteredGroups, reportBundle?.missingReason],
+  )
 
   const hasGraphData = filteredGroups.length > 0
   const hasCreativeData = creativeRefs.length > 0
@@ -1755,6 +2008,11 @@ export default function AnalysisGraphs() {
     document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  function handleOpenDetailFromSimple(sectionId = 'graphs') {
+    setGraphSurfaceMode('detail')
+    window.setTimeout(() => scrollToSection(sectionId), 0)
+  }
+
   return (
     <div className="min-w-0 flex-1 overflow-x-hidden">
       <div className="max-w-[1680px] space-y-8 px-4 py-5 pb-20 sm:px-6 lg:space-y-10 lg:px-8 lg:py-8">
@@ -1768,13 +2026,17 @@ export default function AnalysisGraphs() {
                   {reportAvailabilityLabel}
                 </span>
               )}
-              <h1 className="text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">詳細グラフ</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">
+                {graphSurfaceMode === 'simple' ? 'Web成果レポート' : '詳しく見る'}
+              </h1>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-on-surface-variant text-sm">
               {setupState?.datasetId && (
                 <span className="flex min-w-0 items-center gap-1 font-medium">
-                  <span className="material-symbols-outlined text-base">corporate_fare</span>
-                  <span className="max-w-[240px] truncate sm:max-w-none">{setupState.datasetId}</span>
+                  <span className="material-symbols-outlined text-base" aria-hidden="true">database</span>
+                  <span className="max-w-[240px] truncate sm:max-w-none">
+                    {graphSurfaceMode === 'simple' ? 'サイト計測データ接続済み' : setupState.datasetId}
+                  </span>
                 </span>
               )}
               {dateRange && (
@@ -1798,36 +2060,69 @@ export default function AnalysisGraphs() {
 
           {/* Exec / Analyst toggle + refresh */}
           <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
-            <Link
-              to="/ads/report"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary transition-colors hover:opacity-90"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">summarize</span>
-              初心者レポート
-            </Link>
-
             <div className="flex items-center justify-center rounded-full bg-surface-container p-1 ghost-border sm:w-auto">
               <button
-                onClick={() => setViewMode('exec')}
+                type="button"
+                aria-pressed={graphSurfaceMode === 'simple'}
+                onClick={() => setGraphSurfaceMode('simple')}
                 className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                  viewMode === 'exec'
+                  graphSurfaceMode === 'simple'
                     ? 'bg-surface-container-lowest text-primary shadow-sm'
                     : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
-                要約表示
+                かんたん表示
               </button>
               <button
-                onClick={() => setViewMode('analyst')}
+                type="button"
+                aria-pressed={graphSurfaceMode === 'detail'}
+                onClick={() => setGraphSurfaceMode('detail')}
                 className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                  viewMode === 'analyst'
+                  graphSurfaceMode === 'detail'
                     ? 'bg-surface-container-lowest text-primary shadow-sm'
                     : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
-                詳細表示
+                詳しく見る
               </button>
             </div>
+
+            {graphSurfaceMode === 'detail' && (
+              <div className="flex items-center justify-center rounded-full bg-surface-container p-1 ghost-border sm:w-auto">
+                <button
+                  type="button"
+                  aria-pressed={viewMode === 'exec'}
+                  onClick={() => setViewMode('exec')}
+                  className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
+                    viewMode === 'exec'
+                      ? 'bg-surface-container-lowest text-primary shadow-sm'
+                      : 'text-on-surface-variant hover:text-primary'
+                  }`}
+                >
+                  要約表示
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={viewMode === 'analyst'}
+                  onClick={() => setViewMode('analyst')}
+                  className={`px-5 py-2 rounded-full text-sm font-semibold transition-colors ${
+                    viewMode === 'analyst'
+                      ? 'bg-surface-container-lowest text-primary shadow-sm'
+                      : 'text-on-surface-variant hover:text-primary'
+                  }`}
+                >
+                  詳細表示
+                </button>
+              </div>
+            )}
+
+            <Link
+              to="/ads/report"
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/[0.05]"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden="true">summarize</span>
+              レポートだけ開く
+            </Link>
 
             <button
               type="button"
@@ -1835,12 +2130,13 @@ export default function AnalysisGraphs() {
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/[0.05]"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
-              セットアップ（クエリ・期間）
+              期間と分析項目
             </button>
 
             {/* Period selector */}
             {periodTags.length > 0 && (
               <select
+                aria-label="表示する分析期間"
                 value={periodFilter}
                 onChange={(e) => setPeriodFilter(e.target.value)}
                 className="w-full cursor-pointer rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm text-on-surface-variant sm:w-auto"
@@ -1856,7 +2152,7 @@ export default function AnalysisGraphs() {
             <button
               onClick={handleRefresh}
               disabled={loading || !isAdsAuthenticated || !setupState}
-              className="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-on-primary transition-all hover:opacity-90 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-bold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base">refresh</span>}
               再取得
@@ -1866,6 +2162,19 @@ export default function AnalysisGraphs() {
 
         {/* ═══ 2. SOURCE / WARNING STRIP ═══ */}
         {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
+        {graphSurfaceMode === 'simple' ? (
+          <>
+            {loading && !currentReport && chartGroups.length === 0 ? (
+              <div className="bg-surface-container-lowest rounded-xl p-8 space-y-6">
+                <LoadingSpinner size="md" label="Web成果レポートを準備中…" />
+                <SkeletonBlock variant="text" lines={5} />
+              </div>
+            ) : (
+              <CustomerSimpleReport report={customerSimpleReport} groups={filteredGroups} onOpenDetail={handleOpenDetailFromSimple} />
+            )}
+          </>
+        ) : (
+          <>
         {excelError && (
           <div className="bg-error/5 border border-error/20 rounded-xl px-4 py-3 flex items-center gap-3">
             <span className="material-symbols-outlined text-error text-lg">error</span>
@@ -1930,24 +2239,24 @@ export default function AnalysisGraphs() {
           <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 dark:bg-warning-container border border-amber-200/50 dark:border-warning/30 text-on-surface rounded-xl">
             <span className="material-symbols-outlined text-xl text-amber-600 dark:text-warning">pending</span>
             <p className="text-sm font-medium japanese-text">
-              BigQueryレポート本文またはグラフが未取得のため、数値断定ではなく確認手順・追加取得候補を表示しています。
+              分析に必要なデータがまだ十分にそろっていないため、断定せず、確認手順と追加で見る項目を表示しています。
             </p>
           </div>
         )}
 
         {!hasGraphData && (
           <AiContextRail
-            screenName="広告グラフAIレール"
+            screenName="Web成果レポートAIレール"
             status={adsRailStatus}
-            inputSummary={setupState?.datasetId || 'GA4データセット未設定'}
-            evidence={['GA4 BigQuery', '取得状態', '追加クエリ', '未取得理由']}
+            inputSummary={setupState?.datasetId || '計測データ未設定'}
+            evidence={['サイト計測', '取得状態', '追加で見る項目', '未確認の理由']}
             suggestedQuestions={[
-              '今の未取得状態で、次に確認すべきクエリタイプを教えて',
-              '数値断定せず、確認手順だけを整理して',
-              'グラフ取得後に見るべき指標を優先順で出して',
+              '問い合わせにつながる動きは確認できていますか？',
+              '今は断定せず、確認することだけ整理して',
+              'データがそろったら最初に見る数字を教えて',
             ]}
-            primaryAction="広告グラフの未取得状態をAI考察で確認する"
-            helperText="グラフが未取得の状態では、成功表示や数値断定を避け、取得条件と追加確認だけを整理します。"
+            primaryAction="未確認の項目をAI考察で確認する"
+            helperText="データが少ない状態では、成功・失敗を断定せず、確認することだけを整理します。"
           />
         )}
 
@@ -1965,14 +2274,6 @@ export default function AnalysisGraphs() {
             <section id="section-graphs" className="scroll-mt-24 space-y-6">
               {hasGraphData ? (
                 <>
-                  {keyCharts.length > 0 && (
-                    <div className="grid grid-cols-1 gap-8">
-                      {keyCharts.map((group, idx) => (
-                        <ChartGroupCard key={`key-${group.title ?? idx}`} group={{ ...group, defaultCollapsed: false }} featured />
-                      ))}
-                    </div>
-                  )}
-
                   <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
 
                   <div className="space-y-6">
@@ -1980,7 +2281,7 @@ export default function AnalysisGraphs() {
                       <GraphSection
                         key={theme.id}
                         theme={theme}
-                        isOpen={openSections[theme.id] ?? true}
+                        isOpen={openSections[theme.id] ?? false}
                         onToggle={() => toggleSection(theme.id)}
                         viewMode={viewMode}
                       />
@@ -2001,9 +2302,9 @@ export default function AnalysisGraphs() {
               ) : !loading && (
                 <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
                   <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
-                  <h3 className="text-xl font-bold japanese-text">グラフデータがまだありません</h3>
+                  <h3 className="text-xl font-bold japanese-text">この期間は十分なデータがありません</h3>
                   <p className="text-sm text-on-surface-variant japanese-text">
-                    セットアップでクエリと期間を選ぶと、BigQueryから取得したグラフがここに表示されます。
+                    期間や接続を確認すると、根拠データを表示できます。
                   </p>
                   <button
                     type="button"
@@ -2011,7 +2312,7 @@ export default function AnalysisGraphs() {
                     className="mx-auto inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-90"
                   >
                     <span className="material-symbols-outlined text-base" aria-hidden="true">settings_suggest</span>
-                    セットアップでクエリ・期間を選ぶ
+                    期間と分析項目を確認する
                   </button>
                 </div>
               )}
@@ -2113,7 +2414,7 @@ export default function AnalysisGraphs() {
                         )}
                       </li>
                     )) : (
-                      <li className="text-xs text-on-surface-variant/50 italic">仮説未生成</li>
+                      <li className="text-xs text-on-surface-variant/70 italic">理由を考えるには、もう少し根拠が必要です</li>
                     )}
                   </ul>
                 </div>
@@ -2133,7 +2434,7 @@ export default function AnalysisGraphs() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-on-surface-variant/50 italic">アクション未提案</p>
+                    <p className="text-xs text-on-surface-variant/70 italic">今すぐ決めず、まず確認することがあります</p>
                   )}
                 </div>
               </div>
@@ -2145,9 +2446,9 @@ export default function AnalysisGraphs() {
         {!loading && !error && !hasGraphData && excelState !== 'applied' && (
           <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 text-center space-y-3">
             <span className="material-symbols-outlined text-5xl text-outline-variant">analytics</span>
-            <h3 className="text-xl font-bold japanese-text">分析データがまだありません</h3>
+            <h3 className="text-xl font-bold japanese-text">この期間は十分なデータがありません</h3>
             <p className="text-sm text-on-surface-variant japanese-text">
-              セットアップでクエリ・期間を選ぶか、上の「再取得」ボタンを押してデータを読み込んでください。
+              期間や接続を確認するか、上の「再取得」ボタンで最新の状態を確認してください。
             </p>
             <button
               type="button"
@@ -2155,14 +2456,16 @@ export default function AnalysisGraphs() {
               className="mx-auto inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-90"
             >
               <span className="material-symbols-outlined text-base" aria-hidden="true">settings_suggest</span>
-              セットアップでクエリ・期間を選ぶ
+              期間と分析項目を確認する
             </button>
           </div>
+        )}
+          </>
         )}
       </div>
 
       {/* ═══ EVIDENCE DRAWER ═══ */}
-      {currentReport && executiveCards.length > 0 && (
+      {graphSurfaceMode === 'detail' && currentReport && executiveCards.length > 0 && (
         <EvidenceDrawer cards={executiveCards} reportBundle={reportBundle} />
       )}
     </div>

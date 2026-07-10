@@ -217,8 +217,8 @@ describe('/insights/ai neutral route AI Explorer', () => {
     const user = userEvent.setup()
     renderAppAt('/')
 
-    await user.click(await screen.findByRole('button', { name: /広告分析/ }))
-    const aiLink = await screen.findByRole('link', { name: /AI考察/ })
+    await user.click(await screen.findByRole('button', { name: /サイト分析/ }))
+    const aiLink = await screen.findByRole('link', { name: /AIに聞く/ })
     await user.click(aiLink)
 
     expect(window.location.pathname).toBe('/insights/ai')

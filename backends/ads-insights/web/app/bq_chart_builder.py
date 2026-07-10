@@ -119,7 +119,8 @@ def build_bq_chart_data(df: pd.DataFrame, query_type: str) -> dict[str, Any]:
     if builder is None:
         return {"groups": []}
 
-    return {"groups": builder(df)}
+    groups = [{**group, "queryType": query_type} for group in builder(df)]
+    return {"groups": groups}
 
 
 # ========== PV分析 ==========

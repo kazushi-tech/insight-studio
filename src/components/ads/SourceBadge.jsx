@@ -1,8 +1,8 @@
 export default function SourceBadge({ source }) {
   const config = source === 'excel'
-    ? { label: 'ATOM月次Excel', icon: 'table_chart' }
+    ? { label: '広告月次データ', icon: 'table_chart' }
     : source === 'ga4'
-    ? { label: 'GA4 / BigQuery', icon: 'analytics' }
+    ? { label: 'サイト計測データ', icon: 'analytics' }
     : { label: source ?? '複合データ', icon: 'merge_type' }
 
   return (

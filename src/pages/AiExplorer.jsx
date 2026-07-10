@@ -20,6 +20,7 @@ import {
 } from '../utils/adsReports'
 import { extractInsightReport, getAdsText, normalizeAdsPayload, normalizeAiDisplayResponse } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
+import { CUSTOMER_AI_PROMPTS } from '../utils/customerReport'
 import { useUiVersion } from '../hooks/useUiVersion'
 import InsightTimeline from '../components/ai-explorer/v2/InsightTimeline'
 import InsightHtmlReport from '../components/ai-explorer/v2/InsightHtmlReport'
@@ -37,11 +38,7 @@ function formatAnalysisError(error) {
   return msg.length > 200 ? msg.slice(0, 200) + '…' : msg
 }
 
-const QUICK_PROMPTS = [
-  { icon: 'warning', label: 'コンバージョン流出ポイントを特定して', color: 'text-red-500' },
-  { icon: 'lightbulb', label: '最も効果的な流入チャネルとその理由', color: 'text-emerald-500' },
-  { icon: 'compare_arrows', label: '期間比較で一番変化が大きい指標は？', color: 'text-purple-500' },
-]
+const QUICK_PROMPTS = CUSTOMER_AI_PROMPTS
 
 const REPORT_REBUILD_FALLBACK_MS = 25000
 const HTML_REPORT_OUTPUT_INSTRUCTIONS = [
@@ -555,7 +552,7 @@ export default function AiExplorer() {
           !hasTable && !hasBoldMetric ? '表や数値比較' : '',
           !hasNumericRef ? '具体的な指標値' : '',
         ].filter(Boolean).join('・') || '具体性'
-        setStatus(`⚠️ 応答に${hints}が不足しています。「コンバージョン流出ポイント」「期間比較で最も変化した指標」等、具体的な質問で改善します。`)
+        setStatus(`⚠️ 応答に${hints}が不足しています。「今回、何が起きているか」「今日やることを3つに絞って」など、知りたいことを短く聞くと改善します。`)
       } else {
         setStatus('✓ 考察生成完了')
       }
@@ -833,7 +830,7 @@ export default function AiExplorer() {
         {messages.length === 0 && (
           <div className="space-y-2">
             <p className="text-[11px] font-bold text-on-surface-variant tracking-[0.12em]">クイック質問</p>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {QUICK_PROMPTS.map((prompt) => (
                 <button
                   key={prompt.label}
@@ -857,7 +854,7 @@ export default function AiExplorer() {
               <span className="material-symbols-outlined text-4xl text-primary-container">auto_awesome</span>
             </div>
             <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI考察</p>
-            <p className="text-sm mt-2">分析データとグラフ要約を根拠に、BQ データの質問へ具体的に回答します</p>
+            <p className="text-sm mt-2">Web成果データと根拠グラフをもとに、専門用語を使わず回答します</p>
           </div>
         )}
 
@@ -912,7 +909,7 @@ export default function AiExplorer() {
         <div className="flex items-center gap-3 rounded-full bg-surface-container px-6 py-2">
           <input
             className="flex-1 bg-transparent outline-none text-sm"
-            placeholder="AIにデータについて質問する..."
+            placeholder="例: 今日やることを3つに絞って"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

@@ -74,6 +74,17 @@ export function buildSeries(group = {}) {
     .filter((series) => series.finiteValues.length > 0)
 }
 
+export function averageFiniteValues(values = []) {
+  const finiteValues = values.filter((value) => value != null && Number.isFinite(Number(value)))
+  if (finiteValues.length === 0) return null
+  return finiteValues.reduce((sum, value) => sum + Number(value), 0) / finiteValues.length
+}
+
+export function getSeriesAggregate(series = {}) {
+  if (!Array.isArray(series.finiteValues) || series.finiteValues.length === 0) return null
+  return series.usePercent ? averageFiniteValues(series.finiteValues) : series.total
+}
+
 export function getValueBounds(seriesList = []) {
   const values = seriesList.flatMap((series) => series.values).filter((value) => value != null)
   if (values.length === 0) return { min: 0, max: 1 }
@@ -92,16 +103,57 @@ export function getPointPosition(value, index, count, bounds, frame) {
 }
 
 export function buildSvgPath(values = [], bounds, frame) {
-  const finiteIndexes = values
-    .map((value, index) => ({ value, index }))
-    .filter((point) => point.value != null)
-  if (finiteIndexes.length === 0) return ''
-  return finiteIndexes
-    .map((point, pointIndex) => {
-      const { x, y } = getPointPosition(point.value, point.index, values.length, bounds, frame)
-      return `${pointIndex === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-    })
-    .join(' ')
+  const commands = []
+  let segmentOpen = false
+
+  values.forEach((value, index) => {
+    if (value == null) {
+      segmentOpen = false
+      return
+    }
+
+    const { x, y } = getPointPosition(value, index, values.length, bounds, frame)
+    commands.push(`${segmentOpen ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`)
+    segmentOpen = true
+  })
+
+  return commands.join(' ')
+}
+
+export function buildSvgAreaPath(values = [], bounds, frame, baselineValue = null) {
+  const paths = []
+  let segment = []
+  const baselineY = baselineValue == null
+    ? frame.y + frame.height
+    : getPointPosition(baselineValue, 0, 1, bounds, frame).y
+
+  const closeSegment = () => {
+    if (segment.length === 0) return
+    const points = segment.map(({ value, index }) => ({
+      ...getPointPosition(value, index, values.length, bounds, frame),
+      index,
+    }))
+    const line = points
+      .map((point, pointIndex) => `${pointIndex === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+      .join(' ')
+    const first = points[0]
+    const last = points[points.length - 1]
+    paths.push(
+      `${line} L ${last.x.toFixed(1)} ${baselineY.toFixed(1)} L ${first.x.toFixed(1)} ${baselineY.toFixed(1)} Z`,
+    )
+    segment = []
+  }
+
+  values.forEach((value, index) => {
+    if (value == null) {
+      closeSegment()
+      return
+    }
+    segment.push({ value, index })
+  })
+  closeSegment()
+
+  return paths.join(' ')
 }
 
 export function getPeakPoint(series, labels) {
