@@ -241,7 +241,7 @@ def record_gemini_usage_from_response(
 
 
 def reset_budget_for_dev() -> dict[str, Any]:
-    if os.getenv("RENDER") and os.getenv("ALLOW_GEMINI_BUDGET_RESET") != "1":
+    if (os.getenv("RENDER") or os.getenv("VERCEL")) and os.getenv("ALLOW_GEMINI_BUDGET_RESET") != "1":
         raise PermissionError("Gemini budget reset is disabled in production.")
     data = {"version": 1, "events": []}
     _save_usage(data)

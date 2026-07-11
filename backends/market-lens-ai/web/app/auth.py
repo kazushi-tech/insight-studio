@@ -65,8 +65,10 @@ def _configured_api_keys() -> set[str]:
 
 
 def _is_production() -> bool:
-    """Return true for Render and explicit production-like environments."""
+    """Return true for managed deploys and explicit production-like environments."""
 
+    if str(os.getenv("VERCEL", "")).strip().lower() in _TRUTHY:
+        return True
     if str(os.getenv("RENDER", "")).strip().lower() in _TRUTHY:
         return True
     if os.getenv("RENDER_SERVICE_ID") or os.getenv("RENDER_EXTERNAL_URL"):

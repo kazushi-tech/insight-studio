@@ -45,7 +45,7 @@ services:
     # service rooted at the repository so ads-insights-only commits also trigger
     # a production backend deploy.
     rootDir: .
-    buildCommand: cd backends/market-lens-ai && pip install -r requirements.txt
+    buildCommand: cd backends/market-lens-ai && pip install -r requirements.txt -r ../ads-insights/requirements.txt
     startCommand: cd backends/market-lens-ai && bash start.sh
     healthCheckPath: /api/ml/health
     envVars:

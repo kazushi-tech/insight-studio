@@ -1,16 +1,12 @@
 const BASE = '/api/ads'
-// 非プロキシ(本番)オリジンで直叩きする backend URL。VITE_ADS_INSIGHTS_API_ORIGIN で上書き可。
-// これは公開URLであって秘密ではない — 認証情報など秘密値は VITE_* に入れない
-// （VITE_* はブラウザバンドルに同梱される）。ローカルは SHOULD_FORCE_PROXY=true のため
-// この値は使われず、同一オリジンの /api/ads（vite proxy）が使われる。
-const ADS_BACKEND_ORIGIN =
-  import.meta.env.VITE_ADS_INSIGHTS_API_ORIGIN?.replace(/\/$/, '') ||
-  'https://ads-insights-9q5s.onrender.com'
-export const ADS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api`
-const ADS_DIRECT_HEALTH_URL = `${ADS_BACKEND_ORIGIN}/api/ads/health`
+// Vercel Services routes the frontend and unified FastAPI backend under the
+// same origin.  Keep the exported direct base for callers, but never bypass
+// the Vercel deployment with a provider-specific hostname.
+export const ADS_DIRECT_BASE = '/api/ads'
+const ADS_DIRECT_HEALTH_URL = '/api/ads/health'
 export const AI_GENERATE_ENDPOINT = '/api/insights/neon/generate'
 const INSIGHTS_BASE = '/api/insights'
-const INSIGHTS_DIRECT_BASE = `${ADS_BACKEND_ORIGIN}/api/insights`
+const INSIGHTS_DIRECT_BASE = INSIGHTS_BASE
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 

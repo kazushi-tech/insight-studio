@@ -136,6 +136,9 @@ class PrefixDispatcher:
                 scope = {**scope, "path": "/api" + path[8:], "root_path": ""}
                 await ads_app(scope, receive, send)
                 return
+            if path.startswith("/api/insights/") or path == "/api/insights":
+                await ads_app(scope, receive, send)
+                return
             # fallback (e.g. /docs, /openapi.json)
             await ml_app(scope, receive, send)
             return

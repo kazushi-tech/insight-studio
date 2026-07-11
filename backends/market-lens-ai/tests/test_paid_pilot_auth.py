@@ -29,6 +29,7 @@ def isolated_auth_environment(monkeypatch):
         "API_KEYS",
         "INTEGRATION_API_KEYS",
         "JWT_SECRET",
+        "VERCEL",
         "RENDER",
         "RENDER_SERVICE_ID",
         "RENDER_EXTERNAL_URL",
@@ -136,9 +137,13 @@ def test_previously_committed_integration_keys_are_never_accepted(
     ).status_code == 200
 
 
-def test_render_without_auth_configuration_fails_closed(monkeypatch):
-    monkeypatch.setenv("RENDER", "true")
-    # Even an accidental dev override must never open a Render deployment.
+@pytest.mark.parametrize("platform_marker", ["RENDER", "VERCEL"])
+def test_managed_deploy_without_auth_configuration_fails_closed(
+    monkeypatch,
+    platform_marker,
+):
+    monkeypatch.setenv(platform_marker, "true")
+    # Even an accidental dev override must never open a managed deployment.
     monkeypatch.setenv("ALLOW_INSECURE_DEV_AUTH", "true")
     client = _protected_client()
 

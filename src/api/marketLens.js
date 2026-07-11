@@ -1,7 +1,6 @@
-// Prefer the same-origin proxy during local browser runs to avoid CORS drift
-// between localhost/127.0.0.1/preview origins and the Render backend.
-const DIRECT_MARKET_LENS_ORIGIN =
-  import.meta.env.VITE_MARKET_LENS_API_ORIGIN?.replace(/\/$/, '') || ''
+// Frontend and FastAPI now share one Vercel deployment.  All calls stay on the
+// current origin so preview and production deployments cannot drift to Render.
+const DIRECT_MARKET_LENS_ORIGIN = ''
 
 function isLocalBrowserOrigin() {
   if (typeof window === 'undefined') return false
@@ -18,11 +17,9 @@ const SHOULD_FORCE_PROXY = isLocalBrowserOrigin() || isRenderStaticOrigin()
 const BASE = SHOULD_FORCE_PROXY || !DIRECT_MARKET_LENS_ORIGIN
   ? '/api/ml'
   : `${DIRECT_MARKET_LENS_ORIGIN}/api/ml`
-// Vercel rewrite proxy has a ~60s hard timeout. Long-running endpoints
-// (discovery/analyze, scan) must bypass the proxy and hit Render directly.
-const DIRECT_BACKEND_BASE = DIRECT_MARKET_LENS_ORIGIN
-  ? `${DIRECT_MARKET_LENS_ORIGIN}/api/ml`
-  : 'https://market-lens-ai.onrender.com/api/ml'
+// Long-running calls use the same service route; max duration is controlled by
+// the backend service's Vercel Function configuration.
+const DIRECT_BACKEND_BASE = '/api/ml'
 const LONG_ANALYSIS_TIMEOUT = 600000
 const CREATIVE_UPLOAD_TIMEOUT = 90000
 const DISCOVERY_AUTO_RETRY_COUNT = 2

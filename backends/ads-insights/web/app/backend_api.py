@@ -1239,7 +1239,7 @@ async def _cleanup_stale_gdrive_folders():
 # CORS設定 - VercelフロントエンドからのAPIリクエストを許可
 from fastapi.middleware.cors import CORSMiddleware
 
-_IS_PRODUCTION = bool(os.getenv("RENDER"))  # Render 上では自動的に設定される
+_IS_PRODUCTION = bool(os.getenv("RENDER") or os.getenv("VERCEL"))
 
 _CORS_PRODUCTION_ORIGINS = [
     "https://ads-insights-eight.vercel.app",
@@ -2590,8 +2590,9 @@ def api_version():
         return JSONResponse({"ok": False, "error": "Not found"}, status_code=404)
     import subprocess
     sha = "unknown"
-    if "RENDER_GIT_COMMIT" in os.environ:
-        sha = os.environ["RENDER_GIT_COMMIT"]
+    platform_sha = os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT")
+    if platform_sha:
+        sha = platform_sha
     else:
         try:
             sha = subprocess.check_output(
@@ -2611,9 +2612,10 @@ def api_health():
     import subprocess
     
     sha = "unknown"
-    # Try Render env first
-    if "RENDER_GIT_COMMIT" in os.environ:
-        sha = os.environ["RENDER_GIT_COMMIT"]
+    # Prefer the deployment provider's immutable commit metadata.
+    platform_sha = os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT")
+    if platform_sha:
+        sha = platform_sha
     else:
         try:
             sha = subprocess.check_output(
@@ -2647,7 +2649,12 @@ def neon_health(request: Request):
 
 # Mount public directory for charts
 from fastapi.staticfiles import StaticFiles
-public_dir = BASE_DIR / "public"
+_vercel_runtime_dir = os.getenv("VERCEL_RUNTIME_DIR", "").strip()
+public_dir = (
+    Path(_vercel_runtime_dir) / "public"
+    if _vercel_runtime_dir
+    else BASE_DIR / "public"
+)
 public_dir.mkdir(exist_ok=True)
 (public_dir / "charts").mkdir(exist_ok=True)
 app.mount("/public", StaticFiles(directory=str(public_dir)), name="public")

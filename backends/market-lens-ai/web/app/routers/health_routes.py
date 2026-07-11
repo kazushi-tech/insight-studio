@@ -19,7 +19,7 @@ async def health():
     return {
         "ok": True,
         "service": "market-lens",
-        "commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
+        "commit": os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "unknown"),
         "discovery_pipeline": get_health_snapshot(),
     }
 
