@@ -12,6 +12,8 @@ import {
   getDisplayChartGroups,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
+import { latestPeriodValue, periodRangeLabel } from '../utils/wizardPeriods'
+import { shouldShowDemoMode } from '../utils/demoMode'
 
 const CARD_META = {
   what_happened: { label: '何が起きた', icon: 'monitoring', tone: 'bg-primary/[0.06] text-primary' },
@@ -52,7 +54,10 @@ function selectEvidenceGroups(beginnerReport, chartGroups) {
 function selectedPeriodReport(reportBundle, periodFilter) {
   const reports = reportBundle?.periodReports ?? []
   if (periodFilter === 'all') return null
-  if (periodFilter === 'latest') return reports[reports.length - 1] ?? null
+  if (periodFilter === 'latest') {
+    const latestPeriod = latestPeriodValue(reports.map((report) => report.periodTag))
+    return reports.find((report) => report.periodTag === latestPeriod) ?? null
+  }
   return reports.find((report) => report.periodTag === periodFilter) ?? null
 }
 
@@ -129,7 +134,7 @@ function DataGapPanel({ gaps }) {
   )
 }
 
-function EvidenceCharts({ groups }) {
+function EvidenceCharts({ groups, isDemo = false }) {
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -164,7 +169,11 @@ function EvidenceCharts({ groups }) {
         <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 text-center">
           <span className="material-symbols-outlined text-5xl text-outline-variant" aria-hidden="true">bar_chart</span>
           <h3 className="mt-3 text-lg font-extrabold text-on-surface japanese-text">根拠グラフがまだありません</h3>
-          <p className="mt-2 text-sm font-medium text-on-surface-variant japanese-text">セットアップ条件を確認し、BigQueryから再取得してください。</p>
+          <p className="mt-2 text-sm font-medium text-on-surface-variant japanese-text">
+            {isDemo
+              ? 'セットアップ条件を確認し、デモデータを再取得してください。'
+              : 'セットアップ条件を確認し、BigQueryから再取得してください。'}
+          </p>
         </div>
       )}
     </section>
@@ -173,11 +182,12 @@ function EvidenceCharts({ groups }) {
 
 export default function BeginnerReport() {
   const navigate = useNavigate()
-  const { isAdsAuthenticated } = useAuth()
-  const { setupState, reportBundle, setReportBundle, resetSetup } = useAdsSetup()
+  const { isAdsAuthenticated, user: authUser } = useAuth()
+  const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
 
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
@@ -215,12 +225,10 @@ export default function BeginnerReport() {
   }, [displayGroups, executionSummary, reportBundle?.beginnerReport, selectedReport?.beginnerReport])
   const evidenceGroups = useMemo(() => selectEvidenceGroups(beginnerReport, displayGroups), [beginnerReport, displayGroups])
   const periods = setupState?.periods ?? []
-  const dateRange = periods.length > 0
-    ? periods.length === 1 ? periods[0] : `${periods[0]} 〜 ${periods[periods.length - 1]}`
-    : null
+  const dateRange = periodRangeLabel(periods)
   const activeScopeLabel =
     periodFilter === 'all' ? '全期間'
-      : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
+      : periodFilter === 'latest' ? `最新期間: ${latestPeriodValue(periodTags) ?? '-'}`
         : periodFilter
 
   async function handleRefresh() {
@@ -248,7 +256,9 @@ export default function BeginnerReport() {
         <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-primary-container px-3 py-1 text-[11px] font-black text-on-primary-container">GA4 / BIGQUERY</span>
+              <span className="rounded-full bg-primary-container px-3 py-1 text-[11px] font-black text-on-primary-container">
+                {isDemo ? 'DEMO / 完全架空データ' : 'GA4 / BIGQUERY'}
+              </span>
               <span className="rounded-full bg-surface-container px-3 py-1 text-[11px] font-black text-on-surface-variant">{activeScopeLabel}</span>
             </div>
             <h1 id="beginner-report-title" className="mt-4 text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">
@@ -258,12 +268,17 @@ export default function BeginnerReport() {
               結論、保留すべき判断、次に見るグラフだけに絞って表示します。
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-on-surface-variant">
-              {setupState?.datasetId && <span className="truncate">保存先: {setupState.datasetId}</span>}
+              {isDemo && reportBundle?.site?.name && (
+                <span data-testid="demo-site-name">サイト: {reportBundle.site.name}</span>
+              )}
+              {setupState?.datasetId && (
+                <span className="truncate">{isDemo ? 'データ: 完全架空データ' : `保存先: ${setupState.datasetId}`}</span>
+              )}
               {dateRange && <span>期間: {dateRange}</span>}
               {reportBundle?.generatedAt && <span>最終更新: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}</span>}
             </div>
             <div className="mt-3 flex gap-2">
-              <SourceBadge source="ga4" />
+              <SourceBadge source={isDemo ? 'demo' : 'ga4'} />
             </div>
           </div>
 
@@ -339,7 +354,7 @@ export default function BeginnerReport() {
             <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
               <div className="space-y-5">
                 <NextActionList actions={beginnerReport.next_actions} />
-                <EvidenceCharts groups={evidenceGroups} />
+                <EvidenceCharts groups={evidenceGroups} isDemo={isDemo} />
               </div>
               <div className="space-y-5 xl:sticky xl:top-6 xl:self-start">
                 <DataGapPanel gaps={beginnerReport.data_gaps} />

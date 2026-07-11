@@ -127,6 +127,7 @@ export function AuthProvider({ children }) {
       case_id: caseResult.case_id,
       display_name: caseResult.name || caseResult.case_id,
       dataset_id: caseResult.dataset_id,
+      is_demo: caseResult.is_demo === true,
     }
     setUser(userData)
     localStorage.setItem('is_user', JSON.stringify(userData))

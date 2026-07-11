@@ -1,4 +1,5 @@
 import { bqGenerateBatch } from '../api/adsInsights'
+import { latestPeriodValue } from './wizardPeriods'
 
 const GENERATE_RETRY_DELAYS_MS = [800, 1600]
 
@@ -411,7 +412,7 @@ export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest')
     let targetTag = periodFilter
 
     if (targetTag === 'latest' && periodTags.length > 0) {
-      targetTag = periodTags[periodTags.length - 1]
+      targetTag = latestPeriodValue(periodTags)
     }
 
     groups = !targetTag
@@ -1199,6 +1200,12 @@ export function buildAdsReportBundle({ setupState, results }) {
     const reportMd = pickReportMarkdown(result)
     const chartGroups = pickChartGroups(result, periodTag)
     const executionSummary = pickExecutionSummary(result, periodTag)
+    const site = result?.site && typeof result.site === 'object'
+      ? {
+          name: String(result.site.name ?? '').trim(),
+          url: String(result.site.url ?? '').trim(),
+        }
+      : null
     const beginnerReport =
       normalizeBeginnerReport(result?.beginner_report ?? result?.beginnerReport) ||
       buildBeginnerReportFromCharts(chartGroups, executionSummary)
@@ -1210,6 +1217,7 @@ export function buildAdsReportBundle({ setupState, results }) {
       chartGroups,
       executionSummary,
       beginnerReport,
+      site: site?.name ? site : null,
       raw: result,
     }
   })
@@ -1234,7 +1242,9 @@ export function buildAdsReportBundle({ setupState, results }) {
 
   const flatExecutionSummary = periodReports.flatMap((item) => item.executionSummary)
   const flatChartGroups = periodReports.flatMap((item) => item.chartGroups)
-  const latestPeriodReport = periodReports[periodReports.length - 1] ?? null
+  const latestPeriod = latestPeriodValue(periodReports.map((item) => item.periodTag))
+  const latestPeriodReport = periodReports.find((item) => item.periodTag === latestPeriod) ?? null
+  const site = latestPeriodReport?.site ?? periodReports.find((item) => item.site)?.site ?? null
   const beginnerReport =
     latestPeriodReport?.beginnerReport ||
     buildBeginnerReportFromCharts(flatChartGroups, flatExecutionSummary)
@@ -1253,6 +1263,7 @@ export function buildAdsReportBundle({ setupState, results }) {
     reportMd: reportMd || fallbackReportMd,
     chartGroups: flatChartGroups,
     beginnerReport,
+    site,
     periodReports,
     executionSummary: flatExecutionSummary,
     results,

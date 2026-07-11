@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { buildAdsReportBundle, generateBatchWithRetry } from '../utils/adsReports'
 import { latestPeriodValue } from '../utils/wizardPeriods'
+import { shouldShowDemoMode } from '../utils/demoMode'
 
 const QUERY_TYPES = [
   { id: 'pv', icon: 'trending_up', label: '見られた回数', term: 'ページビュー数（PV）・ユーザー数・セッション数', desc: 'サイトがどれくらい見られたか、日ごとの変化を確認します。', color: 'text-orange-600' },
@@ -49,7 +50,10 @@ function extractPeriods(data) {
   return []
 }
 
-function QueryOption({ queryType, index, selected, onToggle }) {
+function QueryOption({ queryType, index, selected, onToggle, isDemo = false }) {
+  const term = isDemo && queryType.id === 'auction_proxy'
+    ? '流入チャネル構成比（架空データ推定）'
+    : queryType.term
   return (
     <button
       type="button"
@@ -72,7 +76,7 @@ function QueryOption({ queryType, index, selected, onToggle }) {
         </span>
       </span>
       <span className="mt-2 block text-xs font-black leading-5 text-primary/80 japanese-text">
-        （{queryType.term}）
+        （{term}）
       </span>
       <span className="mt-3 block text-xs font-bold leading-6 text-on-surface-variant japanese-text">{queryType.desc}</span>
     </button>
@@ -82,8 +86,9 @@ function QueryOption({ queryType, index, selected, onToggle }) {
 export default function SetupWizard() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAdsAuthenticated, authExpiredMessage, clearAuthExpiredMessage } = useAuth()
+  const { isAdsAuthenticated, authExpiredMessage, clearAuthExpiredMessage, user: authUser } = useAuth()
   const { completeSetup, getCurrentDatasetId, currentCase } = useAdsSetup()
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState(recommendedSelection)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -97,6 +102,14 @@ export default function SetupWizard() {
   const [granularity, setGranularity] = useState('monthly')
   const [loadingLabel, setLoadingLabel] = useState('処理中…')
   const [periodDiagnostics, setPeriodDiagnostics] = useState(null)
+
+  function initialPeriodSelection(items) {
+    if (isDemo) {
+      return new Set(items.map(periodValue).filter(Boolean))
+    }
+    const latestPeriod = latestPeriodValue(items)
+    return latestPeriod ? new Set([latestPeriod]) : new Set()
+  }
 
   useEffect(() => {
     if (!location.state?.resetAt) return
@@ -142,6 +155,7 @@ export default function SetupWizard() {
   }
 
   const togglePeriod = (value) => {
+    if (isDemo) return
     const next = new Set(selectedPeriods)
     next.has(value) ? next.delete(value) : next.add(value)
     setSelectedPeriods(next)
@@ -183,8 +197,7 @@ export default function SetupWizard() {
         setError(diagnostics?.message || 'この粒度では利用可能な分析期間が見つかりませんでした。')
       } else {
         setPeriods(items)
-        const latestPeriod = latestPeriodValue(items)
-        setSelectedPeriods(latestPeriod ? new Set([latestPeriod]) : new Set())
+        setSelectedPeriods(initialPeriodSelection(items))
       }
     } catch (e) {
       setError(e.message)
@@ -212,14 +225,15 @@ export default function SetupWizard() {
           setGeneratedPeriods(new Set())
           setGeneratedResults(new Map())
           setLoadResult(null)
-          setError(diagnostics?.message || 'BigQueryデータセットに利用可能な分析期間が見つかりませんでした。')
+          setError(diagnostics?.message || (isDemo
+            ? '利用可能なデモ期間が見つかりませんでした。'
+            : 'BigQueryデータセットに利用可能な分析期間が見つかりませんでした。'))
           setStep(1)
           return
         }
 
         setPeriods(items)
-        const latestPeriod = latestPeriodValue(items)
-        setSelectedPeriods(latestPeriod ? new Set([latestPeriod]) : new Set())
+        setSelectedPeriods(initialPeriodSelection(items))
         setGeneratedPeriods(new Set())
         setGeneratedResults(new Map())
         setLoadResult(null)
@@ -234,7 +248,14 @@ export default function SetupWizard() {
     }
 
     if (step === 1) {
-      if (selectedPeriods.size === 0) return
+      const periodsArray = isDemo
+        ? periods.map(periodValue).filter(Boolean)
+        : [...selectedPeriods]
+      if (periodsArray.length === 0) return
+      if (isDemo && periodsArray.length < 2) {
+        setError('デモの対象月と比較月を準備できませんでした。期間を再取得してください。')
+        return
+      }
       setLoading(true)
       setLoadingLabel('レポートを生成中…')
       let completedCount = generatedResults.size
@@ -242,7 +263,6 @@ export default function SetupWizard() {
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
-        const periodsArray = [...selectedPeriods]
         const currentResults = new Map(generatedResults)
         const pendingPeriods = periodsArray.filter((period) => !currentResults.has(period))
         setLoadingLabel(`レポートを生成中… (0/${periodsArray.length})`)
@@ -320,7 +340,7 @@ export default function SetupWizard() {
           </p>
         </div>
         <div className="rounded-2xl bg-primary/[0.055] px-4 py-3 text-sm">
-          <p className="text-[10px] font-black text-on-surface-variant">現在の計測データ</p>
+          <p className="text-[10px] font-black text-on-surface-variant">{isDemo ? '現在のデモデータ' : '現在の計測データ'}</p>
           <p className="mt-1 max-w-[280px] truncate font-extrabold text-primary japanese-text">{currentCase?.name || '接続先を選んでください'}</p>
         </div>
       </div>
@@ -402,7 +422,7 @@ export default function SetupWizard() {
               {QUERY_TYPES.map((queryType, index) => ({ queryType, index }))
                 .filter(({ queryType }) => BASIC_QUERY_IDS.has(queryType.id))
                 .map(({ queryType, index }) => (
-                  <QueryOption key={queryType.id} queryType={queryType} index={index} selected={selected.has(index)} onToggle={toggle} />
+                  <QueryOption key={queryType.id} queryType={queryType} index={index} selected={selected.has(index)} onToggle={toggle} isDemo={isDemo} />
                 ))}
             </div>
           </div>
@@ -422,7 +442,7 @@ export default function SetupWizard() {
                 {QUERY_TYPES.map((queryType, index) => ({ queryType, index }))
                   .filter(({ queryType }) => !BASIC_QUERY_IDS.has(queryType.id))
                   .map(({ queryType, index }) => (
-                    <QueryOption key={queryType.id} queryType={queryType} index={index} selected={selected.has(index)} onToggle={toggle} />
+                    <QueryOption key={queryType.id} queryType={queryType} index={index} selected={selected.has(index)} onToggle={toggle} isDemo={isDemo} />
                   ))}
               </div>
             )}
@@ -440,6 +460,12 @@ export default function SetupWizard() {
                   ? `${selectedPeriods.size}期間を選択中。最新期間は自動で選んであります。`
                   : periods.length > 0 ? '1期間以上選んでください' : '利用できる期間を確認できませんでした'}
               </p>
+              {isDemo && (
+                <p data-testid="demo-period-lock" className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1.5 text-xs font-black text-on-secondary-container japanese-text">
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">lock</span>
+                  デモでは対象月と比較月をセットで使います
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -450,7 +476,7 @@ export default function SetupWizard() {
                   setGeneratedPeriods(new Set())
                   setGeneratedResults(new Map())
                 }}
-                disabled={loading || periods.length === 0}
+                disabled={loading || periods.length === 0 || isDemo}
                 className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-50"
               >
                 最新だけ見る
@@ -462,7 +488,7 @@ export default function SetupWizard() {
                   setGeneratedPeriods(new Set())
                   setGeneratedResults(new Map())
                 }}
-                disabled={loading || periods.length === 0}
+                disabled={loading || periods.length === 0 || isDemo}
                 className="min-h-11 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary disabled:opacity-50"
               >
                 すべて比べる
@@ -510,7 +536,7 @@ export default function SetupWizard() {
                       <summary className="cursor-pointer font-black text-on-surface-variant">接続の診断情報</summary>
                       <dl className="mt-3 grid gap-2 md:grid-cols-2">
                         {[
-                          ['保存先ID', periodDiagnostics.dataset_id],
+                          [isDemo ? 'データ種別' : '保存先ID', isDemo ? '完全架空データ' : periodDiagnostics.dataset_id],
                           ['まとめ方', periodDiagnostics.granularity],
                           ['確認できた表', periodDiagnostics.table_count],
                           ['確認方法', periodDiagnostics.method],
@@ -550,8 +576,10 @@ export default function SetupWizard() {
                       key={index}
                       type="button"
                       aria-pressed={selectedPeriods.has(value)}
+                      aria-disabled={isDemo}
+                      disabled={isDemo}
                       onClick={() => togglePeriod(value)}
-                      className={`min-h-24 rounded-2xl p-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+                      className={`min-h-24 rounded-2xl p-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed ${
                         selectedPeriods.has(value)
                           ? 'bg-primary/[0.055] ring-2 ring-primary/25'
                           : 'bg-surface-container-lowest ring-1 ring-outline-variant/20 hover:bg-surface-container-low'

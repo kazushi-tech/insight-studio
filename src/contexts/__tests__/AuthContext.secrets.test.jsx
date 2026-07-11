@@ -25,6 +25,24 @@ function SecretProbe() {
   )
 }
 
+function CaseProbe() {
+  const { user, loginWithCase } = useAuth()
+  return (
+    <div>
+      <output aria-label="case-user">{user ? JSON.stringify(user) : ''}</output>
+      <button onClick={() => loginWithCase({
+        case_id: 'demo',
+        name: 'Insight Studio デモ',
+        dataset_id: 'demo_portfolio_dataset',
+        token: 'demo-token',
+        is_demo: true,
+      })}>
+        デモ案件でログイン
+      </button>
+    </div>
+  )
+}
+
 describe('AuthContext analysis secrets', () => {
   beforeEach(() => {
     localStorage.clear()
@@ -69,5 +87,20 @@ describe('AuthContext analysis secrets', () => {
     expect(screen.getByLabelText('claude-key')).toBeEmptyDOMElement()
     expect(sessionStorage.getItem('is_gemini_key')).toBeNull()
     expect(sessionStorage.getItem('is_claude_key')).toBeNull()
+  })
+
+  it('persists the verified case demo flag with the case user', async () => {
+    const user = userEvent.setup()
+    render(<AuthProvider><CaseProbe /></AuthProvider>)
+
+    await user.click(screen.getByRole('button', { name: 'デモ案件でログイン' }))
+
+    expect(screen.getByLabelText('case-user')).toHaveTextContent('"is_demo":true')
+    expect(JSON.parse(localStorage.getItem('is_user'))).toEqual(expect.objectContaining({
+      role: 'case_user',
+      case_id: 'demo',
+      dataset_id: 'demo_portfolio_dataset',
+      is_demo: true,
+    }))
   })
 })

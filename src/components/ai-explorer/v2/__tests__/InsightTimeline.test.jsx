@@ -129,4 +129,15 @@ describe('InsightTimeline', () => {
     expect(screen.getByText(/再生成してください/)).toBeInTheDocument()
     expect(screen.queryByText(/^この回答は表示形式を整えられませんでした。新しいセッションで聞き直してください。$/)).not.toBeInTheDocument()
   })
+
+  it('shows the fixed fictional answer notice only in demo mode', () => {
+    const { rerender } = render(<InsightTimeline {...baseProps} hasAnalysisKey={false} isDemo />)
+
+    expect(screen.getByTestId('demo-ai-notice')).toHaveTextContent('固定された架空回答')
+    expect(screen.queryByText(/Geminiを設定すると/)).not.toBeInTheDocument()
+
+    rerender(<InsightTimeline {...baseProps} hasAnalysisKey={false} isDemo={false} />)
+    expect(screen.queryByTestId('demo-ai-notice')).not.toBeInTheDocument()
+    expect(screen.getByText(/Geminiを設定すると/)).toBeInTheDocument()
+  })
 })

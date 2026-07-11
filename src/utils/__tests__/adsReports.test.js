@@ -384,6 +384,63 @@ describe('beginner report bundle support', () => {
   })
 })
 
+describe('portfolio demo fixture contract', () => {
+  it('consumes the existing batch shape and keeps 2026-06 as latest when periods are newest-first', () => {
+    const makeDemoResult = (period, pageViews) => ({
+      ok: true,
+      period,
+      site: {
+        name: 'こもれび工房（完全架空サイト）',
+        url: 'https://komorebi-studio.example',
+      },
+      data_availability: 'full',
+      report_md: `# ${period}\n\n見られた回数: ${pageViews}`,
+      chart_data: {
+        groups: [makeGroup({
+          title: 'PV分析 — 月別推移',
+          query_type: 'pv',
+          labels: [period],
+          datasets: [{ label: 'PV数', data: [pageViews] }],
+        })],
+      },
+      execution_summary: [{ query_type: 'pv', status: 'success', row_count: 1, chart_group_count: 1 }],
+      beginner_report: {
+        version: 'beginner_report_v1',
+        summary_cards: [{
+          type: 'what_happened',
+          title: `${period}のまとめ`,
+          body: `見られた回数は${pageViews}です。`,
+          severity: 'positive',
+          evidence_chart_ids: ['chart_01'],
+        }],
+        next_actions: [{ priority: 'P1', title: '根拠を見る', reason: '数値確認のため。' }],
+        data_gaps: [],
+        recommended_charts: ['chart_01'],
+      },
+    })
+
+    const bundle = buildAdsReportBundle({
+      setupState: {
+        datasetId: 'demo_portfolio_dataset',
+        periods: ['2026-06', '2026-05'],
+        queryTypes: ['pv'],
+      },
+      results: [makeDemoResult('2026-06', 4860), makeDemoResult('2026-05', 4210)],
+    })
+
+    expect(bundle.source).toBe('bq_generate_batch')
+    expect(bundle.dataAvailability).toBe('full')
+    expect(bundle.site).toEqual({
+      name: 'こもれび工房（完全架空サイト）',
+      url: 'https://komorebi-studio.example',
+    })
+    expect(bundle.beginnerReport.summary_cards[0].title).toBe('2026-06のまとめ')
+    expect(getDisplayChartGroups(bundle.chartGroups, 'latest')).toEqual([
+      expect.objectContaining({ _periodTag: '2026-06', queryType: 'pv' }),
+    ])
+  })
+})
+
 describe('BQ execution summary', () => {
   it('keeps backend query execution status in the report bundle', () => {
     const bundle = buildAdsReportBundle({

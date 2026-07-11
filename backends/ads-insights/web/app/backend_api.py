@@ -85,6 +85,20 @@ from .ai_analysis import (
 
 # Import data providers
 from .data_providers import get_data_provider
+from .demo.portfolio_demo_fixture import (
+    DEMO_CASE_ID,
+    DEMO_DATASET_ID,
+    DEMO_DATA_SOURCE,
+)
+from .demo.portfolio_demo_service import (
+    ai_response as _demo_ai_response,
+    batch_generate_response as _demo_batch_generate_response,
+    bq_status_response as _demo_bq_status_response,
+    datasets_response as _demo_datasets_response,
+    periods_response as _demo_periods_response,
+    query_types_response as _demo_query_types_response,
+    single_generate_response as _demo_single_generate_response,
+)
 
 import math
 
@@ -1192,13 +1206,14 @@ app = FastAPI(title="ads-insights backend API")
 @app.on_event("startup")
 async def startup_event():
     import asyncio
-    asyncio.create_task(_cleanup_stale_gdrive_folders())
-    # BigQuery認証設定（Vercel: サービスアカウント / ローカル: ADCフォールバック）
-    try:
-        from bq.auth import setup_credentials
-        setup_credentials()
-    except ImportError:
-        pass  # BigQueryモジュール未インストール環境では何もしない
+    # Production/Vercel cold starts must not inspect or mutate customer-file
+    # directories before a request has even been authenticated.  Keep the
+    # legacy stale-folder maintenance local-development only.
+    if not _IS_PRODUCTION:
+        asyncio.create_task(_cleanup_stale_gdrive_folders())
+    # BigQuery credentials are configured lazily by bq.client.get_client().
+    # Keeping startup credential-free guarantees that a demo-only cold start
+    # does not decode or materialize the production service-account secret.
 
 async def _cleanup_stale_gdrive_folders():
     """
@@ -1366,6 +1381,87 @@ def _same_dataset_ref(left: str, right: str) -> bool:
     if "." in left and "." in right:
         return False
     return left.rsplit(".", 1)[-1] == right.rsplit(".", 1)[-1]
+
+
+def _validate_case_demo_configuration(case: dict) -> bool:
+    """Validate the reserved demo registry record and return its demo state.
+
+    The case id and the explicit marker must agree.  A partial or malformed
+    demo configuration fails closed instead of falling through to a real data
+    path.
+    """
+    case_id_is_demo = str(case.get("case_id") or "") == DEMO_CASE_ID
+    is_demo = case.get("is_demo") is True
+    if case_id_is_demo != is_demo:
+        raise HTTPException(status_code=403, detail="Demo case registry configuration is invalid")
+    if not is_demo:
+        return False
+    if case.get("is_active") is not True:
+        raise HTTPException(status_code=403, detail="Demo case is not active")
+    if case.get("is_internal", False) is not False:
+        raise HTTPException(status_code=403, detail="Demo case registry configuration is invalid")
+    if case.get("totp_enabled", False) is not False or bool(case.get("totp_secret")):
+        raise HTTPException(status_code=403, detail="Demo case registry configuration is invalid")
+    if str(case.get("dataset_id") or "").strip() != DEMO_DATASET_ID:
+        raise HTTPException(status_code=403, detail="Demo case dataset configuration is invalid")
+    return True
+
+
+def _resolve_demo_case_for_request(request: Optional[Request]) -> Optional[dict]:
+    """Resolve demo mode only from a verified case JWT and server registry.
+
+    This also revalidates active status and the JWT's signed dataset binding for
+    every case user.  Administrators never enter demo mode by selecting the
+    reserved dataset in a request.
+    """
+    claims = _get_request_auth_claims(request)
+    if not claims or claims.get("role") != "case_user":
+        return None
+
+    case_id = str(claims.get("case_id") or "")
+    signed_dataset_id = str(claims.get("dataset_id") or "").strip()
+    case = next(
+        (item for item in _load_cases_master() if str(item.get("case_id") or "") == case_id),
+        None,
+    )
+    if not case or not case.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Authenticated case is no longer active")
+
+    server_dataset_id = str(case.get("dataset_id") or "").strip()
+    if not server_dataset_id or not signed_dataset_id:
+        raise HTTPException(status_code=403, detail="Authenticated case has no dataset scope")
+    if signed_dataset_id != server_dataset_id:
+        raise HTTPException(status_code=403, detail="Authenticated case dataset scope has changed; sign in again")
+
+    return case if _validate_case_demo_configuration(case) else None
+
+
+def _validate_demo_requested_datasets(case: dict, *requested_values: Any) -> None:
+    server_dataset_id = str(case.get("dataset_id") or "").strip()
+    for requested in requested_values:
+        requested_dataset_id = str(requested or "").strip()
+        if requested_dataset_id and requested_dataset_id != server_dataset_id:
+            raise HTTPException(status_code=403, detail="Requested dataset is outside authenticated case scope")
+
+
+def _validate_demo_ai_payload(case: dict, payload: dict) -> None:
+    if payload.get("point_pack_path"):
+        raise HTTPException(status_code=403, detail="File-based point packs are not available to customer cases")
+    requested_data_source = str(payload.get("data_source") or "").strip().lower()
+    if requested_data_source and requested_data_source not in {"bq", DEMO_DATA_SOURCE}:
+        raise HTTPException(status_code=403, detail="Customer case analysis is limited to its scoped data source")
+
+    meta = payload.get("analysis_context_meta")
+    meta = meta if isinstance(meta, dict) else {}
+    _validate_demo_requested_datasets(
+        case,
+        payload.get("datasetId"),
+        payload.get("dataset_id"),
+        meta.get("datasetId"),
+        meta.get("dataset_id"),
+    )
+    if any(str(value or "").strip() for value in (payload.get("bq_project_id"), payload.get("projectId"))):
+        raise HTTPException(status_code=403, detail="BigQuery project overrides are not available in demo mode")
 
 
 def _resolve_bq_dataset_for_request(
@@ -2851,10 +2947,17 @@ def api_key_status():
     })
 
 def _has_duplicate_active_case_datasets(cases: list) -> bool:
+    """Reject ambiguous customer scopes while preserving internal aliases.
+
+    An internal operations case may intentionally share one customer's
+    dataset. Two active non-internal cases must never share a scope.
+    """
     seen = set()
     default_project = str(os.getenv("GCP_PROJECT_ID") or "analyzedataplatform").strip()
     for case in cases:
         if not case.get("is_active", True):
+            continue
+        if case.get("is_internal", False):
             continue
         dataset_id = str(case.get("dataset_id") or "").strip()
         if not dataset_id:
@@ -2891,9 +2994,9 @@ def _load_cases_master() -> list:
                 raise ValueError("ADS_CASES_JSON must be a JSON array of objects")
             if _has_duplicate_active_case_datasets(cases):
                 if _IS_PRODUCTION:
-                    print("[api_cases] duplicate active dataset scopes are forbidden in production")
+                    print("[api_cases] duplicate active customer dataset scopes are forbidden in production")
                     return []
-                print("[api_cases] warning: duplicate active dataset scopes in local ADS_CASES_JSON")
+                print("[api_cases] warning: duplicate active customer dataset scopes in local ADS_CASES_JSON")
             if _has_duplicate_active_password_hashes(cases):
                 if _IS_PRODUCTION:
                     print("[api_cases] duplicate active password hashes are forbidden in production")
@@ -2916,7 +3019,7 @@ def _load_cases_master() -> list:
         with open(cases_file, "r", encoding="utf-8") as f:
             cases = json.load(f)
             if isinstance(cases, list) and _has_duplicate_active_case_datasets(cases):
-                print("[api_cases] warning: duplicate active dataset scopes in local cases file")
+                print("[api_cases] warning: duplicate active customer dataset scopes in local cases file")
             if isinstance(cases, list) and _has_duplicate_active_password_hashes(cases):
                 print("[api_cases] warning: duplicate active password hashes in local cases file")
             return cases
@@ -2946,6 +3049,10 @@ def api_cases(request: Request):
 
     is_authenticated = bool(claims)
     authenticated_case_id = claims.get("case_id") if claims and claims.get("role") == "case_user" else None
+    if authenticated_case_id:
+        # Revalidate the signed case against the server registry even though
+        # this endpoint only returns metadata.
+        _resolve_demo_case_for_request(request)
 
     cases = []
     for c in cases_master:
@@ -2962,6 +3069,9 @@ def api_cases(request: Request):
         }
         if is_authenticated:
             entry["dataset_id"] = c.get("dataset_id", "")
+        if _validate_case_demo_configuration(c):
+            entry["is_demo"] = True
+            entry["data_source"] = DEMO_DATA_SOURCE
         cases.append(entry)
 
     return _json({"ok": True, "cases": cases})
@@ -2976,6 +3086,10 @@ def api_case_bq_status(case_id: str, request: Request = None):
     claims = _get_request_auth_claims(request)
     if claims and claims.get("role") == "case_user" and claims.get("case_id") != case_id:
         raise HTTPException(status_code=403, detail="Requested case is outside authenticated case scope")
+
+    demo_case = _resolve_demo_case_for_request(request)
+    if demo_case is not None:
+        return _json(_demo_bq_status_response())
 
     cases_master = _load_cases_master()
     case = next((c for c in cases_master if c.get("case_id") == case_id), None)
@@ -2997,6 +3111,7 @@ def api_case_bq_status(case_id: str, request: Request = None):
 
 
 def _case_login_success_payload(case: dict, *, issue_device_trust: bool = False) -> dict:
+    is_demo = _validate_case_demo_configuration(case)
     auth_token = _generate_case_auth_token(case)
     response = {
         "ok": True,
@@ -3006,6 +3121,9 @@ def _case_login_success_payload(case: dict, *, issue_device_trust: bool = False)
         "description": case.get("description", ""),
         "token": auth_token,
     }
+    if is_demo:
+        response["is_demo"] = True
+        response["data_source"] = DEMO_DATA_SOURCE
     if issue_device_trust:
         response["device_trust_token"] = _generate_device_trust_token(case)
         response["device_trust_ttl_seconds"] = _DEVICE_TRUST_TTL
@@ -3085,6 +3203,9 @@ async def api_cases_login(request: Request):
 
     case = matched_cases[0]
     case_id = str(case.get("case_id") or "")
+    # Validate the reserved demo record before any TOTP/device-trust branch can
+    # return a partial login response.
+    _validate_case_demo_configuration(case)
 
     totp_enabled = bool(case.get("totp_enabled", False))
     totp_secret = case.get("totp_secret") or ""
@@ -14216,6 +14337,11 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
         return _json({"ok": False, "error": "invalid_request", "message": "JSON object is required"}, status=400)
 
     claims = _get_request_auth_claims(request)
+    demo_case = _resolve_demo_case_for_request(request)
+    if demo_case is not None:
+        _validate_demo_ai_payload(demo_case, payload)
+        return _demo_ai_response(payload)
+
     if claims and claims.get("role") == "case_user":
         if payload.get("point_pack_path"):
             raise HTTPException(
@@ -16646,6 +16772,10 @@ def _bq_response_status(data_availability: str) -> int:
 @app.get("/api/bq/datasets")
 def api_bq_datasets(request: Request = None):
     """利用可能なBQデータセット一覧を返す（analytics_*のみ）。"""
+    demo_case = _resolve_demo_case_for_request(request)
+    if demo_case is not None:
+        return _json(_demo_datasets_response())
+
     claims = _get_request_auth_claims(request)
     if claims and claims.get("role") == "case_user":
         dataset_id = _resolve_bq_dataset_for_request(request, None)
@@ -16680,8 +16810,12 @@ def api_bq_datasets(request: Request = None):
 
 
 @app.get("/api/bq/query_types")
-def api_bq_query_types():
+def api_bq_query_types(request: Request = None):
     """利用可能なBQクエリタイプ一覧を返す。"""
+    demo_case = _resolve_demo_case_for_request(request)
+    if demo_case is not None:
+        return _json(_demo_query_types_response())
+
     try:
         from bq.queries import list_query_types
         return _json({"ok": True, "query_types": list_query_types()})
@@ -16708,7 +16842,14 @@ def api_bq_periods(
         granularity: 粒度 — "monthly" | "weekly" | "daily"
         fresh: Trueの場合キャッシュをバイパスして最新データを取得
     """
+    demo_case = _resolve_demo_case_for_request(request)
+    if demo_case is not None:
+        _validate_demo_requested_datasets(demo_case, dataset_id)
+        response_data, status_code = _demo_periods_response(granularity)
+        return _json(response_data, status_code)
+
     dataset_id = _resolve_bq_dataset_for_request(request, dataset_id)
+
     cache_key = f"periods:{dataset_id}:{granularity}"
     if not fresh:
         cached = _bq_cache.get(cache_key)
@@ -16847,6 +16988,12 @@ async def api_bq_generate(request: Request):
             return _json({"ok": False, "error": "validation_error",
                            "message": "期間（period）を指定してください"}, 400)
 
+        demo_case = _resolve_demo_case_for_request(request)
+        if demo_case is not None:
+            _validate_demo_requested_datasets(demo_case, body.get("dataset_id"), dataset_id)
+            response_data, status_code = _demo_single_generate_response(str(query_type), str(period))
+            return _json(response_data, status_code)
+
         # キャッシュチェック
         cache_key = f"{query_type}:{dataset_id}:{period}"
         cached = _bq_cache.get(cache_key)
@@ -16948,6 +17095,12 @@ async def api_bq_generate_batch(request: Request):
         if not query_types:
             return _json({"ok": False, "error": "validation_error",
                            "message": "クエリタイプを1つ以上指定してください"}, 400)
+
+        demo_case = _resolve_demo_case_for_request(request)
+        if demo_case is not None:
+            _validate_demo_requested_datasets(demo_case, body.get("dataset_id"), dataset_id)
+            response_data, status_code = _demo_batch_generate_response(query_types, str(period))
+            return _json(response_data, status_code)
 
         from bq.reporter import run_report, generate_cross_summary
         from bq.queries import QUERIES, normalize_dataset_ref

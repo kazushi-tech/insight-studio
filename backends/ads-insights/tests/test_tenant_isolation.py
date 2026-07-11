@@ -548,6 +548,18 @@ def test_cases_config_is_env_first_and_production_fail_closed(monkeypatch):
     monkeypatch.setenv("ADS_CASES_JSON", json.dumps(duplicate_scope))
     assert api._load_cases_master() == []
 
+    internal_alias_scope = [
+        {"case_id": "env_customer", "dataset_id": "analytics_shared", "is_active": True},
+        {
+            "case_id": "env_internal",
+            "dataset_id": "analyzedataplatform.analytics_shared",
+            "is_active": True,
+            "is_internal": True,
+        },
+    ]
+    monkeypatch.setenv("ADS_CASES_JSON", json.dumps(internal_alias_scope))
+    assert api._load_cases_master() == internal_alias_scope
+
     duplicate_password_hash = [
         {"case_id": "env_a", "dataset_id": "analytics_a", "password_hash": "same-hash"},
         {"case_id": "env_b", "dataset_id": "analytics_b", "password_hash": "same-hash"},

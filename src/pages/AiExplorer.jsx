@@ -22,6 +22,7 @@ import { extractInsightReport, getAdsText, normalizeAdsPayload, normalizeAiDispl
 import { getAnalysisModel } from '../utils/analysisProvider'
 import { CUSTOMER_AI_PROMPTS } from '../utils/customerReport'
 import { useUiVersion } from '../hooks/useUiVersion'
+import { shouldShowDemoMode } from '../utils/demoMode'
 import InsightTimeline from '../components/ai-explorer/v2/InsightTimeline'
 import InsightHtmlReport from '../components/ai-explorer/v2/InsightHtmlReport'
 
@@ -174,8 +175,10 @@ export default function AiExplorer() {
     analysisKey,
     analysisProvider,
     hasAnalysisKey,
+    user: authUser,
   } = useAuth()
   const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
   const { getDraft, setDraft, clearDraft } = useAnalysisRuns()
   const { avatarInitial } = useUserProfile()
   const { restoreTarget, clearRestoreTarget, addEntry } = useReportHistory()
@@ -688,6 +691,7 @@ export default function AiExplorer() {
         reportError={reportError}
         reportBundle={reportBundle}
         chartGroups={reportBundle?.chartGroups}
+        isDemo={isDemo}
         onOpenSetup={handleOpenAdsSetup}
         onOpenGraphs={handleOpenAdsGraphs}
       />
@@ -697,13 +701,19 @@ export default function AiExplorer() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="px-6 pt-5 pb-3 space-y-3">
+        {isDemo && (
+          <div data-testid="demo-ai-notice" className="flex items-center gap-3 rounded-[0.75rem] border border-primary/15 bg-primary/[0.045] px-5 py-3 text-sm text-primary">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">science</span>
+            <span className="japanese-text">デモでは固定された架空回答を表示します。外部AIは利用しません。</span>
+          </div>
+        )}
         {!isAdsAuthenticated && (
           <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
             <span className="japanese-text">Webサイト分析への接続が必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
-      {!hasAnalysisKey && (
+      {!hasAnalysisKey && !isDemo && (
         <div className="mb-4 flex items-center gap-3 rounded-[0.75rem] border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-900 dark:border-info/30 dark:bg-info-container dark:text-on-info-container">
           <span className="material-symbols-outlined text-lg">data_check</span>
           <span className="japanese-text">APIキーなしの根拠整理モードで利用できます。Geminiを設定すると、安価な1回生成と厳格検査で詳しい考察に切り替わります。</span>

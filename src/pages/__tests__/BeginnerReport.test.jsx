@@ -5,6 +5,7 @@ import BeginnerReport from '../BeginnerReport'
 
 const hoisted = vi.hoisted(() => ({
   adsSetupMock: null,
+  authUser: null,
 }))
 
 vi.mock('../../api/adsInsights', () => ({
@@ -20,7 +21,7 @@ vi.mock('../../components/ads/SourceBadge', () => ({
 }))
 
 vi.mock('../../contexts/AuthContext', () => ({
-  useAuth: () => ({ isAdsAuthenticated: true }),
+  useAuth: () => ({ isAdsAuthenticated: true, user: hoisted.authUser }),
 }))
 
 vi.mock('../../contexts/AdsSetupContext', () => ({
@@ -37,6 +38,7 @@ function renderPage() {
 
 describe('BeginnerReport', () => {
   beforeEach(() => {
+    hoisted.authUser = { role: 'case_user', is_demo: false }
     hoisted.adsSetupMock = {
       setupState: {
         datasetId: 'analytics_test',
@@ -97,6 +99,7 @@ describe('BeginnerReport', () => {
       },
       setReportBundle: vi.fn(),
       resetSetup: vi.fn(),
+      currentCase: { case_id: 'case-a', is_demo: false },
     }
   })
 
@@ -125,5 +128,28 @@ describe('BeginnerReport', () => {
     expect(screen.getByText('サイト閲覧は増えています')).toBeInTheDocument()
     expect(screen.getByText('まず流入元を見ます')).toBeInTheDocument()
     expect(screen.getByText('CV計測を確認する')).toBeInTheDocument()
+  })
+
+  it('uses demo source labels without exposing a BigQuery connection', () => {
+    hoisted.adsSetupMock.currentCase = {
+      case_id: 'demo',
+      dataset_id: 'demo_portfolio_dataset',
+      is_demo: true,
+    }
+    hoisted.authUser = { role: 'case_user', is_demo: true }
+    hoisted.adsSetupMock.setupState.datasetId = 'demo_portfolio_dataset'
+    hoisted.adsSetupMock.reportBundle.site = {
+      name: 'こもれび工房（完全架空サイト）',
+      url: 'https://komorebi-studio.example',
+    }
+
+    renderPage()
+
+    expect(screen.getByText('DEMO / 完全架空データ')).toBeInTheDocument()
+    expect(screen.getByText('データ: 完全架空データ')).toBeInTheDocument()
+    expect(screen.getByTestId('demo-site-name')).toHaveTextContent('こもれび工房（完全架空サイト）')
+    expect(screen.getByTestId('source-badge')).toHaveTextContent('demo')
+    expect(screen.queryByText('GA4 / BIGQUERY')).not.toBeInTheDocument()
+    expect(screen.queryByText(/保存先: demo_portfolio_dataset/)).not.toBeInTheDocument()
   })
 })

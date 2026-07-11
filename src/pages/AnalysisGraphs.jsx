@@ -38,6 +38,8 @@ import {
   friendlyDataMessage,
   replaceCustomerTerms,
 } from '../utils/customerReport'
+import { latestPeriodValue, periodRangeLabel } from '../utils/wizardPeriods'
+import { shouldShowDemoMode } from '../utils/demoMode'
 
 /* ── Section IDs for local nav ── */
 const SECTIONS = [
@@ -221,7 +223,7 @@ const TYPE_STYLES = {
 }
 
 /* ── Evidence Drawer ── */
-function EvidenceDrawer({ cards, reportBundle }) {
+function EvidenceDrawer({ cards, reportBundle, isDemo = false }) {
   if (!cards || cards.length === 0) return null
 
   return (
@@ -257,7 +259,7 @@ function EvidenceDrawer({ cards, reportBundle }) {
                   <div className="space-y-1.5 text-[11px] text-on-surface-variant">
                     <div className="flex justify-between">
                       <span className="font-medium">ソース</span>
-                      <span className="font-bold text-on-surface">{card.source ?? 'BQ / GA4'}</span>
+                      <span className="font-bold text-on-surface">{isDemo ? '完全架空データ' : card.source ?? 'BQ / GA4'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">値</span>
@@ -1455,6 +1457,7 @@ function GraphAiQuestionRail({
   analysisKey,
   analysisProvider,
   currentCase,
+  isDemo,
   onThemeChange,
   onScrollToGraphs,
   isCollapsed,
@@ -1641,7 +1644,7 @@ function GraphAiQuestionRail({
           </span>
           <span className="flex items-center justify-between rounded-xl bg-surface-container-low px-3 py-2">
             <b className="text-on-surface-variant">計測データ</b>
-            <strong className="text-primary truncate max-w-[170px]">{setupState?.datasetId || '未設定'}</strong>
+            <strong className="text-primary truncate max-w-[170px]">{isDemo ? '完全架空データ' : setupState?.datasetId || '未設定'}</strong>
           </span>
         </div>
 
@@ -1758,8 +1761,10 @@ export default function AnalysisGraphs() {
     isAdsAuthenticated,
     analysisKey,
     analysisProvider,
+    user: authUser,
   } = useAuth()
   const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
@@ -1900,13 +1905,11 @@ export default function AnalysisGraphs() {
 
   /* ── Header data ── */
   const periods = setupState?.periods ?? []
-  const dateRange = periods.length > 0
-    ? periods.length === 1 ? periods[0] : `${periods[0]} 〜 ${periods[periods.length - 1]}`
-    : null
+  const dateRange = periodRangeLabel(periods)
 
   const activeScopeLabel =
     periodFilter === 'all' ? '全期間まとめ'
-    : periodFilter === 'latest' ? `最新期間: ${periodTags[periodTags.length - 1] ?? '-'}`
+    : periodFilter === 'latest' ? `最新期間: ${latestPeriodValue(periodTags) ?? '-'}`
     : `対象期間: ${periodFilter}`
   const customerSimpleReport = useMemo(
     () => buildCustomerSimpleReport(filteredGroups, executionSummary, {
@@ -1985,11 +1988,18 @@ export default function AnalysisGraphs() {
               </h1>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-on-surface-variant text-sm">
+              {isDemo && reportBundle?.site?.name && (
+                <span data-testid="demo-site-name" className="font-semibold text-primary">
+                  サイト: {reportBundle.site.name}
+                </span>
+              )}
               {setupState?.datasetId && (
-                <span className="flex min-w-0 items-center gap-1 font-medium">
+                <span data-testid={isDemo ? 'demo-data-connection' : undefined} className="flex min-w-0 items-center gap-1 font-medium">
                   <span className="material-symbols-outlined text-base" aria-hidden="true">database</span>
                   <span className="max-w-[240px] truncate sm:max-w-none">
-                    {graphSurfaceMode === 'simple' ? 'サイト計測データ接続済み' : setupState.datasetId}
+                    {isDemo
+                      ? graphSurfaceMode === 'simple' ? 'デモデータ利用中' : '完全架空データ'
+                      : graphSurfaceMode === 'simple' ? 'サイト計測データ接続済み' : setupState.datasetId}
                   </span>
                 </span>
               )}
@@ -2007,7 +2017,7 @@ export default function AnalysisGraphs() {
             </div>
             {/* Source chips */}
             <div className="flex gap-2 pt-1">
-              <SourceBadge source="ga4" />
+              <SourceBadge source={isDemo ? 'demo' : 'ga4'} />
             </div>
           </div>
 
@@ -2166,7 +2176,7 @@ export default function AnalysisGraphs() {
           <AiContextRail
             screenName="Web成果レポートAIレール"
             status={adsRailStatus}
-            inputSummary={setupState?.datasetId || '計測データ未設定'}
+            inputSummary={isDemo ? '完全架空データ' : setupState?.datasetId || '計測データ未設定'}
             evidence={['サイト計測', '取得状態', '追加で見る項目', '未確認の理由']}
             suggestedQuestions={[
               '問い合わせにつながる動きは確認できていますか？',
@@ -2249,6 +2259,7 @@ export default function AnalysisGraphs() {
               analysisKey={analysisKey}
               analysisProvider={analysisProvider}
               currentCase={currentCase}
+              isDemo={isDemo}
               onThemeChange={setActiveTheme}
               onScrollToGraphs={() => scrollToSection('graphs')}
               isCollapsed={isAiRailCollapsed}
@@ -2384,7 +2395,7 @@ export default function AnalysisGraphs() {
 
       {/* ═══ EVIDENCE DRAWER ═══ */}
       {graphSurfaceMode === 'detail' && currentReport && executiveCards.length > 0 && (
-        <EvidenceDrawer cards={executiveCards} reportBundle={reportBundle} />
+        <EvidenceDrawer cards={executiveCards} reportBundle={reportBundle} isDemo={isDemo} />
       )}
     </div>
   )

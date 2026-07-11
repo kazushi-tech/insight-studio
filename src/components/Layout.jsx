@@ -18,6 +18,7 @@ import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 import { isProjectManagementEnabled } from '../config/features'
+import { shouldShowDemoMode } from '../utils/demoMode'
 
 const SETUP_GATED_PATHS = ['/ads/report', '/ads/graphs', '/ads/ai', '/insights/ai']
 const AI_EXPLORER_PATH = '/insights/ai'
@@ -481,10 +482,11 @@ export default function Layout() {
   const location = useLocation()
   const { hasAnalysisKey, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
-  const { isSetupComplete, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
+  const { isSetupComplete, resetSetup, authenticateCase, clearCase, selectCase, currentCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
   const { canManageProjects, isCaseUser } = useRbac()
   const navigate = useNavigate()
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
 
   // Pre-warm backends (fire-and-forget) to avoid cold-start delays
   useEffect(() => {
@@ -505,6 +507,7 @@ export default function Layout() {
         case_id: caseInfo.case_id || caseInfo.id,
         name: caseInfo.name,
         dataset_id: caseInfo.dataset_id,
+        is_demo: caseInfo.is_demo === true,
       })
     } else {
       setSelectedCase(caseInfo)
@@ -565,7 +568,9 @@ export default function Layout() {
     }
   }, [])
 
-  const profileCaption = isAdsAuthenticated ? 'Webサイト分析 接続済' : 'ローカルプロフィール'
+  const profileCaption = isDemo
+    ? 'デモデータ利用中'
+    : isAdsAuthenticated ? 'Webサイト分析 接続済' : 'ローカルプロフィール'
   const showKeyAttention = !isAdsAuthenticated
   const mobileNavItems = [
     { to: '/', icon: 'home', label: 'ホーム' },
@@ -631,10 +636,10 @@ export default function Layout() {
           <div className="px-6 mb-3">
             <Link to="/settings" className="block space-y-3 rounded-xl bg-white/[0.06] p-3 text-xs transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-fixed">
               <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/75">Webサイトデータ</span>
+                <span className="min-w-0 truncate text-white/75">{isDemo ? '完全架空データ' : 'Webサイトデータ'}</span>
                 <span className={`flex shrink-0 items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-300' : 'text-white/70'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                  {isAdsAuthenticated ? '接続済み' : '準備が必要'}
+                  {isDemo ? 'デモデータ利用中' : isAdsAuthenticated ? '接続済み' : '準備が必要'}
                 </span>
               </div>
               <div className="flex min-w-0 items-center justify-between gap-2">
@@ -679,7 +684,7 @@ export default function Layout() {
       >
         {/* Top Header */}
         <header className="sticky top-0 z-50 flex min-h-16 w-full flex-nowrap items-center justify-between gap-2 border-b border-outline-variant/10 bg-surface/90 px-4 py-2 backdrop-blur-md lg:h-16 lg:gap-3 lg:px-8 lg:py-0">
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             {isCaseUser ? (
               <div className="flex min-w-0 items-center gap-2 font-bold text-on-surface">
                 <span className="material-symbols-outlined text-secondary">folder</span>
@@ -687,6 +692,15 @@ export default function Layout() {
               </div>
             ) : (
               <CaseSelector onCaseSelect={handleCaseSelect} />
+            )}
+            {isDemo && (
+              <span
+                data-testid="demo-mode-badge"
+                className="shrink-0 whitespace-nowrap rounded-full bg-secondary-container px-2 py-1 text-[9px] font-black leading-none tracking-wide text-on-secondary-container sm:px-2.5 sm:text-[10px]"
+                aria-label="DEMO・完全架空データ"
+              >
+                DEMO・完全架空データ
+              </span>
             )}
           </div>
           <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 lg:gap-6">

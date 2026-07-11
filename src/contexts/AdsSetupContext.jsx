@@ -165,13 +165,14 @@ export function AdsSetupProvider({ children }) {
         case_id: user.case_id,
         name: user.display_name || user.case_id,
         dataset_id: user.dataset_id,
+        is_demo: user.is_demo === true,
       }
       setCurrentCase(caseInfo) // eslint-disable-line react-hooks/set-state-in-effect -- sync user role
       setIsCaseAuthenticated(true)
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
       localStorage.setItem(CASE_AUTH_KEY, 'true')
     }
-  }, [user?.role, user?.case_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.role, user?.case_id, user?.is_demo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Run legacy migration on first mount
   useEffect(() => {
@@ -224,6 +225,7 @@ export function AdsSetupProvider({ children }) {
       case_id: result.case_id,
       name: result.name,
       dataset_id: result.dataset_id,
+      is_demo: result.is_demo === true,
     }
     setCurrentCase(caseInfo)
     setIsCaseAuthenticated(true)
