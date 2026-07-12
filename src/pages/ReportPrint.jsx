@@ -63,7 +63,7 @@ export default function ReportPrint() {
           type="button"
           onClick={() => window.print()}
           disabled={currentState.status !== 'ready'}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-black text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-black text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait"
         >
           <span className="material-symbols-outlined text-lg" aria-hidden="true">print</span>
           印刷・PDFとして保存
