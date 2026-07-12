@@ -9,8 +9,10 @@ import pytest
 
 from web.app.policies import (
     MAX_URLS,
+    UnsafeUrlError,
     allowed_domains,
     load_allowlist,
+    resolve_public_target,
     validate_operator_url,
     validate_url,
     validate_urls,
@@ -232,6 +234,19 @@ class TestOperatorUrlSsrfBlocked:
         err = validate_operator_url("ftp://example.com/file")
         assert err is not None
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://[::1]/admin",
+            "http://[fc00::1]/admin",
+            "https://example.com:8443/admin",
+            "https://user:pass@example.com/admin",
+            "http://metadata.google.internal./computeMetadata/v1/",
+        ],
+    )
+    def test_ipv6_port_userinfo_and_metadata_variants_blocked(self, url):
+        assert validate_operator_url(url) is not None
+
 
 class TestOperatorUrlAllowlistSkipped:
     """Operator URLs should pass even for domains NOT on the allowlist."""
@@ -277,3 +292,81 @@ class TestDnsRebindingBlocked:
         err = validate_operator_url("https://rebind-192.attacker.com/steal")
         assert err is not None
         assert "private" in err.lower()
+
+    def test_mixed_public_and_private_results_reject_whole_host(self, monkeypatch):
+        def _fake(*a, **kw):
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("10.0.0.7", 0)),
+            ]
+
+        monkeypatch.setattr(socket, "getaddrinfo", _fake)
+        err = validate_operator_url("https://mixed.attacker.test/path")
+        assert err == "Private or reserved network destinations are blocked"
+        assert "mixed.attacker.test" not in err
+        assert "10.0.0.7" not in err
+
+    @pytest.mark.parametrize(
+        "address",
+        [
+            "::1",
+            "fe80::1",
+            "fc00::1",
+            "2001:db8::1",
+            "::ffff:127.0.0.1",
+            "169.254.169.254",
+            "100.100.100.200",
+        ],
+    )
+    def test_non_public_dns_answers_are_rejected_without_value_leak(self, monkeypatch, address):
+        family = socket.AF_INET6 if ":" in address else socket.AF_INET
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda *args, **kwargs: [(family, socket.SOCK_STREAM, 0, "", (address, 0))],
+        )
+        err = validate_operator_url("https://resolver-answer.example/path")
+        assert err is not None
+        assert address not in err
+        assert "resolver-answer.example" not in err
+
+
+class TestResolvedPublicTarget:
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://2130706433/",
+            "http://0177.0.0.1/",
+            "http://0x7f.0.0.1/",
+            "http://127.1/",
+            "http://[::ffff:93.184.216.34]/",
+        ],
+    )
+    def test_ambiguous_or_mapped_ip_literals_are_rejected(self, url):
+        with pytest.raises(UnsafeUrlError):
+            resolve_public_target(url, resolver=_public_addrinfo)
+
+    def test_all_public_a_and_aaaa_addresses_are_canonicalized_and_pinned(self):
+        def _dual_stack(*args, **kwargs):
+            return [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0)),
+                (socket.AF_INET6, socket.SOCK_STREAM, 0, "", ("2606:2800:220:1:248:1893:25c8:1946", 0, 0, 0)),
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0)),
+            ]
+
+        target = resolve_public_target("https://Example.COM./path#ignored", resolver=_dual_stack)
+        assert target.url == "https://example.com/path"
+        assert target.hostname == "example.com"
+        assert target.port == 443
+        assert target.addresses == (
+            "93.184.216.34",
+            "2606:2800:220:1:248:1893:25c8:1946",
+        )
+
+    def test_customer_safe_validation_error_never_contains_submitted_url(self):
+        url = "http://169.254.169.254/latest/meta-data/secret"
+        err = validate_urls([url])
+        assert err
+        combined = " ".join(err)
+        assert url not in combined
+        assert "169.254.169.254" not in combined

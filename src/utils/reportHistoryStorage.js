@@ -13,7 +13,7 @@ const QUERY_TYPE_LABELS = {
   search: '検索クエリ',
   landing: 'LP流入',
   user_attr: 'ユーザー属性',
-  auction_proxy: '流入影響',
+  auction_proxy: '流入集中の参考値',
 }
 
 export function storageKeyForCase(caseId) {
@@ -116,6 +116,15 @@ export function buildEntry({ caseId, setupState, reportBundle, messages, context
           chartGroups: Array.isArray(reportBundle.chartGroups) ? reportBundle.chartGroups : [],
           generatedAt: reportBundle.generatedAt ?? null,
           source: reportBundle.source ?? null,
+          ...(reportBundle.reportV2?.schema_version === 'report.v2'
+            ? { reportV2: reportBundle.reportV2 }
+            : {}),
+          ...(typeof reportBundle.dataAvailability === 'string'
+            ? { dataAvailability: reportBundle.dataAvailability }
+            : {}),
+          ...(typeof reportBundle.missingReason === 'string'
+            ? { missingReason: reportBundle.missingReason }
+            : {}),
         }
       : null,
     messages: sanitizedMessages,

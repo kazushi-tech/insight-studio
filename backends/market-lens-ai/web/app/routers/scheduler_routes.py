@@ -100,6 +100,8 @@ def create_scheduler_router(
     @router.get("/{job_id}/results", response_model=list[JobResult])
     async def get_results(job_id: str, limit: int = Query(default=10, ge=1, le=50), _: str | None = Depends(verify_auth_optional)):
         _check_id(job_id, "job_id")
+        if _scheduler.get_job(job_id) is None:
+            raise HTTPException(status_code=404, detail="Job not found")
         return _scheduler.get_results(job_id, limit=limit)
 
     @router.post("/run-all", response_model=dict)

@@ -211,6 +211,8 @@ describe('chart group normalization', () => {
     expect(bundle.periodReports[0].reportMd).toBe('# Apr')
     expect(bundle.periodReports[0].chartGroups[0].title).toBe('Apr graph')
     expect(bundle.periodReports[1].reportMd).toBe('# May')
+
+    expect(bundle.reportV2).toBeNull()
   })
 
   it('renames trend coverage into a concrete selection explanation', () => {
@@ -248,7 +250,7 @@ describe('chart group normalization', () => {
       datasets: [{ label: 'organic', data: [120] }],
     }))
 
-    expect(normalized.title).toBe('流入の競合影響チェック（推定） — 日別チャネル推移')
+    expect(normalized.title).toBe('流入集中の参考値 — 日別チャネル推移')
   })
 
   it('classifies crowded line charts as focused lines', () => {

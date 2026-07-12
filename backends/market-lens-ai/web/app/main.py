@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import ssl
 import sys
 import time
-from collections import defaultdict
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -19,16 +17,21 @@ from fastapi.responses import JSONResponse
 from fastapi.responses import RedirectResponse
 
 from .policies import allowed_domains
-from .repositories import create_asset_repository, create_review_repository
-from .repositories.file_scan_repository import FileScanRepository
-from .repositories.file_scan_job_repository import FileScanJobRepository
+from .repositories.tenant_db_repository import (
+    TenantRepositoryConfigurationError,
+    create_tenant_repository_bundle,
+    unavailable_tenant_repository_bundle,
+)
 from .routers.creative_asset_routes import create_asset_router
-from .repositories.file_discovery_job_repository import FileDiscoveryJobRepository
 from .routers.discovery_routes import create_discovery_router
 from .routers.export_routes import router as export_router
 from .routers.integration_routes import router as integration_router
 from .routers.generation_routes import create_generation_router
-from .routers.health_routes import router as health_router
+from .routers.health_routes import (
+    configure_analysis_worker_readiness,
+    configure_repository_readiness,
+    router as health_router,
+)
 from .routers.history_routes import create_history_router
 from .routers.policy_routes import router as policy_router
 from .routers.review_routes import create_review_router
@@ -38,8 +41,31 @@ from .routers.watchlist_routes import create_watchlist_router
 from .routers.scheduler_routes import create_scheduler_router
 from .routers.delivery_routes import create_delivery_router
 from .routers.admin_routes import create_admin_router
-from .gemini_budget import get_budget_summary, reset_budget_for_dev
+from .jobs.runner import JobRunner
+from .jobs.analysis_backend import (
+    InlineAnalysisJobBackend,
+    JobBackendConfigurationError,
+    JobBackendMode,
+    JobBackendSettings,
+    UnavailableAnalysisJobBackend,
+    create_analysis_job_backend,
+)
+from .gemini_budget import GeminiBudgetUnavailable, get_budget_summary, reset_budget_for_dev
 from .auth import verify_admin_or_integration
+from .api_errors import ensure_request_id, http_exception_response, problem_response
+from .tenant_auth import (
+    TenantAuthConfigurationError,
+    clear_current_tenant_context,
+    get_managed_session_factory,
+    reset_current_tenant_context,
+)
+from .observability import capture_exception_safe, initialize_sentry, log_event, workspace_hash
+from .shared_rate_limits import (
+    RateLimitUnavailable,
+    clear_rate_limit_buckets,
+    consume_rate_limit,
+)
+from starlette.concurrency import run_in_threadpool
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -98,37 +124,94 @@ for env_file in [".env.local", ".env"]:
         load_dotenv(env_file)
         break
 
+initialize_sentry()
+
 # ── App ──────────────────────────────────────────────────────
 app = FastAPI(title="Market Lens AI", version="0.2.0")
 
 # ── CORS ─────────────────────────────────────────────────────
-_default_origins = [
+_IS_PRODUCTION = bool(os.getenv("RENDER") or os.getenv("VERCEL"))
+_dev_origins = [
     "http://localhost:3001",
     "http://localhost:3002",
     "http://127.0.0.1:3002",
     "http://127.0.0.1:3004",
-    "https://insight-studio-chi.vercel.app",
 ]
 _env_origins = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "").split(",")
     if origin.strip()
 ]
-_allowed_origins = list(dict.fromkeys([*_env_origins, *_default_origins]))
-# Vercel preview deploys を正規表現で許可
-_CORS_ORIGIN_REGEX = r"^https://insight-studio(-[a-z0-9-]+)?\.vercel\.app$"
+_allowed_origins = [] if _IS_PRODUCTION else list(dict.fromkeys([*_env_origins, *_dev_origins]))
+_cors_headers = [
+    "Content-Type",
+    "Authorization",
+    "X-API-Key",
+    "X-Insight-Project",
+    "X-Analysis-Provider",
+    "X-Client-ID",
+    "X-Gemini-API-Key",
+    "Idempotency-Key",
+    "Accept",
+]
+if not _IS_PRODUCTION:
+    _cors_headers.append("X-Insight-User")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_origin_regex=_CORS_ORIGIN_REGEX,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
-    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Insight-User", "X-Analysis-Provider", "X-Client-ID", "X-Gemini-API-Key", "Accept"],
+    allow_headers=_cors_headers,
 )
 
-# ── Rate Limit (simple in-memory) ────────────────────────────
+
+@app.middleware("http")
+async def tenant_context_lifecycle_middleware(request: Request, call_next):
+    """Prevent verified tenant context from leaking across reused tasks."""
+
+    clear_current_tenant_context()
+    request.state.tenant_context_tokens = []
+    try:
+        return await call_next(request)
+    finally:
+        tokens = getattr(request.state, "tenant_context_tokens", [])
+        for token in reversed(tokens if isinstance(tokens, list) else []):
+            try:
+                reset_current_tenant_context(token)
+            except (RuntimeError, ValueError):
+                # Some Starlette middleware layers execute downstream in a
+                # copied context; the unconditional clear below remains the
+                # authoritative cleanup for this request task.
+                pass
+        clear_current_tenant_context()
+
+# ── PostgreSQL-shared rate limit ─────────────────────────────
 _rate_window = 60  # seconds
 _rate_max = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
-_rate_store: dict[str, list[float]] = defaultdict(list)
+
+
+class _LegacyRateStoreClearAdapter:
+    """Test compatibility shim; no request state is kept in this process."""
+
+    @staticmethod
+    def clear() -> None:
+        clear_rate_limit_buckets()
+
+
+_rate_store = _LegacyRateStoreClearAdapter()
+
+
+def _rate_limit_subject(request: Request) -> str:
+    """Return server-observed subject material; persistence HMACs it.
+
+    We deliberately ignore X-Client-ID and forwarded-address headers because
+    they are caller-controlled in several supported deployments.  Authenticated
+    routes are still protected by their authorization dependency; the shared
+    limiter uses the socket peer so rotating arbitrary bearer strings cannot
+    bypass capacity.
+    """
+
+    client_host = request.client.host if request.client else "unknown"
+    return f"socket:{client_host}"
 
 
 @app.middleware("http")
@@ -142,39 +225,106 @@ async def rate_limit_middleware(request: Request, call_next):
     )
 
     if is_protected:
-        client_ip = request.client.host if request.client else "unknown"
-        now = time.time()
-        timestamps = _rate_store[client_ip]
-        _rate_store[client_ip] = [t for t in timestamps if now - t < _rate_window]
-        if len(_rate_store[client_ip]) >= _rate_max:
-            logger.warning("Rate limit exceeded for %s", client_ip)
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Rate limit exceeded. Try again later."},
+        try:
+            decision = await run_in_threadpool(
+                consume_rate_limit,
+                subject_material=_rate_limit_subject(request),
+                route_key=f"{request.method.upper()}:{request.url.path}",
+                limit=_rate_max,
+                window_seconds=_rate_window,
             )
-        _rate_store[client_ip].append(now)
+        except RateLimitUnavailable:
+            return problem_response(
+                request,
+                status_code=503,
+                code="rate_limit_unavailable",
+                category="dependency",
+                user_message="サービスを一時的に利用できません。時間をおいて再試行してください。",
+                retryable=True,
+            )
+        if not decision.allowed:
+            log_event(
+                "warning",
+                "http_request_rate_limited",
+                request_id=ensure_request_id(request),
+                status_code=429,
+            )
+            return problem_response(
+                request,
+                status_code=429,
+                code="rate_limited",
+                category="rate_limit",
+                user_message="操作が集中しています。少し待って再試行してください。",
+                retryable=True,
+                headers={"Retry-After": str(decision.retry_after_seconds)},
+            )
     return await call_next(request)
 
 
-# ── Error handler ────────────────────────────────────────────
+# ── Response and error policy ────────────────────────────────
+@app.middleware("http")
+async def response_policy_middleware(request: Request, call_next):
+    request_id = ensure_request_id(request)
+    started = time.monotonic()
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if request.url.path.startswith("/api/auth"):
+        response.headers["Cache-Control"] = "private, no-store"
+    tenant = getattr(request.state, "tenant_context", None)
+    log_event(
+        "info",
+        "http_request_completed",
+        request_id=request_id,
+        workspace_hash=workspace_hash(getattr(tenant, "workspace_id", None)),
+        duration_ms=round((time.monotonic() - started) * 1000, 1),
+        status_code=response.status_code,
+    )
+    return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return http_exception_response(request, exc)
+
+
+@app.exception_handler(GeminiBudgetUnavailable)
+async def gemini_budget_unavailable_handler(request: Request, _exc: GeminiBudgetUnavailable):
+    return problem_response(
+        request,
+        status_code=503,
+        code="ai_budget_unavailable",
+        category="dependency",
+        user_message="AI分析を一時的に利用できません。時間をおいて再試行してください。",
+        retryable=True,
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    # Let FastAPI handle HTTPException with its own status code and detail
-    if isinstance(exc, HTTPException):
-        raise exc
-    logger.error("Unhandled error on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
-    error_type = type(exc).__name__
-    # Manually attach CORS headers so the browser can read the error JSON
-    # instead of showing an opaque CORS failure.
-    origin = request.headers.get("origin", "")
-    headers = {}
-    if origin and (origin in _allowed_origins or re.match(_CORS_ORIGIN_REGEX, origin)):
-        headers["access-control-allow-origin"] = origin
-        headers["access-control-allow-credentials"] = "true"
-    return JSONResponse(
+    capture_exception_safe(
+        exc,
+        error_code=type(exc).__name__,
+        stage="http_request",
+    )
+    log_event(
+        "error",
+        "http_request_failed",
+        request_id=ensure_request_id(request),
+        workspace_hash=workspace_hash(
+            getattr(getattr(request.state, "tenant_context", None), "workspace_id", None)
+        ),
         status_code=500,
-        content={"detail": f"Internal server error ({error_type})"},
-        headers=headers,
+        error_code=type(exc).__name__,
+    )
+    return problem_response(
+        request,
+        status_code=500,
+        code="internal_error",
+        category="unexpected",
+        user_message="処理を完了できませんでした。時間をおいて再試行してください。",
+        retryable=True,
     )
 
 
@@ -190,12 +340,18 @@ async def _startup_checks():
         logger.info("Allowlist loaded: %d domain(s)", len(domains))
     if not os.getenv("ANTHROPIC_API_KEY"):
         logger.info("ANTHROPIC_API_KEY not set — Discovery/analysis are running in BYOK mode")
-    stale_count = _discovery_job_repo.mark_stale_running_as_failed()
-    if stale_count:
-        logger.info("Marked %d stale discovery job(s) as failed on startup", stale_count)
-    scan_stale_count = _scan_job_repo.mark_stale_running_as_failed()
-    if scan_stale_count:
-        logger.info("Marked %d stale scan job(s) as failed on startup", scan_stale_count)
+    if (
+        _repository_bundle.is_ready()
+        and getattr(_analysis_job_backend, "mode", None) == JobBackendMode.inline
+    ):
+        stale_count = _discovery_job_repo.mark_stale_running_as_failed()
+        if stale_count:
+            logger.info("Marked %d stale discovery job(s) as failed on startup", stale_count)
+        scan_stale_count = _scan_job_repo.mark_stale_running_as_failed()
+        if scan_stale_count:
+            logger.info("Marked %d stale scan job(s) as failed on startup", scan_stale_count)
+    elif not _repository_bundle.is_ready():
+        logger.error("Market Lens persistence readiness failed; local fallback is disabled")
     tls_snapshot = _runtime_tls_snapshot()
     logger.info(
         "Runtime TLS snapshot python=%s openssl=%s default_cafile=%s "
@@ -246,19 +402,94 @@ async def root():
 
 
 # ── Wire routers ─────────────────────────────────────────────
-_repo = FileScanRepository()
-_scan_job_repo = FileScanJobRepository()
-_asset_repo = create_asset_repository(os.getenv("REPOSITORY_BACKEND", "file"))
-_review_repo = create_review_repository(os.getenv("REPOSITORY_BACKEND", "file"))
+try:
+    _repository_bundle = create_tenant_repository_bundle(verify_connection=False)
+except TenantRepositoryConfigurationError:
+    logger.exception("Market Lens repository configuration is unavailable")
+    _repository_bundle = unavailable_tenant_repository_bundle()
+
+try:
+    _analysis_job_settings = JobBackendSettings.from_env()
+    if _analysis_job_settings.mode == JobBackendMode.inline:
+        _analysis_job_backend = InlineAnalysisJobBackend()
+    else:
+        _analysis_job_backend = create_analysis_job_backend(
+            get_managed_session_factory(),
+            settings=_analysis_job_settings,
+        )
+except (JobBackendConfigurationError, TenantAuthConfigurationError):
+    logger.exception("Analysis job backend configuration is unavailable")
+    _analysis_job_backend = UnavailableAnalysisJobBackend()
+
+
+def _runtime_readiness() -> bool:
+    if not _repository_bundle.is_ready():
+        return False
+    mode = getattr(_analysis_job_backend, "mode", None)
+    if mode == JobBackendMode.inline:
+        return True
+    if mode in {JobBackendMode.worker, JobBackendMode.workflow}:
+        return bool(_analysis_job_backend.readiness())
+    return False
+
+
+def _analysis_worker_readiness() -> dict[str, object]:
+    mode = getattr(_analysis_job_backend, "mode", None)
+    if mode == JobBackendMode.worker:
+        return _analysis_job_backend.worker_readiness_snapshot()
+    return {
+        "mode": mode.value if isinstance(mode, JobBackendMode) else "unavailable",
+        "required": False,
+        "ready": mode in {JobBackendMode.inline, JobBackendMode.workflow},
+        "freshness_seconds": getattr(
+            getattr(_analysis_job_backend, "settings", None),
+            "lease_seconds",
+            60,
+        ),
+        "fresh_workers": 0,
+        "stale_workers": 0,
+        "stopped_workers": 0,
+        "starting_workers": 0,
+        "latest_heartbeat_at": None,
+        "latest_successful_job_at": None,
+    }
+
+
+configure_repository_readiness(_runtime_readiness)
+configure_analysis_worker_readiness(_analysis_worker_readiness)
+_repo = _repository_bundle.scan_repo
+_scan_job_repo = _repository_bundle.scan_job_repo
+_asset_repo = _repository_bundle.asset_repo
+_review_repo = _repository_bundle.review_repo
+_watchlist_repo = _repository_bundle.watchlist_repo
+_scheduler = _repository_bundle.scheduler
+_delivery_repo = _repository_bundle.delivery_repo
 
 app.include_router(health_router)
 app.include_router(policy_router)
-app.include_router(create_scan_router(_repo, job_repo=_scan_job_repo))
+app.include_router(
+    create_scan_router(
+        _repo,
+        job_repo=_scan_job_repo,
+        analysis_job_backend=_analysis_job_backend,
+    )
+)
 app.include_router(create_history_router(_repo))
 app.include_router(create_asset_router(_asset_repo))
-app.include_router(create_review_router(_asset_repo, review_repo=_review_repo))
-_discovery_job_repo = FileDiscoveryJobRepository()
-app.include_router(create_discovery_router(job_repo=_discovery_job_repo))
+app.include_router(
+    create_review_router(
+        _asset_repo,
+        review_repo=_review_repo,
+        analysis_job_backend=_analysis_job_backend,
+    )
+)
+_discovery_job_repo = _repository_bundle.discovery_job_repo
+app.include_router(
+    create_discovery_router(
+        job_repo=_discovery_job_repo,
+        analysis_job_backend=_analysis_job_backend,
+    )
+)
 def _load_review_result(run_id: str):
     """Load (ReviewResult, asset_id) from review repository for banner generation."""
     from .schemas.review_result import ReviewResult
@@ -291,13 +522,9 @@ app.include_router(create_generation_router(
     asset_metadata_loader=_asset_repo.load_metadata,
 ))
 app.include_router(template_router)
-from .repositories.watchlist_repository import WatchlistRepository as _WatchlistRepo
 from .services.competitor_monitor import CompetitorMonitor as _CompetitorMonitor
 from . import fetcher as _fetcher_mod
 from . import extractor as _extractor_mod
-
-_watchlist_repo = _WatchlistRepo()
-
 
 class _FetcherAdapter:
     """Adapt module-level fetch_html into object with .fetch() method."""
@@ -320,9 +547,12 @@ _monitor = _CompetitorMonitor(
 )
 
 app.include_router(create_watchlist_router(repo=_watchlist_repo, monitor=_monitor))
-app.include_router(create_scheduler_router())
-app.include_router(create_delivery_router())
-app.include_router(create_admin_router())
+app.include_router(create_scheduler_router(
+    scheduler=_scheduler,
+    runner=JobRunner(_scheduler, monitor=_monitor),
+))
+app.include_router(create_delivery_router(repository=_delivery_repo))
+app.include_router(create_admin_router(analysis_job_backend=_analysis_job_backend))
 app.include_router(integration_router)
 app.include_router(export_router)
 

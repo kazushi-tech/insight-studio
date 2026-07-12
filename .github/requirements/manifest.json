@@ -1,0 +1,50 @@
+{
+  ".github/requirements/ads-ci.lock": {
+    "lock_sha256": "c49bc82a3c17b66b9598c008b371027fe29c5606e73c075ade00c537c46062ce",
+    "package_count": 91,
+    "sources": {
+      ".github/requirements/ads-ci.in": "a9cf83bbb76dce366a22681cd1bc8c4e4e9b6bd41aeb7ecc17a3f4734d45d31a",
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      "backends/ads-insights/requirements.in": "e57f36172542bbc7fa322d3be802eef4055ea0f362f81da8210021b9b27e771c"
+    }
+  },
+  ".github/requirements/ml-ci.lock": {
+    "lock_sha256": "da0c4ceae5d05c53df4f8a38f3c741f29db606851a76e3d8c3d79676c2ad4400",
+    "package_count": 75,
+    "sources": {
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      ".github/requirements/ml-ci.in": "f772d9e11c980df726f7515aed6837b710bc79a7cd29ace7f524bc07a6f8f953",
+      "backends/market-lens-ai/requirements-dev.txt": "93b83917992338f957bb65ce4b95bf66103cbf3dd0269f1b3201a7f537f6ac1e",
+      "backends/market-lens-ai/requirements.in": "dfcc80dca1386a34085a27a59ef5012132db2db2cca5c0139ac080e626877a60"
+    }
+  },
+  ".github/requirements/security-schema-ci.lock": {
+    "lock_sha256": "64181c043e1525b29712de9912c85fadd22e65cdc6f34eea1bdf51d72d828ae6",
+    "package_count": 117,
+    "sources": {
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      ".github/requirements/security-schema-ci.in": "21b603d0c569ffbe62d3a314ccd5d7956b123d06672185299c0c99e61b5b3840",
+      "backends/ads-insights/requirements.in": "e57f36172542bbc7fa322d3be802eef4055ea0f362f81da8210021b9b27e771c",
+      "backends/market-lens-ai/requirements-dev.txt": "93b83917992338f957bb65ce4b95bf66103cbf3dd0269f1b3201a7f537f6ac1e",
+      "backends/market-lens-ai/requirements.in": "dfcc80dca1386a34085a27a59ef5012132db2db2cca5c0139ac080e626877a60"
+    }
+  },
+  "backends/ads-insights/requirements.lock": {
+    "lock_sha256": "07ae5a89d5771f43d79019994eb0938f7a25193219151b1bd1bc0c61bb571611",
+    "package_count": 82,
+    "sources": {
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      "backends/ads-insights/requirements.in": "e57f36172542bbc7fa322d3be802eef4055ea0f362f81da8210021b9b27e771c",
+      "backends/ads-insights/requirements.txt": "4f9a1ea6da8c1654c41cabbaae8f20c9ae0c0e63b31c622a669f739e9626fc2f"
+    }
+  },
+  "backends/market-lens-ai/requirements.lock": {
+    "lock_sha256": "20b6206580a914fc05205ae0c82e412b77b3d996136d35865403b906924c883f",
+    "package_count": 67,
+    "sources": {
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      "backends/market-lens-ai/requirements.in": "dfcc80dca1386a34085a27a59ef5012132db2db2cca5c0139ac080e626877a60",
+      "backends/market-lens-ai/requirements.txt": "4f9a1ea6da8c1654c41cabbaae8f20c9ae0c0e63b31c622a669f739e9626fc2f"
+    }
+  }
+}

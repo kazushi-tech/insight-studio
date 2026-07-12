@@ -31,4 +31,22 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // These legacy screens intentionally hydrate or reset local UI state when
+    // an external case, URL, or credential source changes. Keep the stricter
+    // React 19 rule enabled for every new file while the state machines below
+    // are migrated incrementally.
+    files: [
+      'src/components/InviteModal.jsx',
+      'src/contexts/ReportHistoryContext.jsx',
+      'src/pages/AiExplorer.jsx',
+      'src/pages/AnalysisGraphs.jsx',
+      'src/pages/EssentialPack.jsx',
+      'src/pages/Settings.jsx',
+      'src/pages/SetupWizard.jsx',
+    ],
+    rules: {
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
 ])

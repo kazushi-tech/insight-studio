@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Chart, RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js'
-import { REPORT_COLORS, applyChartDefaults } from './reportTheme'
+import { useMemo, useState } from 'react'
+import RadarChartSvg from './RadarChartSvg'
 import {
   AXIS_KEYS,
   findBrandSectionBodies,
   parseBrandVerdicts,
 } from '../../utils/brandEvalParser'
-
-Chart.register(RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 /**
  * Radar chart visualizing per-brand scores across the 6 evaluation axes.
@@ -51,96 +48,7 @@ const BRAND_PALETTE = [
 
 export default function BrandRadarChart({ reportMd }) {
   const brands = useMemo(() => parseRadarData(reportMd), [reportMd])
-  const canvasRef = useRef(null)
-  const chartRef = useRef(null)
   const [mode, setMode] = useState('all')
-
-  useEffect(() => {
-    applyChartDefaults(Chart)
-  }, [])
-
-  useEffect(() => {
-    if (!brands.length || !canvasRef.current) return
-    const visible = mode === 'all' ? brands : brands.filter((b) => b.brand === mode)
-    const datasets = visible.map((b, i) => {
-      const color = BRAND_PALETTE[i % BRAND_PALETTE.length]
-      return {
-        label: b.brand,
-        data: AXIS_KEYS.map((k) => (b.scores[k] == null ? null : b.scores[k])),
-        borderColor: color.border,
-        backgroundColor: color.bg,
-        borderWidth: 2,
-        pointBackgroundColor: color.border,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        spanGaps: true,
-      }
-    })
-
-    if (chartRef.current) {
-      chartRef.current.data = { labels: AXIS_KEYS, datasets }
-      chartRef.current.update()
-      return
-    }
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'radar',
-      data: { labels: AXIS_KEYS, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          r: {
-            min: 0,
-            max: 1,
-            ticks: {
-              stepSize: 0.5,
-              backdropColor: 'transparent',
-              callback: (v) => (v === 1 ? '強' : v === 0.5 ? '同等' : v === 0 ? '弱' : ''),
-              color: REPORT_COLORS.outline,
-              font: { size: 10 },
-            },
-            grid: { color: REPORT_COLORS.outlineVariant },
-            angleLines: { color: REPORT_COLORS.outlineVariant },
-            pointLabels: {
-              color: '#1a1c19',
-              font: (ctx) => {
-                const w = ctx.chart?.width ?? 0
-                return { size: w < 420 ? 10 : 12, weight: '600' }
-              },
-              callback: (label) =>
-                typeof label === 'string' && label.length > 6 ? label.slice(0, 5) + '…' : label,
-            },
-          },
-        },
-        plugins: {
-          legend: { position: 'bottom' },
-          tooltip: {
-            callbacks: {
-              title: (items) => {
-                const idx = items?.[0]?.dataIndex
-                return idx != null ? AXIS_KEYS[idx] : ''
-              },
-              label: (ctx) => {
-                const v = ctx.parsed.r
-                const label = v === 1 ? '強' : v === 0.5 ? '同等' : v === 0 ? '弱' : '評価保留'
-                return `${ctx.dataset.label}: ${label}`
-              },
-            },
-          },
-        },
-      },
-    })
-  }, [brands, mode])
-
-  useEffect(() => {
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy()
-        chartRef.current = null
-      }
-    }
-  }, [])
 
   if (!brands.length) return null
 
@@ -162,7 +70,7 @@ export default function BrandRadarChart({ reportMd }) {
           <button
             type="button"
             onClick={() => setMode('all')}
-            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-colors ${
+            className={`min-h-11 px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
               mode === 'all'
                 ? 'bg-primary text-on-primary'
                 : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
@@ -175,7 +83,7 @@ export default function BrandRadarChart({ reportMd }) {
               key={b.brand}
               type="button"
               onClick={() => setMode(b.brand)}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold max-w-[10rem] truncate transition-colors ${
+              className={`min-h-11 px-3 py-2 rounded-full text-xs font-semibold max-w-[10rem] truncate transition-colors ${
                 mode === b.brand
                   ? 'bg-primary text-on-primary'
                   : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
@@ -189,7 +97,18 @@ export default function BrandRadarChart({ reportMd }) {
       </div>
 
       <div className="relative h-[360px]">
-        <canvas ref={canvasRef} aria-label="ブランド別評価レーダーチャート" />
+        <RadarChartSvg
+          axes={AXIS_KEYS}
+          series={(mode === 'all' ? brands : brands.filter((brand) => brand.brand === mode)).map((brand, index) => {
+            const color = BRAND_PALETTE[index % BRAND_PALETTE.length]
+            return {
+              name: brand.brand,
+              values: AXIS_KEYS.map((key) => brand.scores[key] ?? null),
+              stroke: color.border,
+              fill: color.bg,
+            }
+          })}
+        />
       </div>
     </section>
   )

@@ -509,6 +509,15 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
+  .motion-section-enter,
+  .motion-card,
+  .motion-reveal,
+  .motion-reduce-safe,
+  button:hover,
+  a:hover {
+    transform: none !important;
+  }
 }
 
 .sr-only {
@@ -589,8 +598,9 @@
     background: #ffffff !important;
   }
 
-  /* Hide shell chrome so only the report prints */
-  header, nav, aside, footer,
+  /* The dedicated print route has no app shell. Keep the report document's
+     semantic header visible and hide only navigation/supporting chrome. */
+  nav, aside, footer,
   .print-hide,
   .print\:hidden,
   /* Section E-1: hide quality warnings, regenerate CTA, UI controls in print */

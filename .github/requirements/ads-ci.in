@@ -1,0 +1,7 @@
+-c known-good-constraints.txt
+-r ../../backends/ads-insights/requirements.in
+
+alembic==1.18.4
+pytest==9.1.1
+pytest-asyncio==1.3.0
+pytest-cov==7.0.0

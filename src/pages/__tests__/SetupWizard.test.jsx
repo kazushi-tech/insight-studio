@@ -101,6 +101,7 @@ describe('SetupWizard', () => {
     expect(mocks.bqPeriods).toHaveBeenCalledWith({
       granularity: 'monthly',
       dataset_id: 'analytics_311324674',
+      project_ref: 'petabit',
     })
 
     await user.click(screen.getByRole('button', { name: /^次へ/ }))
@@ -109,6 +110,7 @@ describe('SetupWizard', () => {
     expect(mocks.generateBatchWithRetry).toHaveBeenCalledWith({
       query_types: ['pv', 'traffic', 'cv', 'landing'],
       dataset_id: 'analytics_311324674',
+      project_ref: 'petabit',
       period: '2026-07',
     })
     expect(mocks.completeSetup).toHaveBeenCalledWith(
@@ -137,7 +139,9 @@ describe('SetupWizard', () => {
     await user.click(screen.getByRole('button', { name: 'すべて比べる' }))
     await user.click(screen.getByRole('button', { name: /^次へ/ }))
 
-    expect(await screen.findByText(/一時的な取得エラー/)).toHaveTextContent('1/2 期間は生成済み')
+    const safeError = await screen.findByText(/1\/2 期間は準備済み/)
+    expect(safeError).toHaveTextContent('管理者にお問い合わせください')
+    expect(screen.queryByText(/一時的な取得エラー/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^次へ/ }))
 
     await screen.findByRole('heading', { name: '最初のレポートができました' })
@@ -148,20 +152,27 @@ describe('SetupWizard', () => {
     })
   })
 
-  it('shows beginner labels and the corresponding professional GA4 terms', async () => {
+  it('starts with three beginner goals and hides technical terms from customers', async () => {
     const user = userEvent.setup()
     renderWizard()
 
-    expect(screen.getByText('見られた回数')).toBeInTheDocument()
-    expect(screen.getByText('（ページビュー数（PV）・ユーザー数・セッション数）')).toBeInTheDocument()
-    expect(screen.getByText('（流入元／参照元・メディア）')).toBeInTheDocument()
-    expect(screen.getByText('（キーイベント／コンバージョン（CV））')).toBeInTheDocument()
-    expect(screen.getByText('（ランディングページ（LP））')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /全体を見る/ })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: /集客を見る/ })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /成果を見る/ })).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: '詳しい分析項目を選ぶ' }))
+    await user.click(screen.getByRole('button', { name: '見る内容を細かく調整する' }))
+    expect(screen.getByText('見られた回数')).toBeInTheDocument()
+    expect(screen.getByText('見られた時間帯')).toBeInTheDocument()
+    expect(screen.queryByText(/ページビュー数（PV）|BigQuery|データセット|保存先ID/)).not.toBeInTheDocument()
+  })
+
+  it('keeps professional analysis terms inside the platform-admin details only', async () => {
+    const user = userEvent.setup()
+    mocks.authUser = { role: 'admin', platform_role: 'platform_admin' }
+    renderWizard()
+    await user.click(screen.getByRole('button', { name: '運用者向けの詳しい項目' }))
+    expect(screen.getByText('（ページビュー数（PV）・ユーザー数・セッション数）')).toBeInTheDocument()
     expect(screen.getByText('（時間帯別分析）')).toBeInTheDocument()
-    expect(screen.getByText('（新規／リピーター・地域別分析）')).toBeInTheDocument()
-    expect(screen.queryByText(/インプレッション数|クリック数|年齢・性別/)).not.toBeInTheDocument()
   })
 
   it('uses fictional source wording for the demo case only', async () => {
@@ -177,9 +188,9 @@ describe('SetupWizard', () => {
     renderWizard()
 
     expect(screen.getByText('現在のデモデータ')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '詳しい分析項目を選ぶ' }))
-    expect(screen.getByText('（流入チャネル構成比（架空データ推定））')).toBeInTheDocument()
-    expect(screen.queryByText('（流入チャネル構成比（GA4推定））')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '見る内容を細かく調整する' }))
+    expect(screen.getByText('流入集中の参考値')).toBeInTheDocument()
+    expect(screen.queryByText(/GA4|BigQuery|流入チャネル構成比/)).not.toBeInTheDocument()
   })
 
   it('locks the demo target and comparison months and generates both after attempted deselection', async () => {
@@ -225,11 +236,13 @@ describe('SetupWizard', () => {
     expect(mocks.generateBatchWithRetry).toHaveBeenNthCalledWith(1, {
       query_types: ['pv', 'traffic', 'cv', 'landing'],
       dataset_id: 'demo_portfolio_dataset',
+      project_ref: 'demo',
       period: '2026-06',
     })
     expect(mocks.generateBatchWithRetry).toHaveBeenNthCalledWith(2, {
       query_types: ['pv', 'traffic', 'cv', 'landing'],
       dataset_id: 'demo_portfolio_dataset',
+      project_ref: 'demo',
       period: '2026-05',
     })
     expect(mocks.completeSetup).toHaveBeenCalledWith(

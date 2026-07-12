@@ -2,10 +2,6 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ChartGroupCard from '../ChartGroupCard'
 
-vi.mock('chart.js/auto', () => ({
-  default: vi.fn(() => ({ destroy: vi.fn() })),
-}))
-
 vi.mock('../../../contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light' }),
 }))

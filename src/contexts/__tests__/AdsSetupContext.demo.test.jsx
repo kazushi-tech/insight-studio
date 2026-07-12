@@ -4,17 +4,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdsSetupProvider, useAdsSetup } from '../AdsSetupContext'
 
 const mocks = vi.hoisted(() => ({
+  authMode: 'legacy',
   user: null,
   loginCase: vi.fn(),
+  listProjects: vi.fn(),
   syncTokenFromApi: vi.fn(),
 }))
 
 vi.mock('../AuthContext', () => ({
   useAuth: () => ({
+    authMode: mocks.authMode,
     user: mocks.user,
     onAdsLogout: () => () => {},
     syncTokenFromApi: mocks.syncTokenFromApi,
   }),
+}))
+
+vi.mock('../../api/platform', () => ({
+  platformApi: {
+    listProjects: (...args) => mocks.listProjects(...args),
+  },
 }))
 
 vi.mock('../../api/adsInsights', () => ({
@@ -25,10 +34,12 @@ vi.mock('../../api/adsInsights', () => ({
 }))
 
 function SetupProbe() {
-  const { currentCase, authenticateCase } = useAdsSetup()
+  const { currentCase, isCaseAuthenticated, authenticateCase, getCurrentDatasetId } = useAdsSetup()
   return (
     <div>
       <output aria-label="current-case">{currentCase ? JSON.stringify(currentCase) : ''}</output>
+      <output aria-label="case-authenticated">{String(isCaseAuthenticated)}</output>
+      <output aria-label="current-dataset">{String(getCurrentDatasetId())}</output>
       <button onClick={() => authenticateCase('demo', 'test-password')}>デモ案件を認証</button>
     </div>
   )
@@ -38,8 +49,10 @@ describe('AdsSetupContext demo metadata', () => {
   beforeEach(() => {
     localStorage.clear()
     sessionStorage.clear()
+    mocks.authMode = 'legacy'
     mocks.user = null
     mocks.loginCase.mockReset()
+    mocks.listProjects.mockReset()
     mocks.syncTokenFromApi.mockReset()
   })
 
@@ -77,5 +90,29 @@ describe('AdsSetupContext demo metadata', () => {
 
     await waitFor(() => expect(screen.getByLabelText('current-case')).toHaveTextContent('"is_demo":true'))
     expect(mocks.syncTokenFromApi).toHaveBeenCalledTimes(1)
+  })
+
+  it('selects only a tenant project in Clerk mode without persisting its dataset', async () => {
+    mocks.authMode = 'clerk'
+    mocks.user = {
+      user_id: 'user-a',
+      role: 'member',
+      workspace_role: null,
+      project_roles: { 'project-a': 'project_editor' },
+    }
+    mocks.listProjects.mockResolvedValue({
+      projects: [
+        { id: 'project-a', name: '顧客サイト', status: 'active', is_demo: false },
+        { id: 'project-archived', name: '旧サイト', status: 'archived' },
+      ],
+    })
+
+    render(<AdsSetupProvider><SetupProbe /></AdsSetupProvider>)
+
+    await waitFor(() => expect(screen.getByLabelText('current-case')).toHaveTextContent('project-a'))
+    expect(screen.getByLabelText('current-case')).not.toHaveTextContent('dataset')
+    expect(screen.getByLabelText('current-dataset')).toHaveTextContent('undefined')
+    expect(screen.getByLabelText('case-authenticated')).toHaveTextContent('true')
+    expect(localStorage.getItem('insight-studio-current-case')).not.toMatch(/analytics_|dataset/i)
   })
 })

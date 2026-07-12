@@ -1,27 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-
-vi.mock('chart.js', () => {
-  class MockChart {
-    constructor() {
-      this.data = {}
-    }
-    update() {}
-    destroy() {}
-  }
-  MockChart.register = vi.fn()
-  MockChart.defaults = { font: {}, plugins: {} }
-  return {
-    Chart: MockChart,
-    RadarController: {},
-    RadialLinearScale: {},
-    PointElement: {},
-    LineElement: {},
-    Filler: {},
-    Tooltip: {},
-    Legend: {},
-  }
-})
 
 import BrandRadarV2 from '../BrandRadarV2'
 
@@ -65,12 +43,11 @@ const MD_FIXTURE = `## 4. ブランド別評価
 `
 
 describe('BrandRadarV2', () => {
-  beforeEach(() => vi.clearAllMocks())
-
   it('renders brand toggle buttons from ReportEnvelope', () => {
     render(<BrandRadarV2 envelope={ENVELOPE} reportMd="" />)
     expect(screen.getByRole('button', { name: 'カメラの大林' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'キタムラ' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /ブランド別評価レーダーチャート/ })).toBeInTheDocument()
   })
 
   it('falls back to markdown when envelope empty (all 3 brands visible)', () => {

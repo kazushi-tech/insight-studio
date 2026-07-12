@@ -1,54 +1,42 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AUTH_EXPIRED_MESSAGE } from '../api/adsInsights'
-import ChartGroupCard from '../components/ads/ChartGroupCard'
-import SourceBadge from '../components/ads/SourceBadge'
-import { ErrorBanner, LoadingSpinner, SkeletonBlock } from '../components/ui'
+import DataStatePanel from '../components/DataStatePanel'
+import ReportOutputActions from '../components/reporting/ReportOutputActions'
+import ReportQuestionPanel from '../components/reporting/ReportQuestionPanel'
+import { reportEvidenceDomId } from '../components/reporting/reportQuestionContract'
+import { LoadingSpinner } from '../components/ui'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
+import { useReportHistory } from '../contexts/ReportHistoryContext'
+import MotionReveal from '../motion/MotionReveal'
 import {
   buildBeginnerReportFromCharts,
   getChartPeriodTags,
   getDisplayChartGroups,
   regenerateAdsReportBundle,
 } from '../utils/adsReports'
-import { latestPeriodValue, periodRangeLabel } from '../utils/wizardPeriods'
+import {
+  buildCustomerReportViewModel,
+  getCustomerReportGaps,
+  normalizeCustomerReportContract,
+} from '../utils/customerReport'
 import { shouldShowDemoMode } from '../utils/demoMode'
+import { findPersistedReportId } from '../utils/reportSharing'
+import { latestPeriodValue, periodRangeLabel } from '../utils/wizardPeriods'
+import { normalizeCustomerError } from '../utils/customerErrors'
 
-const CARD_META = {
-  what_happened: { label: '何が起きた', icon: 'monitoring', tone: 'bg-primary/[0.06] text-primary' },
-  so_what: { label: 'どう見るか', icon: 'psychology_alt', tone: 'bg-secondary-container/45 text-primary' },
-  check_first: { label: 'まず見る', icon: 'visibility', tone: 'bg-info-container text-on-info-container' },
-  data_gap: { label: '判断保留', icon: 'error', tone: 'bg-warning-container text-on-warning-container' },
-  next_action: { label: '次の一手', icon: 'task_alt', tone: 'bg-success-container text-on-success-container' },
+const CONCLUSION_STYLES = {
+  positive: { icon: 'trending_up', surface: 'bg-primary/[0.055]', iconSurface: 'bg-primary/10 text-primary' },
+  neutral: { icon: 'horizontal_rule', surface: 'bg-surface-container-lowest', iconSurface: 'bg-surface-container text-primary' },
+  warning: { icon: 'priority_high', surface: 'bg-warning-container/70', iconSurface: 'bg-warning/10 text-warning' },
+  critical: { icon: 'error', surface: 'bg-error-container/70', iconSurface: 'bg-error/10 text-error' },
 }
 
-const SEVERITY_STYLES = {
-  positive: 'border-primary/20 bg-primary/[0.035]',
-  neutral: 'border-outline-variant/20 bg-surface-container-lowest',
-  warning: 'border-warning/30 bg-warning-container',
-  critical: 'border-error/30 bg-error-container',
-}
-
-function uniqueValues(values = []) {
-  return values.filter(Boolean).filter((item, index, array) => array.indexOf(item) === index)
-}
-
-function chartIdToIndex(chartId) {
-  const match = String(chartId || '').match(/chart_(\d+)/)
-  return match ? Number(match[1]) - 1 : -1
-}
-
-function selectEvidenceGroups(beginnerReport, chartGroups) {
-  const explicitIds = uniqueValues([
-    ...(beginnerReport?.recommended_charts ?? []),
-    ...((beginnerReport?.summary_cards ?? []).flatMap((card) => card.evidence_chart_ids ?? [])),
-  ]).slice(0, 3)
-  const groups = explicitIds
-    .map((chartId) => chartGroups[chartIdToIndex(chartId)])
-    .filter(Boolean)
-
-  return groups.length > 0 ? groups : chartGroups.slice(0, 3)
+const PRIORITY_LABELS = {
+  P1: '最優先',
+  P2: '次に対応',
+  P3: '継続確認',
 }
 
 function selectedPeriodReport(reportBundle, periodFilter) {
@@ -61,72 +49,96 @@ function selectedPeriodReport(reportBundle, periodFilter) {
   return reports.find((report) => report.periodTag === periodFilter) ?? null
 }
 
-function BeginnerCard({ card }) {
-  const meta = CARD_META[card.type] ?? CARD_META.what_happened
+function formatObservedAt(value) {
+  if (!value || !Number.isFinite(Date.parse(value))) return '確認中'
+  return new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(value))
+}
+
+function graphHref(item, period) {
+  const params = new URLSearchParams({
+    period: period || 'latest',
+    theme: item.theme || 'all',
+    view: 'summary',
+  })
+  return `/ads/graphs?${params.toString()}`
+}
+
+function ConclusionCard({ item, index }) {
+  const style = CONCLUSION_STYLES[item.severity] ?? CONCLUSION_STYLES.neutral
   return (
-    <article className={`rounded-2xl border p-5 shadow-sm ${SEVERITY_STYLES[card.severity] ?? SEVERITY_STYLES.neutral}`}>
-      <div className="flex items-start gap-3">
-        <span className={`material-symbols-outlined rounded-xl p-2 text-[22px] ${meta.tone}`} aria-hidden="true">
-          {meta.icon}
+    <MotionReveal index={index} maximumItems={3}>
+      <article className={`h-full rounded-2xl p-5 shadow-sm ${style.surface}`}>
+        <span className={`material-symbols-outlined grid size-11 place-items-center rounded-xl text-[22px] ${style.iconSurface}`} aria-hidden="true">
+          {style.icon}
         </span>
-        <div className="min-w-0">
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-on-surface-variant">{meta.label}</p>
-          <h2 className="mt-2 text-lg font-extrabold leading-7 text-on-surface japanese-text">{card.title}</h2>
-          <p className="mt-2 text-sm font-medium leading-7 text-on-surface-variant japanese-text">{card.body}</p>
-          {card.evidence_chart_ids?.length > 0 && (
-            <p className="mt-3 text-[11px] font-black text-primary">
-              根拠: {card.evidence_chart_ids.join(' / ')}
-            </p>
-          )}
-        </div>
-      </div>
-    </article>
+        <p className="mt-4 text-[11px] font-black uppercase tracking-[0.12em] text-on-surface-variant">
+          結論 {index + 1}
+        </p>
+        <h3 className="mt-2 text-lg font-extrabold leading-7 text-on-surface japanese-text">{item.title}</h3>
+        {item.body && <p className="mt-2 text-sm font-semibold leading-7 text-on-surface-variant japanese-text">{item.body}</p>}
+      </article>
+    </MotionReveal>
   )
 }
 
-function NextActionList({ actions }) {
+function ActionList({ actions }) {
   return (
-    <section className="rounded-2xl bg-primary p-5 text-on-primary shadow-sm">
+    <section className="rounded-2xl bg-primary p-5 text-on-primary shadow-sm" aria-labelledby="report-actions-title">
       <div className="flex items-center gap-3">
         <span className="material-symbols-outlined text-2xl" aria-hidden="true">assignment_turned_in</span>
-        <h2 className="text-lg font-extrabold japanese-text">次にやること</h2>
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white/70">Next</p>
+          <h2 id="report-actions-title" className="text-lg font-extrabold japanese-text">次にやること</h2>
+        </div>
       </div>
-      <div className="mt-4 space-y-3">
+      <ol className="mt-4 space-y-3">
         {actions.map((action, index) => (
-          <div key={`${action.priority}-${index}`} className="rounded-xl bg-white/10 p-4">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 rounded-full bg-white/15 px-2 py-1 text-[11px] font-black">{action.priority}</span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-black leading-6 japanese-text">{action.title}</h3>
-                {action.reason && <p className="mt-1 text-xs font-semibold leading-6 text-white/80 japanese-text">{action.reason}</p>}
+          <li key={action.key ?? `${action.priority}-${index}`}>
+            <MotionReveal index={index} maximumItems={3} className="rounded-xl bg-white/10 p-4">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 rounded-full bg-white/15 px-2 py-1 text-[11px] font-black">
+                  {PRIORITY_LABELS[action.priority] ?? action.priority}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black leading-6 japanese-text">{action.title}</h3>
+                  {action.reason && <p className="mt-1 text-xs font-semibold leading-6 text-white/80 japanese-text">{action.reason}</p>}
+                  {action.success_metric && (
+                    <p className="mt-2 text-[11px] font-bold text-white/70 japanese-text">確認する数字: {action.success_metric}</p>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            </MotionReveal>
+          </li>
         ))}
-      </div>
+      </ol>
     </section>
   )
 }
 
-function DataGapPanel({ gaps }) {
+function HoldPanel({ gaps }) {
   return (
-    <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
+    <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm" aria-labelledby="report-holds-title">
       <div className="flex items-center gap-3">
-        <span className="material-symbols-outlined rounded-xl bg-warning-container p-2 text-warning" aria-hidden="true">rule</span>
+        <span className="material-symbols-outlined grid size-11 place-items-center rounded-xl bg-warning-container text-on-warning-container" aria-hidden="true">rule</span>
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.12em] text-on-surface-variant">Hold</p>
-          <h2 className="text-base font-extrabold text-on-surface japanese-text">判断できないこと</h2>
+          <h2 id="report-holds-title" className="text-base font-extrabold text-on-surface japanese-text">まだ判断できないこと</h2>
         </div>
       </div>
       <div className="mt-4 space-y-3">
         {gaps.length > 0 ? gaps.map((gap) => (
-          <div key={gap.key} className="rounded-xl bg-surface-container-low px-4 py-3">
-            <p className="text-sm font-black text-on-surface japanese-text">{gap.label}</p>
-            {gap.impact && <p className="mt-1 text-xs font-bold leading-5 text-on-surface-variant japanese-text">{gap.impact}</p>}
-          </div>
+          <article key={gap.key} className="rounded-xl bg-surface-container-low px-4 py-3">
+            <h3 className="text-sm font-black text-on-surface japanese-text">{gap.title}</h3>
+            {gap.body && <p className="mt-1 text-xs font-bold leading-6 text-on-surface-variant japanese-text">{gap.body}</p>}
+            {gap.next_step && <p className="mt-2 text-[11px] font-black text-primary japanese-text">次の確認: {gap.next_step}</p>}
+          </article>
         )) : (
-          <p className="rounded-xl bg-surface-container-low px-4 py-3 text-sm font-bold text-on-surface-variant japanese-text">
-            主要な未取得項目はありません。根拠グラフの数値を確認してから判断します。
+          <p className="rounded-xl bg-surface-container-low px-4 py-3 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
+            今回の数字から保留すべき事項は追加されていません。根拠を確認してから行動してください。
           </p>
         )}
       </div>
@@ -134,65 +146,71 @@ function DataGapPanel({ gaps }) {
   )
 }
 
-function EvidenceCharts({ groups, isDemo = false }) {
+function EvidenceLinks({ evidence, period }) {
   return (
-    <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section className="rounded-2xl bg-surface-container-lowest p-5 shadow-sm" aria-labelledby="report-evidence-title">
+      <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">Evidence</p>
-          <h2 className="mt-1 text-xl font-extrabold text-on-surface japanese-text">根拠グラフ</h2>
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-primary">Evidence</p>
+          <h2 id="report-evidence-title" className="mt-1 text-lg font-extrabold text-on-surface japanese-text">数字の根拠</h2>
         </div>
-        <Link
-          to="/ads/graphs"
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-3 text-sm font-black text-primary hover:bg-primary/[0.05] focus-visible:outline-2 focus-visible:outline-primary"
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden="true">bar_chart</span>
-          詳細グラフを見る
+        <Link to="/ads/graphs" className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-sm font-black text-primary hover:bg-primary/[0.05]">
+          すべて見る
         </Link>
       </div>
-
-      {groups.length > 0 ? (
-        <div className="space-y-4">
-          {groups.map((group, index) => (
-            <details key={`${group.title ?? 'chart'}-${index}`} className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-3 shadow-sm">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-2 py-2 text-sm font-black text-primary japanese-text">
-                <span className="min-w-0 truncate">{group.title ?? `根拠グラフ ${index + 1}`}</span>
-                <span className="material-symbols-outlined text-base" aria-hidden="true">expand_more</span>
-              </summary>
-              <div className="pt-3">
-                <ChartGroupCard group={{ ...group, defaultCollapsed: false }} featured />
-              </div>
-            </details>
+      {evidence.length > 0 ? (
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {evidence.map((item, index) => (
+            <li
+              key={item.key}
+              id={reportEvidenceDomId(index)}
+              className="scroll-mt-24"
+            >
+              <Link
+                to={graphHref(item, period)}
+                className="flex min-h-14 items-center justify-between gap-3 rounded-xl bg-surface-container-low px-4 py-3 text-sm font-black text-on-surface hover:bg-primary/[0.07] focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <span className="min-w-0 japanese-text">{item.title}</span>
+                <span className="material-symbols-outlined shrink-0 text-lg text-primary" aria-hidden="true">arrow_forward</span>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : (
-        <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 text-center">
-          <span className="material-symbols-outlined text-5xl text-outline-variant" aria-hidden="true">bar_chart</span>
-          <h3 className="mt-3 text-lg font-extrabold text-on-surface japanese-text">根拠グラフがまだありません</h3>
-          <p className="mt-2 text-sm font-medium text-on-surface-variant japanese-text">
-            {isDemo
-              ? 'セットアップ条件を確認し、デモデータを再取得してください。'
-              : 'セットアップ条件を確認し、BigQueryから再取得してください。'}
-          </p>
-        </div>
+        <p className="mt-4 rounded-xl bg-surface-container-low px-4 py-3 text-sm font-bold text-on-surface-variant japanese-text">
+          表示できる根拠がまだありません。期間を変えて再取得してください。
+        </p>
       )}
     </section>
   )
+}
+
+function stateForAvailability(state) {
+  if (state === 'ready') return 'full'
+  if (state === 'partial') return 'partial'
+  if (state === 'error') return 'error'
+  return 'empty'
 }
 
 export default function BeginnerReport() {
   const navigate = useNavigate()
   const { isAdsAuthenticated, user: authUser } = useAuth()
   const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
+  const {
+    history: reportHistory,
+    projectRef: historyProjectRef,
+    addEntry: addReportHistoryEntry,
+    historyState,
+  } = useReportHistory()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [periodFilter, setPeriodFilter] = useState('latest')
+  const [questionOpen, setQuestionOpen] = useState(false)
   const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
 
   useEffect(() => {
     if (!setupState || !isAdsAuthenticated) return
     if (reportBundle?.source === 'bq_generate_batch') return
-
     let cancelled = false
     ;(async () => {
       setLoading(true)
@@ -200,46 +218,65 @@ export default function BeginnerReport() {
       try {
         const nextBundle = await regenerateAdsReportBundle(setupState)
         if (!cancelled) setReportBundle(nextBundle)
-      } catch (e) {
-        if (!cancelled) setError(e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message)
+      } catch (nextError) {
+        if (!cancelled) setError(nextError.isAuthError ? AUTH_EXPIRED_MESSAGE : normalizeCustomerError(nextError, { role: authUser?.role }).body)
       } finally {
         if (!cancelled) setLoading(false)
       }
     })()
-
     return () => { cancelled = true }
-  }, [isAdsAuthenticated, reportBundle?.source, setReportBundle, setupState])
+  }, [authUser?.role, isAdsAuthenticated, reportBundle?.source, setReportBundle, setupState])
 
   const chartGroups = useMemo(() => reportBundle?.chartGroups ?? [], [reportBundle?.chartGroups])
   const periodTags = useMemo(() => getChartPeriodTags(chartGroups), [chartGroups])
   const selectedReport = useMemo(() => selectedPeriodReport(reportBundle, periodFilter), [periodFilter, reportBundle])
   const displayGroups = useMemo(() => getDisplayChartGroups(chartGroups, periodFilter), [chartGroups, periodFilter])
-  const executionSummary = useMemo(
-    () => selectedReport?.executionSummary ?? reportBundle?.executionSummary ?? [],
-    [reportBundle?.executionSummary, selectedReport?.executionSummary],
+  const executionSummary = selectedReport?.executionSummary ?? reportBundle?.executionSummary ?? []
+  const legacyReport = selectedReport?.beginnerReport || reportBundle?.beginnerReport ||
+    buildBeginnerReportFromCharts(displayGroups, executionSummary)
+  const canonicalReport = selectedReport?.reportV2 ?? selectedReport?.raw?.report_v2 ?? reportBundle?.reportV2 ?? null
+  const canonicalResult = useMemo(
+    () => canonicalReport ? normalizeCustomerReportContract(canonicalReport) : null,
+    [canonicalReport],
   )
-  const beginnerReport = useMemo(() => {
-    return selectedReport?.beginnerReport ||
-      reportBundle?.beginnerReport ||
-      buildBeginnerReportFromCharts(displayGroups, executionSummary)
-  }, [displayGroups, executionSummary, reportBundle?.beginnerReport, selectedReport?.beginnerReport])
-  const evidenceGroups = useMemo(() => selectEvidenceGroups(beginnerReport, displayGroups), [beginnerReport, displayGroups])
-  const periods = setupState?.periods ?? []
-  const dateRange = periodRangeLabel(periods)
-  const activeScopeLabel =
-    periodFilter === 'all' ? '全期間'
-      : periodFilter === 'latest' ? `最新期間: ${latestPeriodValue(periodTags) ?? '-'}`
-        : periodFilter
+  const reportView = useMemo(() => {
+    const source = canonicalResult
+      ? canonicalResult.valid ? canonicalResult : null
+      : legacyReport
+    if (!source) return null
+    return buildCustomerReportViewModel(source, {
+      chartGroups: displayGroups,
+      period: selectedReport?.periodTag ?? periodFilter,
+      periodLabel: selectedReport?.label,
+      generatedAt: reportBundle?.generatedAt,
+      site: reportBundle?.site,
+    })
+  }, [canonicalResult, displayGroups, legacyReport, periodFilter, reportBundle?.generatedAt, reportBundle?.site, selectedReport])
+  const gaps = useMemo(() => getCustomerReportGaps(reportView), [reportView])
+  const dateRange = periodRangeLabel(setupState?.periods ?? [])
+  const activeScopeLabel = periodFilter === 'all'
+    ? '全期間'
+    : periodFilter === 'latest'
+      ? `最新期間: ${latestPeriodValue(periodTags) ?? '-'}`
+      : periodFilter
+  const freshness = reportView?.source_schema === 'report.v2'
+    ? reportView.generated_at
+    : reportBundle?.generatedAt
+  const persistedReportId = useMemo(
+    () => canonicalResult?.valid
+      ? findPersistedReportId(reportHistory, canonicalResult.report)
+      : null,
+    [canonicalResult, reportHistory],
+  )
 
   async function handleRefresh() {
     if (!setupState || !isAdsAuthenticated || loading) return
     setLoading(true)
     setError(null)
     try {
-      const nextBundle = await regenerateAdsReportBundle(setupState)
-      setReportBundle(nextBundle)
-    } catch (e) {
-      setError(e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message)
+      setReportBundle(await regenerateAdsReportBundle(setupState))
+    } catch (nextError) {
+      setError(nextError.isAuthError ? AUTH_EXPIRED_MESSAGE : normalizeCustomerError(nextError, { role: authUser?.role }).body)
     } finally {
       setLoading(false)
     }
@@ -250,51 +287,53 @@ export default function BeginnerReport() {
     navigate('/ads/wizard', { state: { resetAt: Date.now() } })
   }
 
+  function handleOpenQuestion() {
+    setQuestionOpen(true)
+    globalThis.requestAnimationFrame?.(() => {
+      const panel = document.getElementById('report-question-panel')
+      panel?.scrollIntoView?.({ block: 'center' })
+      panel?.querySelector?.('textarea, input, button')?.focus?.()
+    })
+  }
+
+  const contractError = canonicalResult && !canonicalResult.valid
+  const state = stateForAvailability(reportView?.availability?.state)
+
   return (
-    <main className="min-w-0 flex-1 overflow-x-hidden" aria-labelledby="beginner-report-title">
-      <div className="mx-auto max-w-[1440px] space-y-7 px-4 py-5 pb-24 sm:px-6 lg:px-8 lg:py-8">
-        <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+    <div className="min-w-0 flex-1 overflow-x-hidden">
+      <div className="mx-auto max-w-[1200px] space-y-7 px-4 py-5 pb-24 sm:px-6 lg:px-8 lg:py-8">
+        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-primary-container px-3 py-1 text-[11px] font-black text-on-primary-container">
-                {isDemo ? 'DEMO / 完全架空データ' : 'GA4 / BIGQUERY'}
+                {isDemo ? 'デモデータ' : '実データを反映'}
               </span>
               <span className="rounded-full bg-surface-container px-3 py-1 text-[11px] font-black text-on-surface-variant">{activeScopeLabel}</span>
             </div>
             <h1 id="beginner-report-title" className="mt-4 text-2xl font-extrabold tracking-tight text-primary japanese-text sm:text-3xl">
-              初心者向け分析レポート
+              Web成果レポート
             </h1>
             <p className="mt-2 max-w-3xl text-sm font-bold leading-7 text-on-surface-variant japanese-text">
-              結論、保留すべき判断、次に見るグラフだけに絞って表示します。
+              今回の結論、次にやること、まだ判断できないことを、根拠と一緒に確認できます。
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-bold text-on-surface-variant">
-              {isDemo && reportBundle?.site?.name && (
-                <span data-testid="demo-site-name">サイト: {reportBundle.site.name}</span>
-              )}
-              {setupState?.datasetId && (
-                <span className="truncate">{isDemo ? 'データ: 完全架空データ' : `保存先: ${setupState.datasetId}`}</span>
-              )}
-              {dateRange && <span>期間: {dateRange}</span>}
-              {reportBundle?.generatedAt && <span>最終更新: {new Date(reportBundle.generatedAt).toLocaleString('ja-JP')}</span>}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <SourceBadge source={isDemo ? 'demo' : 'ga4'} />
-            </div>
+            <dl className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-on-surface-variant">
+              {reportBundle?.site?.name && <div><dt className="sr-only">対象</dt><dd>対象: {reportBundle.site.name}</dd></div>}
+              {dateRange && <div><dt className="sr-only">期間</dt><dd>期間: {dateRange}</dd></div>}
+              <div><dt className="sr-only">データ最終確認</dt><dd>データ最終確認: {formatObservedAt(freshness)}</dd></div>
+            </dl>
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap lg:w-auto lg:justify-end">
             {periodTags.length > 0 && (
               <select
                 value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="min-h-11 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm font-bold text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary"
+                onChange={(event) => setPeriodFilter(event.target.value)}
+                className="min-h-11 rounded-xl bg-surface-container-low px-3 py-2 text-sm font-bold text-on-surface-variant focus-visible:outline-2 focus-visible:outline-primary"
                 aria-label="表示期間"
               >
                 <option value="latest">最新期間</option>
                 <option value="all">全期間</option>
-                {periodTags.map((period) => (
-                  <option key={period} value={period}>{period}</option>
-                ))}
+                {periodTags.map((period) => <option key={period} value={period}>{period}</option>)}
               </select>
             )}
             <button
@@ -304,77 +343,103 @@ export default function BeginnerReport() {
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:opacity-90 disabled:opacity-50"
             >
               {loading ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-base" aria-hidden="true">refresh</span>}
-              再取得
+              最新データを確認
             </button>
-            <Link
-              to="/insights/ai"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary hover:bg-primary/[0.05] focus-visible:outline-2 focus-visible:outline-primary"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">auto_awesome</span>
-              AIに聞く
-            </Link>
-          </div>
-        </section>
-
-        {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
-
-        {loading && !reportBundle && (
-          <section className="rounded-2xl bg-surface-container-lowest p-8">
-            <LoadingSpinner size="md" label="初心者向けレポートを作成中..." />
-            <div className="mt-6">
-              <SkeletonBlock variant="text" lines={6} />
-            </div>
-          </section>
-        )}
-
-        {!loading && !error && !setupState && (
-          <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 text-center">
-            <span className="material-symbols-outlined text-5xl text-outline-variant" aria-hidden="true">settings_suggest</span>
-            <h2 className="mt-3 text-xl font-extrabold text-on-surface japanese-text">セットアップが必要です</h2>
-            <p className="mt-2 text-sm font-bold text-on-surface-variant japanese-text">期間とクエリを選ぶと、初心者向けレポートを作れます。</p>
             <button
               type="button"
-              onClick={handleChangeSetup}
-              className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-on-primary"
+              onClick={handleOpenQuestion}
+              aria-expanded={questionOpen}
+              aria-controls="report-question-panel"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary shadow-sm hover:bg-primary/[0.05] focus-visible:outline-2 focus-visible:outline-primary"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">tune</span>
-              セットアップへ
+              <span className="material-symbols-outlined text-base" aria-hidden="true">auto_awesome</span>
+              この結果をAIに聞く
             </button>
-          </section>
+          </div>
+        </header>
+
+        {error && <DataStatePanel state="error" message={error} onRetry={handleRefresh} />}
+        {contractError && !error && (
+          <DataStatePanel
+            state="error"
+            message="安全に表示できるレポート形式を確認できませんでした。再取得してください。"
+            onRetry={handleRefresh}
+          />
+        )}
+        {loading && !reportBundle && <DataStatePanel state="loading" message="レポートを準備しています。" />}
+        {!loading && !error && !setupState && (
+          <DataStatePanel
+            state="empty"
+            title="最初に分析する期間を選びます"
+            message="目的と期間を選ぶと、Web成果レポートを作れます。"
+          >
+            <button type="button" onClick={handleChangeSetup} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-black text-on-primary">
+              レポート作成を始める
+            </button>
+          </DataStatePanel>
         )}
 
-        {beginnerReport && (
+        {reportView && !error && !contractError && (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {beginnerReport.summary_cards.map((card, index) => (
-                <BeginnerCard key={`${card.type}-${index}`} card={card} />
-              ))}
+            {state !== 'full' && (
+              <DataStatePanel state={state} message={reportView.availability?.message} onRetry={state === 'error' ? handleRefresh : undefined} />
+            )}
+
+            {canonicalResult?.valid && (
+              <ReportOutputActions
+                projectRef={historyProjectRef}
+                report={canonicalResult.report}
+                historyEntries={reportHistory}
+                historyState={historyState}
+                user={authUser}
+                onSaveReport={() => addReportHistoryEntry({
+                  setupState,
+                  reportBundle,
+                  messages: [],
+                  contextMode: 'ads-only',
+                })}
+              />
+            )}
+
+            <section aria-labelledby="report-conclusions-title">
+              <div className="mb-4">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-primary">Summary</p>
+                <h2 id="report-conclusions-title" className="mt-1 text-xl font-extrabold text-on-surface japanese-text">今回の結論</h2>
+              </div>
+              {reportView.conclusions.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {reportView.conclusions.slice(0, 3).map((item, index) => (
+                    <ConclusionCard key={item.key} item={item} index={index} />
+                  ))}
+                </div>
+              ) : (
+                <DataStatePanel state="empty" title="結論はまだ保留です" message="このデータだけでは判断できません。期間または計測状態を確認してください。" />
+              )}
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)]">
               <div className="space-y-5">
-                <NextActionList actions={beginnerReport.next_actions} />
-                <EvidenceCharts groups={evidenceGroups} isDemo={isDemo} />
+                {reportView.actions.length > 0 ? (
+                  <ActionList actions={reportView.actions.slice(0, 3)} />
+                ) : (
+                  <DataStatePanel state="empty" title="次の行動はまだ決めません" message="根拠を確認できるまで、行動の提案を保留します。" />
+                )}
+                <EvidenceLinks evidence={reportView.evidence} period={selectedReport?.periodTag ?? periodFilter} />
               </div>
               <div className="space-y-5 xl:sticky xl:top-6 xl:self-start">
-                <DataGapPanel gaps={beginnerReport.data_gaps} />
-                <section className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined rounded-xl bg-primary/[0.06] p-2 text-primary" aria-hidden="true">route</span>
-                    <h2 className="text-base font-extrabold text-on-surface japanese-text">読む順番</h2>
-                  </div>
-                  <ol className="mt-4 space-y-3 text-sm font-bold leading-6 text-on-surface-variant japanese-text">
-                    <li>1. 結論カードを見る</li>
-                    <li>2. 判断保留を外さない</li>
-                    <li>3. 根拠グラフを3つだけ開く</li>
-                    <li>4. 必要な時だけAIに聞く</li>
-                  </ol>
-                </section>
+                <HoldPanel gaps={gaps} />
+                <ReportQuestionPanel
+                  projectRef={historyProjectRef}
+                  reportId={persistedReportId}
+                  evidence={reportView.evidence}
+                  open={questionOpen}
+                  onOpenChange={setQuestionOpen}
+                />
               </div>
-            </section>
+            </div>
           </>
         )}
       </div>
-    </main>
+    </div>
   )
 }

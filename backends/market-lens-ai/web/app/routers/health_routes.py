@@ -5,23 +5,81 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from collections.abc import Callable, Mapping
 
 import httpx
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from ..services.discovery.pipeline_metrics import get_health_snapshot
 
 router = APIRouter()
+_repository_readiness_probe: Callable[[], bool] = lambda: True
+_analysis_worker_readiness_probe: Callable[[], Mapping[str, object]] = lambda: {
+    "mode": "inline",
+    "required": False,
+    "ready": True,
+    "freshness_seconds": 60,
+    "fresh_workers": 0,
+    "stale_workers": 0,
+    "stopped_workers": 0,
+    "starting_workers": 0,
+    "latest_heartbeat_at": None,
+    "latest_successful_job_at": None,
+}
+
+
+def configure_repository_readiness(probe: Callable[[], bool]) -> None:
+    global _repository_readiness_probe
+    _repository_readiness_probe = probe
+
+
+def configure_analysis_worker_readiness(
+    probe: Callable[[], Mapping[str, object]],
+) -> None:
+    global _analysis_worker_readiness_probe
+    _analysis_worker_readiness_probe = probe
+
+
+def _safe_analysis_worker_snapshot() -> dict[str, object]:
+    allowed_fields = {
+        "mode",
+        "required",
+        "ready",
+        "freshness_seconds",
+        "fresh_workers",
+        "stale_workers",
+        "stopped_workers",
+        "starting_workers",
+        "latest_heartbeat_at",
+        "latest_successful_job_at",
+    }
+    try:
+        snapshot = dict(_analysis_worker_readiness_probe())
+    except Exception:
+        snapshot = {"mode": "unavailable", "required": True, "ready": False}
+    return {key: snapshot.get(key) for key in allowed_fields}
 
 
 @router.get("/api/health")
 async def health():
-    return {
-        "ok": True,
+    repository_ready = bool(_repository_readiness_probe())
+    analysis_worker = _safe_analysis_worker_snapshot()
+    worker_ready = not bool(analysis_worker.get("required")) or bool(
+        analysis_worker.get("ready")
+    )
+    ready = repository_ready and worker_ready
+    deployment_sha = os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "unknown")
+    payload = {
+        "ok": ready,
         "service": "market-lens",
-        "commit": os.getenv("VERCEL_GIT_COMMIT_SHA") or os.getenv("RENDER_GIT_COMMIT", "unknown"),
+        "deployment_sha": deployment_sha,
+        "commit": deployment_sha,
+        "persistence": "ready" if repository_ready else "unavailable",
+        "analysis_worker": analysis_worker,
         "discovery_pipeline": get_health_snapshot(),
     }
+    return JSONResponse(payload, status_code=200 if ready else 503)
 
 
 @router.get("/api/health/anthropic")

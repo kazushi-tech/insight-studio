@@ -1,21 +1,6 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { ThemeContext } from '../../../contexts/ThemeContext'
-import {
-  Chart,
-  RadarController,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-} from 'chart.js'
-import {
-  applyChartDefaultsV2,
-  restoreChartDefaultsV2,
-  BRAND_PALETTE_V2,
-  getActiveColorsV2,
-} from './reportThemeV2'
+import { useMemo, useState } from 'react'
+import { BRAND_PALETTE_V2 } from './reportThemeV2'
+import RadarChartSvg from '../RadarChartSvg'
 import {
   AXIS_KEYS,
   findBrandSectionBodies,
@@ -23,8 +8,6 @@ import {
 } from '../../../utils/brandEvalParser'
 import { getRoleMeta } from '../../../utils/reportDecisionInsights'
 import styles from './BrandRadarV2.module.css'
-
-Chart.register(RadarController, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
 const VERDICT_SCORE = {
   強: 1.0,
@@ -74,12 +57,8 @@ export default function BrandRadarV2({ envelope, reportMd, focusedBrand }) {
     return envBrands.length > 0 ? envBrands : fromMd(reportMd)
   }, [envelope, reportMd])
 
-  const canvasRef = useRef(null)
-  const chartRef = useRef(null)
-  const [mode] = useState('all')
   // F-04: pill toggle — track hidden brands set
   const [hiddenBrands, setHiddenBrands] = useState(new Set())
-  const isDark = useContext(ThemeContext)?.isDark ?? false
 
   // Phase 1: when focusedBrand is set, override pill-based hiddenBrands
   // Derived instead of setState-in-effect to avoid cascading renders
@@ -88,119 +67,6 @@ export default function BrandRadarV2({ envelope, reportMd, focusedBrand }) {
     const referenceBrands = new Set(brands.filter((b) => b.isReference).map((b) => b.brand))
     return new Set(brands.map((b) => b.brand).filter((n) => n !== focusedBrand && !referenceBrands.has(n)))
   }, [focusedBrand, brands, hiddenBrands])
-
-  useEffect(() => {
-    applyChartDefaultsV2(Chart)
-    return () => restoreChartDefaultsV2(Chart)
-  }, [])
-
-  useEffect(() => {
-    if (chartRef.current) {
-      chartRef.current.destroy()
-      chartRef.current = null
-    }
-    restoreChartDefaultsV2(Chart)
-    applyChartDefaultsV2(Chart)
-  }, [isDark])
-
-  useEffect(() => {
-    if (!brands.length || !canvasRef.current) return
-    const c = getActiveColorsV2()
-    const datasets = brands.map((b, i) => {
-      const color = BRAND_PALETTE_V2[i % BRAND_PALETTE_V2.length]
-      const isFocused = mode === 'all' || mode === b.brand
-      const isHidden = effectiveHiddenBrands.has(b.brand)
-      // F-04: reference brands get dashed border + very low fill-opacity (0.12)
-      const refBg = color.bg.replace(
-        /rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/,
-        'rgba($1,$2,$3, 0.12)'
-      )
-      const dimBg = color.bg.replace(
-        /rgba\(([^,]+),([^,]+),([^,]+),[^)]+\)/,
-        'rgba($1,$2,$3, 0.06)'
-      )
-      const activeBg = b.isReference ? refBg : isFocused ? color.bg : dimBg
-      const dimBorder = isFocused ? color.border : `${color.border}33`
-      return {
-        label: b.brand,
-        data: AXIS_KEYS.map((k) => (b.scores[k] == null ? null : b.scores[k])),
-        borderColor: dimBorder,
-        borderDash: b.isReference ? [5, 4] : [],
-        backgroundColor: activeBg,
-        borderWidth: isFocused ? 2 : 1,
-        pointBackgroundColor: dimBorder,
-        pointRadius: isFocused ? 3 : 1,
-        pointHoverRadius: isFocused ? 6 : 3,
-        spanGaps: true,
-        order: isFocused ? 1 : 2,
-        hidden: isHidden,
-      }
-    })
-
-    if (chartRef.current) {
-      chartRef.current.data = { labels: AXIS_KEYS, datasets }
-      chartRef.current.update()
-      return
-    }
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'radar',
-      data: { labels: AXIS_KEYS, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          r: {
-            min: 0,
-            max: 1,
-            ticks: {
-              stepSize: 0.5,
-              backdropColor: 'transparent',
-              callback: (v) => (v === 1 ? '強' : v === 0.5 ? '同等' : v === 0 ? '弱' : ''),
-              color: c.outline,
-              font: { size: 10 },
-            },
-            grid: { color: c.outlineVariant },
-            angleLines: { color: c.outlineVariant },
-            pointLabels: {
-              color: c.onSurface,
-              font: (ctx) => {
-                const w = ctx.chart?.width ?? 0
-                return { size: w < 420 ? 10 : 12, weight: '600' }
-              },
-              callback: (label) =>
-                typeof label === 'string' && label.length > 6 ? label.slice(0, 5) + '…' : label,
-            },
-          },
-        },
-        plugins: {
-          legend: { position: 'bottom' },
-          tooltip: {
-            callbacks: {
-              title: (items) => {
-                const idx = items?.[0]?.dataIndex
-                return idx != null ? AXIS_KEYS[idx] : ''
-              },
-              label: (ctx) => {
-                const v = ctx.parsed.r
-                const label = v === 1 ? '強' : v === 0.5 ? '同等' : v === 0 ? '弱' : '評価保留'
-                return `${ctx.dataset.label}: ${label}`
-              },
-            },
-          },
-        },
-      },
-    })
-  }, [brands, mode, isDark, effectiveHiddenBrands])
-
-  useEffect(() => {
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy()
-        chartRef.current = null
-      }
-    }
-  }, [])
 
   if (!brands.length) return null
 
@@ -241,7 +107,26 @@ export default function BrandRadarV2({ envelope, reportMd, focusedBrand }) {
       </header>
 
       <div className={styles.canvasWrap}>
-        <canvas ref={canvasRef} aria-label="ブランド別評価レーダーチャート" />
+        <RadarChartSvg
+          axes={AXIS_KEYS}
+          series={brands
+            .filter((brand) => !effectiveHiddenBrands.has(brand.brand))
+            .map((brand, index) => {
+              const color = BRAND_PALETTE_V2[index % BRAND_PALETTE_V2.length]
+              const isFocused = !focusedBrand || focusedBrand === brand.brand || brand.isReference
+              return {
+                name: brand.brand,
+                values: AXIS_KEYS.map((key) => brand.scores[key] ?? null),
+                stroke: color.border,
+                fill: brand.isReference
+                  ? color.bg.replace(/,[^,]+\)$/, ', 0.12)')
+                  : color.bg,
+                dashed: brand.isReference,
+                dimmed: !isFocused,
+                emphasized: isFocused,
+              }
+            })}
+        />
       </div>
     </section>
   )

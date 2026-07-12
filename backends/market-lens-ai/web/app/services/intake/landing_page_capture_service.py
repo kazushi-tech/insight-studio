@@ -36,7 +36,7 @@ async def capture_landing_page(
     """
     html, fetch_err = await fetch_html(url, timeout=fetch_timeout, max_retries=fetch_max_retries)
     if fetch_err:
-        logger.warning("LP fetch failed for %s: %s", url, fetch_err)
+        logger.warning("LP fetch failed error=%s", fetch_err)
         return LpCaptureResult(
             landing_page=LandingPageInput(url=url),
             error=f"Fetch failed: {fetch_err}",
@@ -57,7 +57,7 @@ async def capture_landing_page(
     has_meaningful_data = any([lp_input.title, lp_input.first_view_text,
                                lp_input.cta_text, lp_input.meta_description])
     if not has_meaningful_data:
-        logger.warning("LP extraction yielded no data for %s (likely JS-rendered)", url)
+        logger.warning("LP extraction yielded no data (likely JS-rendered)")
 
     screenshot_path = None
     if screenshot_dir:
@@ -69,7 +69,7 @@ async def capture_landing_page(
         ss_path = str(ss_dir / "lp_screenshot.png")
         ss_err = await take_screenshot(url, ss_path)
         if ss_err:
-            logger.warning("LP screenshot failed for %s: %s", url, ss_err)
+            logger.warning("LP screenshot failed error=%s", ss_err)
         else:
             screenshot_path = ss_path
 

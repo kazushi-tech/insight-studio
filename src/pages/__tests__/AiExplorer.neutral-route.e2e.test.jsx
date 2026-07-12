@@ -44,7 +44,6 @@ function seedReadyStorage() {
   localStorage.clear()
   sessionStorage.clear()
   localStorage.setItem('insight-studio-guide-seen', '1')
-  localStorage.setItem('is_ads_token', 'test-token')
   sessionStorage.setItem('is_gemini_key', 'test-gemini-key')
   localStorage.setItem('is_user', JSON.stringify({ role: 'admin', display_name: 'テスト管理者' }))
   localStorage.setItem(
@@ -70,7 +69,7 @@ function renderAppAt(initialPath = '/insights/ai') {
   return render(
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
+        <AuthProvider initialToken="test-token">
           <RbacProvider>
             <UserProfileProvider>
               <AdsSetupProvider>
@@ -93,6 +92,10 @@ function renderAppAt(initialPath = '/insights/ai') {
 describe('/insights/ai neutral route AI Explorer', () => {
   beforeEach(() => {
     seedReadyStorage()
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: vi.fn(),
+    })
   })
 
   it('clears a legacy broken session, sends a question, displays answer_markdown, caveats, and restores safely', async () => {
@@ -110,6 +113,17 @@ describe('/insights/ai neutral route AI Explorer', () => {
     )
 
     server.use(
+      http.post('/api/ads/projects/:projectRef/reports/import', async ({ request }) => {
+        const payload = await request.json()
+        return HttpResponse.json({
+          ok: true,
+          created: true,
+          report: {
+            id: `report-${payload.client_entry_id}`,
+            ...payload.report,
+          },
+        })
+      }),
       http.post('/api/ads/bq/generate_batch', () =>
         HttpResponse.json({
           report_md: '## PV分析\n2026-05-13 が 260PV で最大です。',
@@ -184,10 +198,10 @@ describe('/insights/ai neutral route AI Explorer', () => {
     expect(screen.getAllByText(/260/).length).toBeGreaterThan(0)
     expect(screen.getByText(/JSON parse成功/)).toBeInTheDocument()
     expect(screen.getByText(/fallback/).closest('[data-testid="ai-response-meta"]')).toHaveTextContent('未使用')
-    expect(screen.getByText(/GA4セッション内で最初に閲覧されたページ（入口ページ）/)).toBeInTheDocument()
-    expect(screen.getByText(/最初の page_view\.page_location/)).toBeInTheDocument()
+    expect(screen.getByText('訪問中に最初に見られたページ')).toBeInTheDocument()
+    expect(screen.queryByText(/GA4セッション|page_view\.page_location/)).not.toBeInTheDocument()
     expect(screen.getByText(/広告キャンペーン施策名ではありません/)).toBeInTheDocument()
-    expect(screen.getAllByText(/入口ページから始まったセッション群がPV増加に寄与/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/入口ページから始まった訪問群が見られた回数増加に寄与/).length).toBeGreaterThan(0)
     expect(screen.queryByText('形式整形に失敗したため、AIの生回答を表示しています')).not.toBeInTheDocument()
     expect(screen.queryByText('この回答は表示形式を整えられませんでした。')).not.toBeInTheDocument()
     expect(neonCalls).toBe(1)
@@ -225,6 +239,8 @@ describe('/insights/ai neutral route AI Explorer', () => {
 
     expect(window.location.pathname).toBe('/insights/ai')
     expect(await screen.findByTestId('ai-explorer-v2')).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 1, name: 'AI考察' })).toBeInTheDocument()
   })
 
   it('keeps the legacy /ads/ai URL compatible by redirecting to /insights/ai', async () => {
@@ -243,5 +259,22 @@ describe('/insights/ai neutral route AI Explorer', () => {
     await vi.dynamicImportSettled()
     expect(window.location.search).toBe('?question=PV')
     expect(await screen.findByTestId('ai-explorer-v2')).toBeInTheDocument()
+  })
+
+  it('keeps the existing AI title as the only h1 in the legacy view', async () => {
+    server.use(
+      http.post('/api/ads/bq/generate_batch', () =>
+        HttpResponse.json({
+          report_md: '## PV分析\n2026-05-13 が 260PV で最大です。',
+          chart_data: { groups: [] },
+        }),
+      ),
+    )
+
+    renderAppAt('/insights/ai?ui=v1')
+    await vi.dynamicImportSettled()
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'AI考察' })).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
   })
 })

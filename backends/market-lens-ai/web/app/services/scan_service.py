@@ -78,14 +78,14 @@ async def _crawl_one(url: str, idx: int, run_dir: Path) -> ExtractedData:
     t0 = time.time()
     html, err = await fetch_html(url)
     if err:
-        logger.warning("Fetch failed for %s: %s", url, err)
+        logger.warning("Fetch failed idx=%d error=%s", idx, err)
         return ExtractedData(url=url, error=err)
     data = extract(url, html)
     ss_path = str(run_dir / f"screenshot_{idx}.png")
     ss_err = await take_screenshot(url, ss_path)
     if not ss_err:
         data.screenshot_path = ss_path
-    logger.info("crawl_done url=%s idx=%d elapsed=%.1fs", url, idx, time.time() - t0)
+    logger.info("crawl_done idx=%d elapsed=%.1fs", idx, time.time() - t0)
     return data
 
 
@@ -96,7 +96,7 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
     """
     start = time.time()
     result = ScanResult(urls=req.urls, status="running", owner_id=owner_id)
-    logger.info("Scan started: run_id=%s urls=%s", result.run_id, req.urls)
+    logger.info("Scan started: run_id=%s url_count=%d", result.run_id, len(req.urls))
 
     if on_stage:
         await on_stage("fetching_lps", {"progress_pct": 20})
@@ -108,10 +108,10 @@ async def execute_scan(req: ScanRequest, repo: ScanRepository, *, owner_id: str 
         return_exceptions=True,
     )
     extracted_list: list[ExtractedData] = []
-    for url, r in zip(req.urls, crawl_results):
+    for idx, (url, r) in enumerate(zip(req.urls, crawl_results)):
         if isinstance(r, BaseException):
-            logger.error("Crawl exception for %s: %s", url, r)
-            extracted_list.append(ExtractedData(url=url, error=str(r)))
+            logger.error("Crawl exception idx=%d error_type=%s", idx, type(r).__name__)
+            extracted_list.append(ExtractedData(url=url, error="Crawl failed"))
         else:
             extracted_list.append(r)
     result.extracted = extracted_list

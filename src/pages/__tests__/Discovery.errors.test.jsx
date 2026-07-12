@@ -5,30 +5,6 @@ import userEvent from '@testing-library/user-event'
 import { TestProviders } from '../../test/mocks/contexts.js'
 import Discovery from '../Discovery.jsx'
 
-// Chart.js relies on <canvas> which jsdom does not support fully.
-vi.mock('chart.js', () => {
-  class FakeChart {
-    constructor() {}
-    destroy() {}
-    update() {}
-  }
-  FakeChart.register = () => {}
-  return {
-    Chart: FakeChart,
-    BarController: {},
-    BarElement: {},
-    CategoryScale: {},
-    LinearScale: {},
-    Tooltip: {},
-    Legend: {},
-    RadarController: {},
-    RadialLinearScale: {},
-    PointElement: {},
-    LineElement: {},
-    Filler: {},
-  }
-})
-
 // Mock the API module to bypass internal retry/sleep delays that would
 // cause test timeouts.  Each test overrides the mock return values.
 vi.mock('../../api/marketLens', async (importOriginal) => {

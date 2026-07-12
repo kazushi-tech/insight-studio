@@ -56,12 +56,10 @@ _CASES = [
 @pytest.fixture(autouse=True)
 def _isolate_auth_and_cache(monkeypatch):
     api._login_failures.clear()
-    api._rate_buckets.clear()
     api._bq_cache.clear()
     monkeypatch.setattr(api, "_load_cases_master", lambda: _CASES)
     yield
     api._login_failures.clear()
-    api._rate_buckets.clear()
     api._bq_cache.clear()
 
 
@@ -136,7 +134,7 @@ async def test_password_only_login_rejects_ambiguous_password_and_counts_failure
         )
 
     assert ambiguous.status_code == 409
-    assert "複数" in ambiguous.json()["error"]
+    assert ambiguous.json()["error"]["code"] == "conflict"
     assert wrong.status_code == 401
     assert sum(len(items) for items in api._login_failures.values()) == 1
 
@@ -167,7 +165,7 @@ async def test_roleless_legacy_auth_token_is_not_promoted_to_admin():
         response = await client.get("/api/bq/datasets", headers=_auth(legacy_token))
 
     assert response.status_code == 401
-    assert response.json()["error"] == "Unauthorized"
+    assert response.json()["error"]["category"] == "authentication"
 
 
 @pytest.mark.anyio
@@ -227,7 +225,7 @@ async def test_case_a_cannot_request_case_b_periods_or_query(monkeypatch):
     assert single.status_code == 403
     assert batch.status_code == 403
     for response in (periods, single, batch):
-        assert "outside authenticated case scope" in response.json()["detail"]
+        assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
@@ -241,14 +239,14 @@ async def test_stale_case_token_is_rejected_after_server_dataset_scope_changes(m
         response = await client.get("/api/bq/datasets", headers=_auth(token))
 
     assert response.status_code == 403
-    assert "sign in again" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
 async def test_case_query_without_client_dataset_uses_server_case_dataset(monkeypatch):
     called = []
 
-    def fake_run_report(query_type, dataset, period):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
         called.append((query_type, dataset, period))
         return {
             "report_md": "# scoped",
@@ -299,14 +297,14 @@ async def test_case_a_cannot_probe_case_b_bigquery_status():
         response = await client.get("/api/cases/case_b/bq-status", headers=_auth(token))
 
     assert response.status_code == 403
-    assert "outside authenticated case scope" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
 async def test_admin_retains_explicit_dataset_selection(monkeypatch):
     called = []
 
-    def fake_run_report(query_type, dataset, period):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
         called.append(dataset)
         return {
             "report_md": "# admin",
@@ -387,7 +385,7 @@ async def test_case_neon_dataset_mismatch_is_rejected_before_ai_or_bq(monkeypatc
         )
 
     assert response.status_code == 403
-    assert "outside authenticated case scope" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
@@ -414,7 +412,7 @@ async def test_case_neon_project_override_is_rejected_before_ai_or_bq(monkeypatc
         )
 
     assert response.status_code == 403
-    assert "project is outside authenticated case scope" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
@@ -439,7 +437,7 @@ async def test_case_neon_rejects_shared_point_pack_path_before_file_access(monke
         )
 
     assert response.status_code == 403
-    assert "File-based point packs" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
@@ -468,12 +466,13 @@ async def test_case_neon_rejects_non_bq_analysis_context_before_file_or_ai(
         )
 
     assert response.status_code == 403
-    assert "limited to its BigQuery" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
 async def test_case_rate_limit_uses_signed_case_not_rotating_client_header(monkeypatch):
     monkeypatch.setattr(api, "_RATE_LIMIT_MAX", 1)
+    monkeypatch.setattr(api, "_RATE_LIMIT_WINDOW", 3600)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=api.app), base_url="http://test"
     ) as client:
@@ -496,6 +495,7 @@ async def test_case_rate_limit_uses_signed_case_not_rotating_client_header(monke
 @pytest.mark.anyio
 async def test_unauthenticated_login_rate_limit_uses_ip_not_client_header(monkeypatch):
     monkeypatch.setattr(api, "_RATE_LIMIT_MAX", 1)
+    monkeypatch.setattr(api, "_RATE_LIMIT_WINDOW", 3600)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=api.app), base_url="http://test"
     ) as client:
@@ -603,4 +603,4 @@ async def test_case_users_are_blocked_from_admin_mutation_endpoints(method, path
         response = await client.request(method, path, json={}, headers=_auth(token))
 
     assert response.status_code == 403
-    assert response.json()["error"] == "Admin access required"
+    assert response.json()["error"]["category"] == "authorization"

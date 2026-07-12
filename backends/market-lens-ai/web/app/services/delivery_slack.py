@@ -26,7 +26,7 @@ class LogSlackTransport:
     """Dev/test transport that just logs the Slack message."""
 
     async def post(self, webhook_url: str, payload: dict) -> bool:
-        logger.info("SLACK [webhook=%s] blocks=%d", webhook_url, len(payload.get("blocks", [])))
+        logger.info("SLACK delivery blocks=%d", len(payload.get("blocks", [])))
         return True
 
 

@@ -432,7 +432,7 @@ export default function EssentialPack() {
         const nextBundle = await regenerateAdsReportBundle(setupState)
         if (!cancelled) setReportBundle(nextBundle)
       } catch (e) {
-        if (!cancelled) setError(e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message)
+        if (!cancelled) setError(e.isAuthError ? AUTH_EXPIRED_MESSAGE : 'レポートを表示できませんでした。少し待って、もう一度お試しください。')
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -505,7 +505,7 @@ export default function EssentialPack() {
       const nextBundle = await regenerateAdsReportBundle(setupState)
       setReportBundle(nextBundle)
     } catch (e) {
-      setError(e.isAuthError ? AUTH_EXPIRED_MESSAGE : e.message)
+      setError(e.isAuthError ? AUTH_EXPIRED_MESSAGE : 'レポートを更新できませんでした。少し待って、もう一度お試しください。')
     } finally {
       setLoading(false)
     }

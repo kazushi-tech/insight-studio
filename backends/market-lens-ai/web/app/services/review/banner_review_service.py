@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 _ASSET_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 
@@ -47,6 +47,7 @@ async def review_banner(
     model: Optional[str] = None,
     provider: Optional[str] = None,
     api_key: Optional[str] = None,
+    cancel_check: Callable[[], Awaitable[None]] | None = None,
 ) -> ReviewResult:
     """Run a banner review and return validated structured result."""
     if not _ASSET_ID_RE.match(asset_id):
@@ -98,6 +99,8 @@ async def review_banner(
                 )
                 logger.info("Retrying LLM call (parse attempt %d) after parse error", parse_attempt + 1)
 
+            if cancel_check is not None:
+                await cancel_check()
             if image_data is not None:
                 try:
                     raw_text, _usage = await _call_multimodal_model(
@@ -127,6 +130,8 @@ async def review_banner(
                             f"画像の処理に失敗しました (asset_id={asset_id}, "
                             f"mime_type={meta.mime_type}): {exc_detail[:200]}"
                         ) from multimodal_exc
+                    if cancel_check is not None:
+                        await cancel_check()
                     raw_text, _usage = await _call_text_model(
                         call_prompt,
                         provider=provider,

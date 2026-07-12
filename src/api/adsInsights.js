@@ -1,3 +1,5 @@
+import { apiErrorSearchText, normalizeApiError } from './apiError'
+
 const BASE = '/api/ads'
 // Vercel Services routes the frontend and unified FastAPI backend under the
 // same origin.  Keep the exported direct base for callers, but never bypass
@@ -61,10 +63,19 @@ export function warmAdsInsightsBackend() {
 }
 
 let authToken = null
+let authTokenProvider = null
 let onAuthError = null
 
 export function setOnAuthError(handler) {
   onAuthError = handler
+}
+
+/**
+ * Register an async short-lived token source (for example Clerk getToken).
+ * Returned tokens stay in memory and are never written to localStorage here.
+ */
+export function setAuthTokenProvider(provider) {
+  authTokenProvider = typeof provider === 'function' ? provider : null
 }
 
 function clientHeaders() {
@@ -78,12 +89,23 @@ function clientHeaders() {
   return headers
 }
 
-function authHeaders() {
+async function resolveAuthToken() {
+  if (authTokenProvider) {
+    try {
+      return await authTokenProvider()
+    } catch {
+      return null
+    }
+  }
+  // Legacy tokens may remain in memory during the hybrid period, but browser
+  // storage is never an authentication source.
+  return authToken
+}
+
+async function authHeaders() {
   const headers = clientHeaders()
-  // authToken module 変数 → localStorage フォールバック（AuthProvider 前の race 防御）
-  const token = authToken || (() => { try { return localStorage.getItem('is_ads_token') } catch { return null } })()
+  const token = await resolveAuthToken()
   if (token) {
-    if (!authToken) authToken = token  // モジュール変数を遅延初期化
     headers['Authorization'] = `Bearer ${token}`
   }
   return headers
@@ -115,19 +137,32 @@ function isFetchNetworkError(error) {
 
 function isBackendConfigAuthError(status, body = {}) {
   if (status !== 401 && status !== 403) return false
-  const marker = String(
-    body.error_code || body.error || body.detail || body.message || '',
-  ).toLowerCase()
+  const problem = normalizeApiError(body, status)
+  const code = problem.code.toLowerCase()
+  const marker = apiErrorSearchText(body, status)
   return (
-    marker === 'api_key_required' ||
-    marker.startsWith('gemini_') ||
+    code === 'api_key_required' ||
+    code.startsWith('gemini_') ||
     marker.includes('gemini api') ||
     marker.includes('gemini_api_key') ||
     marker.includes('google_api_key') ||
     marker.includes('anthropic_api_key') ||
-    marker.startsWith('bq_') ||
-    marker === 'credentials_missing'
+    code.startsWith('bq_') ||
+    code === 'credentials_missing'
   )
+}
+
+function splitProjectScope(value = {}) {
+  const input = value && typeof value === 'object' ? value : {}
+  const projectRef = String(input.project_ref || input.projectRef || '').trim()
+  const scopedValue = { ...input }
+  delete scopedValue.project_ref
+  delete scopedValue.projectRef
+  return { projectRef, value: scopedValue }
+}
+
+function projectScopeHeaders(projectRef) {
+  return projectRef ? { 'X-Insight-Project': projectRef } : {}
 }
 
 function defaultApiErrorMessage(status) {
@@ -151,7 +186,7 @@ async function request(path, options = {}) {
     ...fetchOptions
   } = options
 
-  const headers = new Headers(skipAuth ? clientHeaders() : authHeaders())
+  const headers = new Headers(skipAuth ? clientHeaders() : await authHeaders())
   new Headers(customHeaders).forEach((value, key) => {
     headers.set(key, value)
   })
@@ -240,11 +275,15 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    const error = new Error(
-      body.detail || body.message || body.error || defaultApiErrorMessage(res.status),
-    )
+    const problem = normalizeApiError(body, res.status, defaultApiErrorMessage(res.status))
+    const error = new Error(problem.message)
     error.status = res.status
     error.body = body
+    error.code = problem.code
+    error.category = problem.category
+    error.retryable = problem.retryable
+    error.requestId = problem.requestId
+    error.fieldErrors = problem.fieldErrors
     error.isBackendConfigAuthError = isBackendConfigAuthError(res.status, body)
     error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth && !error.isBackendConfigAuthError
 
@@ -266,7 +305,7 @@ async function requestLocalAds(path, options = {}) {
     ...fetchOptions
   } = options
 
-  const headers = new Headers(skipAuth ? clientHeaders() : authHeaders())
+  const headers = new Headers(skipAuth ? clientHeaders() : await authHeaders())
   new Headers(customHeaders).forEach((value, key) => {
     headers.set(key, value)
   })
@@ -293,11 +332,15 @@ async function requestLocalAds(path, options = {}) {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    const error = new Error(
-      body.detail || body.message || body.error || defaultApiErrorMessage(res.status),
-    )
+    const problem = normalizeApiError(body, res.status, defaultApiErrorMessage(res.status))
+    const error = new Error(problem.message)
     error.status = res.status
     error.body = body
+    error.code = problem.code
+    error.category = problem.category
+    error.retryable = problem.retryable
+    error.requestId = problem.requestId
+    error.fieldErrors = problem.fieldErrors
     error.isBackendConfigAuthError = isBackendConfigAuthError(res.status, body)
     error.isAuthError = (res.status === 401 || res.status === 403) && didSendAuth && !error.isBackendConfigAuthError
     if (error.isAuthError && !suppressAuthErrorHandler) {
@@ -334,6 +377,7 @@ export function getToken() {
 /** ログアウト — 全セッション状態を一括 purge */
 export function logout() {
   authToken = null
+  authTokenProvider = null
   // 共有端末で別顧客の分析内容が残らないよう、認証・案件・履歴を一括削除する。
   try {
     const keysToRemove = []
@@ -411,13 +455,15 @@ export function generateInsights(payload) {
 
 /** POST /api/insights/neon/generate — Point Pack ベース AI考察 */
 export function neonGenerate(payload, apiKey) {
-  const isGemini = payload.provider === 'google'
+  const { projectRef, value: scopedPayload } = splitProjectScope(payload)
+  const isGemini = scopedPayload.provider === 'google'
   const headers = {
     Accept: 'application/json',
-    ...(payload.provider ? { 'X-Analysis-Provider': payload.provider } : {}),
+    ...projectScopeHeaders(projectRef),
+    ...(scopedPayload.provider ? { 'X-Analysis-Provider': scopedPayload.provider } : {}),
     ...(isGemini && apiKey ? { 'X-Gemini-API-Key': apiKey } : {}),
   }
-  const body = { ...payload, ...(!isGemini && apiKey ? { api_key: apiKey } : {}) }
+  const body = { ...scopedPayload, ...(!isGemini && apiKey ? { api_key: apiKey } : {}) }
 
   return request('/neon/generate', {
     method: 'POST',
@@ -544,29 +590,41 @@ export function health() {
 // ── BigQuery endpoints ──
 
 /** GET /api/bq/query_types — BQクエリタイプ一覧 */
-export function bqQueryTypes() {
-  return request('/bq/query_types')
+export function bqQueryTypes(projectRef = null) {
+  return request('/bq/query_types', {
+    headers: projectScopeHeaders(projectRef),
+  })
 }
 
 /** GET /api/bq/periods — BQ期間一覧 */
 export function bqPeriods(params = {}) {
-  const qs = toQueryString(params)
-  return request(qs ? `/bq/periods?${qs}` : '/bq/periods')
+  const { projectRef, value: queryParams } = splitProjectScope(params)
+  if (queryParams.dataset_id === 'managed') delete queryParams.dataset_id
+  const qs = toQueryString(queryParams)
+  return request(qs ? `/bq/periods?${qs}` : '/bq/periods', {
+    headers: projectScopeHeaders(projectRef),
+  })
 }
 
 /** POST /api/bq/generate — BQレポート生成（単一クエリタイプ） */
 export function bqGenerate(payload) {
+  const { projectRef, value: body } = splitProjectScope(payload)
+  if (body.dataset_id === 'managed') delete body.dataset_id
   return request('/bq/generate', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    headers: projectScopeHeaders(projectRef),
+    body: JSON.stringify(body),
   })
 }
 
 /** POST /api/bq/generate_batch — BQレポート一括生成（複数クエリタイプ） */
 export function bqGenerateBatch(payload) {
+  const { projectRef, value: body } = splitProjectScope(payload)
+  if (body.dataset_id === 'managed') delete body.dataset_id
   return request('/bq/generate_batch', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    headers: projectScopeHeaders(projectRef),
+    body: JSON.stringify(body),
   })
 }
 

@@ -89,12 +89,10 @@ def anyio_backend():
 @pytest.fixture(autouse=True)
 def _isolate_demo_registry_and_runtime(monkeypatch):
     api._login_failures.clear()
-    api._rate_buckets.clear()
     api._bq_cache.clear()
     monkeypatch.setattr(api, "_load_cases_master", lambda: deepcopy(_CASES))
     yield
     api._login_failures.clear()
-    api._rate_buckets.clear()
     api._bq_cache.clear()
 
 
@@ -258,7 +256,7 @@ async def test_demo_jwt_is_revalidated_against_active_registry_and_dataset(monke
 
     assert inactive.status_code == 403
     assert changed.status_code == 403
-    assert "sign in again" in changed.json()["detail"]
+    assert changed.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
@@ -534,7 +532,7 @@ async def test_demo_rejects_customer_file_context_before_read(monkeypatch):
         )
 
     assert response.status_code == 403
-    assert "File-based point packs" in response.json()["detail"]
+    assert response.json()["error"]["category"] == "authorization"
 
 
 @pytest.mark.anyio
@@ -560,7 +558,7 @@ async def test_demo_does_not_claim_any_period_outside_fixture():
     batch_body = batch.json()
     assert single.status_code == 200
     assert single_body["ok"] is False
-    assert single_body["error"] == "no_data"
+    assert single_body["error"]["code"] == "no_data"
     assert single_body["period_metadata"] is None
     assert single_body["available_periods"] == list(DEMO_PERIODS)
     assert batch.status_code == 200
@@ -638,7 +636,7 @@ async def test_demo_periods_reject_non_monthly_granularity(granularity):
     body = response.json()
     assert response.status_code == 400
     assert body["ok"] is False
-    assert body["error"] == "validation_error"
+    assert body["error"]["code"] == "validation_error"
     assert body["granularity"] == granularity
     assert body["available_granularities"] == ["monthly"]
     assert "periods" not in body
@@ -690,7 +688,7 @@ async def test_forged_chart_evidence_is_not_echoed_as_demo_citation():
 async def test_non_demo_case_keeps_the_normal_report_path(monkeypatch):
     calls = []
 
-    def fake_run_report(query_type, dataset, period):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
         calls.append((query_type, dataset, period))
         return {
             "report_md": "# normal path",

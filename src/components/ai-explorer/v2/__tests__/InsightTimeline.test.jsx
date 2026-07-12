@@ -138,6 +138,6 @@ describe('InsightTimeline', () => {
 
     rerender(<InsightTimeline {...baseProps} hasAnalysisKey={false} isDemo={false} />)
     expect(screen.queryByTestId('demo-ai-notice')).not.toBeInTheDocument()
-    expect(screen.getByText(/Geminiを設定すると/)).toBeInTheDocument()
+    expect(screen.getByText(/導入担当者の設定後/)).toBeInTheDocument()
   })
 })

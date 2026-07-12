@@ -7,6 +7,8 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useUserProfile } from '../contexts/UserProfileContext'
 import { ANALYSIS_PROVIDER_ANTHROPIC, ANALYSIS_PROVIDER_GEMINI } from '../utils/analysisProvider'
 import { getApiKeyValidationError, validateClaudeKeyRemote } from '../utils/apiKeys'
+import BillingSettingsCard from '../components/BillingSettingsCard'
+import LegalPrivacySettingsCard from '../components/LegalPrivacySettingsCard'
 
 function SettingsCard({ icon, title, description, children, className = '' }) {
   return (
@@ -664,6 +666,10 @@ export default function Settings() {
           <Toggle checked={isDark} onChange={toggleTheme} label="ダークモード" />
         </div>
       </SettingsCard>
+
+      <BillingSettingsCard user={user} enabled={isAdsAuthenticated} />
+
+      <LegalPrivacySettingsCard user={user} enabled={isAdsAuthenticated} />
 
       <SettingsCard
         icon="person"

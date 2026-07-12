@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from web.app.backend_api import app, _login_failures, _rate_buckets
+from web.app.backend_api import app, _login_failures
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +38,8 @@ from web.app.backend_api import app, _login_failures, _rate_buckets
 def _clear_login_state():
     """Reset brute-force counter between every test."""
     _login_failures.clear()
-    _rate_buckets.clear()
     yield
     _login_failures.clear()
-    _rate_buckets.clear()
 
 
 @pytest.fixture()
@@ -230,7 +228,7 @@ class TestApiCasesAuthGating:
         assert resp.status_code == 401
         body = resp.json()
         assert body["ok"] is False
-        assert body["error"].lower() == "unauthorized"
+        assert body["error"]["category"] == "authentication"
 
     @pytest.mark.anyio
     async def test_api_cases_with_invalid_token_returns_401(self):
@@ -239,7 +237,7 @@ class TestApiCasesAuthGating:
         assert resp.status_code == 401
         body = resp.json()
         assert body["ok"] is False
-        assert body["error"].lower() == "unauthorized"
+        assert body["error"]["category"] == "authentication"
 
     @pytest.mark.anyio
     async def test_api_cases_with_valid_token_returns_dataset_id(self):

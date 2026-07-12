@@ -68,8 +68,8 @@ export default function InviteModal({ onClose, project }) {
       await inviteMember(projectId, inviteEmail.trim(), invitePermission)
       setInviteEmail('')
       await fetchMembers()
-    } catch (e) {
-      setError(e.message)
+    } catch {
+      setError('招待を作成できませんでした。入力内容を確認して、もう一度お試しください。')
     } finally {
       setInviting(false)
     }
@@ -81,8 +81,8 @@ export default function InviteModal({ onClose, project }) {
     try {
       await removeMember(projectId, userId)
       await fetchMembers()
-    } catch (e) {
-      setError(e.message)
+    } catch {
+      setError('招待を取り消せませんでした。少し待って、もう一度お試しください。')
     }
   }
 

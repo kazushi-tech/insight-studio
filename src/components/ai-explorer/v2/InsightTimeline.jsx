@@ -161,7 +161,7 @@ export default function InsightTimeline({
           <div className={`${styles.banner} ${styles.bannerInfo}`}>
             <span className="material-symbols-outlined" aria-hidden="true">data_check</span>
             <span className="japanese-text">
-              APIキーなしの根拠整理モードで利用できます。Geminiを設定すると、安価な1回生成と厳格検査で詳しい考察に切り替わります。
+              表示中の根拠を使った整理モードで利用できます。詳しい追加分析は、導入担当者の設定後に利用できます。
             </span>
           </div>
         )}

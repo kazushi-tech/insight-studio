@@ -10,6 +10,13 @@ from pathlib import Path
 import pytest
 
 
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault(
+    "RATE_LIMIT_HASH_SECRET",
+    "market-lens-tests-rate-limit-secret-at-least-32-bytes",
+)
+
+
 # ---------------------------------------------------------------------------
 # Fix Windows tmp_path permissions by redirecting to a local directory
 # ---------------------------------------------------------------------------
@@ -32,10 +39,60 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(autouse=True)
 def clear_rate_limit():
-    """Clear rate limit store before each test to prevent 429 errors."""
-    from web.app import main
-    main._rate_store.clear()
+    """Provide migration-owned shared control tables for isolated tests."""
+    import sqlalchemy as sa
+
+    from web.app.shared_rate_limits import clear_rate_limit_buckets
+    from web.app.tenant_auth import (
+        INTERNAL_PROJECT_ID,
+        INTERNAL_WORKSPACE_ID,
+        _session_factory_for_url,
+        get_managed_session_factory,
+    )
+    from web.app.tenant_schema import (
+        ai_budget_accounts,
+        ai_usage_ledger,
+        metadata,
+        projects,
+        workspaces,
+    )
+
+    factory = get_managed_session_factory()
+    engine = factory.kw["bind"]
+    metadata.create_all(engine)
+    with engine.begin() as connection:
+        if connection.execute(
+            sa.select(workspaces.c.id).where(workspaces.c.id == INTERNAL_WORKSPACE_ID)
+        ).scalar_one_or_none() is None:
+            connection.execute(
+                sa.insert(workspaces).values(
+                    id=INTERNAL_WORKSPACE_ID,
+                    slug="insight-studio-internal",
+                    name="Insight Studio Internal",
+                    status="active",
+                    is_internal=True,
+                )
+            )
+        if connection.execute(
+            sa.select(projects.c.id).where(projects.c.id == INTERNAL_PROJECT_ID)
+        ).scalar_one_or_none() is None:
+            connection.execute(
+                sa.insert(projects).values(
+                    id=INTERNAL_PROJECT_ID,
+                    workspace_id=INTERNAL_WORKSPACE_ID,
+                    slug="legacy-internal",
+                    name="Legacy Internal Data",
+                    status="active",
+                    is_internal=True,
+                    is_demo=False,
+                    version=1,
+                )
+            )
+        connection.execute(sa.delete(ai_usage_ledger))
+        connection.execute(sa.delete(ai_budget_accounts))
+    clear_rate_limit_buckets()
     yield
+    _session_factory_for_url.cache_clear()
 
 
 @pytest.fixture

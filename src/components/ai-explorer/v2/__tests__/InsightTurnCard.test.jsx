@@ -113,7 +113,7 @@ describe('InsightTurnCard', () => {
     )
     expect(screen.queryByTestId('chart-group-card')).not.toBeInTheDocument()
     expect(screen.queryByText(/関連データグラフを展開/)).not.toBeInTheDocument()
-    expect(screen.getByText(/直近のCVR推移が改善/)).toBeInTheDocument()
+    expect(screen.getByText(/直近の成果につながった割合推移が改善/)).toBeInTheDocument()
   })
 
   it('does not render the chart panel when no chartGroups match the content', () => {
@@ -145,9 +145,9 @@ describe('InsightTurnCard', () => {
       />,
     )
     expect(screen.getByTestId('insight-summary-hero')).toBeInTheDocument()
-    expect(screen.getByText('CTR上昇')).toBeInTheDocument()
-    expect(screen.getByText('CTR')).toBeInTheDocument()
-    expect(screen.getByText('CVR推移')).toBeInTheDocument()
+    expect(screen.getByText('広告を見た人のうち、サイトに来た割合上昇')).toBeInTheDocument()
+    expect(screen.getByText('広告を見た人のうち、サイトに来た割合')).toBeInTheDocument()
+    expect(screen.getByText('成果につながった割合推移')).toBeInTheDocument()
   })
 
   it('auto-derives meta from aiContent containing a valid insight-meta block and renders the stripped markdown', () => {
@@ -193,7 +193,7 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('insight-html-report')).toBeInTheDocument()
-    expect(screen.getByText('CVR低下はLP導線の影響が強い')).toBeInTheDocument()
+    expect(screen.getByText('成果につながった割合低下は入口ページ導線の影響が強い')).toBeInTheDocument()
     expect(screen.queryByTestId('insight-summary-hero')).not.toBeInTheDocument()
     expect(screen.getByText('詳細なAI回答を開く')).toBeInTheDocument()
 
@@ -242,7 +242,7 @@ describe('InsightTurnCard', () => {
     expect(screen.getByText('広告運用上の示唆')).toBeInTheDocument()
     expect(screen.getByText('次に見るべき数値')).toBeInTheDocument()
     expect(screen.getByText('今週やる施策')).toBeInTheDocument()
-    expect(screen.getByText('期待KPI')).toBeInTheDocument()
+    expect(screen.getByText('期待見るべき数字')).toBeInTheDocument()
   })
 
   it('does not promote missing ad KPIs into the auto metric table', () => {
@@ -258,7 +258,7 @@ describe('InsightTurnCard', () => {
     expect(screen.getByText('根拠指標テーブル')).toBeInTheDocument()
     expect(screen.queryByText('CPA')).not.toBeInTheDocument()
     expect(screen.queryByText('CVR')).not.toBeInTheDocument()
-    expect(screen.getByText('セッション')).toBeInTheDocument()
+    expect(screen.getAllByText(/訪問は200件/).length).toBeGreaterThan(0)
   })
 
   it('renders insight-report v2 as a structured evidence report without KPI fallbacks', () => {
@@ -287,7 +287,7 @@ describe('InsightTurnCard', () => {
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
     expect(screen.getByText('重要結論')).toBeInTheDocument()
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
-    expect(screen.getByText(/LP \/a の流入元を確認/)).toBeInTheDocument()
+    expect(screen.getByText(/入口ページ \/a の流入元を確認/)).toBeInTheDocument()
     expect(screen.queryByText('CPA / ROAS')).not.toBeInTheDocument()
     expect(screen.queryByText('CV / CVR')).not.toBeInTheDocument()
   })
@@ -344,7 +344,7 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('数値照合済み')
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: 根拠グラフ')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('根拠と整合性の確認')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('数値根拠の確認')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('自動照合')
@@ -374,7 +374,7 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: 根拠グラフ')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('整合性チェック')
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
@@ -400,7 +400,7 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: 根拠グラフ')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('整合性チェック')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.queryByText(escapedReportJson)).not.toBeInTheDocument()
@@ -420,7 +420,7 @@ describe('InsightTurnCard', () => {
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('CPA、ROAS、CTRは未取得')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('1件の成果にかかった広告費、ROAS、広告を見た人のうち、サイトに来た割合は未取得')
     expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
     expect(screen.queryByTestId('operational-insight-cards')).not.toBeInTheDocument()
     expect(screen.queryByTestId('insight-report-flow')).not.toBeInTheDocument()
@@ -470,20 +470,20 @@ describe('InsightTurnCard', () => {
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
-    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: chart_01')
+    expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('参照グラフ: 根拠グラフ')
     expect(screen.getByTestId('evidence-status-band')).toHaveTextContent('取得済みグラフ根拠で照合済み')
     expect(screen.getByTestId('evidence-status-band')).not.toHaveTextContent('数値照合は要確認')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('ユーザー数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('273')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('セッション数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('訪問数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('308')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('見られた回数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('まず前提として')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('広告運用上は')
     expect(screen.getByTestId('insight-report-v2')).not.toHaveTextContent('初心者向け')
     expect(screen.getByTestId('insight-report-v2')).not.toHaveTextContent('シニア運用者向け')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('1セッションあたりPV')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('1訪問あたり見られた回数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('P3: 媒体管理画面で配信変更履歴を突合する')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('数値根拠の確認')
     expect(screen.getByTestId('agent-trace-panel')).toHaveTextContent('運用観点の確認')
@@ -510,7 +510,7 @@ describe('InsightTurnCard', () => {
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('見られた回数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
     expect(screen.queryByText(/\{"version"/)).not.toBeInTheDocument()
@@ -522,7 +522,7 @@ describe('InsightTurnCard', () => {
     render(<InsightTurnCard turn={{ userPrompt: 'q', aiContent }} />)
 
     expect(screen.getByTestId('insight-report-v2')).toBeInTheDocument()
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('見られた回数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
   })
@@ -545,9 +545,9 @@ describe('InsightTurnCard', () => {
     expect(screen.getByText('根拠テーブル')).toBeInTheDocument()
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('ユーザー数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('273')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('セッション数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('訪問数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('308')
-    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('PV数')
+    expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('見られた回数')
     expect(screen.getByTestId('insight-report-v2')).toHaveTextContent('328')
     expect(screen.queryByTestId('insight-report-artifact-hidden')).not.toBeInTheDocument()
   })
@@ -617,11 +617,36 @@ describe('InsightTurnCard', () => {
 
     expect(screen.getByTestId('ai-response-meta')).toBeInTheDocument()
     expect(screen.getByText(/2026-05-01 〜 2026-05-31/)).toBeInTheDocument()
-    expect(screen.getByText(/page_views/)).toBeInTheDocument()
-    expect(screen.getByText(/GA4セッション内で最初に閲覧されたページ（入口ページ）/)).toBeInTheDocument()
+    expect(screen.getByText('見られた回数')).toBeInTheDocument()
+    expect(screen.getByText(/訪問中に最初に見られたページ/)).toBeInTheDocument()
     expect(screen.getByText(/生回答を表示/)).toBeInTheDocument()
     expect(screen.getByText('外部施策の有無は確認できません')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '再試行' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not expose implementation terms in the customer-facing AI response', () => {
+    const aiContent = [
+      '```insight-report',
+      JSON.stringify({
+        version: 'insight_report_v2',
+        executive_summary: ['GA4 BigQuery dataset の PV と CV を確認'],
+        evidence_table: [{ claim: 'chart_01 は null', metric: 'PV', value: '10', period: '今月', source: 'chart_01' }],
+        interpretation: ['API key と APIキーは表示しない'],
+        hypotheses: [],
+        actions: [],
+        limitations: ['データセット未設定'],
+        review_status: { verdict: 'pass', notes: [] },
+      }),
+      '```',
+    ].join('\n')
+
+    const { container } = render(
+      <InsightTurnCard turn={{ userPrompt: 'GA4のPVを確認', aiContent }} />,
+    )
+
+    expect(container).not.toHaveTextContent(
+      /GA4|BigQuery|dataset|データセット|\bPV\b|\bCV\b|chart_01|null|API key|APIキー/i,
+    )
   })
 })

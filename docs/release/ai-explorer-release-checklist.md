@@ -1,4 +1,8 @@
-# AI考察 リリース前チェックリスト
+# AI考察 リリース前チェックリスト（旧構成の履歴）
+
+> この文書は旧Render構成時の履歴であり、現在のProduction手順には使用しない。
+> 正準手順は `docs/operations/release-and-rollback.md`、正準環境契約は
+> `docs/operations/environment-contract.md` を参照する。旧URLや完了印は現在状態を証明しない。
 
 ## ルート
 - [ ] `/insights/ai` が開ける

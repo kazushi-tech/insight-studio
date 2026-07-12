@@ -8,9 +8,9 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException
 
-from ..auth import verify_admin_or_integration
+from ..auth import get_verified_owner_id, verify_admin_or_integration
 from ..models import ScanRequest, ScanResponse, ScanResult, ExtractedData
 from ..policies import validate_urls
 from ..repositories.scan_repository import ScanRepository
@@ -28,7 +28,11 @@ from ..schemas.scan_job import (
 )
 from ..services.scan_service import execute_scan
 from ..smoke_mode import is_smoke_mode, smoke_scan_result
-from ..user_context import get_optional_user_id
+from ..jobs.analysis_backend import (
+    AnalysisJobStatus,
+    AnalysisJobType,
+    JobBackendMode,
+)
 
 logger = logging.getLogger("market-lens")
 
@@ -41,14 +45,33 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None = None) -> APIRouter:
+def create_scan_router(
+    repo: ScanRepository,
+    job_repo: ScanJobRepository | None = None,
+    *,
+    analysis_job_backend=None,
+) -> APIRouter:
     """Factory that creates a scan router wired to the given repository."""
     router = APIRouter(dependencies=[Depends(verify_admin_or_integration)])
+
+    def _analysis_backend_mode():
+        mode = getattr(analysis_job_backend, "mode", None)
+        if analysis_job_backend is not None and mode is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Analysis job backend is unavailable.",
+            )
+        return mode
 
     # ── Sync endpoint (legacy) ─────────────────────────────────
 
     @router.post("/api/scan", response_model=ScanResponse)
-    async def scan(req: ScanRequest, owner_id: str | None = Depends(get_optional_user_id)):
+    async def scan(req: ScanRequest, owner_id: str = Depends(get_verified_owner_id)):
+        if _analysis_backend_mode() in {JobBackendMode.worker, JobBackendMode.workflow}:
+            raise HTTPException(
+                status_code=409,
+                detail="Use POST /api/scan/jobs for durable analysis.",
+            )
         if is_smoke_mode():
             logger.info("[SMOKE] Returning deterministic scan result")
             run_id = uuid.uuid4().hex[:12]
@@ -99,20 +122,44 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
             record.message = message
 
     @router.post("/api/scan/jobs", status_code=202)
-    async def start_scan_job(req: ScanRequest, request: Request, owner_id: str | None = Depends(get_optional_user_id)):
+    async def start_scan_job(
+        req: ScanRequest,
+        owner_id: str = Depends(get_verified_owner_id),
+        idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    ):
         """Start an async scan job. Returns 202 with poll URL."""
-        if job_repo is None:
-            raise HTTPException(status_code=501, detail="Async scan job support is not configured.")
-
         errors = validate_urls(req.urls)
         if errors:
             raise HTTPException(status_code=422, detail=errors)
+
+        backend_mode = _analysis_backend_mode()
+        if backend_mode in {JobBackendMode.worker, JobBackendMode.workflow}:
+            if req.api_key:
+                raise HTTPException(
+                    status_code=422,
+                    detail="BYOK credentials cannot be queued; use the configured service provider.",
+                )
+            job = analysis_job_backend.enqueue(
+                AnalysisJobType.scan,
+                req.model_dump(mode="json", exclude={"api_key"}),
+                idempotency_key=idempotency_key,
+            )
+            return ScanJobStartResponse(
+                job_id=job.id,
+                status=ScanJobStatus.queued,
+                stage=ScanJobStage.queued,
+                poll_url=f"/api/scan/jobs/{job.id}",
+                retry_after_sec=3,
+            )
+
+        if job_repo is None:
+            raise HTTPException(status_code=501, detail="Async scan job support is not configured.")
 
         job_id = _new_job_id()
         now = _now()
         record = ScanJobRecord(
             job_id=job_id,
-            owner_id=owner_id or request.headers.get("X-Insight-User", ""),
+            owner_id=owner_id,
             urls=req.urls,
             provider=req.provider,
             model=req.model,
@@ -153,7 +200,7 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
                     job_repo.save_job(record)
 
                 result = await asyncio.wait_for(
-                    execute_scan(req, repo, owner_id=record.owner_id or None, on_stage=_on_stage),
+                    execute_scan(req, repo, owner_id=record.owner_id, on_stage=_on_stage),
                     timeout=_overall_job_timeout,
                 )
 
@@ -163,7 +210,7 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
                 record.status = ScanJobStatus.completed
                 _mark_stage(record, ScanJobStage.complete, progress_pct=100, message=STAGE_MESSAGES["complete"])
                 job_repo.save_job(record)
-                logger.info("Scan job completed: job_id=%s urls=%s", job_id, req.urls)
+                logger.info("Scan job completed: job_id=%s url_count=%d", job_id, len(req.urls))
 
             except asyncio.TimeoutError:
                 record.status = ScanJobStatus.failed
@@ -214,8 +261,58 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
         )
 
     @router.get("/api/scan/jobs/{job_id}")
-    async def get_scan_job_status(job_id: str, request: Request, owner_id: str | None = Depends(get_optional_user_id)):
+    async def get_scan_job_status(
+        job_id: str,
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
         """Poll scan job status."""
+        backend_mode = _analysis_backend_mode()
+        if backend_mode in {JobBackendMode.worker, JobBackendMode.workflow}:
+            job = analysis_job_backend.get(job_id)
+            if job is None or job.job_type != AnalysisJobType.scan:
+                raise HTTPException(status_code=404, detail="Job not found.")
+            status_map = {
+                AnalysisJobStatus.queued: ScanJobStatus.queued,
+                AnalysisJobStatus.running: ScanJobStatus.running,
+                AnalysisJobStatus.succeeded: ScanJobStatus.completed,
+                AnalysisJobStatus.failed: ScanJobStatus.failed,
+                AnalysisJobStatus.canceled: ScanJobStatus.failed,
+            }
+            allowed_stages = {item.value for item in ScanJobStage}
+            if job.stage in allowed_stages:
+                external_stage = ScanJobStage(job.stage)
+            elif job.status == AnalysisJobStatus.succeeded:
+                external_stage = ScanJobStage.complete
+            elif job.status in {AnalysisJobStatus.failed, AnalysisJobStatus.canceled}:
+                external_stage = ScanJobStage.failed
+            elif job.status == AnalysisJobStatus.running:
+                external_stage = ScanJobStage.analyzing
+            else:
+                external_stage = ScanJobStage.queued
+            error = None
+            if job.error or job.status == AnalysisJobStatus.canceled:
+                raw_error = dict(job.error or {})
+                error = ScanJobError(
+                    status_code=int(raw_error.get("status_code", 409 if job.status == AnalysisJobStatus.canceled else 500)),
+                    detail=("ジョブはキャンセルされました。" if job.status == AnalysisJobStatus.canceled else "分析に失敗しました。時間をおいて再試行してください。"),
+                    retryable=bool(raw_error.get("retryable", False)),
+                )
+            return ScanJobResponse(
+                job_id=job.id,
+                status=status_map[job.status],
+                stage=external_stage,
+                progress_pct=job.progress_pct,
+                created_at=job.created_at,
+                started_at=job.started_at,
+                updated_at=job.updated_at,
+                heartbeat_at=job.heartbeat_at,
+                urls=list(job.payload.get("urls") or []),
+                message=STAGE_MESSAGES.get(external_stage.value, ""),
+                result=dict(job.result) if job.result is not None else None,
+                error=error,
+                retry_after_sec=STAGE_RETRY_AFTER.get(external_stage.value, 5),
+            )
+
         if job_repo is None:
             raise HTTPException(status_code=501, detail="Async scan job support is not configured.")
 
@@ -224,8 +321,7 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
             raise HTTPException(status_code=404, detail="Job not found.")
 
         # Owner scope check
-        request_owner = owner_id or request.headers.get("X-Insight-User", "")
-        if record.owner_id and request_owner != record.owner_id:
+        if record.owner_id and owner_id != record.owner_id:
             raise HTTPException(status_code=404, detail="Job not found.")
 
         # Stale running detection
@@ -269,5 +365,19 @@ def create_scan_router(repo: ScanRepository, job_repo: ScanJobRepository | None 
             error=record.error,
             retry_after_sec=STAGE_RETRY_AFTER.get(record.stage.value, 5),
         )
+
+    @router.post("/api/scan/jobs/{job_id}/cancel")
+    async def cancel_scan_job(
+        job_id: str,
+        _owner_id: str = Depends(get_verified_owner_id),
+    ):
+        backend_mode = _analysis_backend_mode()
+        if backend_mode not in {JobBackendMode.worker, JobBackendMode.workflow}:
+            raise HTTPException(status_code=501, detail="Durable cancellation is not configured.")
+        job = analysis_job_backend.get(job_id)
+        if job is None or job.job_type != AnalysisJobType.scan:
+            raise HTTPException(status_code=404, detail="Job not found.")
+        canceled = analysis_job_backend.cancel(job_id)
+        return {"job_id": job_id, "status": canceled.status.value}
 
     return router

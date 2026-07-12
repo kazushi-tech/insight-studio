@@ -667,7 +667,7 @@ def _build_engagement(df: pd.DataFrame) -> list[dict]:
     return groups
 
 
-# ========== V3.3: 推定オークション圧分析 ==========
+# ========== V3.3: 流入集中の参考値 ==========
 def _build_auction_proxy(df: pd.DataFrame) -> list[dict]:
     """日別チャネル別セッションシェアの積み上げ折れ線。"""
     groups = []
@@ -677,7 +677,7 @@ def _build_auction_proxy(df: pd.DataFrame) -> list[dict]:
     labels_ch = ch_agg["channel_group"].astype(str).tolist()
     c0 = _color(0)
     groups.append({
-        "title": "流入の競合影響チェック（推定） — チャネル別セッション構成",
+        "title": "流入集中の参考値 — チャネル別セッション構成",
         "chartType": "bar_horizontal",
         "labels": labels_ch,
         "datasets": [{
@@ -699,7 +699,7 @@ def _build_auction_proxy(df: pd.DataFrame) -> list[dict]:
                 "borderColor": c["border"], "backgroundColor": c["bg"],
                 "tension": 0.3, "fill": False,
             })
-        groups.append({"title": "流入の競合影響チェック（推定） — 日別チャネル推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
+        groups.append({"title": "流入集中の参考値 — 日別チャネル推移", "chartType": "line", "labels": d_labels, "datasets": d_datasets})
 
     return groups
 

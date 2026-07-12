@@ -67,8 +67,8 @@ class CompetitorMonitor:
         self._repo.store_diff(entry.id, diff)
 
         logger.info(
-            "Checked %s — changes=%s hash=%s->%s",
-            entry.url,
+            "Checked entry_id=%s changes=%s hash=%s->%s",
+            entry.id,
             changes_detected,
             old_hash or "none",
             new_hash,
@@ -84,13 +84,17 @@ class CompetitorMonitor:
                 result = await self.check_entry(entry)
                 results.append(result)
             except Exception as exc:
-                logger.error("Failed to check %s: %s", entry.url, exc)
+                logger.error(
+                    "Failed to check entry_id=%s error_type=%s",
+                    entry.id,
+                    type(exc).__name__,
+                )
                 results.append(
                     DiffResult(
                         entry_id=entry.id,
                         url=entry.url,
                         changes_detected=False,
-                        summary=f"Check failed: {exc}",
+                        summary="Check failed",
                         checked_at=self._now(),
                     )
                 )
@@ -112,7 +116,7 @@ class CompetitorMonitor:
                     "meta_description": extracted.get("meta_description", ""),
                 }
             except Exception as exc:
-                logger.warning("Fetch failed for %s: %s", url, exc)
+                logger.warning("Fetch failed error_type=%s", type(exc).__name__)
 
         return {
             "title": "",

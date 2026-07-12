@@ -73,15 +73,13 @@ describe('Dashboard', () => {
 
   })
 
-  it('keeps advanced tools visible but routes case users through the operator-controlled hub', () => {
+  it('does not expose operator-only advanced tools to case users', () => {
     state.role = 'case_user'
     renderPage()
 
-    expect(screen.getAllByText('導入担当者が実行')).toHaveLength(3)
-    expect(screen.getAllByRole('link', { name: /自社と競合LPを比べる|競合になりそうなサイトを探す|広告画像の改善点を見つける/ })).toHaveLength(3)
-    screen.getAllByText('導入担当者が実行').forEach((status) => {
-      expect(status.closest('a')).toHaveAttribute('href', '/analysis')
-    })
+    expect(screen.queryByRole('heading', { name: 'もっと詳しく調べる' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '分析メニューを開く' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /自社と競合LPを比べる|競合になりそうなサイトを探す|広告画像の改善点を見つける/ })).not.toBeInTheDocument()
   })
 
   it('promotes real report summaries and the next action when a report exists', () => {
@@ -105,5 +103,41 @@ describe('Dashboard', () => {
     expect(screen.getByText('サイト閲覧が増えています')).toBeInTheDocument()
     expect(screen.getByText('入口ページを確認する')).toBeInTheDocument()
     expect(screen.getByText('問い合わせ数は判断保留')).toBeInTheDocument()
+  })
+
+  it('renders dependency-free decorative line and bar mini charts beside their numeric summaries', () => {
+    state.reportBundle = {
+      generatedAt: '2026-07-10T04:00:00.000Z',
+      chartGroups: [
+        {
+          title: '訪問の推移',
+          chartType: 'line',
+          labels: ['1日', '2日', '3日'],
+          datasets: [{ label: '訪問', data: [10, 30, 20] }],
+          _periodTag: '2026-07',
+        },
+        {
+          title: '来訪元の比較',
+          chartType: 'bar_horizontal',
+          labels: ['検索', '直接'],
+          datasets: [{ label: '訪問', data: [25, 10] }],
+          _periodTag: '2026-07',
+        },
+      ],
+      beginnerReport: {
+        summary_cards: [{ type: 'what_happened', title: '訪問を確認しました', body: '推移を表示します。' }],
+        next_actions: [],
+        data_gaps: [],
+      },
+    }
+
+    const { container } = renderPage()
+
+    expect(screen.getByRole('heading', { name: 'Webサイトデータの概要' })).toBeInTheDocument()
+    expect(container.querySelectorAll('svg[aria-hidden="true"] polyline')).toHaveLength(1)
+    expect(container.querySelectorAll('svg[aria-hidden="true"] rect').length).toBeGreaterThan(0)
+    expect(container.querySelector('canvas')).not.toBeInTheDocument()
+    expect(screen.getByText('20')).toBeInTheDocument()
+    expect(screen.getByText('10')).toBeInTheDocument()
   })
 })

@@ -65,7 +65,7 @@ export default function CaseAuthModal({ caseInfo, onClose, onAuthenticate }) {
       }
       onClose()
     } catch (e) {
-      setError(e.message || '認証に失敗しました')
+      setError(e?.status === 401 ? '認証情報が正しくありません。' : '認証できませんでした。少し待って、もう一度お試しください。')
       setLoading(false)
     }
   }
@@ -88,7 +88,7 @@ export default function CaseAuthModal({ caseInfo, onClose, onAuthenticate }) {
       }
       onClose()
     } catch (e) {
-      setError(e.message || '認証に失敗しました')
+      setError(e?.status === 401 ? '認証情報が正しくありません。' : '認証できませんでした。少し待って、もう一度お試しください。')
       setLoading(false)
     }
   }

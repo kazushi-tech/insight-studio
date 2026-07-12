@@ -10,9 +10,13 @@ import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException
 
-from ..auth import verify_admin_or_integration, verify_byok_or_token
+from ..auth import (
+    get_verified_owner_id,
+    verify_admin_or_integration,
+    verify_byok_or_token,
+)
 from ..analyzer import analyze
 from ..extractor import extract
 from ..fetcher import fetch_html, take_screenshot
@@ -43,6 +47,11 @@ from ..services.discovery.keyword_extractor import classify_industry
 from ..llm_client import PROVIDER_ANTHROPIC, PROVIDER_GEMINI, normalize_provider, provider_label
 from ..services.discovery.anthropic_search_client import (
     SearchClient,
+)
+from ..jobs.analysis_backend import (
+    AnalysisJobStatus,
+    AnalysisJobType,
+    JobBackendMode,
 )
 
 logger = logging.getLogger("market-lens.discovery")
@@ -179,6 +188,7 @@ def create_discovery_router(
     *,
     db_session_factory=None,
     job_repo: DiscoveryJobRepository | None = None,
+    analysis_job_backend=None,
 ) -> APIRouter:
     """Factory that creates discovery routes.
 
@@ -192,6 +202,15 @@ def create_discovery_router(
         tags=["discovery"],
         dependencies=[Depends(verify_admin_or_integration)],
     )
+
+    def _analysis_backend_mode():
+        mode = getattr(analysis_job_backend, "mode", None)
+        if analysis_job_backend is not None and mode is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Analysis job backend is unavailable.",
+            )
+        return mode
 
     def _daily_limit_reached() -> bool:
         return _daily_search_count >= _daily_limit
@@ -323,13 +342,42 @@ def create_discovery_router(
         return float(os.getenv(env_key, str(defaults.get(stage, 60.0))))
 
     @router.post("/jobs", status_code=202)
-    async def start_discovery_job(req: DiscoveryAnalyzeRequest, request: Request, _token: str = Depends(verify_byok_or_token)):
+    async def start_discovery_job(
+        req: DiscoveryAnalyzeRequest,
+        _token: str = Depends(verify_byok_or_token),
+        owner_id: str = Depends(get_verified_owner_id),
+        idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    ):
         """Start an async discovery job. Returns 202 with poll URL."""
+        supported_provider = _ensure_discovery_provider_supported(req.provider, req.model)
+        backend_mode = _analysis_backend_mode()
+        if backend_mode in {JobBackendMode.worker, JobBackendMode.workflow}:
+            if req.api_key or req.search_api_key:
+                raise HTTPException(
+                    status_code=422,
+                    detail="BYOK credentials cannot be queued; use the configured service provider.",
+                )
+            payload = req.model_dump(
+                mode="json",
+                exclude={"api_key", "search_api_key"},
+            )
+            payload["provider"] = supported_provider
+            job = analysis_job_backend.enqueue(
+                AnalysisJobType.discovery,
+                payload,
+                idempotency_key=idempotency_key,
+            )
+            return DiscoveryJobStartResponse(
+                job_id=job.id,
+                status=DiscoveryJobStatus.queued,
+                stage=DiscoveryJobStage.queued,
+                poll_url=f"/api/discovery/jobs/{job.id}",
+                retry_after_sec=3,
+            )
+
         if job_repo is None:
             raise HTTPException(status_code=501, detail="Async job support is not configured.")
 
-        supported_provider = _ensure_discovery_provider_supported(req.provider, req.model)
-        owner_id = request.headers.get("X-Insight-User", "")
         job_id = _new_id()
         now = _now()
 
@@ -425,7 +473,7 @@ def create_discovery_router(
                     analyzed_count=result.analyzed_count,
                 )
                 job_repo.save_job(record)
-                logger.info("Discovery job completed: job_id=%s brand=%s", job_id, req.brand_url)
+                logger.info("Discovery job completed: job_id=%s", job_id)
 
             except asyncio.TimeoutError:
                 last_stage = record.stage.value if record.stage else "unknown"
@@ -494,8 +542,70 @@ def create_discovery_router(
         )
 
     @router.get("/jobs/{job_id}")
-    async def get_discovery_job(job_id: str, request: Request, _token: str = Depends(verify_byok_or_token)):
+    async def get_discovery_job(
+        job_id: str,
+        _token: str = Depends(verify_byok_or_token),
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
         """Poll discovery job status."""
+        backend_mode = _analysis_backend_mode()
+        if backend_mode in {JobBackendMode.worker, JobBackendMode.workflow}:
+            job = analysis_job_backend.get(job_id)
+            if job is None or job.job_type != AnalysisJobType.discovery:
+                raise HTTPException(status_code=404, detail="Job not found.")
+            status_map = {
+                AnalysisJobStatus.queued: DiscoveryJobStatus.queued,
+                AnalysisJobStatus.running: DiscoveryJobStatus.running,
+                AnalysisJobStatus.succeeded: DiscoveryJobStatus.completed,
+                AnalysisJobStatus.failed: DiscoveryJobStatus.failed,
+                AnalysisJobStatus.canceled: DiscoveryJobStatus.cancelled,
+            }
+            allowed_stages = {item.value for item in DiscoveryJobStage}
+            if job.stage in allowed_stages:
+                external_stage = DiscoveryJobStage(job.stage)
+            elif job.status == AnalysisJobStatus.succeeded:
+                external_stage = DiscoveryJobStage.complete
+            elif job.status in {AnalysisJobStatus.failed, AnalysisJobStatus.canceled}:
+                external_stage = DiscoveryJobStage.failed
+            elif job.status == AnalysisJobStatus.running:
+                external_stage = DiscoveryJobStage.analyze
+            else:
+                external_stage = DiscoveryJobStage.queued
+            error = None
+            if job.error or job.status == AnalysisJobStatus.canceled:
+                raw_error = dict(job.error or {})
+                error = DiscoveryJobError(
+                    status_code=int(raw_error.get("status_code", 409 if job.status == AnalysisJobStatus.canceled else 500)),
+                    detail=("ジョブはキャンセルされました。" if job.status == AnalysisJobStatus.canceled else "分析に失敗しました。時間をおいて再試行してください。"),
+                    retryable=bool(raw_error.get("retryable", False)),
+                )
+            result = dict(job.result) if job.result is not None else None
+            summary = None
+            if result is not None:
+                summary = DiscoveryJobResultSummary(
+                    candidate_count=result.get("candidate_count"),
+                    fetched_count=len(result.get("fetched_sites") or []),
+                    analyzed_count=result.get("analyzed_count"),
+                )
+            return DiscoveryJobResponse(
+                job_id=job.id,
+                status=status_map[job.status],
+                stage=external_stage,
+                progress_pct=job.progress_pct,
+                created_at=job.created_at,
+                started_at=job.started_at,
+                updated_at=job.updated_at,
+                heartbeat_at=job.heartbeat_at,
+                stage_started_at=job.started_at,
+                last_progress_at=job.heartbeat_at,
+                brand_url=str(job.payload.get("brand_url") or ""),
+                message=STAGE_MESSAGES.get(external_stage.value, ""),
+                result=result,
+                error=error,
+                result_summary=summary,
+                retry_after_sec=STAGE_RETRY_AFTER.get(external_stage.value, 3),
+            )
+
         if job_repo is None:
             raise HTTPException(status_code=501, detail="Async job support is not configured.")
 
@@ -504,7 +614,6 @@ def create_discovery_router(
             raise HTTPException(status_code=404, detail="Job not found.")
 
         # Owner scope check
-        owner_id = request.headers.get("X-Insight-User", "")
         if record.owner_id and owner_id != record.owner_id:
             raise HTTPException(status_code=404, detail="Job not found.")
 
@@ -575,11 +684,26 @@ def create_discovery_router(
             retry_after_sec=STAGE_RETRY_AFTER.get(record.stage.value, 3),
         )
 
+    @router.post("/jobs/{job_id}/cancel")
+    async def cancel_discovery_job(
+        job_id: str,
+        _token: str = Depends(verify_byok_or_token),
+        _owner_id: str = Depends(get_verified_owner_id),
+    ):
+        backend_mode = _analysis_backend_mode()
+        if backend_mode not in {JobBackendMode.worker, JobBackendMode.workflow}:
+            raise HTTPException(status_code=501, detail="Durable cancellation is not configured.")
+        job = analysis_job_backend.get(job_id)
+        if job is None or job.job_type != AnalysisJobType.discovery:
+            raise HTTPException(status_code=404, detail="Job not found.")
+        canceled = analysis_job_backend.cancel(job_id)
+        return {"job_id": job_id, "status": canceled.status.value}
+
     @router.get("/jobs/{job_id}/report.json")
     async def get_discovery_envelope(
         job_id: str,
-        request: Request,
         _token: str = Depends(verify_byok_or_token),
+        owner_id: str = Depends(get_verified_owner_id),
     ):
         """Return a ReportEnvelope v0 for a completed discovery job.
 
@@ -588,6 +712,21 @@ def create_discovery_router(
         """
         if not report_envelope_enabled():
             raise HTTPException(status_code=404, detail="ReportEnvelope v0 is not enabled.")
+        backend_mode = _analysis_backend_mode()
+        if backend_mode in {JobBackendMode.worker, JobBackendMode.workflow}:
+            job = analysis_job_backend.get(job_id)
+            if job is None or job.job_type != AnalysisJobType.discovery:
+                raise HTTPException(status_code=404, detail="Job not found.")
+            if job.status != AnalysisJobStatus.succeeded:
+                raise HTTPException(status_code=409, detail="Discovery job is not completed yet.")
+            report_md = str((job.result or {}).get("report_md") or "")
+            envelope = build_envelope_from_md(
+                report_id=job_id,
+                kind="discovery",
+                report_md=report_md,
+            )
+            return envelope.model_dump()
+
         if job_repo is None:
             raise HTTPException(status_code=501, detail="Async job support is not configured.")
 
@@ -595,7 +734,6 @@ def create_discovery_router(
         if record is None:
             raise HTTPException(status_code=404, detail="Job not found.")
 
-        owner_id = request.headers.get("X-Insight-User", "")
         if record.owner_id and owner_id != record.owner_id:
             raise HTTPException(status_code=404, detail="Job not found.")
 

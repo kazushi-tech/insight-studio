@@ -1,79 +1,43 @@
-import { useRef, useEffect } from 'react'
-import { Chart, BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
-
-Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
+function displayHost(discovery) {
+  if (discovery.domain) return discovery.domain
+  if (!discovery.url) return '不明なサイト'
+  try {
+    return new URL(discovery.url).hostname || '不明なサイト'
+  } catch {
+    return '不明なサイト'
+  }
+}
 
 export default function ScoreDistributionChart({ discoveries }) {
-  const canvasRef = useRef(null)
-  const chartRef = useRef(null)
-
-  useEffect(() => {
-    if (!canvasRef.current || !discoveries?.length) return
-
-    const scored = discoveries.filter((d) => d.score != null)
-    if (scored.length === 0) return
-
-    if (chartRef.current) {
-      chartRef.current.destroy()
-    }
-
-    const labels = scored.map((d) => {
-      const host = d.domain || (d.url ? new URL(d.url).hostname : '?')
-      return host.length > 20 ? host.slice(0, 18) + '…' : host
-    })
-    const data = scored.map((d) => d.score)
-    const colors = scored.map((_, i) => i === 0 ? 'rgba(45, 106, 79, 0.85)' : 'rgba(45, 106, 79, 0.35)')
-
-    chartRef.current = new Chart(canvasRef.current, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Score',
-          data,
-          backgroundColor: colors,
-          borderRadius: 6,
-          maxBarThickness: 48,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        indexAxis: 'y',
-        scales: {
-          x: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { font: { size: 11 } } },
-          y: { grid: { display: false }, ticks: { font: { size: 11, weight: 'bold' } } },
-        },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `Score: ${ctx.raw}/100`,
-            },
-          },
-        },
-      },
-    })
-
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy()
-        chartRef.current = null
-      }
-    }
-  }, [discoveries])
-
-  if (!discoveries?.filter((d) => d.score != null).length) return null
+  const scored = (discoveries || []).filter((discovery) => discovery.score != null)
+  if (!scored.length) return null
 
   return (
-    <div className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6">
+    <section className="bg-surface-container-lowest rounded-[0.75rem] panel-card-hover p-6" aria-labelledby="score-distribution-title">
       <div className="flex items-center gap-2 text-on-surface-variant mb-4">
         <span className="material-symbols-outlined text-secondary text-lg">bar_chart</span>
-        <span className="text-sm font-bold">スコア分布</span>
+        <h2 id="score-distribution-title" className="text-sm font-bold">候補との近さ</h2>
       </div>
-      <div style={{ height: Math.max(120, discoveries.filter((d) => d.score != null).length * 40 + 40) }}>
-        <canvas ref={canvasRef} />
-      </div>
-    </div>
+      <ol className="space-y-4">
+        {scored.map((discovery, index) => {
+          const host = displayHost(discovery)
+          const score = Math.max(0, Math.min(100, Number(discovery.score) || 0))
+          return (
+            <li key={`${discovery.id || discovery.url || host}-${index}`}>
+              <div className="mb-1.5 flex items-center justify-between gap-3 text-xs font-bold text-on-surface-variant">
+                <span className="min-w-0 truncate" title={host}>{host}</span>
+                <span aria-label={`${host}との近さ ${score}点`}>{score}<span aria-hidden="true"> / 100</span></span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-surface-container" aria-hidden="true">
+                <div
+                  className={`h-full rounded-full ${index === 0 ? 'bg-primary' : 'bg-primary/35'}`}
+                  style={{ width: `${score}%` }}
+                />
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </section>
   )
 }

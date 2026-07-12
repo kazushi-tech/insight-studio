@@ -10,12 +10,41 @@ vi.mock('../../api/adsInsights', () => ({
   getToken: vi.fn(() => null),
   logout: vi.fn(),
   setOnAuthError: vi.fn(),
+  setAuthTokenProvider: vi.fn(),
+}))
+
+vi.mock('../../api/marketLens', () => ({
+  setMarketLensAuthTokenProvider: vi.fn(),
+}))
+
+vi.mock('../../api/projectReports', () => ({
+  setProjectReportsAuthTokenProvider: vi.fn(),
+}))
+
+vi.mock('../../api/platform', () => ({
+  setPlatformAuthTokenProvider: vi.fn(),
+}))
+
+vi.mock('../../api/billing', () => ({
+  setBillingAuthTokenProvider: vi.fn(),
+}))
+
+vi.mock('../../api/legal', () => ({
+  setLegalAuthTokenProvider: vi.fn(),
 }))
 
 function SecretProbe() {
-  const { geminiKey, setGeminiKey, claudeKey, setClaudeKey, logoutAds } = useAuth()
+  const {
+    geminiKey,
+    setGeminiKey,
+    claudeKey,
+    setClaudeKey,
+    logoutAds,
+    isAdsAuthenticated,
+  } = useAuth()
   return (
     <div>
+      <output aria-label="authenticated">{String(isAdsAuthenticated)}</output>
       <output aria-label="gemini-key">{geminiKey}</output>
       <output aria-label="claude-key">{claudeKey}</output>
       <button onClick={() => setGeminiKey('AIza-session-only-key')}>Geminiを設定</button>
@@ -50,6 +79,7 @@ describe('AuthContext analysis secrets', () => {
   })
 
   it('loads analysis keys only from sessionStorage and removes legacy persistent keys', () => {
+    localStorage.setItem('is_ads_token', 'unsafe-persistent-jwt')
     localStorage.setItem('is_gemini_key', 'AIza-legacy-persistent-key')
     localStorage.setItem('is_claude_key', 'sk-ant-legacy-persistent-key')
     sessionStorage.setItem('is_gemini_key', 'AIza-current-session-key')
@@ -60,6 +90,8 @@ describe('AuthContext analysis secrets', () => {
     expect(screen.getByLabelText('claude-key')).toBeEmptyDOMElement()
     expect(localStorage.getItem('is_gemini_key')).toBeNull()
     expect(localStorage.getItem('is_claude_key')).toBeNull()
+    expect(localStorage.getItem('is_ads_token')).toBeNull()
+    expect(screen.getByLabelText('authenticated')).toHaveTextContent('false')
   })
 
   it('stores newly entered analysis keys in sessionStorage only', async () => {

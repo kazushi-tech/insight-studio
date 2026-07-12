@@ -71,7 +71,10 @@ async def _validate_single(
                 reason=data.get("reason", ""),
             )
     except Exception as exc:
-        logger.warning("candidate_validator single validation failed url=%s: %s", candidate_url, exc)
+        logger.warning(
+            "candidate_validator single validation failed error_type=%s",
+            type(exc).__name__,
+        )
 
     return CandidateValidation(url=candidate_url, is_same_industry=True, confidence="low", reason="validation_failed")
 

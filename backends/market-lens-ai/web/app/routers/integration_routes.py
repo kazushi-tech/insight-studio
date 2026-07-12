@@ -323,7 +323,7 @@ async def import_asset(
         "created_at": now,
     })
 
-    logger.info("Asset import %s (authenticated=true): %s", import_id, req.url)
+    logger.info("Asset import %s (authenticated=true)", import_id)
 
     return ImportResponse(
         import_id=import_id,

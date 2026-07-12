@@ -34,7 +34,8 @@ QUERY_TYPES: tuple[dict[str, str], ...] = (
     {"key": "hourly", "name": "時間帯分析", "description": "時間帯別データ（デモでは未計測）"},
     {"key": "user_attr", "name": "利用者分析", "description": "利用者数の推移"},
     {"key": "engagement", "name": "関心度分析", "description": "エンゲージメント率"},
-    {"key": "auction_proxy", "name": "流入の競合影響チェック", "description": "デモでは判断保留"},
+    {"key": "auction_proxy", "name": "流入集中の参考値", "description": "デモでは判断保留"},
+    {"key": "campaign", "name": "キャンペーン分析", "description": "デモでは未計測"},
 )
 QUERY_TYPE_KEYS = tuple(item["key"] for item in QUERY_TYPES)
 QUERY_TYPE_INFO = {item["key"]: item for item in QUERY_TYPES}
@@ -302,7 +303,7 @@ def chart_groups_for(query_type: str, period: str) -> list[dict[str, Any]]:
             )
         ]
 
-    # search/device/hourly/auction_proxy are intentionally unmeasured.  Empty
+    # search/device/hourly/auction_proxy/campaign are intentionally unmeasured.  Empty
     # means "no_data" and must never be rewritten to a numeric zero.
     return []
 

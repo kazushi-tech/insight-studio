@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext'
 import { useAdsSetup } from './contexts/AdsSetupContext'
 import { useRbac } from './contexts/RbacContext'
 import { isProjectManagementEnabled } from './config/features'
+import { captureSafeClientError } from './observability/client'
 
 const Layout = lazy(() => import('./components/Layout'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -17,6 +18,10 @@ const AnalysisGraphs = lazy(() => import('./pages/AnalysisGraphs'))
 const AiExplorer = lazy(() => import('./pages/AiExplorer'))
 const Settings = lazy(() => import('./pages/Settings'))
 const ProjectManagement = lazy(() => import('./pages/ProjectManagement'))
+const PublicReportShare = lazy(() => import('./pages/PublicReportShare'))
+const ReportPrint = lazy(() => import('./pages/ReportPrint'))
+const LegalDocumentPage = lazy(() => import('./pages/LegalDocumentPage'))
+const Onboarding = lazy(() => import('./pages/Onboarding'))
 const Login = lazy(() => import('./pages/Login'))
 const LpLayout = lazy(() => import('./pages/landing/LpLayout'))
 const LandingPage = lazy(() => import('./pages/landing/LandingPage'))
@@ -55,8 +60,9 @@ class ErrorBoundary extends Component {
     return { hasError: true }
   }
 
-  componentDidCatch(error, info) {
-    console.error('ErrorBoundary caught:', error, info)
+  componentDidCatch() {
+    // Never serialize the exception object: it may include provider or tenant data.
+    captureSafeClientError('client_render_failed')
   }
 
   render() {
@@ -65,7 +71,7 @@ class ErrorBoundary extends Component {
         <div className="flex items-center justify-center min-h-screen bg-surface">
           <div className="panel-card text-center space-y-4 max-w-md">
             <span className="material-symbols-outlined text-5xl text-error">error</span>
-            <h2 className="text-xl font-bold japanese-text">予期しないエラーが発生しました</h2>
+            <h1 className="text-xl font-bold japanese-text">予期しないエラーが発生しました</h1>
             <p className="text-sm text-on-surface-variant japanese-text">
               問題が解決しない場合は、ページを再読み込みしてください。
             </p>
@@ -106,6 +112,12 @@ function AdminGuard({ children }) {
   return children
 }
 
+function ProjectManagerGuard({ children }) {
+  const { canManageProjects } = useRbac()
+  if (!canManageProjects) return <Navigate to="/" replace />
+  return children
+}
+
 function LegacyAdsAiRedirect() {
   const location = useLocation()
   const search = location.search || (typeof window !== 'undefined' ? window.location.search : '') || ''
@@ -117,6 +129,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
+        {/* Tokenized read-only report — deliberately outside AuthGuard. */}
+        <Route path="report-shares/:token" element={<RouteSuspense><PublicReportShare /></RouteSuspense>} />
+        <Route path="terms" element={<RouteSuspense><LegalDocumentPage document="terms" /></RouteSuspense>} />
+        <Route path="privacy" element={<RouteSuspense><LegalDocumentPage document="privacy" /></RouteSuspense>} />
+        <Route path="commercial-transactions" element={<RouteSuspense><LegalDocumentPage document="commercial-transactions" /></RouteSuspense>} />
+        <Route path="security" element={<RouteSuspense><LegalDocumentPage document="security" /></RouteSuspense>} />
+        <Route path="subprocessors" element={<RouteSuspense><LegalDocumentPage document="subprocessors" /></RouteSuspense>} />
+        <Route path="onboarding" element={<RouteSuspense><Onboarding /></RouteSuspense>} />
         {/* Login — outside Layout, brand-aligned standalone page */}
         <Route path="login" element={<RouteSuspense><Login /></RouteSuspense>} />
         {/* LP pages — outside Layout, own navbar/footer */}
@@ -128,6 +148,11 @@ export default function App() {
           <Route path="creative" element={<RouteSuspense><LpCreative /></RouteSuspense>} />
           <Route path="discovery" element={<RouteSuspense><LpDiscovery /></RouteSuspense>} />
         </Route>
+        {/* A4 output keeps authentication but excludes app chrome. */}
+        <Route
+          path="projects/:projectRef/reports/:reportId/print"
+          element={<AuthGuard><RouteSuspense><ReportPrint /></RouteSuspense></AuthGuard>}
+        />
         {/* App pages — require login */}
         <Route element={<AuthGuard><RouteSuspense><Layout /></RouteSuspense></AuthGuard>}>
           <Route index element={<RouteSuspense><Dashboard /></RouteSuspense>} />
@@ -145,7 +170,7 @@ export default function App() {
           <Route
             path="projects"
             element={isProjectManagementEnabled
-              ? <AdminGuard><RouteSuspense><ProjectManagement /></RouteSuspense></AdminGuard>
+              ? <ProjectManagerGuard><RouteSuspense><ProjectManagement /></RouteSuspense></ProjectManagerGuard>
               : <Navigate to="/settings" replace />}
           />
           <Route path="settings" element={<RouteSuspense><Settings /></RouteSuspense>} />

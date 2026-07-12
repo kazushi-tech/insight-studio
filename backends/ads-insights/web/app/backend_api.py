@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 
 logger = logging.getLogger("ads-insights")
 
@@ -1170,6 +1171,12 @@ from typing import Any, Callable, Dict, List, Optional
 
 
 from fastapi import FastAPI, Request, HTTPException
+from .api_errors import (
+    ensure_request_id,
+    http_exception_response,
+    normalize_legacy_failure,
+    problem_response,
+)
 
 
 
@@ -1180,10 +1187,12 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
 from .gemini_budget import (
     GeminiBudgetExceeded,
+    GeminiBudgetUnavailable,
     assert_gemini_budget_available,
     get_budget_summary,
     normalize_gemini_model,
     record_gemini_usage_from_response,
+    release_gemini_reservation,
     reset_budget_for_dev,
 )
 
@@ -1201,7 +1210,120 @@ from .gemini_budget import (
 
 
 
-app = FastAPI(title="ads-insights backend API")
+def _stable_operation_id(route) -> str:
+    """Keep OpenAPI operation IDs deterministic for legacy multi-method routes.
+
+    FastAPI's default generator selects the first item from ``route.methods``,
+    which is a set.  Routes that intentionally accept both GET and POST would
+    therefore alternate their generated schema between processes.  Sorting
+    preserves the established GET-based IDs while making snapshots stable.
+    """
+    operation_id = re.sub(r"\W", "_", f"{route.name}{route.path_format}")
+    methods = sorted(str(method).lower() for method in (route.methods or ()))
+    return f"{operation_id}_{methods[0]}"
+
+
+app = FastAPI(
+    title="ads-insights backend API",
+    generate_unique_id_function=_stable_operation_id,
+)
+
+
+@app.exception_handler(GeminiBudgetUnavailable)
+async def _gemini_budget_unavailable_handler(request: Request, _exc: GeminiBudgetUnavailable):
+    return problem_response(
+        request,
+        status_code=503,
+        code="ai_budget_unavailable",
+        category="dependency",
+        user_message="AI分析を一時的に利用できません。時間をおいて再試行してください。",
+        retryable=True,
+    )
+from .routers.platform_routes import router as platform_router
+from .platform.bq_adapter import test_ga4_bigquery_data_source
+from .routers.platform_v2_routes import create_platform_v2_router
+from .platform.runtime_access import RuntimeAccessError, resolve_clerk_project_runtime_access
+from .platform.rate_limits import (
+    RateLimitUnavailable,
+    consume_rate_limit,
+    verified_clerk_subject_material,
+)
+from .routers.report_v2_routes import create_report_v2_router, report_platform_session
+from .reporting.platform_identity import create_platform_report_identity_dependency
+from .routers.billing_routes import create_billing_router, billing_platform_session
+from .billing.platform_identity import create_platform_billing_identity_dependency
+from .routers.legal_routes import create_legal_router, legal_platform_session
+from .legal.platform_identity import create_platform_legal_identity_dependency
+
+app.include_router(platform_router)
+app.include_router(
+    create_platform_v2_router(data_source_tester=test_ga4_bigquery_data_source)
+)
+report_identity = create_platform_report_identity_dependency(report_platform_session)
+app.include_router(
+    create_report_v2_router(
+        session_dependency=report_platform_session,
+        identity_dependency=report_identity,
+    )
+)
+billing_identity = create_platform_billing_identity_dependency(billing_platform_session)
+app.include_router(
+    create_billing_router(
+        session_dependency=billing_platform_session,
+        identity_dependency=billing_identity,
+    )
+)
+legal_identity = create_platform_legal_identity_dependency(legal_platform_session)
+app.include_router(
+    create_legal_router(
+        session_dependency=legal_platform_session,
+        identity_dependency=legal_identity,
+    )
+)
+
+from .observability import (
+    capture_exception_safe,
+    initialize_sentry,
+    log_event,
+    workspace_hash as observability_workspace_hash,
+)
+
+initialize_sentry()
+
+
+@app.middleware("http")
+async def _structured_runtime_logging(request: Request, call_next):
+    """Log operational metadata only; never log URLs, bodies, or identities."""
+    if not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    started = time.perf_counter()
+    request_id = ensure_request_id(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        log_event(
+            "error",
+            "request_failed",
+            request_id=request_id,
+            workspace_hash=observability_workspace_hash(
+                getattr(request.state, "workspace_id", None)
+            ),
+            duration_ms=round((time.perf_counter() - started) * 1000),
+            error_code="unhandled_exception",
+        )
+        raise
+    log_event(
+        "error" if response.status_code >= 500 else "info",
+        "request_completed",
+        request_id=request_id,
+        workspace_hash=observability_workspace_hash(
+            getattr(request.state, "workspace_id", None)
+        ),
+        duration_ms=round((time.perf_counter() - started) * 1000),
+        status_code=response.status_code,
+        **({"error_code": "server_error"} if response.status_code >= 500 else {}),
+    )
+    return response
 
 @app.on_event("startup")
 async def startup_event():
@@ -1256,10 +1378,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 _IS_PRODUCTION = bool(os.getenv("RENDER") or os.getenv("VERCEL"))
 
-_CORS_PRODUCTION_ORIGINS = [
-    "https://ads-insights-eight.vercel.app",
-    "https://insight-studio-chi.vercel.app",
-]
 _CORS_DEV_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
@@ -1271,16 +1389,11 @@ _CORS_DEV_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
-_CORS_DEFAULT_ORIGINS = list(_CORS_PRODUCTION_ORIGINS)
-if not _IS_PRODUCTION:
-    _CORS_DEFAULT_ORIGINS.extend(_CORS_DEV_ORIGINS)
+_CORS_DEFAULT_ORIGINS = [] if _IS_PRODUCTION else list(_CORS_DEV_ORIGINS)
 
 _cors_extra = os.getenv("CORS_ALLOWED_ORIGINS", "")
-if _cors_extra:
+if _cors_extra and not _IS_PRODUCTION:
     _CORS_DEFAULT_ORIGINS.extend([o.strip() for o in _cors_extra.split(",") if o.strip()])
-
-# Vercel preview deploys (insight-studio-*-*.vercel.app) を正規表現で許可
-_CORS_ORIGIN_REGEX = r"^https://insight-studio(-[a-z0-9-]+)?\.vercel\.app$"
 
 # ── 認証 (JWT 方式) ──────────────────────────────────────────
 import hashlib, secrets, time as _time_mod
@@ -1480,6 +1593,13 @@ def _resolve_bq_dataset_for_request(
         raise HTTPException(status_code=401, detail="Unauthorized")
     if claims.get("role") == "admin":
         return str(requested_dataset_id or admin_default).strip()
+    if claims.get("role") == "project_user":
+        server_dataset_id = str(claims.get("dataset_id") or "").strip()
+        if not server_dataset_id:
+            raise HTTPException(status_code=403, detail="Authenticated project has no data source")
+        if requested_dataset_id and not _same_dataset_ref(str(requested_dataset_id), server_dataset_id):
+            raise HTTPException(status_code=403, detail="Requested dataset is outside authenticated project scope")
+        return server_dataset_id
 
     case_id = str(claims.get("case_id") or "")
     signed_dataset_id = str(claims.get("dataset_id") or "").strip()
@@ -1501,6 +1621,38 @@ def _resolve_bq_dataset_for_request(
     if requested_dataset_id and not _same_dataset_ref(str(requested_dataset_id), server_dataset_id):
         raise HTTPException(status_code=403, detail="Requested dataset is outside authenticated case scope")
     return server_dataset_id
+
+
+def _report_runtime_options(request: Request) -> dict[str, Any]:
+    """Resolve report policy from authenticated server-owned project data."""
+    claims = _get_request_auth_claims(request) or {}
+    role = str(claims.get("role") or "")
+    if role == "project_user":
+        return {
+            "cv_events": list(claims.get("cv_events") or []),
+            "timezone": str(claims.get("timezone") or "Asia/Tokyo"),
+            "report_project_id": str(claims.get("project_id") or "unknown"),
+        }
+    if role == "case_user":
+        case_id = str(claims.get("case_id") or "")
+        case = next(
+            (
+                item
+                for item in _load_cases_master()
+                if item.get("case_id") == case_id and item.get("is_active", True)
+            ),
+            {},
+        )
+        return {
+            "cv_events": case.get("cv_events") or case.get("conversion_events"),
+            "timezone": str(case.get("timezone") or "Asia/Tokyo"),
+            "report_project_id": case_id or "legacy",
+        }
+    return {
+        "cv_events": None,
+        "timezone": "Asia/Tokyo",
+        "report_project_id": "platform-admin",
+    }
 
 def _device_trust_version(case: dict) -> int:
     try:
@@ -1542,7 +1694,24 @@ _AUTH_PUBLIC_PATHS = {
     "/api/neon/health",
     "/api/ads/neon/health",
     "/api/insights/neon/health",
+    "/api/platform/readiness",
 }
+
+# These paths bypass only the legacy HS256 gate. Each registered platform v2
+# route performs its own Clerk RS256 or Svix signature verification.
+_PLATFORM_V2_AUTH_PREFIXES = (
+    "/api/auth/bootstrap",
+    "/api/auth/me",
+    "/api/projects",
+    "/api/webhooks/clerk",
+    "/api/billing",
+    "/api/legal",
+)
+
+# Public report shares bypass the legacy password/JWT gate. The opaque token is
+# still resolved by hash in PostgreSQL, expires within seven days, and can be
+# revoked. No other report endpoint is public.
+_PUBLIC_REPORT_SHARE_PREFIX = "/api/report-shares/"
 
 _ADMIN_ONLY_API_PATHS = {
     ("GET", "/api/config"),
@@ -1571,6 +1740,16 @@ _CASE_USER_ALLOWED_API_PATHS = {
     ("POST", "/api/insights/neon/generate"),
 }
 
+_PROJECT_USER_ALLOWED_API_PATHS = {
+    ("GET", "/api/bq/query_types"),
+    ("GET", "/api/bq/periods"),
+    ("POST", "/api/bq/generate"),
+    ("POST", "/api/bq/generate_batch"),
+    ("POST", "/api/neon/generate"),
+    ("POST", "/api/ads/neon/generate"),
+    ("POST", "/api/insights/neon/generate"),
+}
+
 
 def _is_admin_only_api_path(method: str, path: str) -> bool:
     if (method.upper(), path) in _ADMIN_ONLY_API_PATHS:
@@ -1586,6 +1765,10 @@ def _is_case_user_allowed_api_path(method: str, path: str) -> bool:
         case_id = path[len("/api/cases/"):-len("/bq-status")]
         return bool(case_id) and "/" not in case_id
     return False
+
+
+def _is_project_user_allowed_api_path(method: str, path: str) -> bool:
+    return (method.upper(), path) in _PROJECT_USER_ALLOWED_API_PATHS
 
 # ── ログイン専用 brute-force 対策 ─────────────────────────
 _LOGIN_MAX_FAILURES = 5       # 最大失敗回数
@@ -1646,26 +1829,97 @@ async def _auth_middleware(request, call_next):
     """全APIリクエストにトークン認証を要求."""
     path = request.url.path
     # Skip auth for public paths, static files, OPTIONS (CORS preflight)
-    if request.method == "OPTIONS" or path in _AUTH_PUBLIC_PATHS or not path.startswith("/api/"):
+    if (
+        request.method == "OPTIONS"
+        or path in _AUTH_PUBLIC_PATHS
+        or any(path == prefix or path.startswith(prefix + "/") for prefix in _PLATFORM_V2_AUTH_PREFIXES)
+        or path.startswith(_PUBLIC_REPORT_SHARE_PREFIX)
+        or not path.startswith("/api/")
+    ):
         return await call_next(request)
     # Check Authorization header
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
     claims = _decode_auth_token(token)
+    if not claims and token:
+        try:
+            claims = resolve_clerk_project_runtime_access(
+                token,
+                request.headers.get("X-Insight-Project", ""),
+            )
+        except RuntimeAccessError as exc:
+            status_code = int(getattr(exc, "status_code", 401))
+            error_code = str(getattr(exc, "code", "authentication_required"))
+            messages = {
+                "authentication_required": "ログインが必要です。",
+                "project_scope_required": "分析するサイトを選択してください。",
+                "project_write_forbidden": "このサイトのレポートを作る権限がありません。",
+                "project_access_forbidden": "このサイトを利用する権限がありません。",
+                "legal_acceptance_required": "最新版の規約への同意が必要です。",
+                "subscription_write_forbidden": "現在の契約では新しいレポートを作成できません。",
+                "data_source_not_ready": "データ接続の確認が完了していません。",
+                "platform_database_unavailable": "サービスの準備が整っていません。少し待って再試行してください。",
+            }
+            return problem_response(
+                request,
+                status_code=status_code,
+                code=error_code,
+                category=(
+                    "dependency" if status_code >= 500
+                    else "authentication" if status_code == 401
+                    else "authorization"
+                ),
+                user_message=messages.get(error_code, "ログイン状態を確認できませんでした。"),
+                retryable=status_code >= 500,
+            )
+        except Exception:
+            return problem_response(
+                request,
+                status_code=503,
+                code="platform_access_unavailable",
+                category="dependency",
+                user_message="サービスの準備が整っていません。少し待って再試行してください。",
+                retryable=True,
+            )
     if not claims:
-        from starlette.responses import JSONResponse
-        return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+        return problem_response(
+            request,
+            status_code=401,
+            code="authentication_required",
+            category="authentication",
+            user_message="ログインが必要です。",
+        )
     request.state.auth_claims = claims
     if claims.get("role") == "case_user" and not _is_case_user_allowed_api_path(request.method, path):
-        from starlette.responses import JSONResponse
-        return JSONResponse({"ok": False, "error": "Admin access required"}, status_code=403)
+        return problem_response(
+            request,
+            status_code=403,
+            code="access_denied",
+            category="authorization",
+            user_message="この操作を行う権限がありません。",
+        )
+    if claims.get("role") == "project_user" and not _is_project_user_allowed_api_path(request.method, path):
+        return problem_response(
+            request,
+            status_code=403,
+            code="access_denied",
+            category="authorization",
+            user_message="この操作を行う権限がありません。",
+        )
     if _is_admin_only_api_path(request.method, path) and claims.get("role") != "admin":
-        from starlette.responses import JSONResponse
-        return JSONResponse({"ok": False, "error": "Admin access required"}, status_code=403)
+        return problem_response(
+            request,
+            status_code=403,
+            code="access_denied",
+            category="authorization",
+            user_message="この操作を行う権限がありません。",
+        )
     return await call_next(request)
 
-# ── レート制限 (V2.6) ──────────────────────────────────────
-import collections
+# ── 共有レート制限 ─────────────────────────────────────────
+import ipaddress
+from starlette.concurrency import run_in_threadpool
+
 _RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "30"))
 _RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 _RATE_LIMITED_PATHS = {
@@ -1677,40 +1931,106 @@ _RATE_LIMITED_PATHS = {
     "/api/insights/neon/generate",
     "/api/chat",
     "/api/bq/generate",
+    "/api/bq/generate_batch",
+    "/api/generate_report",
+    "/api/generate_multi_report",
+    "/api/gdrive/process_and_generate",
 }
-_rate_buckets: dict[str, collections.deque] = {}
+
+_RATE_LIMITED_MUTATION_PREFIXES = (
+    "/api/projects",
+    "/api/legal/",
+)
+_RATE_LIMITED_PLATFORM_MUTATIONS = {
+    "/api/auth/bootstrap",
+    "/api/billing/checkout",
+    "/api/billing/checkout-sessions",
+    "/api/billing/portal",
+    "/api/billing/portal-sessions",
+}
 
 
-def _get_rate_limit_bucket_key(request: Request) -> str:
-    """Use authenticated identity or socket IP, never caller-controlled headers."""
+def _is_shared_rate_limited_request(method: str, path: str) -> bool:
+    normalized_method = str(method or "").upper()
+    normalized_path = str(path or "")
+    if normalized_method == "OPTIONS":
+        return False
+    if normalized_path in _RATE_LIMITED_PATHS:
+        return True
+    if normalized_method not in {"POST", "PATCH", "DELETE"}:
+        return False
+    if normalized_path in _RATE_LIMITED_PLATFORM_MUTATIONS:
+        return True
+    return any(
+        normalized_path == prefix.rstrip("/") or normalized_path.startswith(prefix)
+        for prefix in _RATE_LIMITED_MUTATION_PREFIXES
+    )
+
+
+def _socket_client_ip(request: Request) -> str:
+    raw_value = request.client.host if request.client else "unknown"
+    try:
+        return ipaddress.ip_address(raw_value).compressed
+    except ValueError:
+        return "unknown"
+
+
+def _get_rate_limit_subject(request: Request) -> str:
+    """Use verified identity or socket IP; never caller-controlled headers."""
     auth_header = request.headers.get("Authorization", "")
     token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-    claims = _decode_auth_token(token)
+    claims = getattr(getattr(request, "state", None), "auth_claims", None) or _decode_auth_token(token)
     if claims and claims.get("role") == "case_user":
         return f"case:{claims.get('case_id')}"
     if claims and claims.get("role") == "admin":
-        signed_identity = claims.get("sub") or claims.get("jti") or "admin"
+        signed_identity = claims.get("sub") or "legacy-admin"
         return f"admin:{signed_identity}"
-    client_ip = request.client.host if request.client else "unknown"
-    return f"ip:{client_ip}"
+    if claims and claims.get("role") == "project_user":
+        return (
+            f"project:{claims.get('workspace_id')}:"
+            f"{claims.get('user_id') or 'unknown'}"
+        )
+    if token:
+        clerk_subject = verified_clerk_subject_material(token)
+        if clerk_subject:
+            return clerk_subject
+        # An invalid bearer value is unauthenticated.  Binding it to the
+        # socket IP prevents bypass by rotating arbitrary token strings.
+        return f"invalid-token-ip:{_socket_client_ip(request)}"
+    return f"ip:{_socket_client_ip(request)}"
+
 
 @app.middleware("http")
 async def _rate_limit_middleware(request, call_next):
-    """インメモリ簡易レート制限 (V2.6)."""
-    if request.method != "OPTIONS" and request.url.path in _RATE_LIMITED_PATHS:
-        client_id = _get_rate_limit_bucket_key(request)
-        now = time.time()
-        bucket = _rate_buckets.setdefault(client_id, collections.deque())
-        # 古いタイムスタンプを除去
-        while bucket and bucket[0] < now - _RATE_LIMIT_WINDOW:
-            bucket.popleft()
-        if len(bucket) >= _RATE_LIMIT_MAX:
-            from starlette.responses import JSONResponse
-            return JSONResponse(
-                {"ok": False, "error": f"Rate limit exceeded ({_RATE_LIMIT_MAX} requests per {_RATE_LIMIT_WINDOW}s)"},
-                status_code=429,
+    """Consume a PostgreSQL-shared fixed-window slot, failing closed on DB errors."""
+    if _is_shared_rate_limited_request(request.method, request.url.path):
+        try:
+            decision = await run_in_threadpool(
+                consume_rate_limit,
+                subject_material=_get_rate_limit_subject(request),
+                route_key=f"{request.method.upper()}:{request.url.path}",
+                limit=_RATE_LIMIT_MAX,
+                window_seconds=_RATE_LIMIT_WINDOW,
             )
-        bucket.append(now)
+        except RateLimitUnavailable:
+            return problem_response(
+                request,
+                status_code=503,
+                code="rate_limit_unavailable",
+                category="dependency",
+                user_message="サービスを一時的に利用できません。時間をおいて再試行してください。",
+                retryable=True,
+            )
+        if not decision.allowed:
+            return problem_response(
+                request,
+                status_code=429,
+                code="rate_limited",
+                category="rate_limit",
+                user_message="操作が集中しています。少し待って再試行してください。",
+                retryable=True,
+                headers={"Retry-After": str(decision.retry_after_seconds)},
+            )
     return await call_next(request)
 
 @app.get("/api/usage/budget")
@@ -1751,6 +2071,15 @@ async def api_gemini_budget_smoke_test(request: Request):
             api_key=client_key,
             feature="ads.budget_smoke_test",
         )
+    except GeminiBudgetUnavailable:
+        return problem_response(
+            request,
+            status_code=503,
+            code="ai_budget_unavailable",
+            category="dependency",
+            user_message="AI分析を一時的に利用できません。時間をおいて再試行してください。",
+            retryable=True,
+        )
     except GeminiBudgetExceeded as exc:
         return JSONResponse(
             {
@@ -1789,14 +2118,34 @@ async def api_gemini_budget_smoke_test(request: Request):
 # _FORCE_JSON_CHARSET_UTF8 + セキュリティヘッダー
 @app.middleware("http")
 async def _force_json_charset_utf8(request, call_next):
+    request_id = ensure_request_id(request)
     resp = await call_next(request)
     ct = resp.headers.get("content-type", "")
     if ct.startswith("application/json") and "charset=" not in ct:
         resp.headers["content-type"] = "application/json; charset=utf-8"
 
-    # Private Network Access (PNA) support for local file:// usage
-    # Chrome requires this header for file:// -> localhost requests
-    resp.headers["Access-Control-Allow-Private-Network"] = "true"
+    # PNA is a local-development compatibility feature. Never advertise
+    # private-network access from a production response.
+    origin = request.headers.get("origin", "")
+    if (
+        not _IS_PRODUCTION
+        and request.headers.get("access-control-request-private-network", "").lower() == "true"
+        and origin in _CORS_DEV_ORIGINS
+    ):
+        resp.headers["Access-Control-Allow-Private-Network"] = "true"
+
+    resp.headers["X-Request-ID"] = request_id
+    if (
+        request.url.path.startswith("/api/auth/")
+        or request.url.path.startswith("/api/webhooks/")
+        or request.url.path.startswith("/api/billing/")
+        or request.url.path.startswith("/api/legal/")
+        or (
+            request.url.path.startswith("/api/projects/")
+            and "/reports" in request.url.path
+        )
+    ):
+        resp.headers["Cache-Control"] = "private, no-store"
 
     # セキュリティヘッダー
     resp.headers["X-Content-Type-Options"] = "nosniff"
@@ -1896,7 +2245,10 @@ def _json(obj: Any, status: int = 200) -> Response:
 
 
 
-        content=_safe_json_dumps(obj, ensure_ascii=False).encode("utf-8"),
+        content=_safe_json_dumps(
+            normalize_legacy_failure(obj, status),
+            ensure_ascii=False,
+        ).encode("utf-8"),
 
 
 
@@ -2128,7 +2480,10 @@ def _json(obj: Any, status: int = 200) -> Response:
 
 
 
-        content=_safe_json_dumps(obj, ensure_ascii=False).encode("utf-8"),
+        content=_safe_json_dumps(
+            normalize_legacy_failure(obj, status),
+            ensure_ascii=False,
+        ).encode("utf-8"),
 
 
 
@@ -2722,7 +3077,25 @@ def api_health():
         except:
             pass
 
-    return _json({"ok": True, "status": "healthy", "version": sha})
+    persistence_ready = True
+    if _IS_PRODUCTION:
+        from .platform_db import PlatformDatabaseUnavailable, assert_database_ready
+
+        try:
+            assert_database_ready()
+        except PlatformDatabaseUnavailable:
+            persistence_ready = False
+
+    return _json(
+        {
+            "ok": persistence_ready,
+            "status": "healthy" if persistence_ready else "unavailable",
+            "version": sha,
+            "deployment_sha": sha,
+            "persistence": "ready" if persistence_ready else "unavailable",
+        },
+        status=200 if persistence_ready else 503,
+    )
 
 
 @app.api_route("/api/insights/neon/health", methods=["GET", "HEAD"])
@@ -4276,7 +4649,15 @@ async def generate_insights(request: Request):
         retry_after = getattr(e, "retry_after", None)
         status_code = getattr(e, "status_code", None)
 
-        if isinstance(e, GeminiBudgetExceeded) or "gemini_budget_" in str(e):
+        if isinstance(e, GeminiBudgetUnavailable):
+            return _json({
+                "ok": False,
+                "error": "ai_budget_unavailable",
+                "status_code": 503,
+                "retryable": True,
+            }, status=503)
+
+        if isinstance(e, GeminiBudgetExceeded) or "gemini_budget_exceeded" in str(e):
             return _json200({
                 "ok": False,
                 "error": "gemini_budget_exceeded",
@@ -6500,10 +6881,9 @@ async def _force_load_to_compat(request: Request, call_next):
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_DEFAULT_ORIGINS,
-    allow_origin_regex=_CORS_ORIGIN_REGEX,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["Content-Type", "X-Client-ID", "X-Gemini-API-Key", "X-Analysis-Provider", "Accept", "Authorization"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Client-ID", "X-Insight-Project", "X-Gemini-API-Key", "X-Analysis-Provider", "Accept", "Authorization", "Idempotency-Key"],
 )
 
 
@@ -7556,13 +7936,7 @@ if "app" in globals() and _GI_Request is not None and _GI_JSONResponse is not No
 
 
 
-            payload = {"ok": False, "error": "http_error", "status_code": exc.status_code, "detail": exc.detail}
-
-
-
-
-
-            return _GI_JSONResponse(status_code=exc.status_code, content=payload)
+            return http_exception_response(request, exc)
 
 
 
@@ -7582,11 +7956,16 @@ if "app" in globals() and _GI_Request is not None and _GI_JSONResponse is not No
 
     async def _gi_unhandled_exception_handler(request: _GI_Request, exc: Exception):
 
-
-
-
-
-        payload = {"ok": False, "error": "internal_error", "detail": str(exc)}
+        capture_exception_safe(
+            exc,
+            error_code=type(exc).__name__,
+            stage="http_request",
+        )
+        logger.error(
+            "Unhandled Ads API error request_id=%s error_code=%s",
+            ensure_request_id(request),
+            type(exc).__name__,
+        )
 
 
 
@@ -7604,13 +7983,29 @@ if "app" in globals() and _GI_Request is not None and _GI_JSONResponse is not No
 
 
 
-            return _GI_JSONResponse(status_code=200, content=payload)
+            response = problem_response(
+                request,
+                status_code=500,
+                code="internal_error",
+                category="unexpected",
+                user_message="分析を完了できませんでした。時間をおいて再試行してください。",
+                retryable=True,
+            )
+            response.status_code = 200
+            return response
 
 
 
 
 
-        return _GI_JSONResponse(status_code=500, content=payload)
+        return problem_response(
+            request,
+            status_code=500,
+            code="internal_error",
+            category="unexpected",
+            user_message="処理を完了できませんでした。時間をおいて再試行してください。",
+            retryable=True,
+        )
 
 
 
@@ -11033,7 +11428,8 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-        async with httpx.AsyncClient(timeout=60) as client:
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
 
 
 
@@ -11041,7 +11437,7 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-            r = await client.post(url, json=payload, headers={"Content-Type": "application/json; charset=utf-8"})
+                r = await client.post(url, json=payload, headers={"Content-Type": "application/json; charset=utf-8"})
 
 
 
@@ -11049,7 +11445,7 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-            r.raise_for_status()
+                r.raise_for_status()
 
 
 
@@ -11057,7 +11453,10 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-            data = r.json()
+                data = r.json()
+        except BaseException:
+            release_gemini_reservation(budget_estimate)
+            raise
 
 
 
@@ -11137,7 +11536,8 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
 
 
 
@@ -11145,7 +11545,7 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-            raw = resp.read().decode("utf-8", errors="replace")
+                raw = resp.read().decode("utf-8", errors="replace")
 
 
 
@@ -11153,7 +11553,10 @@ async def _gemini_generate_text(model: str, prompt: str, temperature: float = 0.
 
 
 
-            data = json.loads(raw)
+                data = json.loads(raw)
+        except BaseException:
+            release_gemini_reservation(budget_estimate)
+            raise
 
 
 
@@ -13497,8 +13900,11 @@ def _scan_point_packs() -> List[Dict[str, str]]:
 def _safe_compare_path(rel_posix: str) -> Path:
     # prevent path traversal
     rel_posix = rel_posix.replace("\\", "/").lstrip("/")
-    target = (_COMPARE / rel_posix).resolve()
-    if not str(target).startswith(str(_COMPARE.resolve())):
+    compare_root = _COMPARE.resolve()
+    target = (compare_root / rel_posix).resolve()
+    try:
+        target.relative_to(compare_root)
+    except ValueError:
         raise ValueError("invalid path")
     if not target.exists():
         raise FileNotFoundError(rel_posix)
@@ -13619,7 +14025,11 @@ def _gemini_generate(
         raise RuntimeError(f"Gemini failed after retries: {last_err}")
 
     # First call
-    text, finish_reason, usage = _single_call(prompt, temperature, max_tokens)
+    try:
+        text, finish_reason, usage = _single_call(prompt, temperature, max_tokens)
+    except BaseException:
+        release_gemini_reservation(budget_estimate)
+        raise
     combined_usage = dict(usage or {})
 
     # Auto-continuation if truncated (once only)
@@ -14327,6 +14737,132 @@ def _build_review_safe_insight_report(
     ])
 
 
+def _project_user_analysis_provider() -> str:
+    """Resolve the customer AI provider from server configuration only."""
+    configured = str(
+        os.getenv("ADS_PROJECT_ANALYSIS_PROVIDER") or "google"
+    ).strip().lower()
+    aliases = {
+        "google": "google",
+        "gemini": "google",
+        "anthropic": "anthropic",
+        "claude": "anthropic",
+    }
+    provider = aliases.get(configured)
+    if provider is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Customer analysis provider is not configured",
+        )
+    return provider
+
+
+def _project_user_analysis_mode() -> str:
+    """Keep customer cost/latency policy outside the untrusted request body."""
+    configured = str(
+        os.getenv("ADS_PROJECT_ANALYSIS_MODE") or "deterministic"
+    ).strip().lower()
+    if configured not in {"deterministic", "economy"}:
+        raise HTTPException(
+            status_code=503,
+            detail="Customer analysis mode is not configured",
+        )
+    return configured
+
+
+def _scope_project_user_ai_payload(
+    request: Request,
+    payload: dict[str, Any],
+    claims: dict[str, Any],
+) -> tuple[str, str]:
+    """Bind a Clerk project user's AI request to server-owned scope and policy.
+
+    The browser may provide report evidence and a question, but it cannot select
+    a filesystem point pack, tenant dataset, provider, model, API key, paid
+    execution mode, or provider workflow.  Those values are either rejected or
+    overwritten from verified claims/server configuration before any file, BQ,
+    or model call can run.
+    """
+    if payload.get("point_pack_path") or payload.get("pointPackPath"):
+        raise HTTPException(
+            status_code=403,
+            detail="File-based point packs are not available to project users",
+        )
+
+    requested_data_source = str(payload.get("data_source") or "").strip().lower()
+    if requested_data_source and requested_data_source != "bq":
+        raise HTTPException(
+            status_code=403,
+            detail="Project analysis is limited to its BigQuery data source",
+        )
+
+    meta = payload.get("analysis_context_meta")
+    meta = dict(meta) if isinstance(meta, dict) else {}
+    requested_datasets = [
+        payload.get("datasetId"),
+        payload.get("dataset_id"),
+        meta.get("datasetId"),
+        meta.get("dataset_id"),
+    ]
+    requested_datasets = [
+        str(value).strip()
+        for value in requested_datasets
+        if str(value or "").strip() and str(value).strip() != "managed"
+    ]
+    scoped_dataset = _resolve_bq_dataset_for_request(request, None)
+    for requested_dataset in requested_datasets:
+        if not _same_dataset_ref(requested_dataset, scoped_dataset):
+            raise HTTPException(
+                status_code=403,
+                detail="Requested dataset is outside authenticated project scope",
+            )
+
+    from bq.client import PROJECT_ID as default_bq_project_id
+
+    scoped_project = (
+        scoped_dataset.rsplit(".", 1)[0]
+        if "." in scoped_dataset
+        else str(os.getenv("GCP_PROJECT_ID") or default_bq_project_id).strip()
+    )
+    requested_projects = [payload.get("bq_project_id"), payload.get("projectId")]
+    requested_projects = [
+        str(value).strip()
+        for value in requested_projects
+        if str(value or "").strip()
+    ]
+    if any(project != scoped_project for project in requested_projects):
+        raise HTTPException(
+            status_code=403,
+            detail="Requested BigQuery project is outside authenticated project scope",
+        )
+
+    provider = _project_user_analysis_provider()
+    analysis_mode = _project_user_analysis_mode()
+    server_model = str(os.getenv("ADS_PROJECT_ANALYSIS_MODEL") or "").strip() or (
+        "claude-sonnet-4-20250514"
+        if provider == "anthropic"
+        else "gemini-3.1-flash-lite"
+    )
+    payload.pop("api_key", None)
+    payload.pop("point_pack_path", None)
+    payload.pop("pointPackPath", None)
+    payload.pop("dataset_id", None)
+    payload.pop("projectId", None)
+    payload["data_source"] = "bq"
+    payload["datasetId"] = scoped_dataset
+    payload["bq_project_id"] = scoped_project
+    payload["provider"] = provider
+    payload["model"] = server_model
+    payload["analysis_mode"] = analysis_mode
+    payload["workflow"] = "multi_agent_v1" if analysis_mode == "economy" else "legacy"
+    payload["temperature"] = 0.3
+    meta["datasetId"] = scoped_dataset
+    meta.pop("dataset_id", None)
+    meta["projectId"] = str(claims.get("project_id") or "")
+    payload["analysis_context_meta"] = meta
+    return provider, analysis_mode
+
+
 @app.post("/api/insights/neon/generate")
 @app.post("/api/ads/neon/generate")
 @app.post("/api/neon/generate")
@@ -14342,7 +14878,16 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
         _validate_demo_ai_payload(demo_case, payload)
         return _demo_ai_response(payload)
 
-    if claims and claims.get("role") == "case_user":
+    is_project_user = bool(claims and claims.get("role") == "project_user")
+    project_provider: str | None = None
+    project_analysis_mode: str | None = None
+    if is_project_user:
+        project_provider, project_analysis_mode = _scope_project_user_ai_payload(
+            request,
+            payload,
+            claims,
+        )
+    elif claims and claims.get("role") == "case_user":
         if payload.get("point_pack_path"):
             raise HTTPException(
                 status_code=403,
@@ -14399,19 +14944,31 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
 
     # V4: provider ルーティング — anthropic / google(gemini)
     provider = str(
-        request.headers.get("X-Analysis-Provider")
+        project_provider
+        or request.headers.get("X-Analysis-Provider")
         or payload.get("provider")
         or "google"
     ).strip().lower()
     is_anthropic = provider in ("anthropic", "claude")
 
     # APIキー解決: provider に応じてヘッダー名を切り替え
-    if is_anthropic:
+    if is_project_user and is_anthropic:
+        client_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip() or None
+    elif is_project_user:
+        client_key = (
+            os.getenv("GEMINI_API_KEY")
+            or os.getenv("GOOGLE_API_KEY")
+            or os.getenv("GOOGLE_GENERATIVE_AI_API_KEY")
+            or ""
+        ).strip() or None
+    elif is_anthropic:
         client_key = request.headers.get("X-API-Key") or payload.get("api_key")
     else:
         client_key = request.headers.get("X-Gemini-API-Key") or payload.get("api_key")
 
-    requested_analysis_mode = str(payload.get("analysis_mode") or "economy").strip().lower()
+    requested_analysis_mode = str(
+        project_analysis_mode or payload.get("analysis_mode") or "economy"
+    ).strip().lower()
     if requested_analysis_mode not in ANALYSIS_MODES:
         return _json({
             "ok": False,
@@ -14423,6 +14980,15 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     # V3.1: クライアントキー必須ガード
     # deterministic は既存のPython evidence builder/validatorだけを使うため、
     # BYOK必須モードでもキーなしで実行できる。
+    if is_project_user and analysis_mode != "deterministic" and not client_key:
+        return problem_response(
+            request,
+            status_code=503,
+            code="analysis_provider_unavailable",
+            category="dependency",
+            user_message="現在AI分析を利用できません。時間をおいて再度お試しください。",
+            retryable=True,
+        )
     if analysis_mode != "deterministic" and _is_client_key_required() and not client_key:
         provider_label = "Claude API" if is_anthropic else "Gemini API"
         return _json({
@@ -14434,7 +15000,12 @@ async def neon_generate(request: Request) -> Dict[str, Any]:
     # { mode: "question|improve|risk|numbers", model, temperature, message, point_pack_path? point_pack_md?, style_preset?, style_reference?, provider? }
     mode = str(payload.get("mode") or "question")
     default_model = "claude-sonnet-4-20250514" if is_anthropic else "gemini-3.1-flash-lite"
-    model = str(payload.get("model") or default_model)
+    project_model = (
+        str(os.getenv("ADS_PROJECT_ANALYSIS_MODEL") or "").strip()
+        if is_project_user
+        else ""
+    )
+    model = project_model or (default_model if is_project_user else str(payload.get("model") or default_model))
     if not is_anthropic:
         model = normalize_gemini_model(model)
     temperature = float(payload.get("temperature") or 0.7)
@@ -15629,7 +16200,12 @@ version, executive_summary, evidence_table, interpretation, hypotheses, actions,
     except RuntimeError as e:
         msg = str(e)
         logger.exception("[neon/generate] RuntimeError request_id=%s model=%s", request_id, model)
-        if isinstance(e, GeminiBudgetExceeded) or "gemini_budget_" in msg:
+        if isinstance(e, GeminiBudgetUnavailable):
+            return JSONResponse(
+                {"ok": False, "error_code": "ai_budget_unavailable", "detail": "AI分析を一時的に利用できません。時間をおいて再試行してください。", "retryable": True, "request_id": request_id},
+                status_code=503,
+            )
+        if isinstance(e, GeminiBudgetExceeded) or "gemini_budget_exceeded" in msg:
             return JSONResponse(
                 {"ok": False, "error_code": "gemini_budget_exceeded", "detail": "Geminiの月間利用上限に達しました。Claude fallbackを使うか、翌月まで待ってください。", "retryable": False, "request_id": request_id},
                 status_code=429,
@@ -16983,6 +17559,7 @@ async def api_bq_generate(request: Request):
         query_type = body.get("query_type", "pv")
         dataset_id = _resolve_bq_dataset_for_request(request, body.get("dataset_id"))
         period = body.get("period", "")
+        report_options = _report_runtime_options(request)
 
         if not period:
             return _json({"ok": False, "error": "validation_error",
@@ -16995,7 +17572,16 @@ async def api_bq_generate(request: Request):
             return _json(response_data, status_code)
 
         # キャッシュチェック
-        cache_key = f"{query_type}:{dataset_id}:{period}"
+        cache_key = ":".join(
+            [
+                str(query_type),
+                str(dataset_id),
+                str(period),
+                str(report_options["report_project_id"]),
+                str(report_options["timezone"]),
+                ",".join(report_options.get("cv_events") or []),
+            ]
+        )
         cached = _bq_cache.get(cache_key)
         if cached and (_time.time() - cached[0]) < _BQ_CACHE_TTL:
             return _json(cached[1])
@@ -17015,11 +17601,25 @@ async def api_bq_generate(request: Request):
             query_type=query_type,
             dataset=dataset_id,
             period=period,
+            cv_events=report_options.get("cv_events"),
+            timezone=str(report_options["timezone"]),
+            report_project_id=str(report_options["report_project_id"]),
+            period_selection=body.get("granularity") or body.get("period_selection"),
         )
 
         if not results:
             return _json({"ok": False, "error": "no_data",
                            "message": f"{query_type} のデータが見つかりません（期間: {period}）。別の期間を試してください。"})
+        if results.get("query_failed"):
+            return _json(
+                {
+                    "ok": False,
+                    "error": results.get("error_code") or "query_error",
+                    "report_v2": results.get("report_v2"),
+                    "retryable": True,
+                },
+                503,
+            )
 
         # Chart.jsデータ生成
         chart_data = {}
@@ -17043,9 +17643,13 @@ async def api_bq_generate(request: Request):
             "report_md": results.get("report_md", ""),
             "chart_data": chart_data,
             "beginner_report": build_beginner_report(chart_data.get("groups") or [], [execution_summary]),
-            "csv_path": results.get("csv", ""),
+            "report_v2": results.get("report_v2"),
             "query_info": {"key": query_type, "name": query_info.get("name", query_type)},
         }
+        if (_get_request_auth_claims(request) or {}).get("role") != "project_user":
+            # Hybrid operator compatibility only. Managed customer responses
+            # never disclose a backend filesystem path.
+            response_data["csv_path"] = results.get("csv", "")
         _bq_cache_put(cache_key, response_data)
         return _json(response_data)
 
@@ -17088,6 +17692,7 @@ async def api_bq_generate_batch(request: Request):
         query_types = body.get("query_types", [])
         dataset_id = _resolve_bq_dataset_for_request(request, body.get("dataset_id"))
         period = body.get("period", "")
+        report_options = _report_runtime_options(request)
 
         if not period:
             return _json({"ok": False, "error": "validation_error",
@@ -17105,6 +17710,7 @@ async def api_bq_generate_batch(request: Request):
         from bq.reporter import run_report, generate_cross_summary
         from bq.queries import QUERIES, normalize_dataset_ref
         from .bq_chart_builder import build_bq_chart_data, build_beginner_report
+        from .report_contract_v2 import combine_reports_v2
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         dataset_id = normalize_dataset_ref(dataset_id)
@@ -17124,7 +17730,16 @@ async def api_bq_generate_batch(request: Request):
 
         def _run_single(qt):
             """1つのクエリタイプを実行する（スレッドプール用）。"""
-            cache_key = f"{qt}:{dataset_id}:{period}"
+            cache_key = ":".join(
+                [
+                    str(qt),
+                    str(dataset_id),
+                    str(period),
+                    str(report_options["report_project_id"]),
+                    str(report_options["timezone"]),
+                    ",".join(report_options.get("cv_events") or []),
+                ]
+            )
             cached = _bq_cache.get(cache_key)
             if cached and (_time.time() - cached[0]) < _BQ_CACHE_TTL:
                 cached_data = cached[1]
@@ -17137,7 +17752,15 @@ async def api_bq_generate_batch(request: Request):
                     "message": "キャッシュ済みの結果を使用しました。",
                 }
                 return qt, cached_data, True, cached_summary
-            results = run_report(query_type=qt, dataset=dataset_id, period=period)
+            results = run_report(
+                query_type=qt,
+                dataset=dataset_id,
+                period=period,
+                cv_events=report_options.get("cv_events"),
+                timezone=str(report_options["timezone"]),
+                report_project_id=str(report_options["report_project_id"]),
+                period_selection=body.get("granularity") or body.get("period_selection"),
+            )
             if not results:
                 return qt, None, False, {
                     "query_type": qt,
@@ -17146,6 +17769,23 @@ async def api_bq_generate_batch(request: Request):
                     "chart_group_count": 0,
                     "message": f"{qt} のデータが見つかりません（期間: {period}）。",
                 }
+            if results.get("query_failed"):
+                execution = {
+                    "query_type": qt,
+                    "status": "error",
+                    "row_count": 0,
+                    "chart_group_count": 0,
+                    "message": "データ取得に失敗しました。",
+                }
+                return qt, {
+                    "ok": False,
+                    "report_md": "",
+                    "report_v2": results.get("report_v2"),
+                    "chart_data": {},
+                    "row_count": 0,
+                    "execution_summary": execution,
+                    "query_info": {"key": qt, "name": qt},
+                }, False, execution
             chart_data = {}
             df = results.get("dataframe")
             row_count = int(len(df)) if df is not None else 0
@@ -17168,12 +17808,14 @@ async def api_bq_generate_batch(request: Request):
             response_data = {
                 "ok": True,
                 "report_md": results.get("report_md", ""),
+                "report_v2": results.get("report_v2"),
                 "chart_data": chart_data,
-                "csv_path": results.get("csv", ""),
                 "row_count": row_count,
                 "execution_summary": execution,
                 "query_info": {"key": qt, "name": query_info.get("name", qt)},
             }
+            if (_get_request_auth_claims(request) or {}).get("role") != "project_user":
+                response_data["csv_path"] = results.get("csv", "")
             _bq_cache_put(cache_key, response_data)
             return qt, response_data, False, execution
 
@@ -17262,15 +17904,32 @@ async def api_bq_generate_batch(request: Request):
         data_availability, missing_reason = _bq_availability_from_summary(sorted_summary, len(valid_types))
         ok = data_availability != "failed"
         beginner_report = build_beginner_report(all_groups, sorted_summary)
+        child_reports_v2 = {
+            qt: all_results[qt].get("report_v2")
+            for qt in valid_types
+            if qt in all_results and isinstance(all_results[qt].get("report_v2"), dict)
+        }
+        combined_report_v2 = (
+            combine_reports_v2(
+                child_reports_v2,
+                report_id=f"batch:{report_options['report_project_id']}:{period}",
+                project_id=str(report_options["report_project_id"]),
+            )
+            if child_reports_v2
+            else None
+        )
 
         return _json({
             "ok": ok,
+            **({"error": "query_error", "retryable": True} if not ok else {}),
+            "period": period,
             "data_availability": data_availability,
             "missing_reason": missing_reason,
             "report_md": combined_md,
+            "report_v2": combined_report_v2,
             "chart_data": {"groups": all_groups} if all_groups else {},
             "beginner_report": beginner_report,
-            "results": {qt: {"report_md": d.get("report_md", ""), "query_info": d.get("query_info", {})}
+            "results": {qt: {"report_md": d.get("report_md", ""), "report_v2": d.get("report_v2"), "query_info": d.get("query_info", {})}
                         for qt, d in all_results.items()},
             "skipped": skipped,
             "execution_summary": sorted_summary,

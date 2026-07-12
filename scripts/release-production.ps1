@@ -22,30 +22,6 @@ function Require-Command {
     }
 }
 
-function Get-ReleaseRequirements {
-    param([string]$BaseRef)
-
-    $diff = Invoke-Checked -FilePath "git" -Arguments @("diff", "--name-only", "$BaseRef...HEAD")
-    $files = @($diff.Output -split "`n" | Where-Object { $_.Trim() })
-
-    $requiresMl = $false
-    $requiresAds = $false
-    foreach ($file in $files) {
-        if ($file -match "^(backends/market-lens-ai/|render\.yaml$)") {
-            $requiresMl = $true
-        }
-        if ($file -match "^(backends/ads-insights/|render\.yaml$)") {
-            $requiresAds = $true
-        }
-    }
-
-    return [pscustomobject]@{
-        Files = $files
-        RequiresMlCommit = $requiresMl
-        RequiresAdsCommit = $requiresAds
-    }
-}
-
 function Invoke-Checked {
     param(
         [string]$FilePath,
@@ -120,9 +96,14 @@ function Run-LocalChecks {
     }
 
     Write-Step "Running local release gates"
+    $null = Invoke-Checked -FilePath "npm" -Arguments @("ci")
     $null = Invoke-Checked -FilePath "npm" -Arguments @("run", "lint")
-    $null = Invoke-Checked -FilePath "npm" -Arguments @("test")
-    $null = Invoke-Checked -FilePath "npm" -Arguments @("run", "build")
+    $null = Invoke-Checked -FilePath "npm" -Arguments @("test", "--", "--maxWorkers=1")
+    $null = Invoke-Checked -FilePath "npm" -Arguments @("run", "test:coverage", "--", "--maxWorkers=1")
+    $null = Invoke-Checked -FilePath "npm" -Arguments @("run", "build:verified")
+    $null = Invoke-Checked -FilePath "python" -Arguments @("scripts/check_ci_config.py")
+    $null = Invoke-Checked -FilePath "python" -Arguments @("scripts/check_python_locks.py")
+    $null = Invoke-Checked -FilePath "python" -Arguments @("scripts/check_secret_leaks.py")
 }
 
 function Get-HealthCommit {
@@ -165,11 +146,7 @@ function Get-HealthCommit {
 }
 
 function Wait-ProductionCommit {
-    param(
-        [string]$ExpectedCommit,
-        [bool]$RequireMlCommit,
-        [bool]$RequireAdsCommit
-    )
+    param([string]$ExpectedCommit)
 
     Write-Step "Waiting for production health to report $ExpectedCommit"
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
@@ -179,8 +156,8 @@ function Wait-ProductionCommit {
         $frontendOk = $front.Ok
         $ml = Get-HealthCommit -Path "/api/ml/health"
         $ads = Get-HealthCommit -Path "/api/ads/health"
-        $mlOk = $ml.Ok -and ((-not $RequireMlCommit) -or $ml.Commit -eq $ExpectedCommit)
-        $adsOk = $ads.Ok -and ((-not $RequireAdsCommit) -or $ads.Commit -eq $ExpectedCommit)
+        $mlOk = $ml.Ok -and $ml.Commit -eq $ExpectedCommit
+        $adsOk = $ads.Ok -and $ads.Commit -eq $ExpectedCommit
 
         Write-Host ("frontend={0} ml={1} ads={2}" -f $frontendOk, $ml.Commit, $ads.Commit)
 
@@ -314,24 +291,12 @@ Run-LocalChecks
 
 Write-Step "Refreshing origin"
 $null = Invoke-Checked -FilePath "git" -Arguments @("fetch", "origin", $TargetBranch)
-$releaseRequirements = Get-ReleaseRequirements -BaseRef "origin/$TargetBranch"
-Write-Host ("backend commit gates: ml={0} ads={1}" -f $releaseRequirements.RequiresMlCommit, $releaseRequirements.RequiresAdsCommit)
 
 $headCommit = Get-GitValue -Arguments @("rev-parse", "HEAD")
 $currentBranch = Get-GitValue -Arguments @("branch", "--show-current")
 if (-not $currentBranch) {
     throw "Current HEAD is detached. Switch to a release branch first."
 }
-
-Write-Step "Trying direct production push"
-$directPush = Invoke-Checked -FilePath "git" -Arguments @("push", "origin", "HEAD:$TargetBranch") -AllowFailure
-if ($directPush.ExitCode -eq 0) {
-    Wait-GitHubCi -ExpectedCommit $headCommit
-    Wait-ProductionCommit -ExpectedCommit $headCommit -RequireMlCommit $releaseRequirements.RequiresMlCommit -RequireAdsCommit $releaseRequirements.RequiresAdsCommit
-    exit 0
-}
-
-Write-Host "Direct push was rejected or unavailable; using PR release path." -ForegroundColor Yellow
 
 if ($currentBranch -eq $TargetBranch) {
     $stamp = Get-Date -Format "yyyyMMddHHmmss"
@@ -347,4 +312,4 @@ $null = Invoke-Checked -FilePath "git" -Arguments @("push", "-u", "origin", $cur
 $prNumber = Get-OrCreatePullRequest -CurrentBranch $currentBranch -HeadCommit $headCommit
 $mergeCommit = Merge-PullRequest -PrNumber $prNumber
 Wait-GitHubCi -ExpectedCommit $mergeCommit
-Wait-ProductionCommit -ExpectedCommit $mergeCommit -RequireMlCommit $releaseRequirements.RequiresMlCommit -RequireAdsCommit $releaseRequirements.RequiresAdsCommit
+Wait-ProductionCommit -ExpectedCommit $mergeCommit

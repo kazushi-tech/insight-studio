@@ -1,4 +1,5 @@
-// 顧客・プロジェクト管理APIは未提供のため、販売画面では既定で閉じる。
-// 作成・更新・招待・削除のAPI契約とE2Eが揃った環境だけで有効化する。
+// The v2 project API is implemented. Keep the production rollout explicit so
+// it is enabled only after Clerk, database migrations and browser E2E pass in
+// that environment.
 export const isProjectManagementEnabled =
   import.meta.env.VITE_ENABLE_PROJECT_MANAGEMENT === 'true'

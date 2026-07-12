@@ -4,7 +4,7 @@ const GUIDE_PAGES = [
   {
     src: '/imagegen/data-to-action-paper-collage.webp',
     title: 'まずはサイトの状態を確認',
-    description: '基本レポート・グラフ・根拠整理は、GeminiやClaudeのAPIキーなしで利用できます。',
+    description: '基本レポート・グラフ・根拠整理は、追加のサービス設定なしで利用できます。',
     items: [
       { icon: 'summarize', title: 'まとめ', body: '重要な変化、判断を保留する項目、次に確認することを先に読みます。' },
       { icon: 'monitoring', title: 'グラフ', body: 'アクセス数、来訪元、ページ、成果を期間と一緒に確認します。' },
@@ -13,8 +13,8 @@ const GUIDE_PAGES = [
   },
   {
     src: null,
-    title: 'GA4 と BigQuery を接続',
-    description: 'Webサイトの実データを表示するには、GA4からBigQueryへのエクスポートとGoogle側の接続情報が必要です。画面の「準備」から順番に設定できます。',
+    title: 'Webサイトの計測データを接続',
+    description: '実際の数字を表示するには、計測データの接続が必要です。画面の「準備」から順番に確認できます。',
     items: [
       { icon: 'web', title: 'サイトを選ぶ', body: '分析するWebサイトと接続先を選択します。' },
       { icon: 'date_range', title: '期間を選ぶ', body: 'まずは直近28日など、比較しやすい期間から始めます。' },
@@ -23,12 +23,12 @@ const GUIDE_PAGES = [
   },
   {
     src: null,
-    title: 'AIキーは必要なときだけ',
-    description: '競合・LP分析やクリエイティブ診断を使うときに、ヘッダーの鍵アイコンからAPIキーを設定できます。Geminiを優先し、Claudeは予備として利用します。',
+    title: '追加分析は必要なときだけ',
+    description: '競合・入口ページ分析や画像診断は、導入担当者が利用範囲を確認してから有効にします。基本レポートはそのまま利用できます。',
     items: [
-      { icon: 'key_off', title: 'キーなし', body: '基本レポート、グラフ、根拠に基づく自動整理を利用できます。' },
-      { icon: 'smart_toy', title: 'Gemini', body: '競合・LP・画像の詳細分析で、低コストのモデルを優先します。' },
-      { icon: 'swap_horiz', title: 'Claude', body: 'Geminiを使わない場合の予備プロバイダーとして設定できます。' },
+      { icon: 'check_circle', title: '基本機能', body: 'レポート、グラフ、根拠に基づく自動整理を利用できます。' },
+      { icon: 'smart_toy', title: '詳しい調査', body: '競合・入口ページ・画像を、必要な案件だけ追加で調べます。' },
+      { icon: 'support_agent', title: '導入担当者', body: '利用権限、費用、データの扱いを確認してから設定します。' },
     ],
   },
   {
@@ -118,7 +118,7 @@ export default function GuideModal({ onClose }) {
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-4 pb-3 pt-4 sm:px-6 sm:pt-5">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-secondary">menu_book</span>
+            <span className="material-symbols-outlined text-secondary" aria-hidden="true">menu_book</span>
             <h3 className="text-lg font-bold japanese-text">{current.title}</h3>
           </div>
           <div className="flex items-center gap-3">
@@ -126,17 +126,23 @@ export default function GuideModal({ onClose }) {
               {page + 1} / {GUIDE_PAGES.length}
             </span>
             <button
+              type="button"
               onClick={onClose}
               className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-2 focus-visible:outline-secondary"
               aria-label="閉じる"
             >
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">close</span>
             </button>
           </div>
         </div>
 
         {/* Image Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
+        <div
+          className="flex-1 overflow-y-auto px-4 pb-4 sm:px-6"
+          role="region"
+          aria-label="ガイド内容"
+          tabIndex={0}
+        >
           {current.src && (
             <img
               src={current.src}
@@ -173,11 +179,12 @@ export default function GuideModal({ onClose }) {
         {/* Navigation */}
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-t border-outline-variant/10 px-4 py-3 sm:px-6 sm:py-4">
           <button
+            type="button"
             onClick={goPrev}
             disabled={page === 0}
             className="flex min-h-11 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-30"
           >
-            <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span>
             前へ
           </button>
 
@@ -187,9 +194,10 @@ export default function GuideModal({ onClose }) {
               {GUIDE_PAGES.map((_, i) => (
                 <button
                   key={i}
+                  type="button"
                   onClick={() => setPage(i)}
                   aria-label={`ページ ${i + 1}`}
-                  className={`min-h-7 min-w-7 rounded-full border-8 border-transparent bg-clip-padding transition-transform ${
+                  className={`min-h-11 min-w-11 rounded-full border-[14px] border-transparent bg-clip-padding transition-transform ${
                     i === page
                       ? 'bg-secondary scale-110'
                       : 'bg-outline-variant/40 hover:bg-outline-variant/70'
@@ -197,7 +205,7 @@ export default function GuideModal({ onClose }) {
                 />
               ))}
             </div>
-            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <label className="flex min-h-11 cursor-pointer select-none items-center gap-2 px-2">
               <input
                 type="checkbox"
                 checked={dontShowAgain}
@@ -209,25 +217,26 @@ export default function GuideModal({ onClose }) {
                     localStorage.removeItem(STORAGE_KEY)
                   }
                 }}
-                className="w-3.5 h-3.5 rounded accent-secondary"
+                className="size-4 rounded accent-secondary"
               />
               <span className="text-[11px] text-on-surface-variant japanese-text">次回から表示しない</span>
             </label>
           </div>
 
           <button
+            type="button"
             onClick={page === GUIDE_PAGES.length - 1 ? onClose : goNext}
             className="flex min-h-11 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container"
           >
             {page === GUIDE_PAGES.length - 1 ? (
               <>
                 完了
-                <span className="material-symbols-outlined text-[18px]">check</span>
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">check</span>
               </>
             ) : (
               <>
                 次へ
-                <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span>
               </>
             )}
           </button>

@@ -164,8 +164,8 @@ export default function CaseManagement() {
     try {
       const data = await getCases()
       setCases(Array.isArray(data) ? data : data.cases || [])
-    } catch (e) {
-      setError(e.message)
+    } catch {
+      setError('案件を作成できませんでした。入力内容を確認してください。')
     } finally {
       setLoading(false)
     }
@@ -185,8 +185,8 @@ export default function CaseManagement() {
       await createCase(payload)
       setShowForm(false)
       await fetchCases()
-    } catch (e) {
-      setError(e.message)
+    } catch {
+      setError('案件を更新できませんでした。少し待って、もう一度お試しください。')
     }
   }
 
@@ -196,8 +196,8 @@ export default function CaseManagement() {
       await updateCase(editingCase.case_id, payload)
       setEditingCase(null)
       await fetchCases()
-    } catch (e) {
-      setError(e.message)
+    } catch {
+      setError('案件を削除できませんでした。権限と利用状況を確認してください。')
     }
   }
 

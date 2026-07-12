@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from collections import deque
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -46,7 +47,7 @@ class SystemStatus(BaseModel):
     total_deliveries: int = 0
 
 
-def create_admin_router() -> APIRouter:
+def create_admin_router(*, analysis_job_backend: Any | None = None) -> APIRouter:
     """Factory that creates admin routes."""
     router = APIRouter(
         prefix="/api/admin",
@@ -115,5 +116,31 @@ def create_admin_router() -> APIRouter:
             status="healthy",
             uptime_seconds=uptime,
         )
+
+    @router.get("/worker-readiness")
+    async def get_worker_readiness():
+        """Expose secret-free per-worker evidence to authenticated operators."""
+
+        mode = getattr(analysis_job_backend, "mode", None)
+        mode_value = getattr(mode, "value", mode)
+        if mode_value == "worker" and analysis_job_backend is not None:
+            return analysis_job_backend.worker_readiness_snapshot(include_workers=True)
+        return {
+            "mode": str(mode_value or "unavailable"),
+            "required": False,
+            "ready": mode_value in {"inline", "workflow"},
+            "freshness_seconds": getattr(
+                getattr(analysis_job_backend, "settings", None),
+                "lease_seconds",
+                60,
+            ),
+            "fresh_workers": 0,
+            "stale_workers": 0,
+            "stopped_workers": 0,
+            "starting_workers": 0,
+            "latest_heartbeat_at": None,
+            "latest_successful_job_at": None,
+            "workers": [],
+        }
 
     return router

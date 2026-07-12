@@ -1,15 +1,33 @@
-"""Local Gemini monthly budget guard for personal API spend control."""
+"""PostgreSQL-backed Gemini monthly budget reservations.
+
+``ai_budget_accounts`` and ``ai_usage_ledger`` (Alembic 010) are the only
+source of truth.  A request reserves its worst-case cost before the provider
+call, then the same idempotency key is finalized with the returned token
+counts.  Failed calls may release the reservation; abandoned reservations are
+reclaimed after a short lease.  There is deliberately no file or ``/tmp``
+fallback.
+"""
 
 from __future__ import annotations
 
-import json
 import math
 import os
-import tempfile
+import secrets
 import uuid
+from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
+from threading import RLock
+from typing import Any, Callable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError
+
+from .platform.schema import ai_budget_accounts, ai_usage_ledger
+from .platform_db import PlatformDatabaseUnavailable, get_platform_engine
 
 GEMINI_FLASH_LITE_INPUT_USD_PER_1M = 0.25
 GEMINI_FLASH_LITE_OUTPUT_USD_PER_1M = 1.50
@@ -22,11 +40,23 @@ LEGACY_GEMINI_FLASH_MODELS = {
 DEFAULT_MONTHLY_BUDGET_USD = 18.0
 DEFAULT_USD_JPY = 159.0
 
+INTERNAL_WORKSPACE_ID = "00000000-0000-0000-0000-000000000001"
+INTERNAL_PROJECT_ID = "00000000-0000-0000-0000-000000000002"
+_PROVIDER = "gemini"
+_SCOPE_KEY = "platform.gemini"
+_RESERVATION_PREFIX = "reservation:"
+_ESTIMATED_PREFIX = "estimated:"
+_RESERVATION_LEASE = timedelta(minutes=30)
 _JST = timezone(timedelta(hours=9))
+_SQLITE_TEST_LOCK = RLock()
 
 
 class GeminiBudgetExceeded(RuntimeError):
-    """Raised before a Gemini call when the local monthly budget is exceeded."""
+    """Raised before a paid call when the durable monthly cap is exceeded."""
+
+
+class GeminiBudgetUnavailable(RuntimeError):
+    """Raised when PostgreSQL cannot make a durable budget decision."""
 
 
 def is_gemini_model(model: str | None) -> bool:
@@ -58,17 +88,13 @@ def usd_jpy_rate() -> float:
     return _float_env("GEMINI_BUDGET_USD_JPY", DEFAULT_USD_JPY)
 
 
-def usage_path() -> Path:
-    raw = os.getenv("GEMINI_USAGE_PATH")
-    if raw:
-        return Path(raw).expanduser().resolve()
-    return Path(__file__).resolve().parents[3] / ".runtime" / "gemini_usage_budget.json"
-
-
 def estimate_text_tokens(text: str | None) -> int:
     if not text:
         return 0
-    return max(1, math.ceil(len(str(text)) / 2))
+    # UTF-8 bytes are a deliberately conservative tokenizer-independent upper
+    # bound for the Japanese-heavy prompts used here.  Reservations must
+    # overestimate rather than allow a later finalization to cross the cap.
+    return max(1, len(str(text).encode("utf-8")))
 
 
 def calculate_cost_usd(input_tokens: int, output_tokens: int) -> float:
@@ -78,11 +104,14 @@ def calculate_cost_usd(input_tokens: int, output_tokens: int) -> float:
     ) / 1_000_000
 
 
+def _cost_microunits(input_tokens: int, output_tokens: int) -> int:
+    # The schema stores millionths of USD.  Round up so reservations never
+    # underestimate a fractional microunit.
+    return max(0, math.ceil(calculate_cost_usd(input_tokens, output_tokens) * 1_000_000))
+
+
 def estimate_request_cost(
-    *,
-    prompt: str,
-    max_output_tokens: int,
-    model: str | None = None,
+    *, prompt: str, max_output_tokens: int, model: str | None = None
 ) -> dict[str, Any]:
     input_tokens = estimate_text_tokens(prompt)
     output_tokens = max(0, int(max_output_tokens or 0))
@@ -97,33 +126,364 @@ def estimate_request_cost(
     }
 
 
-def get_budget_summary() -> dict[str, Any]:
-    month = current_month_key()
-    budget = monthly_budget_usd()
-    rate = usd_jpy_rate()
-    data, corrupt_error = _load_usage()
-    if corrupt_error:
-        return _summary_payload(
-            month=month,
-            budget_usd=budget,
-            usd_jpy=rate,
-            used_usd=0.0,
-            events=[],
-            storage_status="corrupt",
-            error=corrupt_error,
+def _is_managed_runtime() -> bool:
+    return bool(
+        os.getenv("VERCEL")
+        or os.getenv("RENDER")
+        or str(os.getenv("ENVIRONMENT", "")).strip().lower() in {"prod", "production", "staging"}
+    )
+
+
+def _period_bounds(now: datetime, timezone_name: str) -> tuple[datetime, datetime, str]:
+    try:
+        zone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError as exc:
+        raise GeminiBudgetUnavailable("AI budget timezone is invalid") from exc
+    local = now.astimezone(zone)
+    start_local = local.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if start_local.month == 12:
+        end_local = start_local.replace(year=start_local.year + 1, month=1)
+    else:
+        end_local = start_local.replace(month=start_local.month + 1)
+    return (
+        start_local.astimezone(timezone.utc),
+        end_local.astimezone(timezone.utc),
+        start_local.strftime("%Y-%m"),
+    )
+
+
+class PostgresGeminiBudgetStore:
+    """Atomic reservation/finalization over the migration-owned tables."""
+
+    def __init__(
+        self,
+        *,
+        engine_provider: Callable[[], Engine] = get_platform_engine,
+        now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    ) -> None:
+        self._engine_provider = engine_provider
+        self._now_provider = now_provider
+
+    def _engine(self) -> Engine:
+        try:
+            engine = self._engine_provider()
+        except (PlatformDatabaseUnavailable, SQLAlchemyError, ValueError) as exc:
+            raise GeminiBudgetUnavailable("AI budget database is unavailable") from exc
+        if engine.dialect.name not in {"postgresql", "sqlite"}:
+            raise GeminiBudgetUnavailable("AI budget requires PostgreSQL")
+        if _is_managed_runtime() and engine.dialect.name != "postgresql":
+            raise GeminiBudgetUnavailable("Managed AI budget requires PostgreSQL")
+        return engine
+
+    @staticmethod
+    def _insert_for(engine: Engine, table: sa.Table):
+        if engine.dialect.name == "postgresql":
+            return postgresql_insert(table)
+        # SQLite is accepted only by non-managed tests/local verification.
+        return sqlite_insert(table)
+
+    def _ensure_account(self, connection: sa.Connection, engine: Engine) -> Any:
+        now = self._now_provider().astimezone(timezone.utc)
+        values = {
+            "id": str(uuid.uuid4()),
+            "workspace_id": INTERNAL_WORKSPACE_ID,
+            "project_id": INTERNAL_PROJECT_ID,
+            "scope_key": _SCOPE_KEY,
+            "provider": _PROVIDER,
+            "currency": "USD",
+            "monthly_limit_microunits": max(0, round(monthly_budget_usd() * 1_000_000)),
+            "warning_percent": 70,
+            "hard_limit": True,
+            "period_timezone": "Asia/Tokyo",
+            "enabled": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        statement = self._insert_for(engine, ai_budget_accounts).values(**values)
+        statement = statement.on_conflict_do_nothing(
+            index_elements=[
+                ai_budget_accounts.c.workspace_id,
+                ai_budget_accounts.c.scope_key,
+                ai_budget_accounts.c.provider,
+            ]
+        )
+        connection.execute(statement)
+        account = connection.execute(
+            sa.select(ai_budget_accounts)
+            .where(
+                ai_budget_accounts.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                ai_budget_accounts.c.scope_key == _SCOPE_KEY,
+                ai_budget_accounts.c.provider == _PROVIDER,
+            )
+            .with_for_update()
+        ).mappings().one_or_none()
+        if account is None or not bool(account["enabled"]):
+            raise GeminiBudgetUnavailable("AI budget account is unavailable")
+        return account
+
+    def _purge_expired_reservations(
+        self, connection: sa.Connection, *, now: datetime
+    ) -> None:
+        connection.execute(
+            sa.delete(ai_usage_ledger).where(
+                ai_usage_ledger.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                ai_usage_ledger.c.project_id == INTERNAL_PROJECT_ID,
+                ai_usage_ledger.c.provider == _PROVIDER,
+                ai_usage_ledger.c.operation.like(f"{_RESERVATION_PREFIX}%"),
+                ai_usage_ledger.c.occurred_at < now - _RESERVATION_LEASE,
+            )
         )
 
-    events = [event for event in data.get("events", []) if event.get("month") == month]
-    used_usd = sum(float(event.get("cost_usd") or 0) for event in events)
-    return _summary_payload(
-        month=month,
-        budget_usd=budget,
-        usd_jpy=rate,
-        used_usd=used_usd,
-        events=events,
-        storage_status="ok",
-        error=None,
-    )
+    @staticmethod
+    def _row_to_event(row: Any) -> dict[str, Any]:
+        operation = str(row["operation"] or "")
+        estimated = operation.startswith((_RESERVATION_PREFIX, _ESTIMATED_PREFIX))
+        feature = operation.split(":", 1)[1] if estimated and ":" in operation else operation
+        occurred_at = row["occurred_at"]
+        return {
+            "id": str(row["id"])[:12],
+            "month": occurred_at.astimezone(_JST).strftime("%Y-%m"),
+            "created_at": occurred_at.astimezone(_JST).isoformat(),
+            "feature": feature,
+            "model": str(row["model"] or ""),
+            "input_tokens": int(row["input_tokens"] or 0),
+            "output_tokens": int(row["output_tokens"] or 0),
+            "total_tokens": int(row["input_tokens"] or 0) + int(row["output_tokens"] or 0),
+            "cost_usd": round(int(row["estimated_cost_microunits"] or 0) / 1_000_000, 8),
+            "estimated": estimated,
+        }
+
+    def reserve(
+        self,
+        *,
+        idempotency_key: str,
+        model: str,
+        feature: str,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> dict[str, Any]:
+        key = str(idempotency_key or "").strip()[:255]
+        if not key:
+            raise GeminiBudgetUnavailable("AI budget idempotency key is required")
+        now = self._now_provider().astimezone(timezone.utc)
+        cost = _cost_microunits(input_tokens, output_tokens)
+        engine = self._engine()
+        lock = _SQLITE_TEST_LOCK if engine.dialect.name == "sqlite" else nullcontext()
+        try:
+            with lock, engine.begin() as connection:
+                account = self._ensure_account(connection, engine)
+                self._purge_expired_reservations(connection, now=now)
+                start, end, month = _period_bounds(now, str(account["period_timezone"]))
+                existing = connection.execute(
+                    sa.select(ai_usage_ledger).where(
+                        ai_usage_ledger.c.idempotency_key == key
+                    )
+                ).mappings().one_or_none()
+                if existing is not None:
+                    if (
+                        str(existing["workspace_id"]) != INTERNAL_WORKSPACE_ID
+                        or str(existing["project_id"]) != INTERNAL_PROJECT_ID
+                        or str(existing["provider"]) != _PROVIDER
+                    ):
+                        raise GeminiBudgetUnavailable("AI budget idempotency scope conflicts")
+                    return {
+                        "reservation_key": key,
+                        "month": month,
+                        "cost_microunits": int(existing["estimated_cost_microunits"] or 0),
+                        "already_reserved": True,
+                    }
+                used = int(
+                    connection.execute(
+                        sa.select(sa.func.coalesce(sa.func.sum(ai_usage_ledger.c.estimated_cost_microunits), 0))
+                        .where(
+                            ai_usage_ledger.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                            ai_usage_ledger.c.project_id == INTERNAL_PROJECT_ID,
+                            ai_usage_ledger.c.provider == _PROVIDER,
+                            ai_usage_ledger.c.occurred_at >= start,
+                            ai_usage_ledger.c.occurred_at < end,
+                        )
+                    ).scalar_one()
+                    or 0
+                )
+                limit = int(account["monthly_limit_microunits"] or 0)
+                if bool(account["hard_limit"]) and used + cost > limit:
+                    raise GeminiBudgetExceeded(
+                        "gemini_budget_exceeded: monthly Gemini budget would be exceeded"
+                    )
+                connection.execute(
+                    sa.insert(ai_usage_ledger).values(
+                        id=str(uuid.uuid4()),
+                        workspace_id=INTERNAL_WORKSPACE_ID,
+                        project_id=INTERNAL_PROJECT_ID,
+                        provider=_PROVIDER,
+                        model=model[:128],
+                        operation=f"{_RESERVATION_PREFIX}{feature}"[:100],
+                        input_tokens=max(0, int(input_tokens)),
+                        output_tokens=max(0, int(output_tokens)),
+                        estimated_cost_microunits=cost,
+                        currency="USD",
+                        idempotency_key=key,
+                        occurred_at=now,
+                    )
+                )
+                return {
+                    "reservation_key": key,
+                    "month": month,
+                    "cost_microunits": cost,
+                    "already_reserved": False,
+                }
+        except GeminiBudgetExceeded:
+            raise
+        except GeminiBudgetUnavailable:
+            raise
+        except (PlatformDatabaseUnavailable, SQLAlchemyError, ValueError) as exc:
+            raise GeminiBudgetUnavailable("AI budget database is unavailable") from exc
+
+    def finalize(
+        self,
+        *,
+        idempotency_key: str,
+        model: str,
+        feature: str,
+        input_tokens: int,
+        output_tokens: int,
+        estimated: bool,
+    ) -> dict[str, Any] | None:
+        engine = self._engine()
+        lock = _SQLITE_TEST_LOCK if engine.dialect.name == "sqlite" else nullcontext()
+        try:
+            with lock, engine.begin() as connection:
+                row = connection.execute(
+                    sa.select(ai_usage_ledger)
+                    .where(
+                        ai_usage_ledger.c.idempotency_key == idempotency_key,
+                        ai_usage_ledger.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                        ai_usage_ledger.c.project_id == INTERNAL_PROJECT_ID,
+                        ai_usage_ledger.c.provider == _PROVIDER,
+                    )
+                    .with_for_update()
+                ).mappings().one_or_none()
+                if row is None:
+                    return None
+                operation = str(row["operation"] or "")
+                if not operation.startswith(_RESERVATION_PREFIX):
+                    # Idempotent replay: the first finalized usage is the
+                    # source of truth and is never charged a second time.
+                    return self._row_to_event(row)
+                input_count = max(0, int(input_tokens))
+                output_count = max(0, int(output_tokens))
+                connection.execute(
+                    sa.update(ai_usage_ledger)
+                    .where(ai_usage_ledger.c.id == row["id"])
+                    .values(
+                        model=model[:128],
+                        operation=(f"{_ESTIMATED_PREFIX}{feature}" if estimated else feature)[:100],
+                        input_tokens=input_count,
+                        output_tokens=output_count,
+                        estimated_cost_microunits=_cost_microunits(input_count, output_count),
+                    )
+                )
+                updated = dict(row)
+                updated.update(
+                    model=model[:128],
+                    operation=(f"{_ESTIMATED_PREFIX}{feature}" if estimated else feature)[:100],
+                    input_tokens=input_count,
+                    output_tokens=output_count,
+                    estimated_cost_microunits=_cost_microunits(input_count, output_count),
+                )
+                return self._row_to_event(updated)
+        except GeminiBudgetUnavailable:
+            raise
+        except (PlatformDatabaseUnavailable, SQLAlchemyError, ValueError) as exc:
+            raise GeminiBudgetUnavailable("AI budget database is unavailable") from exc
+
+    def release(self, *, idempotency_key: str) -> bool:
+        if not idempotency_key:
+            return False
+        engine = self._engine()
+        lock = _SQLITE_TEST_LOCK if engine.dialect.name == "sqlite" else nullcontext()
+        try:
+            with lock, engine.begin() as connection:
+                result = connection.execute(
+                    sa.delete(ai_usage_ledger).where(
+                        ai_usage_ledger.c.idempotency_key == idempotency_key,
+                        ai_usage_ledger.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                        ai_usage_ledger.c.project_id == INTERNAL_PROJECT_ID,
+                        ai_usage_ledger.c.provider == _PROVIDER,
+                        ai_usage_ledger.c.operation.like(f"{_RESERVATION_PREFIX}%"),
+                    )
+                )
+                return bool(result.rowcount)
+        except (PlatformDatabaseUnavailable, SQLAlchemyError, ValueError) as exc:
+            raise GeminiBudgetUnavailable("AI budget database is unavailable") from exc
+
+    def summary(self) -> dict[str, Any]:
+        now = self._now_provider().astimezone(timezone.utc)
+        engine = self._engine()
+        lock = _SQLITE_TEST_LOCK if engine.dialect.name == "sqlite" else nullcontext()
+        try:
+            with lock, engine.begin() as connection:
+                account = self._ensure_account(connection, engine)
+                self._purge_expired_reservations(connection, now=now)
+                start, end, month = _period_bounds(now, str(account["period_timezone"]))
+                rows = connection.execute(
+                    sa.select(ai_usage_ledger)
+                    .where(
+                        ai_usage_ledger.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                        ai_usage_ledger.c.project_id == INTERNAL_PROJECT_ID,
+                        ai_usage_ledger.c.provider == _PROVIDER,
+                        ai_usage_ledger.c.occurred_at >= start,
+                        ai_usage_ledger.c.occurred_at < end,
+                    )
+                    .order_by(ai_usage_ledger.c.occurred_at.desc())
+                ).mappings().all()
+                events = [self._row_to_event(row) for row in rows]
+                return _summary_payload(
+                    month=month,
+                    budget_usd=int(account["monthly_limit_microunits"] or 0) / 1_000_000,
+                    usd_jpy=usd_jpy_rate(),
+                    used_usd=sum(int(row["estimated_cost_microunits"] or 0) for row in rows) / 1_000_000,
+                    events=events,
+                    storage_status="ok",
+                    error=None,
+                )
+        except GeminiBudgetUnavailable:
+            raise
+        except (PlatformDatabaseUnavailable, SQLAlchemyError, ValueError) as exc:
+            raise GeminiBudgetUnavailable("AI budget database is unavailable") from exc
+
+    def reset(self) -> None:
+        engine = self._engine()
+        lock = _SQLITE_TEST_LOCK if engine.dialect.name == "sqlite" else nullcontext()
+        try:
+            with lock, engine.begin() as connection:
+                connection.execute(
+                    sa.delete(ai_usage_ledger).where(
+                        ai_usage_ledger.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                        ai_usage_ledger.c.project_id == INTERNAL_PROJECT_ID,
+                        ai_usage_ledger.c.provider == _PROVIDER,
+                    )
+                )
+                connection.execute(
+                    sa.delete(ai_budget_accounts).where(
+                        ai_budget_accounts.c.workspace_id == INTERNAL_WORKSPACE_ID,
+                        ai_budget_accounts.c.scope_key == _SCOPE_KEY,
+                        ai_budget_accounts.c.provider == _PROVIDER,
+                    )
+                )
+        except (PlatformDatabaseUnavailable, SQLAlchemyError, ValueError) as exc:
+            raise GeminiBudgetUnavailable("AI budget database is unavailable") from exc
+
+
+_budget_store = PostgresGeminiBudgetStore()
+
+
+def _new_idempotency_key() -> str:
+    return f"gemini-budget:{secrets.token_urlsafe(24)}"
+
+
+def get_budget_summary() -> dict[str, Any]:
+    return _budget_store.summary()
 
 
 def assert_gemini_budget_available(
@@ -132,31 +492,23 @@ def assert_gemini_budget_available(
     prompt: str,
     max_output_tokens: int,
     feature: str,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any] | None:
     if not is_gemini_model(model):
         return None
-
-    data, corrupt_error = _load_usage()
-    if corrupt_error:
-        raise GeminiBudgetExceeded(
-            "gemini_budget_storage_corrupt: Gemini usage budget file is unreadable; "
-            "Gemini execution is blocked to avoid uncontrolled spend."
-        )
-    _save_usage(data)
-
-    summary = get_budget_summary()
     estimate = estimate_request_cost(
         prompt=prompt,
         max_output_tokens=max_output_tokens,
         model=model,
     )
-    projected = float(summary["used_usd"]) + float(estimate["cost_usd"])
-    if projected > float(summary["budget_usd"]):
-        raise GeminiBudgetExceeded(
-            "gemini_budget_exceeded: monthly Gemini budget would be exceeded "
-            f"(used=${summary['used_usd']:.4f}, estimate=${estimate['cost_usd']:.4f}, "
-            f"budget=${summary['budget_usd']:.2f}, feature={feature})."
-        )
+    reservation = _budget_store.reserve(
+        idempotency_key=idempotency_key or _new_idempotency_key(),
+        model=str(model or ""),
+        feature=feature,
+        input_tokens=int(estimate["input_tokens"]),
+        output_tokens=int(estimate["output_tokens"]),
+    )
+    estimate.update(reservation)
     return estimate
 
 
@@ -169,33 +521,45 @@ def record_gemini_usage(
     feature: str,
     estimated: bool = False,
     request_estimate: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any] | None:
+    del total_tokens  # derived from the two authoritative component counts
     if not is_gemini_model(model):
         return None
-
+    key = str(
+        idempotency_key
+        or (request_estimate or {}).get("reservation_key")
+        or _new_idempotency_key()
+    )
     input_tokens = max(0, int(prompt_tokens or 0))
     output_tokens = max(0, int(completion_tokens or 0))
-    event = {
-        "id": uuid.uuid4().hex[:12],
-        "month": current_month_key(),
-        "created_at": datetime.now(_JST).isoformat(),
-        "feature": feature,
-        "model": model or "",
-        "input_tokens": input_tokens,
-        "output_tokens": output_tokens,
-        "total_tokens": int(total_tokens or (input_tokens + output_tokens)),
-        "cost_usd": round(calculate_cost_usd(input_tokens, output_tokens), 8),
-        "estimated": bool(estimated),
-    }
-    if request_estimate:
-        event["request_estimate"] = request_estimate
-
-    data, corrupt_error = _load_usage()
-    if corrupt_error:
-        raise GeminiBudgetExceeded("gemini_budget_storage_corrupt: cannot record Gemini usage.")
-    data.setdefault("events", []).append(event)
-    _save_usage(data)
-    return event
+    event = _budget_store.finalize(
+        idempotency_key=key,
+        model=str(model or ""),
+        feature=feature,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated=bool(estimated),
+    )
+    if event is not None:
+        return event
+    # Backward-compatible direct recording still makes an atomic budget
+    # decision; normal provider paths always finalize a prior reservation.
+    _budget_store.reserve(
+        idempotency_key=key,
+        model=str(model or ""),
+        feature=feature,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    return _budget_store.finalize(
+        idempotency_key=key,
+        model=str(model or ""),
+        feature=feature,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        estimated=bool(estimated),
+    )
 
 
 def record_gemini_usage_from_response(
@@ -207,6 +571,7 @@ def record_gemini_usage_from_response(
     usage_metadata: dict[str, Any] | None,
     feature: str,
     request_estimate: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
 ) -> dict[str, Any] | None:
     usage = usage_metadata or {}
     prompt_tokens = _first_int(
@@ -237,14 +602,23 @@ def record_gemini_usage_from_response(
         feature=feature,
         estimated=not has_real_usage,
         request_estimate=request_estimate,
+        idempotency_key=idempotency_key,
     )
 
 
+def release_gemini_reservation(
+    request_estimate: dict[str, Any] | None = None,
+    *,
+    idempotency_key: str | None = None,
+) -> bool:
+    key = str(idempotency_key or (request_estimate or {}).get("reservation_key") or "")
+    return _budget_store.release(idempotency_key=key)
+
+
 def reset_budget_for_dev() -> dict[str, Any]:
-    if (os.getenv("RENDER") or os.getenv("VERCEL")) and os.getenv("ALLOW_GEMINI_BUDGET_RESET") != "1":
+    if _is_managed_runtime() and os.getenv("ALLOW_GEMINI_BUDGET_RESET") != "1":
         raise PermissionError("Gemini budget reset is disabled in production.")
-    data = {"version": 1, "events": []}
-    _save_usage(data)
+    _budget_store.reset()
     return get_budget_summary()
 
 
@@ -271,7 +645,6 @@ def _summary_payload(
         status = "warning"
     else:
         status = "ok"
-    recent_events = sorted(events, key=lambda item: str(item.get("created_at", "")), reverse=True)[:10]
     return {
         "ok": storage_status == "ok",
         "month": month,
@@ -285,46 +658,13 @@ def _summary_payload(
         "status": status,
         "storage_status": storage_status,
         "error": error,
-        "events": recent_events,
+        "events": events[:10],
         "pricing": {
             "model": GEMINI_FLASH_LITE_MODEL,
             "input_usd_per_1m": GEMINI_FLASH_LITE_INPUT_USD_PER_1M,
             "output_usd_per_1m": GEMINI_FLASH_LITE_OUTPUT_USD_PER_1M,
         },
     }
-
-
-def _load_usage() -> tuple[dict[str, Any], str | None]:
-    path = usage_path()
-    if not path.exists():
-        return {"version": 1, "events": []}, None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        return {"version": 1, "events": []}, str(exc)
-    if not isinstance(data, dict):
-        return {"version": 1, "events": []}, "usage file root is not an object"
-    events = data.get("events")
-    if not isinstance(events, list):
-        return {"version": 1, "events": []}, "usage file events is not a list"
-    return data, None
-
-
-def _save_usage(data: dict[str, Any]) -> None:
-    path = usage_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True)
-    with tempfile.NamedTemporaryFile(
-        "w",
-        encoding="utf-8",
-        dir=str(path.parent),
-        delete=False,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    ) as tmp:
-        tmp.write(payload)
-        tmp_path = Path(tmp.name)
-    tmp_path.replace(path)
 
 
 def _float_env(name: str, default: float) -> float:
