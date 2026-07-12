@@ -286,6 +286,8 @@ def _login_hybrid_admin(page: Page, base_url: str, label: str) -> None:
 
 
 def _spa_navigate(page: Page, path: str, *, accepted_paths: tuple[str, ...] | None = None) -> None:
+    current_heading = page.locator("main h1").first
+    previous_heading = current_heading.text_content() if current_heading.count() else None
     page.evaluate(
         """path => {
           window.history.pushState({}, '', path);
@@ -299,6 +301,15 @@ def _spa_navigate(page: Page, path: str, *, accepted_paths: tuple[str, ...] | No
         arg=paths,
         timeout=10_000,
     )
+    if previous_heading is not None:
+        page.wait_for_function(
+            """previous => {
+              const heading = document.querySelector('main h1');
+              return !heading || (heading.textContent || '').trim() !== previous.trim();
+            }""",
+            arg=previous_heading,
+            timeout=10_000,
+        )
 
 
 class Diagnostics:
@@ -341,6 +352,10 @@ def _assert_surface(page: Page, expected_path: str, label: str) -> None:
         page.wait_for_function(
             "expected => window.location.pathname === expected",
             arg=expected_path,
+            timeout=10_000,
+        )
+        page.get_by_text("画面を準備しています", exact=True).wait_for(
+            state="hidden",
             timeout=10_000,
         )
         page.locator("main").wait_for(state="attached", timeout=10_000)

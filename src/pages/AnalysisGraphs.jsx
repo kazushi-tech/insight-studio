@@ -1742,6 +1742,7 @@ export default function AnalysisGraphs() {
   const [activeSection, setActiveSection] = useState('graphs')
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false)
   const aiPanelTriggerRef = useRef(null)
+  const restoreAiPanelFocusRef = useRef(false)
 
   /* ── Data fetch ── */
   useEffect(() => {
@@ -1881,9 +1882,15 @@ export default function AnalysisGraphs() {
   }
 
   function closeAiPanel() {
+    restoreAiPanelFocusRef.current = true
     setIsAiPanelOpen(false)
-    globalThis.requestAnimationFrame?.(() => aiPanelTriggerRef.current?.focus())
   }
+
+  useEffect(() => {
+    if (isAiPanelOpen || !restoreAiPanelFocusRef.current) return
+    restoreAiPanelFocusRef.current = false
+    aiPanelTriggerRef.current?.focus()
+  }, [isAiPanelOpen])
 
   return (
     <div className="min-w-0 flex-1 overflow-x-hidden">
