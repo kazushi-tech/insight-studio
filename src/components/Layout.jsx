@@ -200,7 +200,7 @@ function MobileNavLink({ to, icon, label, disabled, activePaths }) {
           : 'text-on-surface-variant hover:bg-primary/[0.06] hover:text-primary'
       }`}
     >
-      <span className={`grid size-8 place-items-center rounded-xl transition-[background-color,color,transform] motion-reduce:transition-none ${
+      <span className={`grid size-8 place-items-center rounded-xl transition-transform motion-reduce:transition-none ${
         isActive ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container text-on-surface-variant'
       }`}>
         <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{icon}</span>

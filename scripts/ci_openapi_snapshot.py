@@ -35,6 +35,7 @@ def _load_spec(root: Path, cwd: str, module: str) -> dict:
         **os.environ,
         "ENVIRONMENT": "test",
         "APP_ENV": "test",
+        "PYTHON_DOTENV_DISABLED": "1",
         "APP_PASSWORD": "ci-openapi-contract-password",
         "JWT_SECRET": "ci-openapi-contract-only",
     }
