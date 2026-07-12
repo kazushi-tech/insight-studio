@@ -93,6 +93,19 @@ def _validate_production_wrappers() -> None:
             raise AssertionError(f"{relative} must install only its exact hashed requirements.lock")
 
 
+def _validate_vercel_frozen_manifests() -> None:
+    """Keep Vercel's directly parseable manifest identical to the hashed lock."""
+    for backend in ("ads-insights", "market-lens-ai"):
+        directory = ROOT / "backends" / backend
+        lock_path = directory / "requirements.lock"
+        frozen_path = directory / "requirements.frozen.txt"
+        if frozen_path.read_bytes() != lock_path.read_bytes():
+            raise AssertionError(
+                f"{frozen_path.relative_to(ROOT)} must be an exact mirror of "
+                f"{lock_path.relative_to(ROOT)}"
+            )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -103,6 +116,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         _validate_production_wrappers()
+        _validate_vercel_frozen_manifests()
         snapshot = _snapshot()
         if args.write:
             MANIFEST.write_text(
