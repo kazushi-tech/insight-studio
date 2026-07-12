@@ -527,6 +527,9 @@ def _run_customer_journey(
     if screenshot_dir:
         page.screenshot(path=str(screenshot_dir / f"{label}-graphs.png"), full_page=True)
         page.evaluate("window.scrollTo(0, 0)")
+    page.locator(
+        'a[href="/insights/ai"]:visible, button:has-text("この数字をAIに聞く"):visible'
+    ).first.wait_for(state="visible", timeout=10_000)
     ai_link = page.locator('a[href="/insights/ai"]:visible').first
     if ai_link.count() == 0:
         page.get_by_role("button", name="この数字をAIに聞く").click()
