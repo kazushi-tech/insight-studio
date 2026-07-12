@@ -494,8 +494,9 @@ async def test_case_rate_limit_uses_signed_case_not_rotating_client_header(monke
 
 @pytest.mark.anyio
 async def test_unauthenticated_login_rate_limit_uses_ip_not_client_header(monkeypatch):
-    monkeypatch.setattr(api, "_RATE_LIMIT_MAX", 1)
-    monkeypatch.setattr(api, "_RATE_LIMIT_WINDOW", 3600)
+    api._login_failures.clear()
+    monkeypatch.setattr(api, "_LOGIN_MAX_FAILURES", 1)
+    monkeypatch.setattr(api, "_LOGIN_LOCKOUT_SECONDS", 3600)
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=api.app), base_url="http://test"
     ) as client:

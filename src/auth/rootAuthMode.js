@@ -1,4 +1,4 @@
-export function resolveRootAuthMode({ key, isProduction }) {
+export function resolveRootAuthMode({ key }) {
   if (key) return 'clerk'
-  return isProduction ? 'configuration_error' : 'legacy_development'
+  return 'legacy'
 }

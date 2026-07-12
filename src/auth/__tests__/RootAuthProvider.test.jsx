@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { resolveRootAuthMode } from '../rootAuthMode'
 
 describe('RootAuthProvider configuration', () => {
-  it('fails closed when the identity provider is missing in production', () => {
-    expect(resolveRootAuthMode({ key: '', isProduction: true })).toBe('configuration_error')
+  it('keeps the existing password login available when Clerk is not configured in production', () => {
+    expect(resolveRootAuthMode({ key: '', isProduction: true })).toBe('legacy')
   })
 
-  it('keeps the legacy adapter available only for local development', () => {
-    expect(resolveRootAuthMode({ key: '', isProduction: false })).toBe('legacy_development')
+  it('uses the same password login fallback in local development', () => {
+    expect(resolveRootAuthMode({ key: '', isProduction: false })).toBe('legacy')
   })
 
   it('uses the external identity provider whenever configured', () => {
