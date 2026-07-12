@@ -17,24 +17,9 @@ function AuthLoading() {
   )
 }
 
-function AuthConfigurationError() {
-  return (
-    <main className="grid min-h-dvh place-items-center bg-surface px-6" id="main-content" tabIndex={-1}>
-      <section className="w-full max-w-lg rounded-2xl bg-surface-container-lowest p-8 text-center shadow-sm" role="alert">
-        <span className="material-symbols-outlined text-4xl text-error" aria-hidden="true">lock</span>
-        <h1 className="mt-4 text-balance text-2xl font-extrabold text-on-surface">ログイン機能を準備できませんでした</h1>
-        <p className="mt-3 text-pretty text-sm leading-7 text-on-surface-variant">
-          設定を確認しています。時間をおいて再度開くか、Insight Studioの運用窓口へお問い合わせください。
-        </p>
-      </section>
-    </main>
-  )
-}
-
 export default function RootAuthProvider({ children }) {
-  const mode = resolveRootAuthMode({ key: publishableKey, isProduction: import.meta.env.PROD })
-  if (mode === 'configuration_error') return <AuthConfigurationError />
-  if (mode === 'legacy_development') return <AuthProvider>{children}</AuthProvider>
+  const mode = resolveRootAuthMode({ key: publishableKey })
+  if (mode === 'legacy') return <AuthProvider>{children}</AuthProvider>
   return (
     <Suspense fallback={<AuthLoading />}>
       <ClerkRuntime publishableKey={publishableKey}>{children}</ClerkRuntime>

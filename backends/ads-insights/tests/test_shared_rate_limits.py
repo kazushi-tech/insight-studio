@@ -213,7 +213,7 @@ def test_legacy_and_clerk_subjects_ignore_client_controlled_id(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_middleware_fails_closed_with_safe_503(monkeypatch):
+async def test_legacy_login_uses_its_bounded_local_limiter_without_platform_database(monkeypatch):
     def unavailable(**_kwargs):
         raise RateLimitUnavailable("postgres host and password must not leak")
 
@@ -227,12 +227,10 @@ async def test_middleware_fails_closed_with_safe_503(monkeypatch):
             json={"password": os.environ["APP_PASSWORD"]},
         )
 
-    assert response.status_code == 503
+    assert response.status_code == 200
     payload = response.json()
-    assert payload["error"]["code"] == "rate_limit_unavailable"
-    assert payload["error"]["retryable"] is True
-    assert "postgres" not in response.text.lower()
-    assert "password" not in response.text.lower()
+    assert payload["ok"] is True
+    assert payload["token"]
 
 
 @pytest.mark.parametrize(
@@ -258,6 +256,8 @@ def test_commercial_mutations_are_in_shared_limit_scope(method, path):
     ("method", "path"),
     [
         ("GET", "/api/projects"),
+        ("POST", "/api/auth/login"),
+        ("POST", "/api/cases/login"),
         ("POST", "/api/webhooks/clerk"),
         ("POST", "/api/billing/webhooks/stripe"),
     ],

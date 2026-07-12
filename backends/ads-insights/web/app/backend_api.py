@@ -1923,8 +1923,6 @@ from starlette.concurrency import run_in_threadpool
 _RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", "30"))
 _RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))
 _RATE_LIMITED_PATHS = {
-    "/api/auth/login",
-    "/api/cases/login",
     "/api/generate_insights",
     "/api/neon/generate",
     "/api/ads/neon/generate",
@@ -2002,7 +2000,13 @@ def _get_rate_limit_subject(request: Request) -> str:
 
 @app.middleware("http")
 async def _rate_limit_middleware(request, call_next):
-    """Consume a PostgreSQL-shared fixed-window slot, failing closed on DB errors."""
+    """Consume a PostgreSQL-shared slot for data and commercial mutations.
+
+    Legacy password endpoints retain their existing bounded in-process
+    brute-force limiter so the pre-Clerk demo login remains usable without a
+    platform database. Customer data and commercial mutations still fail
+    closed when shared persistence is unavailable.
+    """
     if _is_shared_rate_limited_request(request.method, request.url.path):
         try:
             decision = await run_in_threadpool(
