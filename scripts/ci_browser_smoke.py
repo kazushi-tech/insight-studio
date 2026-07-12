@@ -354,12 +354,26 @@ def _assert_surface(page: Page, expected_path: str, label: str) -> None:
             arg=expected_path,
             timeout=10_000,
         )
-        page.get_by_text("画面を準備しています", exact=True).wait_for(
-            state="hidden",
+        page.wait_for_function(
+            """expected => {
+              const main = document.querySelector('main');
+              const heading = main?.querySelector('h1');
+              const loading = (document.body?.innerText || '').includes('画面を準備しています');
+              const ready = window.location.pathname === expected
+                && Boolean(main)
+                && Boolean(heading?.getClientRects().length)
+                && !loading;
+              if (!ready) {
+                window.__insightSurfaceReadySince = 0;
+                return false;
+              }
+              const now = performance.now();
+              window.__insightSurfaceReadySince ||= now;
+              return now - window.__insightSurfaceReadySince >= 250;
+            }""",
+            arg=expected_path,
             timeout=10_000,
         )
-        page.locator("main").wait_for(state="attached", timeout=10_000)
-        page.locator("main h1").first.wait_for(state="visible", timeout=10_000)
     except Exception as exc:
         state = page.evaluate(
             """() => ({
@@ -373,7 +387,6 @@ def _assert_surface(page: Page, expected_path: str, label: str) -> None:
             })"""
         )
         raise AssertionError(f"{label}: application surface did not render; {state}") from exc
-    page.wait_for_timeout(150)
     actual_path = urlparse(page.url).path
     if actual_path != expected_path:
         state = page.evaluate(
