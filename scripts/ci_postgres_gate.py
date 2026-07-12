@@ -100,29 +100,29 @@ def migration_gate(raw: str) -> None:
         connection.execute(sa.text(
             "INSERT INTO assets "
             "(id, file_name, mime_type, size_bytes, asset_type, created_at) "
-            "VALUES ('ci-legacy-asset', 'legacy.png', 'image/png', 10, 'banner', CURRENT_TIMESTAMP)"
+            "VALUES ('ciasset001', 'legacy.png', 'image/png', 10, 'banner', CURRENT_TIMESTAMP)"
         ))
         connection.execute(sa.text(
             "INSERT INTO watchlists (id, name, project_id, created_at) "
-            "VALUES ('ci-legacy-watch', 'Legacy', 'legacy-project', CURRENT_TIMESTAMP)"
+            "VALUES ('ciwatch001', 'Legacy', 'legacy-project', CURRENT_TIMESTAMP)"
         ))
         connection.execute(sa.text(
             "INSERT INTO usage_events (id, event_type, workspace_id, created_at) "
-            "VALUES ('ci-legacy-usage', 'scan', 'legacy-workspace', CURRENT_TIMESTAMP)"
+            "VALUES ('ciusage001', 'scan', 'legacy-workspace', CURRENT_TIMESTAMP)"
         ))
     _alembic(raw, "upgrade", "head")
     _assert_head(engine)
     with engine.connect() as connection:
         asset_scope = connection.execute(sa.text(
-            "SELECT workspace_id, project_id FROM assets WHERE id = 'ci-legacy-asset'"
+            "SELECT workspace_id, project_id FROM assets WHERE id = 'ciasset001'"
         )).one()
         watch_scope = connection.execute(sa.text(
             "SELECT workspace_id, project_id, legacy_project_ref "
-            "FROM watchlists WHERE id = 'ci-legacy-watch'"
+            "FROM watchlists WHERE id = 'ciwatch001'"
         )).one()
         usage_scope = connection.execute(sa.text(
             "SELECT workspace_id, project_id, legacy_workspace_ref "
-            "FROM usage_events WHERE id = 'ci-legacy-usage'"
+            "FROM usage_events WHERE id = 'ciusage001'"
         )).one()
     expected = (INTERNAL_WORKSPACE_ID, INTERNAL_PROJECT_ID)
     if tuple(asset_scope) != expected:
@@ -278,6 +278,7 @@ def _ads_http_stack_gate(raw: str, engine: sa.Engine) -> None:
             {
                 "sub": user_id,
                 "org_id": organization_id,
+                "org_role": "org:admin",
                 "azp": azp,
                 "iss": issuer,
                 "nbf": now - 1,
@@ -478,21 +479,14 @@ def ml_repository_gate(raw: str) -> None:
         raise AssertionError("ML PostgreSQL worker double-claimed a leased job")
     if not backend.heartbeat(job.id, "ci-worker-a", stage="ci", progress_pct=50):
         raise AssertionError("ML PostgreSQL worker heartbeat failed")
-    if not backend.complete(job.id, "ci-worker-a", {"ok": True}):
-        raise AssertionError("ML PostgreSQL worker completion failed")
-    if not backend.record_worker_job_result("ci-worker-a", job.id, "succeeded"):
-        raise AssertionError("ML PostgreSQL worker canary evidence failed")
-    finished = backend.get(job.id, context=context_a)
-    if finished is None or finished.status.value != "succeeded":
-        raise AssertionError("ML PostgreSQL completed result was not persisted")
     first_artifact = backend.record_artifact(
-        finished,
+        claimed,
         artifact_type="ci-result",
         storage_kind="database",
         storage_ref="ci-artifact-ref",
     )
     second_artifact = backend.record_artifact(
-        finished,
+        claimed,
         artifact_type="ci-result",
         storage_kind="database",
         storage_ref="ci-artifact-ref",
@@ -500,7 +494,7 @@ def ml_repository_gate(raw: str) -> None:
     if first_artifact != second_artifact:
         raise AssertionError("ML PostgreSQL artifact idempotency failed")
     if not backend.record_ai_usage(
-        finished,
+        claimed,
         provider="ci",
         model="fixture",
         operation="analysis",
@@ -508,13 +502,20 @@ def ml_repository_gate(raw: str) -> None:
     ):
         raise AssertionError("ML PostgreSQL first usage ledger insert failed")
     if backend.record_ai_usage(
-        finished,
+        claimed,
         provider="ci",
         model="fixture",
         operation="analysis",
         idempotency_key="ci-usage-idempotency",
     ):
         raise AssertionError("ML PostgreSQL duplicated an AI usage ledger entry")
+    if not backend.complete(job.id, "ci-worker-a", {"ok": True}):
+        raise AssertionError("ML PostgreSQL worker completion failed")
+    if not backend.record_worker_job_result("ci-worker-a", job.id, "succeeded"):
+        raise AssertionError("ML PostgreSQL worker canary evidence failed")
+    finished = backend.get(job.id, context=context_a)
+    if finished is None or finished.status.value != "succeeded":
+        raise AssertionError("ML PostgreSQL completed result was not persisted")
     with engine.connect() as connection:
         artifact_count = connection.execute(sa.text(
             "SELECT COUNT(*) FROM analysis_job_artifacts WHERE analysis_job_id = :job_id"
