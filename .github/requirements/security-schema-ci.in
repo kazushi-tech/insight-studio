@@ -1,0 +1,8 @@
+-c known-good-constraints.txt
+-r ../../backends/ads-insights/requirements.in
+-r ../../backends/market-lens-ai/requirements.in
+-r ../../backends/market-lens-ai/requirements-dev.txt
+
+pip-audit==2.9.0
+pytest==9.1.1
+pytest-asyncio==1.3.0

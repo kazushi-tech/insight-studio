@@ -1,130 +1,103 @@
-# ローカル / 本番 実運用確認ガイド
+# ローカル / Production確認ガイド
 
-Insight Studio 本体（ログイン → ダッシュボード → 広告グラフ / AI考察）の動作確認手順。
-**ローカル確認**と**本番確認**は環境も到達経路も別物なので、混同しないこと。
+ローカルとProductionは別の証拠として扱う。push成功やローカル画面だけで本番反映済みと判断しない。
 
-| | ローカル確認 | 本番確認 |
-|---|---|---|
-| URL | `http://localhost:3002` | `https://insight-studio-chi.vercel.app` |
-| frontend | Vite dev server（このリポジトリのコード） | Vercel（デプロイ済み最新 master） |
-| API 経路 | 同一オリジン `/api/*` → **vite proxy** → ローカル backend | Vercel rewrites → Render backend |
-| backend | ローカル uvicorn（:8001 / :8002） | Render（ads-insights / market-lens） |
-| APIキー / PW | **backend が `.env` から読む**（ブラウザに渡さない） | Render のダッシュボード環境変数 |
-| 確認ツール | **右カラムのブラウザ（Claude Preview）でそのまま操作可** | headless Playwright で vercel.app を直接叩く（※下記） |
+| | ローカル | Production |
+| --- | --- | --- |
+| frontend | `http://127.0.0.1:3002` | Vercel Production domain |
+| Ads API | Vite `/api/ads` → `127.0.0.1:8001` | Vercel service rewrite |
+| ML API | Vite `/api/ml` → `127.0.0.1:8002` | Vercel service rewrite |
+| DB | local PostgreSQL / test-only SQLite | managed PostgreSQL必須 |
+| 認証 | Clerk development instance | Clerk Production instance |
 
----
+## 秘密値の境界
 
-## 設計の原則（秘密値をブラウザに出さない）
+- frontendはsame-originの`/api/ads`、`/api/ml`、`/api/insights`だけを使う。
+- Viteの`VITE_`変数はブラウザへ露出する。API key、JWT、DB URL、webhook secretには付けない。
+- 認証JWTとAI keyをlocalStorageへ保存しない。
+- 顧客レスポンスへSQL、path、provider raw error、secretを返さない。
+- 正準の環境変数は`docs/operations/environment-contract.md`を参照する。
 
-- frontend は基本 **same-origin の `/api/ads` `/api/ml` `/api/insights`** だけを使う。
-  localhost / Render静的ホスト では `SHOULD_FORCE_PROXY=true` となり、直叩きせず必ず proxy 経由になる
-  （`src/api/adsInsights.js` / `src/api/marketLens.js`）。
-- APIキー・管理者パスワード・JWT_SECRET は **backend だけが `.env` から読む**。
-- Vite は `VITE_` で始まる変数のみブラウザバンドルへ露出する。
-  **秘密値に `VITE_` を付けない**こと（付けるとバンドルに同梱され漏れる）。
-  公開URL（`VITE_ADS_INSIGHTS_API_ORIGIN` 等）だけが `VITE_` 対象。
-
----
-
-## 環境変数のキー名（正準名）
-
-ゆれを統一する。**正準名以外はコードから読まれない**。
-
-| 用途 | 正準名 | 読まれない旧名 | 参照順 / 補足 |
-|---|---|---|---|
-| Gemini APIキー | `GEMINI_API_KEY` | `Gemini_API_KEY`（混在ケース） | `GEMINI_API_KEY` → `GOOGLE_API_KEY` → `GOOGLE_GENERATIVE_AI_API_KEY` |
-| Claude APIキー | `ANTHROPIC_API_KEY` | `Claude_API_KEY` | ads-insights は未使用 / market-lens-ai が使用 |
-| 管理者PW | `APP_PASSWORD` | （日本語キー `管理者パスワード` は fallback で可） | 未設定だと backend 起動エラー |
-
-`GEMINI_REQUIRE_CLIENT_KEY` で「サーバーキーを使うか／ブラウザ入力キーを使うか」を切替える:
-
-- `false` … サーバーの `GEMINI_API_KEY` を全リクエストで使用（**.env 駆動のローカル確認はこちら**）
-- `true`（アプリ既定）… 各ユーザーが UI で自分のキーを入力（サーバーキー不要）
-
----
-
-## どの `.env` を誰が読むか
-
-| ファイル | 読む主体 | 主なキー |
-|---|---|---|
-| リポジトリ root `.env` | ads-insights backend（`backend_api.py` が parents[4] を参照）＋ Vite | `APP_PASSWORD` `JWT_SECRET` `AUTH_USERS` `GEMINI_API_KEY` `GOOGLE_CREDENTIALS_JSON` `DATA_PROVIDER` `ADS_PROXY_TARGET` 等 |
-| `backends/market-lens-ai/.env` | market-lens-ai backend（CWD基準） | `ANTHROPIC_API_KEY` `GEMINI_API_KEY` `DATABASE_URL` 等 |
-| `backends/ads-insights/.env.local` | ads-insights backend（root `.env` より優先） | 個別上書き用（任意） |
-
-テンプレートはそれぞれ `.env.example`（root） / `backends/*/.env.example`。
-
----
-
-## ローカル確認の手順
-
-### 1. `.env` を用意
+## 起動
 
 ```powershell
-cp .env.example .env                       # root（ads-insights + Vite 用）
-cp backends/market-lens-ai/.env.example backends/market-lens-ai/.env   # ML 用（任意）
+npm ci
+./dev.ps1
 ```
 
-`.env`（root）で最低限必要なもの:
-
-- `APP_PASSWORD`（管理者ログイン）, `JWT_SECRET`
-- `GEMINI_API_KEY` ＋ `GEMINI_REQUIRE_CLIENT_KEY=false`（AI考察をサーバーキーで動かす場合）
-- BigQuery 認証（広告グラフ・AI考察に必須、下記）
-
-### 2. BigQuery 認証（広告グラフ / AI考察を動かす場合のみ）
-
-どちらか:
-
-- **ADC（ローカル推奨）**: `gcloud auth application-default login` を実行（`GOOGLE_CREDENTIALS_JSON` は未設定のまま）
-- **サービスアカウント**: 鍵JSONを Base64 化して `GOOGLE_CREDENTIALS_JSON` に設定
-
-> 未設定だと、ログインとセットアップ画面までは動くが、wizard の期間取得 / レポート生成（`/api/ads/bq/*`）が失敗する。
-
-### 3. 起動
+個別に起動する場合:
 
 ```powershell
-./dev.ps1        # backend ×2 (:8001 ads, :8002 ml) + frontend (:3002) を一括起動
-# 個別なら:
-#   cd backends/market-lens-ai && uvicorn web.app.main:app --port 8002 --reload
-#   cd backends/ads-insights  && uvicorn web.app.backend_api:app --port 8001 --reload --timeout-keep-alive 300
-#   npm run dev
+cd backends/market-lens-ai
+python -m uvicorn web.app.main:app --host 127.0.0.1 --port 8002 --reload
+
+cd ../ads-insights
+python -m uvicorn web.app.backend_api:app --host 127.0.0.1 --port 8001 --reload --timeout-keep-alive 300
+
+cd ../..
+npm run dev -- --host 127.0.0.1
 ```
 
-proxy の転送先を変えたい場合は root `.env` に `ADS_PROXY_TARGET` / `ML_PROXY_TARGET` を設定。
+proxyを変更するときだけ`ADS_PROXY_TARGET` / `ML_PROXY_TARGET`を設定する。
 
-### 4. ブラウザで確認（`http://localhost:3002`）
-
-右カラムのブラウザ（Claude Preview）でそのまま操作できる:
-
-1. 未ログインで `/` → `/login` に飛ぶ
-2. 管理者パスワードでログイン → ダッシュボード表示
-3. 左ナビ「広告分析 → セットアップ」で `/ads/wizard`
-4. 未設定なら `/ads/graphs` `/insights/ai` は `/ads/wizard` に誘導される
-5. wizard を完走（クエリタイプ・期間を選択 → レポート生成）すると `/ads/graphs` が表示される
-6. `/insights/ai` で AI考察（要 Gemini サーバーキー or BYOK）
-
-### 5. ビルド確認
+## ローカル検証
 
 ```powershell
-npm run build
+npm run lint
+npm test -- --maxWorkers=1
+npm run test:coverage -- --maxWorkers=1
+npm run build:verified
+python scripts/check_ci_config.py
+python scripts/check_secret_leaks.py
+python scripts/check_python_locks.py
 ```
 
----
+Python依存を変更した場合はproduction 2つとCI 3つの`.in`を入力に、`uv pip compile --generate-hashes --python-version 3.12 --python-platform x86_64-manylinux_2_28`で5つのlockをすべて再生成し、`python scripts/check_python_locks.py --write`でmanifestを更新する。CIとProductionは`--require-hashes`でlock以外をinstallしない。
 
-## トラブルシュート（ローカル）
+Backend全件:
 
-- **ログインはできるが wizard の期間取得 / レポート生成が失敗する** … BigQuery 認証が未設定。
-  `gcloud auth application-default login`（ADC）を実行するか `GOOGLE_CREDENTIALS_JSON` を設定する。
-- **`Ads Insights API error: 502`（generate_batch）** … 選択したクエリタイプが**全て失敗**すると backend が
-  502 を返す。原因は (a) その期間にデータが無い（例: petabit には CV データが無く `cv` は no_data）、
-  (b) 特定クエリの処理エラー。別のクエリタイプ（流入分析・デバイス分析など）で切り分ける。
-- **BigQuery クエリが遅い（初回 ~15s）** … `information_schema` 走査のため初回は時間がかかる。
-  uvicorn が単一 worker だと長い同期クエリ中に並行リクエストが 502 になりうる。確認時は連打しない。
-- **起動時に `python-dotenv could not parse ...`** … `.env` にスペースを含むキー名がある（例 `Render API=`）。
-  キー名は `[A-Za-z_][A-Za-z0-9_]*` にする（不要なら行をコメントアウト）。
+```powershell
+cd backends/ads-insights
+python -m pytest -q
 
-## 本番確認（混同しないこと）
+cd ../market-lens-ai
+python -m pytest -q
+```
 
-本番は `https://insight-studio-chi.vercel.app`。**右カラムの Claude Preview は dev origin（localhost:3002）に固定**されており、
-`window.location` でも外部 fetch でも本番 vercel.app には到達できない（egress ブロック）。
-そのため本番の実運用確認は **headless Playwright で vercel.app を直接叩く**方式で行う
-（証跡スクショは headless で撮って共有する）。ローカル確認とは別物として扱う。
+Workflowのcompile確認:
+
+```powershell
+npm run workflow:verify
+```
+
+これはPreview用Nitro server functionのcompileだけを確認する。6分sleep、redeploy後resume、503 retry、cancel等の適合8項目をPASSしたことにはならない。Windows sandboxでfile traceの`EPERM readlink`が出る場合は、Ubuntu CI / Vercel Previewの証跡を正本にする。
+
+## ブラウザ確認
+
+clean storageで以下を確認する。
+
+1. Clerk login / organization選択
+2. project作成・編集・接続試験・招待
+3. wizardで「全体」「集客」「成果」を選択
+4. reportで結論・行動・判断保留から根拠へ移動
+5. graphs、根拠付きAI質問、別端末履歴
+6. A4印刷、CSV、共有作成・失効
+7. 360 / 390 / 768 / 1440px、h1 / main、focus、reduced motion
+8. console error、page error、失敗network、横はみ出しが0
+
+顧客向け面に`GA4`、`BigQuery`、dataset、内部chart ID、`null`、API keyを出さない。
+
+CIのbrowser fixtureはclean storageからhybrid管理者loginを通し、JWTをlocalStorageへ残さないことを検証する。ただしClerk本人確認、Organization選択、招待状態は外部Clerk Previewでしか証明できないため、Clerk Previewのlogin → organization → project権限E2Eを有料パイロットの別証跡として必須にする。
+
+## Production確認
+
+`docs/operations/release-and-rollback.md`に従う。最低限、次を別々に証明する。
+
+- Vercel Production aliasが期待master SHAの`READY` deploymentを指す
+- Ads / ML healthが同じ40桁SHAとreadyを返す
+- DB revisionがsingle head
+- 選択したdurable backend modeが一致する。WorkflowならWorkflow route、workerなら`/api/ml/health`のfresh heartbeatと認証済み`/api/ml/admin/worker-readiness`のcanary
+- demo reportとoperator高度分析canary
+- 60秒 / 1時間のerror scan
+
+Production確認は`python scripts/ci_verify_production.py`の成功だけでは完結しない。外部backup、実顧客データ照合、法務・課金承認も保存する。

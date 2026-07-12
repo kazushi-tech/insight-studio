@@ -22,6 +22,7 @@ import { extractInsightReport, getAdsText, normalizeAdsPayload, normalizeAiDispl
 import { getAnalysisModel } from '../utils/analysisProvider'
 import { CUSTOMER_AI_PROMPTS } from '../utils/customerReport'
 import { useUiVersion } from '../hooks/useUiVersion'
+import { shouldShowDemoMode } from '../utils/demoMode'
 import InsightTimeline from '../components/ai-explorer/v2/InsightTimeline'
 import InsightHtmlReport from '../components/ai-explorer/v2/InsightHtmlReport'
 
@@ -174,8 +175,10 @@ export default function AiExplorer() {
     analysisKey,
     analysisProvider,
     hasAnalysisKey,
+    user: authUser,
   } = useAuth()
   const { setupState, reportBundle, setReportBundle, resetSetup, currentCase } = useAdsSetup()
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
   const { getDraft, setDraft, clearDraft } = useAnalysisRuns()
   const { avatarInitial } = useUserProfile()
   const { restoreTarget, clearRestoreTarget, addEntry } = useReportHistory()
@@ -437,6 +440,7 @@ export default function AiExplorer() {
       }) || chartEvidencePack
 
       const neonPayload = {
+        project_ref: currentCase?.project_id || currentCase?.project_ref || currentCase?.case_id,
         mode: 'question',
         analysis_mode: hasAnalysisKey ? 'economy' : 'deterministic',
         model: getAnalysisModel(analysisProvider) || 'claude-sonnet-4-20250514',
@@ -654,59 +658,69 @@ export default function AiExplorer() {
 
   if (isV2) {
     return (
-      <InsightTimeline
-        messages={messages}
-        input={input}
-        setInput={setInput}
-        onSend={handleSend}
-        loading={loading}
-        promptDisabled={promptDisabled}
-        fontSize={fontSize}
-        status={status}
-        statusTone={statusTone}
-        statusIcon={statusIcon}
-        contextMode={contextMode}
-        setContextMode={setContextMode}
-        handleFontSizeChange={handleFontSizeChange}
-        mlIndicatorTone={mlIndicatorTone}
-        mlIndicatorDot={mlIndicatorDot}
-        mlIndicatorLabel={mlIndicatorLabel}
-        reportLoading={reportLoading}
-        setupState={setupState}
-        isAdsAuthenticated={isAdsAuthenticated}
-        handleRefreshReport={handleRefreshReport}
-        hasAnalysisKey={hasAnalysisKey}
-        onClearChat={() => {
-          setMessages([])
-          setInput('')
-          submittingRef.current = false
-          setStatus('✓ セッションをクリアしました。次の質問は履歴なしで生成します。')
-          clearDraft('ai-explorer')
-        }}
-        onRetryPrompt={(promptText) => handleSend(promptText)}
-        mlStatus={mlStatus}
-        reportError={reportError}
-        reportBundle={reportBundle}
-        chartGroups={reportBundle?.chartGroups}
-        onOpenSetup={handleOpenAdsSetup}
-        onOpenGraphs={handleOpenAdsGraphs}
-      />
+      <>
+        <h1 className="sr-only">AI考察</h1>
+        <InsightTimeline
+          messages={messages}
+          input={input}
+          setInput={setInput}
+          onSend={handleSend}
+          loading={loading}
+          promptDisabled={promptDisabled}
+          fontSize={fontSize}
+          status={status}
+          statusTone={statusTone}
+          statusIcon={statusIcon}
+          contextMode={contextMode}
+          setContextMode={setContextMode}
+          handleFontSizeChange={handleFontSizeChange}
+          mlIndicatorTone={mlIndicatorTone}
+          mlIndicatorDot={mlIndicatorDot}
+          mlIndicatorLabel={mlIndicatorLabel}
+          reportLoading={reportLoading}
+          setupState={setupState}
+          isAdsAuthenticated={isAdsAuthenticated}
+          handleRefreshReport={handleRefreshReport}
+          hasAnalysisKey={hasAnalysisKey}
+          onClearChat={() => {
+            setMessages([])
+            setInput('')
+            submittingRef.current = false
+            setStatus('✓ セッションをクリアしました。次の質問は履歴なしで生成します。')
+            clearDraft('ai-explorer')
+          }}
+          onRetryPrompt={(promptText) => handleSend(promptText)}
+          mlStatus={mlStatus}
+          reportError={reportError}
+          reportBundle={reportBundle}
+          chartGroups={reportBundle?.chartGroups}
+          isDemo={isDemo}
+          onOpenSetup={handleOpenAdsSetup}
+          onOpenGraphs={handleOpenAdsGraphs}
+        />
+      </>
     )
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="px-6 pt-5 pb-3 space-y-3">
+        {isDemo && (
+          <div data-testid="demo-ai-notice" className="flex items-center gap-3 rounded-[0.75rem] border border-primary/15 bg-primary/[0.045] px-5 py-3 text-sm text-primary">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">science</span>
+            <span className="japanese-text">デモでは固定された架空回答を表示します。外部AIは利用しません。</span>
+          </div>
+        )}
         {!isAdsAuthenticated && (
           <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container mb-4">
             <span className="material-symbols-outlined text-lg">warning</span>
             <span className="japanese-text">Webサイト分析への接続が必要です。ヘッダーの鍵アイコンから認証してください。</span>
           </div>
         )}
-      {!hasAnalysisKey && (
+      {!hasAnalysisKey && !isDemo && (
         <div className="mb-4 flex items-center gap-3 rounded-[0.75rem] border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-900 dark:border-info/30 dark:bg-info-container dark:text-on-info-container">
           <span className="material-symbols-outlined text-lg">data_check</span>
-          <span className="japanese-text">APIキーなしの根拠整理モードで利用できます。Geminiを設定すると、安価な1回生成と厳格検査で詳しい考察に切り替わります。</span>
+          <span className="japanese-text">表示中の根拠を使った整理モードで利用できます。詳しい追加分析は、導入担当者の設定後に利用できます。</span>
         </div>
       )}
         {reportError && (
@@ -849,12 +863,13 @@ export default function AiExplorer() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pt-3 pb-6 space-y-6" aria-live="polite">
+        {messages.length > 0 && <h1 className="sr-only">AI考察</h1>}
         {messages.length === 0 && (
           <div className="text-center py-20 text-on-surface-variant">
             <div className="w-16 h-16 bg-primary-container/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="material-symbols-outlined text-4xl text-primary-container">auto_awesome</span>
             </div>
-            <p className="text-[2rem] font-extrabold japanese-text text-on-surface">AI考察</p>
+            <h1 className="text-[2rem] font-extrabold japanese-text text-on-surface">AI考察</h1>
             <p className="text-sm mt-2">Web成果データと根拠グラフをもとに、専門用語を使わず回答します</p>
           </div>
         )}

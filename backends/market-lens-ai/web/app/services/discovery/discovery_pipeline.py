@@ -287,16 +287,12 @@ class AnalysisAttempt:
 
 def _log_stage(
     request_id: str,
-    brand_url: str,
+    _brand_url: str,
     stage: str,
     elapsed_ms: float,
     outcome: str = "ok",
     error_type: str | None = None,
 ) -> None:
-    extra = {"request_id": request_id, "brand_url": brand_url, "stage": stage,
-             "elapsed_ms": round(elapsed_ms, 1), "outcome": outcome}
-    if error_type:
-        extra["error_type"] = error_type
     logger.info(
         "discovery_stage request_id=%s stage=%s elapsed_ms=%.1f outcome=%s%s",
         request_id, stage, elapsed_ms, outcome,
@@ -611,10 +607,10 @@ async def run_discovery_pipeline(
                 timeout=brand_fetch_timeout + 2,
             )
         except asyncio.TimeoutError:
-            brand_attempt_errors.append(f"{candidate_url}: Timeout")
+            brand_attempt_errors.append("Timeout")
             continue
         if brand_err:
-            brand_attempt_errors.append(f"{candidate_url}: {brand_err}")
+            brand_attempt_errors.append(brand_err)
             continue
         brand_fetch_url = candidate_url
         brand_html = html
@@ -848,10 +844,10 @@ async def run_discovery_pipeline(
                             timeout=competitor_fetch_timeout + 2,
                         )
                     except asyncio.TimeoutError:
-                        fetch_errors.append(f"{candidate_url}: Timeout")
+                        fetch_errors.append("Timeout")
                         continue
                 if err:
-                    fetch_errors.append(f"{candidate_url}: {err}")
+                    fetch_errors.append(err)
                     continue
                 data = extract_fn(candidate_url, html)
                 if os.environ.get("DISCOVERY_SCREENSHOT", "").lower() in ("1", "true"):
@@ -872,8 +868,8 @@ async def run_discovery_pipeline(
                     error=None,
                 ), data
             except Exception as exc:
-                logger.warning("Unexpected error fetching %s: %s(%s)", candidate_url, type(exc).__name__, exc)
-                fetch_errors.append(f"{candidate_url}: {type(exc).__name__}")
+                logger.warning("Unexpected fetch error type=%s", type(exc).__name__)
+                fetch_errors.append("Request failed")
                 continue
 
         fallback_url = safe_fetch_urls[0] if safe_fetch_urls else cand.url

@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import verify_admin_or_integration, verify_auth_optional, verify_token
+from ..repositories.tenant_ops_repository import InMemoryDeliveryRepository
 
 from ..schemas.delivery import (
     DeliveryChannel,
@@ -57,6 +58,7 @@ def _now() -> datetime:
 def create_delivery_router(
     email_service: EmailDeliveryService | None = None,
     slack_service: SlackDeliveryService | None = None,
+    repository=None,
 ) -> APIRouter:
     """Factory that creates delivery routes."""
     router = APIRouter(
@@ -66,37 +68,26 @@ def create_delivery_router(
     )
     _email = email_service or EmailDeliveryService()
     _slack = slack_service or SlackDeliveryService()
-
-    _configs: dict[str, DeliveryConfig] = {}
-    _logs: dict[str, list[DeliveryLog]] = {}
+    _repo = repository or InMemoryDeliveryRepository()
 
     @router.post("/settings", response_model=DeliveryConfig)
     async def create_config(req: DeliveryConfigCreate, _: str = Depends(verify_token)):
-        if len(_configs) >= _MAX_DELIVERY_CONFIGS:
+        if _repo.count_configs() >= _MAX_DELIVERY_CONFIGS:
             raise HTTPException(
                 status_code=422,
                 detail=f"Delivery config limit reached ({_MAX_DELIVERY_CONFIGS})",
             )
         _validate_target(req.channel, req.target)
-        config = DeliveryConfig(
-            id=_new_id(),
-            channel=req.channel,
-            target=req.target,
-            enabled=req.enabled,
-            config_json=req.config_json,
-            created_at=_now(),
-        )
-        _configs[config.id] = config
-        return config
+        return _repo.create_config(req)
 
     @router.get("/settings", response_model=list[DeliveryConfig])
     async def list_configs(_: str | None = Depends(verify_auth_optional)):
-        return sorted(_configs.values(), key=lambda c: c.created_at, reverse=True)
+        return _repo.list_configs()
 
     @router.get("/settings/{config_id}", response_model=DeliveryConfig)
     async def get_config(config_id: str, _: str | None = Depends(verify_auth_optional)):
         _check_id(config_id, "config_id")
-        config = _configs.get(config_id)
+        config = _repo.get_config(config_id)
         if config is None:
             raise HTTPException(status_code=404, detail="Config not found")
         return config
@@ -104,33 +95,27 @@ def create_delivery_router(
     @router.patch("/settings/{config_id}", response_model=DeliveryConfig)
     async def update_config(config_id: str, req: DeliveryConfigUpdate, _: str = Depends(verify_token)):
         _check_id(config_id, "config_id")
-        config = _configs.get(config_id)
+        config = _repo.get_config(config_id)
         if config is None:
             raise HTTPException(status_code=404, detail="Config not found")
-        updates: dict = {"updated_at": _now()}
         if req.target is not None:
             _validate_target(config.channel, req.target)
-            updates["target"] = req.target
-        if req.enabled is not None:
-            updates["enabled"] = req.enabled
-        if req.config_json is not None:
-            updates["config_json"] = req.config_json
-        updated = config.model_copy(update=updates)
-        _configs[config_id] = updated
+        updated = _repo.update_config(config_id, req)
+        if updated is None:
+            raise HTTPException(status_code=404, detail="Config not found")
         return updated
 
     @router.delete("/settings/{config_id}")
     async def delete_config(config_id: str, _: str = Depends(verify_token)):
         _check_id(config_id, "config_id")
-        if config_id not in _configs:
+        if not _repo.delete_config(config_id):
             raise HTTPException(status_code=404, detail="Config not found")
-        del _configs[config_id]
         return {"deleted": True}
 
     @router.post("/send", response_model=DeliveryLog)
     async def send_delivery(req: DeliverySendRequest, _: str = Depends(verify_token)):
         _check_id(req.config_id, "config_id")
-        config = _configs.get(req.config_id)
+        config = _repo.get_config(req.config_id)
         if config is None:
             raise HTTPException(status_code=404, detail="Config not found")
         if not config.enabled:
@@ -144,8 +129,7 @@ def create_delivery_router(
                 status=DeliveryStatus.pending_approval,
                 digest_id=req.digest_id,
             )
-            _logs.setdefault(config.id, []).append(log)
-            return log
+            return _repo.save_log(log)
 
         # Direct send
         success = False
@@ -174,23 +158,21 @@ def create_delivery_router(
             sent_at=_now() if success else None,
             error_message=error,
         )
-        _logs.setdefault(config.id, []).append(log)
-        return log
+        return _repo.save_log(log)
 
     @router.post("/approve/{log_id}", response_model=DeliveryLog)
     async def approve_delivery(log_id: str, _: str = Depends(verify_token)):
         _check_id(log_id, "log_id")
-        for config_logs in _logs.values():
-            for i, log in enumerate(config_logs):
-                if log.id == log_id and log.status == DeliveryStatus.pending_approval:
-                    approved = log.model_copy(update={"status": DeliveryStatus.approved})
-                    config_logs[i] = approved
-                    return approved
+        approved = _repo.approve_log(log_id)
+        if approved is not None:
+            return approved
         raise HTTPException(status_code=404, detail="Pending delivery not found")
 
     @router.get("/logs/{config_id}", response_model=list[DeliveryLog])
     async def get_logs(config_id: str, _: str | None = Depends(verify_auth_optional)):
         _check_id(config_id, "config_id")
-        return list(reversed(_logs.get(config_id, [])))
+        if _repo.get_config(config_id) is None:
+            raise HTTPException(status_code=404, detail="Config not found")
+        return _repo.list_logs(config_id)
 
     return router

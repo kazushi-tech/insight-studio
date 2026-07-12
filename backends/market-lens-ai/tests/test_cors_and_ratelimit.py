@@ -5,12 +5,13 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from web.app.main import app, _rate_store
+from web.app.main import app
+from web.app.shared_rate_limits import clear_rate_limit_buckets
 
 
 @pytest.fixture
 def client():
-    _rate_store.clear()
+    clear_rate_limit_buckets()
     return TestClient(app)
 
 
@@ -55,6 +56,16 @@ class TestCORSHeaders:
         assert resp.status_code == 200
         allowed = resp.headers.get("access-control-allow-methods", "")
         assert "DELETE" in allowed
+
+    def test_hostile_vercel_preview_origin_is_not_reflected(self, client):
+        resp = client.options(
+            "/api/watchlists/test123",
+            headers={
+                "Origin": "https://insight-studio-evil.vercel.app",
+                "Access-Control-Request-Method": "PATCH",
+            },
+        )
+        assert resp.headers.get("access-control-allow-origin") is None
 
 
 # ---------------------------------------------------------------------------
@@ -116,4 +127,4 @@ class TestWatchlistGlobalLimit:
         # Third should hit global limit even with a new project_id
         r3 = client.post("/api/watchlists", json={"name": "W3", "project_id": "pC"})
         assert r3.status_code == 409
-        assert "Global" in r3.json()["detail"]
+        assert r3.json()["error"]["code"] == "conflict"

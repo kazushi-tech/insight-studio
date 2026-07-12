@@ -1,4 +1,5 @@
 import { bqGenerateBatch } from '../api/adsInsights'
+import { latestPeriodValue } from './wizardPeriods'
 
 const GENERATE_RETRY_DELAYS_MS = [800, 1600]
 
@@ -171,8 +172,9 @@ function inferRankingSelectionLabel(group) {
 
 function normalizeFriendlyChartTitle(title) {
   return String(title ?? '')
-    .replace(/オークション圧分析/g, '流入の競合影響チェック（推定）')
-    .replace(/オークション圧/g, '流入の競合影響チェック（推定）')
+    .replace(/オークション圧分析/g, '流入集中の参考値')
+    .replace(/オークション圧/g, '流入集中の参考値')
+    .replace(/流入の競合影響チェック（推定）/g, '流入集中の参考値')
 }
 
 function normalizeTrendTitle(group, selectionLabel) {
@@ -210,7 +212,7 @@ function inferQueryTypeFromTitle(title) {
   if (/時間帯|曜日|hourly/i.test(text)) return 'hourly'
   if (/ユーザー属性|年齢|性別|地域/i.test(text)) return 'user_attr'
   if (/エンゲージメント|ちゃんと読まれた/i.test(text)) return 'engagement'
-  if (/競合影響|有料流入への偏り/i.test(text)) return 'auction_proxy'
+  if (/流入集中|競合影響|有料流入への偏り/i.test(text)) return 'auction_proxy'
   return ''
 }
 
@@ -411,7 +413,7 @@ export function getDisplayChartGroups(chartGroups = [], periodFilter = 'latest')
     let targetTag = periodFilter
 
     if (targetTag === 'latest' && periodTags.length > 0) {
-      targetTag = periodTags[periodTags.length - 1]
+      targetTag = latestPeriodValue(periodTags)
     }
 
     groups = !targetTag
@@ -1196,9 +1198,16 @@ export function buildAdsReportBundle({ setupState, results }) {
   })
   const periodReports = periods.map((periodTag, index) => {
     const result = resultsByPeriod.get(periodTag) ?? results[index] ?? {}
+    const reportV2 = result?.report_v2 ?? result?.reportV2 ?? null
     const reportMd = pickReportMarkdown(result)
     const chartGroups = pickChartGroups(result, periodTag)
     const executionSummary = pickExecutionSummary(result, periodTag)
+    const site = result?.site && typeof result.site === 'object'
+      ? {
+          name: String(result.site.name ?? '').trim(),
+          url: String(result.site.url ?? '').trim(),
+        }
+      : null
     const beginnerReport =
       normalizeBeginnerReport(result?.beginner_report ?? result?.beginnerReport) ||
       buildBeginnerReportFromCharts(chartGroups, executionSummary)
@@ -1210,6 +1219,8 @@ export function buildAdsReportBundle({ setupState, results }) {
       chartGroups,
       executionSummary,
       beginnerReport,
+      reportV2,
+      site: site?.name ? site : null,
       raw: result,
     }
   })
@@ -1234,10 +1245,13 @@ export function buildAdsReportBundle({ setupState, results }) {
 
   const flatExecutionSummary = periodReports.flatMap((item) => item.executionSummary)
   const flatChartGroups = periodReports.flatMap((item) => item.chartGroups)
-  const latestPeriodReport = periodReports[periodReports.length - 1] ?? null
+  const latestPeriod = latestPeriodValue(periodReports.map((item) => item.periodTag))
+  const latestPeriodReport = periodReports.find((item) => item.periodTag === latestPeriod) ?? null
+  const site = latestPeriodReport?.site ?? periodReports.find((item) => item.site)?.site ?? null
   const beginnerReport =
     latestPeriodReport?.beginnerReport ||
     buildBeginnerReportFromCharts(flatChartGroups, flatExecutionSummary)
+  const reportV2 = latestPeriodReport?.reportV2 ?? null
   const dataAvailability = reportMd
     ? summarizeAvailability(results, periodReports)
     : 'fallback'
@@ -1253,6 +1267,8 @@ export function buildAdsReportBundle({ setupState, results }) {
     reportMd: reportMd || fallbackReportMd,
     chartGroups: flatChartGroups,
     beginnerReport,
+    reportV2,
+    site,
     periodReports,
     executionSummary: flatExecutionSummary,
     results,
@@ -1296,6 +1312,7 @@ export async function regenerateAdsReportBundle(setupState) {
       generateBatchWithRetry({
         query_types: setupState.queryTypes,
         dataset_id: setupState.datasetId,
+        project_ref: setupState.projectRef,
         period,
       }).then((result) => ({ ...result, period }))
     ),

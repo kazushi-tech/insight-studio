@@ -1,168 +1,122 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+
+import { platformApi } from '../api/platform'
+import DataStatePanel from '../components/DataStatePanel'
+import ProjectEditorDialog from '../components/project/ProjectEditorDialog'
+import ProjectMembersDialog from '../components/project/ProjectMembersDialog'
 import { useRbac } from '../contexts/RbacContext'
-import { useAuth } from '../contexts/AuthContext'
-import { getCases, getCaseBqStatus, updateCase } from '../api/adsInsights'
-import ProjectTable from '../components/ProjectTable'
-import ProjectFormModal from '../components/ProjectFormModal'
-import InviteModal from '../components/InviteModal'
+
+const STATUS_LABELS = {
+  active: '利用中',
+  inactive: '停止中',
+  archived: 'アーカイブ済み',
+}
+
+function ConnectionBadge({ connection }) {
+  if (!connection || connection.status === 'checking') return <span role="status" className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant">確認中</span>
+  if (connection?.status === 'active') return <span className="rounded-full bg-primary-fixed px-3 py-1 text-xs font-bold text-on-primary-fixed">接続済み</span>
+  if (connection?.unavailable) return <span className="rounded-full bg-error-container px-3 py-1 text-xs font-bold text-on-error-container">取得できません</span>
+  if (connection?.configured) return <span className="rounded-full bg-tertiary-container px-3 py-1 text-xs font-bold text-on-tertiary-container">確認が必要</span>
+  return <span className="rounded-full bg-surface-container px-3 py-1 text-xs font-bold text-on-surface-variant">未接続</span>
+}
 
 export default function ProjectManagement() {
   const { canManageProjects } = useRbac()
-  const { isAdsAuthenticated, user } = useAuth()
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editingProject, setEditingProject] = useState(null)
-  const [sharingProject, setSharingProject] = useState(null)
   const [projects, setProjects] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [bqStatuses, setBqStatuses] = useState({})
-  const [deletingProject, setDeletingProject] = useState(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [connections, setConnections] = useState({})
+  const [state, setState] = useState('loading')
+  const [message, setMessage] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [membersFor, setMembersFor] = useState(null)
+  const [busyId, setBusyId] = useState(null)
 
-  const fetchProjects = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async () => {
+    setState('loading')
+    setMessage('')
     try {
-      const data = await getCases()
-      const list = Array.isArray(data) ? data : data.cases || []
-      const visibleList = list.filter((c) => !c.is_internal || user?.role === 'admin')
-      setProjects(visibleList)
-
-      // Auto-test BQ for cases with dataset_id
-      const withDataset = visibleList.filter((c) => c.dataset_id)
-      for (const c of withDataset) {
-        setBqStatuses((prev) => ({ ...prev, [c.case_id]: { loading: true } }))
-        getCaseBqStatus(c.case_id)
-          .then((result) => setBqStatuses((prev) => ({ ...prev, [c.case_id]: result })))
-          .catch((e) => setBqStatuses((prev) => ({ ...prev, [c.case_id]: { error: e.message } })))
-      }
+      const response = await platformApi.listProjects()
+      const list = (Array.isArray(response.projects) ? response.projects : [])
+        .filter((project) => project.status !== 'deleted')
+      setProjects(list)
+      setState(list.length ? 'ready' : 'empty')
+      setConnections(Object.fromEntries(list.map((project) => [project.id, { status: 'checking' }])))
+      const settled = await Promise.all(list.map(async (project) => {
+        try {
+          const source = await platformApi.getDataSource(project.id)
+          return [project.id, source.data_source || { configured: false }]
+        } catch (error) {
+          if (error?.status === 404) return [project.id, { configured: false }]
+          return [project.id, { configured: false, unavailable: true }]
+        }
+      }))
+      setConnections(Object.fromEntries(settled))
     } catch {
-      // Silently handle — table will show empty state
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.role])
-
-  useEffect(() => {
-    if (isAdsAuthenticated) {
-      fetchProjects()
-    } else {
-      setLoading(false)
-    }
-  }, [fetchProjects, isAdsAuthenticated])
-
-  const handleBqTest = useCallback(async (caseId) => {
-    setBqStatuses((prev) => ({ ...prev, [caseId]: { loading: true } }))
-    try {
-      const result = await getCaseBqStatus(caseId)
-      setBqStatuses((prev) => ({ ...prev, [caseId]: result }))
-    } catch (e) {
-      setBqStatuses((prev) => ({ ...prev, [caseId]: { error: e.message } }))
+      setState('error')
+      setMessage('案件一覧を確認できませんでした。少し待ってもう一度お試しください。')
     }
   }, [])
 
-  const handleModalClose = useCallback(() => {
-    setShowCreateModal(false)
-    setEditingProject(null)
-    fetchProjects()
-  }, [fetchProjects])
+  useEffect(() => {
+    const timer = window.setTimeout(() => load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [load])
 
-  const handleDeleteConfirm = useCallback(async () => {
-    if (!deletingProject) return
-    setDeleteLoading(true)
+  async function archive(project) {
+    if (!window.confirm(`「${project.name}」をアーカイブしますか？レポート履歴は削除されません。`)) return
+    setBusyId(project.id)
+    setMessage('')
     try {
-      await updateCase(deletingProject.case_id, { is_active: false })
-      setDeletingProject(null)
-      fetchProjects()
+      await platformApi.archiveProject(project.id, project.version)
+      await load()
+      setMessage('案件をアーカイブしました。')
     } catch {
-      // error silently handled
+      setMessage('案件をアーカイブできませんでした。別の画面で更新された可能性があります。')
     } finally {
-      setDeleteLoading(false)
+      setBusyId(null)
     }
-  }, [deletingProject, fetchProjects])
+  }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full space-y-8 relative">
-      {/* Header */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <p className="text-primary font-bold text-xs tracking-[0.2em] uppercase japanese-text">プロジェクト概要</p>
-          <h2 className="text-5xl font-extrabold font-headline text-on-surface tracking-tighter japanese-text">
-            プロジェクト一覧
-          </h2>
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-black tracking-[0.18em] text-primary">PROJECTS</p>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl japanese-text">分析するサイト</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-7 text-on-surface-variant japanese-text">サイトごとにデータ接続、レポート、閲覧できるメンバーを安全に分けて管理します。</p>
         </div>
-        {canManageProjects && (
-          <div className="flex gap-3">
-            <button onClick={() => setShowCreateModal(true)} className="button-primary px-6 py-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider shadow-lg shadow-primary/20">
-              <span className="material-symbols-outlined text-sm">add</span>
-              <span className="japanese-text">新規追加</span>
-            </button>
-          </div>
-        )}
-      </section>
+        {canManageProjects && <button type="button" onClick={() => setEditing({ mode: 'create' })} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-black text-on-primary"><span className="material-symbols-outlined" aria-hidden="true">add</span>サイトを登録</button>}
+      </header>
 
-      {/* Table */}
-      <ProjectTable
-        projects={projects}
-        loading={loading}
-        bqStatuses={bqStatuses}
-        onShare={(project) => canManageProjects && setSharingProject(project)}
-        onEdit={(project) => canManageProjects && setEditingProject(project)}
-        onDelete={(project) => canManageProjects && setDeletingProject(project)}
-        onBqTest={handleBqTest}
-      />
+      {message && state !== 'error' && <p role="status" className="rounded-xl bg-secondary-container px-4 py-3 text-sm font-bold text-on-secondary-container japanese-text">{message}</p>}
 
-      {/* Decorative */}
-      <div className="absolute bottom-0 right-0 w-96 h-96 pointer-events-none overflow-hidden -z-10 opacity-20">
-        <div className="absolute -bottom-20 -right-20 w-[400px] h-[400px] rounded-full bg-primary-fixed blur-[100px]" />
-      </div>
+      {state === 'loading' && <DataStatePanel state="loading" message="案件を確認しています。" />}
+      {state === 'error' && <DataStatePanel state="error" message={message} onRetry={load} />}
+      {state === 'empty' && <DataStatePanel state="empty" title="分析するサイトがまだありません" message="最初のサイトを登録すると、データ接続とメンバー設定へ進めます。">{canManageProjects && <button type="button" onClick={() => setEditing({ mode: 'create' })} className="min-h-11 rounded-xl bg-primary px-5 text-sm font-black text-on-primary">最初のサイトを登録</button>}</DataStatePanel>}
 
-      {/* Modals */}
-      {(showCreateModal || editingProject) && (
-        <ProjectFormModal
-          project={editingProject}
-          onClose={handleModalClose}
-        />
-      )}
-      {sharingProject && (
-        <InviteModal
-          project={sharingProject}
-          onClose={() => setSharingProject(null)}
-        />
-      )}
-      {deletingProject && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-surface rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center">
-                <span className="material-symbols-outlined text-2xl text-error">delete_forever</span>
+      {state === 'ready' && (
+        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {projects.map((project) => (
+            <li key={project.id} className="flex min-w-0 flex-col rounded-2xl bg-surface-container-lowest p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-lg font-extrabold text-on-surface japanese-text">{project.name}</h2>
+                  <p className="mt-1 text-xs font-bold text-on-surface-variant">{STATUS_LABELS[project.status] || '状態を確認中'}</p>
+                </div>
+                <ConnectionBadge connection={connections[project.id]} />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-on-surface japanese-text">プロジェクトを削除</h3>
-                <p className="text-xs text-on-surface-variant">この操作は元に戻せません</p>
+              {project.description && <p className="mt-4 line-clamp-3 text-sm leading-7 text-on-surface-variant japanese-text">{project.description}</p>}
+              <div className="mt-auto grid grid-cols-2 gap-2 pt-5">
+                <button type="button" onClick={() => setEditing(project)} disabled={busyId === project.id} className="min-h-11 rounded-xl bg-surface-container px-3 text-sm font-bold text-primary hover:bg-surface-container-high disabled:opacity-50">設定</button>
+                <button type="button" onClick={() => setMembersFor(project)} disabled={busyId === project.id} className="min-h-11 rounded-xl bg-surface-container px-3 text-sm font-bold text-primary hover:bg-surface-container-high disabled:opacity-50">メンバー</button>
+                {project.status !== 'archived' && <button type="button" onClick={() => archive(project)} disabled={busyId === project.id} className="col-span-2 min-h-11 rounded-xl px-3 text-sm font-bold text-error hover:bg-error-container disabled:opacity-50">{busyId === project.id ? '処理しています…' : 'アーカイブ'}</button>}
               </div>
-            </div>
-            <p className="text-sm text-on-surface-variant japanese-text">
-              <strong className="text-on-surface">{deletingProject.name}</strong>（ID: {deletingProject.case_id}）を削除しますか？
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeletingProject(null)}
-                disabled={deleteLoading}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleteLoading}
-                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-error text-on-error hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
-              >
-                {deleteLoading && <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>}
-                削除する
-              </button>
-            </div>
-          </div>
-        </div>
+            </li>
+          ))}
+        </ul>
       )}
+
+      {editing && <ProjectEditorDialog project={editing.mode === 'create' ? null : editing} onClose={() => setEditing(null)} onSaved={load} />}
+      {membersFor && <ProjectMembersDialog project={membersFor} onClose={() => setMembersFor(null)} />}
     </div>
   )
 }

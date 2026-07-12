@@ -4,6 +4,7 @@ import InsightHtmlReport from './InsightHtmlReport'
 import InsightSummaryHero from './InsightSummaryHero'
 import { extractInsightMeta, extractInsightReport, extractOperationalInsightCards } from '../../../utils/adsResponse'
 import { buildChartEvidencePack } from '../../../utils/adsReports'
+import { replaceCustomerTerms } from '../../../utils/customerReport'
 import styles from './AiExplorerV2.module.css'
 import cardStyles from './InsightTurnCard.module.css'
 
@@ -22,6 +23,15 @@ const UNKNOWN_OR_LIMITATION_PATTERN = /(未取得|不明|含まれない|断定�
 
 function cleanText(value) {
   return String(value || '').replace(/\*\*/g, '').replace(/^[\s\-・]+/, '').trim()
+}
+
+function customerSafeValue(value) {
+  if (typeof value === 'string') return replaceCustomerTerms(value)
+  if (Array.isArray(value)) return value.map(customerSafeValue)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, customerSafeValue(item)]),
+  )
 }
 
 function collectMarkdownBullets(markdown, keywords, limit = 4) {
@@ -676,19 +686,20 @@ export default function InsightTurnCard({
     ? buildSafeRecoveredReport({ userPrompt, aiContent, agentTrace, chartGroups })
     : null
   const displayReport = derivedReport ?? recoveredReport
+  const customerDisplayReport = customerSafeValue(displayReport)
   const hasStructuredV2Report = isStructuredReportV2(displayReport)
-  const fallbackContent = shouldHideRawArtifact && !isLegacyFormatTurn ? '' : renderContent
+  const fallbackContent = shouldHideRawArtifact && !isLegacyFormatTurn ? '' : replaceCustomerTerms(renderContent)
 
   const operationalCards = shouldHideRawArtifact || isLegacyFormatTurn ? [] : extractOperationalInsightCards(renderContent)
   const showDebugMeta = import.meta.env.DEV
   const dataPeriod = analysisContext?.dateRange
     ? [analysisContext.dateRange.start, analysisContext.dateRange.end].filter(Boolean).join(' 〜 ')
     : ''
-  const metric = analysisContext?.metricFocus || analysisContext?.dataSummary?.primaryMetric || ''
+  const metric = replaceCustomerTerms(analysisContext?.metricFocus || analysisContext?.dataSummary?.primaryMetric || '')
   const pvPeak = analysisContext?.pvSpikePeak
   const sessionLandingPageDiagnostic = analysisContext?.sessionLandingPageDiagnostic
   const lpDefinitionLabel = sessionLandingPageDiagnostic?.landingPageDefinition
-    ? 'GA4セッション内で最初に閲覧されたページ（入口ページ）'
+    ? '訪問中に最初に見られたページ'
     : ''
   const formatSignedPercent = (value) => {
     if (value == null || value === '') return ''
@@ -726,16 +737,16 @@ export default function InsightTurnCard({
         </div>
       </header>
 
-      <UserPromptPill content={userPrompt} timestamp={userTimestamp} />
+      <UserPromptPill content={replaceCustomerTerms(userPrompt)} timestamp={userTimestamp} />
 
-      {displayReport ? (
+      {customerDisplayReport ? (
         hasStructuredV2Report ? (
-          <StructuredInsightReport report={displayReport} />
+          <StructuredInsightReport report={customerDisplayReport} />
         ) : (
-          <InsightHtmlReport report={displayReport} />
+          <InsightHtmlReport report={customerDisplayReport} />
         )
       ) : derivedMeta ? (
-        <InsightSummaryHero meta={derivedMeta} />
+        <InsightSummaryHero meta={customerSafeValue(derivedMeta)} />
       ) : null}
 
       {(dataPeriod || metric || lpDefinitionLabel || fallbackNotice || caveats.length > 0 || onRetry || (showDebugMeta && (parseLabel || fallbackLabel))) && (
@@ -753,12 +764,12 @@ export default function InsightTurnCard({
             )}
             {pvPeak?.date && (
               <span className="japanese-text">
-                <b>最大PV日</b> {pvPeak.date}
+                <b>最も見られた日</b> {pvPeak.date}
               </span>
             )}
             {pvPeak?.pageViews != null && (
               <span className="japanese-text">
-                <b>最大PV数</b> {pvPeak.pageViews}
+                <b>最も多く見られた回数</b> {pvPeak.pageViews}
               </span>
             )}
             {pvPeak?.previousDayDeltaRate != null && (
@@ -773,12 +784,12 @@ export default function InsightTurnCard({
             )}
             {analysisContext?.pvSpikePeak && (
               <span className="japanese-text">
-                <b>使用データ</b> GA4 BigQuery / page_viewベース
+                <b>使用データ</b> サイトで計測した閲覧データ
               </span>
             )}
             {lpDefinitionLabel && (
               <span className="japanese-text">
-                <b>LP定義</b> {lpDefinitionLabel}
+                <b>入口ページの定義</b> {lpDefinitionLabel}
               </span>
             )}
             {showDebugMeta && sessionLandingPageDiagnostic?.sessionKeyMethod && (
@@ -798,14 +809,14 @@ export default function InsightTurnCard({
             )}
             {fallbackNotice && (
               <span className="japanese-text">
-                <b>注意</b> {fallbackNotice}
+                <b>注意</b> {replaceCustomerTerms(fallbackNotice)}
               </span>
             )}
           </div>
           {caveats.length > 0 && (
             <ul className={styles.turnCaveats}>
               {caveats.slice(0, 3).map((item, idx) => (
-                <li key={`${item}-${idx}`} className="japanese-text">{item}</li>
+                <li key={`${item}-${idx}`} className="japanese-text">{replaceCustomerTerms(item)}</li>
               ))}
             </ul>
           )}
@@ -818,7 +829,7 @@ export default function InsightTurnCard({
         </div>
       )}
 
-      {!displayReport && operationalCards.length > 0 && (
+      {!customerDisplayReport && operationalCards.length > 0 && (
         <div className={styles.operationalCards} data-testid="operational-insight-cards">
           {operationalCards.map((card) => (
             <section key={card.key} className={styles.operationalCard}>
@@ -829,22 +840,22 @@ export default function InsightTurnCard({
                   card.key === 'expectedKpi' ? 'speed' : 'task_alt'}
               </span>
               <div>
-                <h3 className="japanese-text">{card.title}</h3>
-                <p className="japanese-text">{card.body}</p>
+                <h3 className="japanese-text">{replaceCustomerTerms(card.title)}</h3>
+                <p className="japanese-text">{replaceCustomerTerms(card.body)}</p>
               </div>
             </section>
           ))}
         </div>
       )}
 
-      {!displayReport && !isError && fallbackContent && !isLegacyFormatTurn && (
+      {!customerDisplayReport && !isError && fallbackContent && !isLegacyFormatTurn && (
         <InsightReportSections
           content={fallbackContent}
           operationalCards={operationalCards}
         />
       )}
 
-      {displayReport ? (
+      {customerDisplayReport ? (
         derivedReport && renderContent && (
           <details className={cardStyles.markdownDetails}>
             <summary className="japanese-text">
@@ -852,7 +863,7 @@ export default function InsightTurnCard({
               詳細なAI回答を開く
             </summary>
             <div className={styles.turnBody}>
-              <MarkdownRenderer content={renderContent} variant="ai-insight" size={size} />
+              <MarkdownRenderer content={replaceCustomerTerms(renderContent)} variant="ai-insight" size={size} />
             </div>
           </details>
         )

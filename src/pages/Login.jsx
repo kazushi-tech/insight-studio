@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { OrganizationSwitcher, SignIn, SignOutButton } from '@clerk/react'
 import { useAuth } from '../contexts/AuthContext'
 import { loginCase, getCaseTrustToken, warmAdsInsightsBackend } from '../api/adsInsights'
 import { salesContactUrl } from './landing/salesContact'
+import { normalizeCustomerError } from '../utils/customerErrors'
 
 const CURRENT_CASE_STORAGE_KEY = 'insight-studio-current-case'
 
@@ -10,6 +12,12 @@ const LOGIN_STEPS = [
   '発行されたパスワードを入力',
   '対象サイトと見る期間を確認',
   'まとめからレポートを読む',
+]
+
+const CLERK_LOGIN_STEPS = [
+  '招待されたメールアドレスで本人確認',
+  '契約企業を選択',
+  '対象サイトのレポートを確認',
 ]
 
 function getCaseId(caseItem) {
@@ -33,14 +41,73 @@ export default function Login() {
   const [error, setError] = useState('')
   const [pendingTotp, setPendingTotp] = useState(null)
   const [totpCode, setTotpCode] = useState('')
-  const { loginAds, loginWithCase, user } = useAuth()
+  const errorRef = useRef(null)
+  const {
+    authMode,
+    clerkLoaded,
+    clerkSignedIn,
+    loading: authLoading,
+    loginAds,
+    loginWithCase,
+    platformSyncError,
+    clerkOrganizationId,
+    user,
+  } = useAuth()
 
   useEffect(() => {
-    void warmAdsInsightsBackend()
-  }, [])
+    if (authMode === 'legacy') void warmAdsInsightsBackend()
+  }, [authMode])
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus()
+  }, [error])
 
   if (user) {
     return <Navigate to={user.role === 'case_user' ? '/ads/wizard' : '/'} replace />
+  }
+
+  if (authMode === 'clerk') {
+    return (
+      <div className="min-h-dvh overflow-x-hidden bg-[#f8f6ef] text-on-surface">
+        <header className="border-b border-primary/10 bg-white/85 backdrop-blur-lg">
+          <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-5 sm:px-8">
+            <Link to="/lp" className="font-headline text-xl font-extrabold text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">Insight Studio</Link>
+            <Link to="/lp#product-preview" className="inline-flex min-h-11 items-center rounded-full border border-primary/15 bg-white px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5">画面サンプルを見る</Link>
+          </div>
+        </header>
+        <main className="mx-auto grid w-full max-w-6xl items-stretch gap-5 px-4 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-8 lg:py-16">
+          <aside className="order-2 relative overflow-hidden rounded-[2rem] bg-primary p-7 text-white shadow-[0_24px_70px_rgba(0,57,37,0.15)] sm:p-10 lg:order-1 lg:p-12" aria-label="ログイン後の流れ">
+            <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '30px 30px' }} />
+            <div className="relative z-10">
+              <p className="text-xs font-bold tracking-widest text-primary-fixed-dim">ご利用中のお客様へ</p>
+              <h1 className="mt-4 text-pretty font-headline text-3xl font-extrabold leading-tight sm:text-4xl">本人確認から、<br className="hidden sm:block" />安全にレポートへ。</h1>
+              <p className="mt-5 max-w-md text-sm leading-7 text-primary-fixed/80 sm:text-base">パスワードをInsight Studioへ保存せず、招待された企業と案件の権限を毎回確認します。</p>
+              <ol className="mt-8 space-y-4">{CLERK_LOGIN_STEPS.map((step, index) => <li key={step} className="flex items-center gap-3 rounded-2xl bg-white/10 px-4 py-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent-gold text-sm font-black text-[#3f2c00]">{index + 1}</span><span className="text-sm font-bold sm:text-base">{step}</span></li>)}</ol>
+            </div>
+          </aside>
+          <section className="order-1 grid min-h-[36rem] place-items-center rounded-[2rem] bg-white p-5 shadow-[0_18px_55px_rgba(31,39,34,0.08)] ring-1 ring-primary/10 sm:p-8 lg:order-2" aria-label="ログイン">
+            {!clerkLoaded && <p role="status" className="flex items-center gap-3 text-sm font-bold text-on-surface-variant"><span className="material-symbols-outlined animate-spin motion-reduce:animate-none" aria-hidden="true">progress_activity</span>安全なログインを準備しています</p>}
+            {clerkLoaded && !clerkSignedIn && (
+              <SignIn
+                routing="hash"
+                fallbackRedirectUrl="/"
+                appearance={{
+                  variables: { colorPrimary: '#003925', borderRadius: '0.75rem', fontFamily: 'Manrope, sans-serif' },
+                  elements: { cardBox: 'shadow-none', card: 'shadow-none' },
+                }}
+              />
+            )}
+            {clerkLoaded && clerkSignedIn && (
+              <div className="w-full max-w-md text-center">
+                <h2 className="text-2xl font-extrabold text-on-surface">契約企業を確認しています</h2>
+                <p role={platformSyncError ? 'alert' : 'status'} className="mt-3 text-sm leading-7 text-on-surface-variant">{authLoading ? '招待とサイトの権限を安全に照合しています。' : platformSyncError ? '契約企業を確認できませんでした。企業を選び直すか、管理者へお問い合わせください。' : 'まもなく画面へ移動します。'}</p>
+                {platformSyncError && <div className="mt-6 space-y-4"><OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/onboarding" /><Link to="/onboarding" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-black text-on-primary">{clerkOrganizationId ? 'この企業の登録を続ける' : '契約企業を設定する'}</Link><SignOutButton><button type="button" className="min-h-11 rounded-xl px-4 text-sm font-bold text-primary underline">別のメールアドレスでログイン</button></SignOutButton></div>}
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
+    )
   }
 
   const handleSubmit = async (event) => {
@@ -63,9 +130,9 @@ export default function Login() {
           loginWithCase(result)
           return
         }
-        setError(result?.error || '認証コードが正しくありません')
+        setError(result?.ok === false ? '認証コードが正しくありません' : '認証に失敗しました')
       } catch (err) {
-        setError(err?.message || '認証コードが正しくありません')
+        setError(err?.status === 401 ? '認証コードが正しくありません' : normalizeCustomerError(err).body)
       } finally {
         setLoading(false)
       }
@@ -105,7 +172,7 @@ export default function Login() {
 
       setError('パスワードが正しくありません')
     } catch (err) {
-      setError(err?.status === 401 ? 'パスワードが正しくありません' : err?.message || 'ログインに失敗しました')
+      setError(err?.status === 401 ? 'パスワードが正しくありません' : normalizeCustomerError(err, { body: 'ログインできませんでした。少し待って、もう一度お試しください。' }).body)
     } finally {
       setLoading(false)
     }
@@ -165,7 +232,7 @@ export default function Login() {
             </p>
 
             {error && (
-              <div role="alert" aria-live="assertive" className="mt-6 flex items-start gap-3 rounded-2xl border border-error/20 bg-error-container/45 px-4 py-3 text-sm text-on-error-container">
+              <div ref={errorRef} id="login-error" role="alert" aria-live="assertive" tabIndex={-1} className="mt-6 flex items-start gap-3 rounded-2xl border border-error/20 bg-error-container/45 px-4 py-3 text-sm text-on-error-container outline-none">
                 <span className="material-symbols-outlined text-xl" aria-hidden="true">error</span>
                 <span>{error}</span>
               </div>
@@ -184,6 +251,8 @@ export default function Login() {
                       name="password"
                       type={showPassword ? 'text' : 'password'}
                       autoComplete="current-password"
+                      aria-invalid={Boolean(error)}
+                      aria-describedby={error ? 'login-error' : undefined}
                       spellCheck={false}
                       placeholder="発行されたパスワード"
                       value={password}
@@ -210,6 +279,8 @@ export default function Login() {
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'login-error' : undefined}
                     pattern="\d{6}"
                     maxLength={6}
                     placeholder="123456"

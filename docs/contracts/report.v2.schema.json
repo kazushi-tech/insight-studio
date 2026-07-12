@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://insight-studio.example/contracts/report.v2.schema.json",
+  "title": "Insight Studio customer report.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "report_id",
+    "project_id",
+    "scope",
+    "availability",
+    "metrics",
+    "conclusions",
+    "actions",
+    "evidence",
+    "caveats",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "report.v2" },
+    "report_id": { "type": "string", "minLength": 1 },
+    "project_id": { "type": "string", "minLength": 1 },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current_period", "comparison_period", "comparison_policy", "timezone", "data_freshness"],
+      "properties": {
+        "current_period": { "$ref": "#/$defs/period" },
+        "comparison_period": { "anyOf": [{ "$ref": "#/$defs/period" }, { "type": "null" }] },
+        "comparison_policy": { "type": "string", "enum": ["previous_month", "previous_week", "previous_equal_days", "none"] },
+        "timezone": { "type": "string", "minLength": 1 },
+        "data_freshness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "last_observed_at"],
+          "properties": {
+            "status": { "type": "string", "enum": ["fresh", "delayed", "unknown"] },
+            "last_observed_at": { "type": ["string", "null"], "format": "date-time" }
+          }
+        }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overall", "metrics"],
+      "properties": {
+        "overall": { "type": "string", "enum": ["full", "partial", "unavailable", "failed"] },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "status", "reason", "last_observed_at"],
+            "properties": {
+              "key": { "type": "string", "minLength": 1 },
+              "status": { "type": "string", "enum": ["measured", "measured_zero", "not_configured", "no_period_data", "unsupported", "query_failed"] },
+              "reason": { "type": ["string", "null"] },
+              "last_observed_at": { "type": ["string", "null"], "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "label", "value", "unit", "aggregation", "comparison", "evidence_key"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "value": { "type": ["number", "integer", "null"] },
+          "unit": { "type": "string" },
+          "aggregation": { "type": "string", "minLength": 1 },
+          "comparison": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "absolute_change", "percent_change", "status"],
+            "properties": {
+              "value": { "type": ["number", "integer", "null"] },
+              "absolute_change": { "type": ["number", "integer", "null"] },
+              "percent_change": { "type": ["number", "null"] },
+              "status": { "type": "string", "enum": ["available", "baseline_zero", "not_available"] }
+            }
+          },
+          "evidence_key": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "conclusions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/evidence_statement" }
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["priority", "title", "reason", "confidence", "timeframe", "success_metric", "evidence_keys"],
+        "properties": {
+          "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+          "title": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string", "minLength": 1 },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+          "timeframe": { "type": "string", "minLength": 1 },
+          "success_metric": { "type": "string", "minLength": 1 },
+          "evidence_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "query_type", "title", "chart"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "query_type": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "chart": { "type": ["object", "null"] }
+        }
+      }
+    },
+    "caveats": { "type": "array", "items": { "type": "string" } },
+    "generated_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "type": "string", "format": "date" },
+        "end": { "type": "string", "format": "date" }
+      }
+    },
+    "evidence_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "title", "body", "severity", "confidence", "evidence_keys"],
+      "properties": {
+        "kind": { "type": "string" },
+        "title": { "type": "string", "minLength": 1 },
+        "body": { "type": "string" },
+        "severity": { "type": "string", "enum": ["positive", "neutral", "attention", "critical"] },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "evidence_keys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

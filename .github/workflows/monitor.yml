@@ -2,48 +2,57 @@ name: Health Monitor
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health-monitor
+  cancel-in-progress: true
+
 jobs:
-  health-check:
+  health_check:
+    name: health-check
     runs-on: ubuntu-latest
+    timeout-minutes: 4
+    env:
+      BASE_URL: ${{ vars.PRODUCTION_BASE_URL || 'https://insight-studio-chi.vercel.app' }}
+      DURABLE_JOB_BACKEND: ${{ vars.MARKET_LENS_JOB_BACKEND }}
+      WORKFLOW_READINESS_URL: ${{ secrets.WORKFLOW_READINESS_URL }}
     steps:
-      - name: Check ML backend health
+      - name: Validate the selected durable job backend
         run: |
-          response=$(curl -sf --max-time 45 \
-            https://market-lens-ai.onrender.com/api/health || echo '{"ok":false}')
-          echo "$response" | jq .
-
-          ok=$(echo "$response" | jq -r '.ok // false')
-          warnings=$(echo "$response" | jq -r '.discovery_pipeline.recent_budget_warnings // 0')
-
-          if [ "$ok" != "true" ]; then
-            echo "::error::ML backend is DOWN (ok=$ok)"
-            exit 1
-          fi
-          echo "ML backend OK"
-
-          if [ "$warnings" -gt 0 ] 2>/dev/null; then
-            echo "::warning::Budget pressure detected: $warnings warning(s) in last hour"
-          fi
-
-      - name: Check Ads backend health
+          case "$DURABLE_JOB_BACKEND" in
+            worker)
+              echo "Durable analysis backend: PostgreSQL worker"
+              ;;
+            workflow)
+              test -n "$WORKFLOW_READINESS_URL" || {
+                echo "::error::WORKFLOW_READINESS_URL is required when MARKET_LENS_JOB_BACKEND=workflow"
+                exit 1
+              }
+              ;;
+            *)
+              echo "::error::MARKET_LENS_JOB_BACKEND must be explicitly set to worker or workflow"
+              exit 1
+              ;;
+          esac
+      - name: Frontend availability
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 \
-            https://ads-insights-9q5s.onrender.com/api/health)
-          if [ "$status" != "200" ]; then
-            echo "::error::Ads backend returned HTTP $status"
-            exit 1
-          fi
-          echo "Ads backend OK ($status)"
-
-      - name: Check frontend availability
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 10 "$BASE_URL/")"
+          test "$status" = "200" || { echo "::error::frontend health failed (HTTP $status)"; exit 1; }
+      - name: Ads readiness through the production origin
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
-            https://insight-studio-chi.vercel.app/)
-          if [ "$status" != "200" ]; then
-            echo "::error::Frontend returned HTTP $status"
-            exit 1
-          fi
-          echo "Frontend OK ($status)"
+          response="$(curl --fail --silent --show-error --max-time 3 "$BASE_URL/api/ads/health")"
+          test "$(jq -r '.ok // false' <<<"$response")" = "true" || { echo "::error::Ads readiness failed"; exit 1; }
+      - name: ML readiness through the production origin
+        run: |
+          response="$(curl --fail --silent --show-error --max-time 3 "$BASE_URL/api/ml/health")"
+          test "$(jq -r '.ok // false' <<<"$response")" = "true" || { echo "::error::ML readiness failed"; exit 1; }
+      - name: Workflow readiness
+        if: env.DURABLE_JOB_BACKEND == 'workflow'
+        run: |
+          response="$(curl --fail --silent --show-error --max-time 3 "$WORKFLOW_READINESS_URL")"
+          test "$(jq -r '.ok // false' <<<"$response")" = "true" || { echo "::error::Workflow readiness failed"; exit 1; }

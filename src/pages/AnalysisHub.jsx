@@ -61,7 +61,7 @@ function KeyStatus({ required, configured, siteAnalysisReady = true, available =
           : 'bg-amber-100 text-amber-900 dark:bg-warning-container dark:text-on-warning-container'
       }`}>
         <span className="material-symbols-outlined text-[16px]" aria-hidden="true">{siteAnalysisReady ? 'check_circle' : 'tune'}</span>
-        {siteAnalysisReady ? '基本整理はAPIキー不要' : 'サイト分析の準備が必要'}
+        {siteAnalysisReady ? '基本レポートの根拠で利用可' : 'サイト分析の準備が必要'}
       </span>
     )
   }
@@ -83,7 +83,7 @@ function KeyStatus({ required, configured, siteAnalysisReady = true, available =
 export default function AnalysisHub() {
   const { hasAnalysisKey, isAdsAuthenticated, user } = useAuth()
   const { isSetupComplete, isCaseAuthenticated, setupState, currentCase } = useAdsSetup()
-  const canUseAdvancedAnalysis = user?.role === 'admin'
+  const canUseAdvancedAnalysis = ['admin', 'operator'].includes(user?.role) || user?.platform_role === 'platform_admin'
   const datasetMatches = !setupState?.datasetId || !currentCase?.dataset_id || setupState.datasetId === currentCase.dataset_id
   const siteAnalysisReady = Boolean(isAdsAuthenticated && isSetupComplete && isCaseAuthenticated && datasetMatches)
 
@@ -121,8 +121,8 @@ export default function AnalysisHub() {
                   : hasAnalysisKey
                     ? '追加分析を利用できます。自社サイトのレポートは、先にサイト分析を準備してください。'
                     : siteAnalysisReady
-                      ? '基本レポートとグラフは利用できます。追加分析はAPIキー設定後に始められます。'
-                      : '自社サイトのレポートは分析の準備後、追加分析はAPIキー設定後に利用できます。'}
+                      ? '基本レポートとグラフは利用できます。追加分析は設定完了後に始められます。'
+                      : '自社サイトのレポートは分析の準備後、追加分析は運用設定の完了後に利用できます。'}
               </p>
               {canUseAdvancedAnalysis ? (
                 <Link
@@ -148,12 +148,14 @@ export default function AnalysisHub() {
             できること
           </h2>
           <p className="text-sm leading-6 text-on-surface-variant">
-            追加分析も隠さず表示し、利用できる範囲と必要な準備をカード内で確認できます。
+            {canUseAdvancedAnalysis
+              ? '利用できる分析と必要な準備をカード内で確認できます。'
+              : '自社サイトのレポートを根拠に、気になる数字を質問できます。'}
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {ANALYSIS_TOOLS.map((tool) => {
+          {ANALYSIS_TOOLS.filter((tool) => !tool.adminOnly || canUseAdvancedAnalysis).map((tool) => {
             const isSiteAi = tool.to === '/insights/ai'
             const toolAvailable = !tool.adminOnly || canUseAdvancedAnalysis
             const destination = isSiteAi && !siteAnalysisReady ? '/ads/wizard' : tool.to
@@ -178,7 +180,7 @@ export default function AnalysisHub() {
                 <p className="text-sm leading-6 text-on-surface-variant">{tool.description}</p>
                 {!tool.keyRequired && !hasAnalysisKey && (
                   <p className="text-xs leading-5 text-on-surface-variant">
-                    詳細な生成AI考察を使う場合のみAPIキーを設定します。
+                    追加設定なしでも、表示中の根拠を整理して質問できます。
                   </p>
                 )}
               </div>

@@ -12,6 +12,7 @@ from .gemini_budget import (
     estimate_text_tokens,
     normalize_gemini_model,
     record_gemini_usage,
+    release_gemini_reservation,
 )
 
 logger = logging.getLogger("market-lens.gemini")
@@ -161,14 +162,21 @@ async def call_gemini(
         feature="market-lens.analysis",
     )
 
-    text, prompt_tokens, completion_tokens = await asyncio.to_thread(
-        _call_sync,
-        prompt,
-        model=mdl,
-        max_output_tokens=max_tokens,
-        temperature=_DEFAULT_TEMPERATURE,
-        api_key=key,
-    )
+    try:
+        text, prompt_tokens, completion_tokens = await asyncio.to_thread(
+            _call_sync,
+            prompt,
+            model=mdl,
+            max_output_tokens=max_tokens,
+            temperature=_DEFAULT_TEMPERATURE,
+            api_key=key,
+        )
+    except BaseException:
+        # The provider did not return billable usage.  Releasing the durable
+        # reservation prevents a transient provider error from consuming the
+        # monthly cap; a crash is covered by the reservation lease.
+        release_gemini_reservation(budget_estimate)
+        raise
 
     logger.info(
         "call_gemini SUCCESS model=%s prompt_tokens=%s completion_tokens=%s",
@@ -228,16 +236,20 @@ async def call_gemini_multimodal(
         feature="market-lens.multimodal",
     )
 
-    text, prompt_tokens, completion_tokens = await asyncio.to_thread(
-        _call_multimodal_sync,
-        prompt,
-        image_data=image_data,
-        mime_type=mime_type,
-        model=mdl,
-        max_output_tokens=max_tokens,
-        temperature=_DEFAULT_TEMPERATURE,
-        api_key=key,
-    )
+    try:
+        text, prompt_tokens, completion_tokens = await asyncio.to_thread(
+            _call_multimodal_sync,
+            prompt,
+            image_data=image_data,
+            mime_type=mime_type,
+            model=mdl,
+            max_output_tokens=max_tokens,
+            temperature=_DEFAULT_TEMPERATURE,
+            api_key=key,
+        )
+    except BaseException:
+        release_gemini_reservation(budget_estimate)
+        raise
 
     usage_is_estimated = not (prompt_tokens or completion_tokens)
     # Token metadata is authoritative when returned. For older SDKs, reserve a

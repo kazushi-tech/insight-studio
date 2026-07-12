@@ -1,6 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import Chart from 'chart.js/auto'
 import { getScans } from '../api/marketLens'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -8,6 +7,8 @@ import { getChartPeriodTags, getDisplayChartGroups } from '../utils/adsReports'
 import { resolveBeginnerReportAction } from '../utils/dashboardNavigation'
 import { SkeletonBlock } from '../components/ui'
 import { getAnalysisProviderLabel } from '../utils/analysisProvider'
+import { buildCompactChartGeometry } from '../utils/compactChartGeometry'
+import { normalizeCustomerError } from '../utils/customerErrors'
 
 const EMPTY_LIST = []
 
@@ -72,10 +73,11 @@ function EmptyStatCard({ icon, label, message, actionLabel, onAction }) {
 const COMPACT_PALETTE = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#14b8a6']
 
 function CompactChartCard({ group, onClick }) {
-  const canvasRef = useRef(null)
-  const chartRef = useRef(null)
-  const labels = Array.isArray(group?.labels) ? group.labels : EMPTY_LIST
   const datasets = Array.isArray(group?.datasets) ? group.datasets : EMPTY_LIST
+  const geometry = useMemo(
+    () => buildCompactChartGeometry(group?.chartType, datasets),
+    [datasets, group?.chartType],
+  )
 
   const latestValue = useMemo(() => {
     if (datasets.length === 0) return null
@@ -87,45 +89,6 @@ function CompactChartCard({ group, onClick }) {
     }
     return null
   }, [datasets])
-
-  useEffect(() => {
-    if (!canvasRef.current || labels.length === 0 || datasets.length === 0) return
-
-    chartRef.current?.destroy()
-
-    const isBar = group?.chartType === 'bar_horizontal'
-    const chartDatasets = datasets.slice(0, 2).map((ds, i) => {
-      const color = COMPACT_PALETTE[i % COMPACT_PALETTE.length]
-      const data = (Array.isArray(ds?.data) ? ds.data : []).map((v) => {
-        const n = Number(typeof v === 'string' ? v.replace(/,/g, '').replace(/[%％]$/, '') : v)
-        return Number.isFinite(n) ? n : null
-      })
-      return isBar
-        ? { data, backgroundColor: color + '88', borderColor: color, borderWidth: 1, borderRadius: 4, maxBarThickness: 16 }
-        : { data, borderColor: color, backgroundColor: 'transparent', tension: 0.3, fill: false, borderWidth: 2, pointRadius: 0 }
-    })
-
-    chartRef.current = new Chart(canvasRef.current.getContext('2d'), {
-      type: isBar ? 'bar' : 'line',
-      data: { labels, datasets: chartDatasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        indexAxis: isBar ? 'y' : 'x',
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: {
-          x: { display: false },
-          y: { display: false },
-        },
-      },
-    })
-
-    return () => {
-      chartRef.current?.destroy()
-      chartRef.current = null
-    }
-  }, [group, labels, datasets])
 
   return (
     <div
@@ -146,7 +109,31 @@ function CompactChartCard({ group, onClick }) {
         </p>
       )}
       <div className="h-[60px]">
-        <canvas ref={canvasRef} />
+        <svg viewBox="0 0 240 60" preserveAspectRatio="none" className="size-full" aria-hidden="true" focusable="false">
+          {geometry.kind === 'bar' && geometry.series.map((bar, index) => (
+            <rect
+              key={`${bar.x}-${bar.y}-${index}`}
+              {...bar}
+              rx="2"
+              fill={COMPACT_PALETTE[0]}
+              opacity="0.58"
+            />
+          ))}
+          {geometry.kind === 'line' && geometry.series.map((points, index) => (
+            points.length === 1 ? (
+              <circle key={index} cx={points[0].x} cy={points[0].y} r="2.5" fill={COMPACT_PALETTE[index]} />
+            ) : (
+              <polyline
+                key={index}
+                points={points.map((point) => `${point.x},${point.y}`).join(' ')}
+                fill="none"
+                stroke={COMPACT_PALETTE[index]}
+                strokeWidth="2"
+                vectorEffect="non-scaling-stroke"
+              />
+            )
+          ))}
+        </svg>
       </div>
       {group?._periodTag && (
         <p className="text-[10px] text-on-surface-variant mt-1">{group._periodTag}</p>
@@ -225,7 +212,7 @@ function SetupStatusCard({ setupState, reportBundle, isAdsAuthenticated, onNavig
           </div>
           <h4 className="text-lg font-bold japanese-text">Webサイト分析</h4>
         </div>
-        <p className="text-sm text-on-surface-variant">Webサイト分析への接続が必要です。サイドバーのAPIキー・接続設定から認証してください。</p>
+        <p className="text-sm text-on-surface-variant">Webサイト分析への接続が必要です。導入担当者に接続状況を確認してください。</p>
       </div>
     )
   }
@@ -320,7 +307,7 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
         ? '分析の準備が必要'
         : hasAnalysisKey
           ? `${providerLabel}で詳しく分析`
-          : 'APIキーなしで利用可',
+          : '追加設定なしで利用可',
       tone: isAdsAuthenticated && setupState ? 'ok' : 'need',
       path: isAdsAuthenticated && setupState ? '/insights/ai' : '/ads/wizard',
     },
@@ -355,7 +342,7 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
 
   const toneClass = {
     ok: 'bg-emerald-50 text-emerald-700',
-    need: 'bg-amber-50 text-amber-700',
+    need: 'bg-amber-50 text-amber-900',
     demo: 'bg-sky-50 text-sky-700',
     neutral: 'bg-surface-container-high text-on-surface-variant',
   }
@@ -406,7 +393,7 @@ function TodayFeatureBoard({ hasAnalysisKey, isAdsAuthenticated, setupState, ana
   )
 }
 
-function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, caseName }) {
+function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, caseName, canUseAdvancedAnalysis }) {
   const lastCompletedAt = reportBundle?.generatedAt || setupState?.completedAt
   const latestLabel = lastCompletedAt
     ? new Date(lastCompletedAt).toLocaleString('ja-JP', {
@@ -480,7 +467,7 @@ function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, c
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black text-on-primary/75">
             <span className="rounded-full bg-white/10 px-3 py-1.5">対象: {dateRange}</span>
             <span className="rounded-full bg-white/10 px-3 py-1.5">最終更新: {latestLabel}</span>
-            <span className="rounded-full bg-white/10 px-3 py-1.5">AIキーなしでも基本分析可</span>
+            <span className="rounded-full bg-white/10 px-3 py-1.5">追加設定なしでも基本分析可</span>
           </div>
         </div>
 
@@ -520,7 +507,7 @@ function BeginnerDashboardHero({ setupState, reportBundle, isAdsAuthenticated, c
           ['summarize', 'まとめを見る', '結論・判断保留・次にやること', hasDataset ? '/ads/report' : '/ads/wizard'],
           ['monitoring', 'グラフを見る', 'アクセス・来訪元・成果の根拠', hasDataset ? '/ads/graphs' : '/ads/wizard'],
           ['tune', '分析内容を変える', '見る項目と期間を選び直す', '/ads/wizard'],
-          ['apps', '分析メニュー', 'AI・競合LP・広告画像を調べる', '/analysis'],
+          ...(canUseAdvancedAnalysis ? [['apps', '分析メニュー', '競合・入口ページ・画像を詳しく調べる', '/analysis']] : []),
         ].map(([icon, title, body, path]) => (
           <Link
             key={title}
@@ -597,7 +584,7 @@ function CurrentSiteSnapshot({ reportBundle }) {
 
 export default function Dashboard() {
   const { isAdsAuthenticated, hasAnalysisKey, analysisProvider, user } = useAuth()
-  const canUseAdvancedAnalysis = user?.role === 'admin'
+  const canUseAdvancedAnalysis = ['admin', 'operator'].includes(user?.role) || user?.platform_role === 'platform_admin'
   const canLoadAdvancedHistory = canUseAdvancedAnalysis && hasAnalysisKey
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(canLoadAdvancedHistory)
@@ -620,10 +607,10 @@ export default function Dashboard() {
         setHistory(items)
       })
       .catch((e) => {
-        setHistoryError(e.message)
+        setHistoryError(normalizeCustomerError(e, { role: user?.role }).body)
       })
       .finally(() => setHistoryLoading(false))
-  }, [canLoadAdvancedHistory])
+  }, [canLoadAdvancedHistory, user?.role])
 
   useEffect(() => {
     if (!canLoadAdvancedHistory) return undefined
@@ -638,7 +625,7 @@ export default function Dashboard() {
       })
       .catch((e) => {
         if (cancelled) return
-        setHistoryError(e.message)
+        setHistoryError(normalizeCustomerError(e, { role: user?.role }).body)
       })
       .finally(() => {
         if (cancelled) return
@@ -648,7 +635,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [canLoadAdvancedHistory])
+  }, [canLoadAdvancedHistory, user?.role])
 
   const latestScan = history.length > 0 ? history[0] : null
   const latestDate = latestScan?.date ?? latestScan?.created_at ?? null
@@ -659,7 +646,7 @@ export default function Dashboard() {
         ? '要セットアップ'
         : hasAnalysisKey
           ? `${getAnalysisProviderLabel(analysisProvider)} 詳細分析可`
-          : 'キーなし整理可'
+          : '基本分析を利用可'
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-5 pb-4 sm:px-6 lg:px-8 lg:py-8">
@@ -668,6 +655,7 @@ export default function Dashboard() {
         reportBundle={reportBundle}
         isAdsAuthenticated={isAdsAuthenticated}
         caseName={currentCase?.name || currentCase?.display_name}
+        canUseAdvancedAnalysis={canUseAdvancedAnalysis}
       />
 
       <CurrentSiteSnapshot reportBundle={reportBundle} />
@@ -682,15 +670,17 @@ export default function Dashboard() {
         </section>
       )}
 
-      <TodayFeatureBoard
-        hasAnalysisKey={hasAnalysisKey}
-        isAdsAuthenticated={isAdsAuthenticated}
-        setupState={setupState}
-        analysisProvider={analysisProvider}
-        canUseAdvancedAnalysis={canUseAdvancedAnalysis}
-      />
+      {canUseAdvancedAnalysis && (
+        <TodayFeatureBoard
+          hasAnalysisKey={hasAnalysisKey}
+          isAdsAuthenticated={isAdsAuthenticated}
+          setupState={setupState}
+          analysisProvider={analysisProvider}
+          canUseAdvancedAnalysis
+        />
+      )}
 
-      <details className="motion-section-enter rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
+      {canUseAdvancedAnalysis && <details className="motion-section-enter rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/15">
         <summary className="flex min-h-14 cursor-pointer items-center justify-between gap-3 px-5 py-4 font-extrabold text-on-surface japanese-text">
           最近の分析と接続状況を見る
           <span className="material-symbols-outlined text-primary" aria-hidden="true">expand_more</span>
@@ -741,11 +731,11 @@ export default function Dashboard() {
                   subtitle={setupState ? `${setupState.periods?.length ?? 0} 期間 / ${setupState.granularity ?? '-'}` : 'セットアップ未完了'}
                 />
                 <LiveStatCard
-                  icon="key"
+                  icon="settings"
                   label="接続状況"
                   value={coreConnectionCount}
                   unit={`/ 2`}
-                  subtitle={`競合・LP・画像分析: ${hasAnalysisKey ? `${getAnalysisProviderLabel(analysisProvider)}で利用可` : 'AIキーが必要'} / WebサイトAI: ${adsAiStatusLabel}`}
+                  subtitle={`競合・入口ページ・画像分析: ${hasAnalysisKey ? `${getAnalysisProviderLabel(analysisProvider)}で利用可` : '導入担当者の設定が必要'} / Webサイト分析: ${adsAiStatusLabel}`}
                 />
               </>
             )}
@@ -888,7 +878,7 @@ export default function Dashboard() {
           />
         </div>
         </div>
-      </details>
+      </details>}
     </div>
   )
 }

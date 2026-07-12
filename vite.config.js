@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 // 既定は dev.ps1 が起動するローカル uvicorn ポート。env で転送先を上書きできる
 // （ADS_PROXY_TARGET / ML_PROXY_TARGET）。これらはサーバー専用でバンドルされないため
 // VITE_ 接頭辞は付けない（秘密値ではないが、ブラウザに露出する必要もない）。
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const ADS_TARGET = env.ADS_PROXY_TARGET || 'http://127.0.0.1:8001'
   const ML_TARGET = env.ML_PROXY_TARGET || 'http://127.0.0.1:8002'
@@ -29,8 +29,22 @@ export default defineConfig(({ mode }) => {
     },
   }
 
+  const workflowEnabled = env.WORKFLOW_VITE_ENABLED === 'true'
+  const plugins = [react(), tailwindcss()]
+  if (workflowEnabled) {
+    const [{ nitro }, { workflow }] = await Promise.all([
+      import('nitro/vite'),
+      import('workflow/vite'),
+    ])
+    plugins.unshift(
+      nitro(),
+      workflow({ dirs: ['./workflows'], runtime: 'nodejs24.x' }),
+    )
+  }
+
   return {
-    plugins: [react(), tailwindcss()],
+    plugins,
+    ...(workflowEnabled ? { nitro: { serverDir: './server' } } : {}),
     server: {
       port: 3002,
       proxy,

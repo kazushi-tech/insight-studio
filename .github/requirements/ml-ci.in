@@ -1,0 +1,7 @@
+-c known-good-constraints.txt
+-r ../../backends/market-lens-ai/requirements.in
+-r ../../backends/market-lens-ai/requirements-dev.txt
+
+pytest==9.1.1
+pytest-asyncio==1.3.0
+pytest-cov==7.0.0

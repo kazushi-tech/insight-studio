@@ -5,31 +5,6 @@ import userEvent from '@testing-library/user-event'
 import { TestProviders } from '../../test/mocks/contexts.js'
 import Discovery from '../Discovery.jsx'
 
-// Chart.js relies on <canvas> which jsdom does not support fully.
-// Mock the entire module to prevent runtime errors during rendering.
-vi.mock('chart.js', () => {
-  class FakeChart {
-    constructor() {}
-    destroy() {}
-    update() {}
-  }
-  FakeChart.register = () => {}
-  return {
-    Chart: FakeChart,
-    BarController: {},
-    BarElement: {},
-    CategoryScale: {},
-    LinearScale: {},
-    Tooltip: {},
-    Legend: {},
-    RadarController: {},
-    RadialLinearScale: {},
-    PointElement: {},
-    LineElement: {},
-    Filler: {},
-  }
-})
-
 // Suppress noisy console output from the component during tests
 vi.spyOn(console, 'info').mockImplementation(() => {})
 vi.spyOn(console, 'warn').mockImplementation(() => {})

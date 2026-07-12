@@ -20,6 +20,7 @@ import bq.client as bq_client  # noqa: E402
 import bq.queries as bq_queries  # noqa: E402
 import bq.reporter as bq_reporter  # noqa: E402
 from web.app import backend_api as api  # noqa: E402
+from web.app.report_contract_v2 import build_report_v2  # noqa: E402
 
 
 def _json_body(response):
@@ -94,7 +95,7 @@ class _FakeRequest:
 
 
 def test_generate_batch_returns_execution_summary_for_every_query(monkeypatch):
-    def fake_run_report(query_type, dataset, period):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
         if query_type == "search":
             return {
                 "report_md": "# Search",
@@ -137,7 +138,7 @@ def test_generate_batch_returns_execution_summary_for_every_query(monkeypatch):
 
 
 def test_generate_batch_treats_all_no_data_as_a_normal_partial_result(monkeypatch):
-    def fake_run_report(query_type, dataset, period):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
         return None
 
     api._bq_cache.clear()
@@ -158,6 +159,103 @@ def test_generate_batch_treats_all_no_data_as_a_normal_partial_result(monkeypatc
     assert "データがない項目" in body["missing_reason"]
 
 
+def test_generate_batch_exposes_combined_report_v2_on_the_top_level(monkeypatch):
+    child_report = build_report_v2(
+        report_id="pv:2026-05",
+        project_id="platform-admin",
+        current_period={"start": "2026-05-01", "end": "2026-05-31"},
+        comparison_period={"start": "2026-04-01", "end": "2026-04-30"},
+        comparison_policy="previous_month",
+        metrics=[
+            {
+                "key": "users",
+                "label": "期間内利用者数",
+                "value": 3,
+                "comparison_value": 2,
+                "unit": "users",
+                "aggregation": "distinct_period",
+                "source": "pv.period_users",
+            }
+        ],
+        generated_at="2026-07-12T00:00:00+00:00",
+    )
+
+    def fake_run_report(query_type, dataset, period, **_kwargs):
+        return {
+            "report_v2": child_report,
+            "dataframe": pd.DataFrame(
+                {
+                    "event_date": ["20260501"],
+                    "users": [3],
+                    "sessions": [3],
+                    "page_views": [5],
+                    "period_users": [3],
+                    "period_sessions": [3],
+                    "period_page_views": [5],
+                }
+            ),
+            "query_info": {"name": "PV"},
+        }
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_queries, "QUERIES", {"pv": {}})
+    monkeypatch.setattr(bq_reporter, "run_report", fake_run_report)
+    body = _json_body(asyncio.run(api.api_bq_generate_batch(_FakeRequest({
+        "query_types": ["pv"],
+        "dataset_id": "analytics_123",
+        "period": "2026-05",
+    }))))
+
+    assert body["report_v2"]["schema_version"] == "report.v2"
+    assert body["report_v2"]["project_id"] == "platform-admin"
+    assert body["report_v2"]["metrics"][0]["key"] == "pv.users"
+    assert body["results"]["pv"]["report_v2"] == child_report
+
+
+def test_generate_batch_preserves_query_failed_report_contract(monkeypatch):
+    failed_report = build_report_v2(
+        report_id="pv:2026-05",
+        project_id="platform-admin",
+        current_period={"start": "2026-05-01", "end": "2026-05-31"},
+        comparison_period={"start": "2026-04-01", "end": "2026-04-30"},
+        comparison_policy="previous_month",
+        metrics=[
+            {
+                "key": "users",
+                "label": "期間内利用者数",
+                "status": "query_failed",
+                "comparison_status": "query_failed",
+                "unit": "users",
+                "aggregation": "distinct_period",
+                "source": "pv.period_users",
+            }
+        ],
+        generated_at="2026-07-12T00:00:00+00:00",
+    )
+
+    def fake_run_report(query_type, dataset, period, **_kwargs):
+        return {
+            "query_failed": True,
+            "error_code": "query_error",
+            "report_v2": failed_report,
+        }
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_queries, "QUERIES", {"pv": {}})
+    monkeypatch.setattr(bq_reporter, "run_report", fake_run_report)
+    response = asyncio.run(api.api_bq_generate_batch(_FakeRequest({
+        "query_types": ["pv"],
+        "dataset_id": "analytics_123",
+        "period": "2026-05",
+    })))
+    body = _json_body(response)
+
+    assert response.status_code == 502
+    assert body["error"]["code"] == "query_error"
+    assert body["report_v2"]["availability"]["overall"] == "failed"
+    assert body["report_v2"]["availability"]["metrics"][0]["status"] == "query_failed"
+
+
 def test_bq_credentials_failure_is_service_unavailable_not_user_auth(monkeypatch):
     class DefaultCredentialsError(Exception):
         pass
@@ -173,7 +271,7 @@ def test_bq_credentials_failure_is_service_unavailable_not_user_auth(monkeypatch
     body = _json_body(response)
 
     assert response.status_code == 503
-    assert body["error"] == "bq_credentials_missing"
+    assert body["error"]["code"] == "bq_credentials_missing"
     assert "再ログイン" not in body["message"]
 
 

@@ -12,17 +12,21 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 try:
     from .gemini_budget import (
+        GeminiBudgetUnavailable,
         assert_gemini_budget_available,
         normalize_gemini_model,
         record_gemini_usage,
         record_gemini_usage_from_response,
+        release_gemini_reservation,
     )
 except ImportError:  # pragma: no cover - direct script execution fallback
     from web.app.gemini_budget import (  # type: ignore
+        GeminiBudgetUnavailable,
         assert_gemini_budget_available,
         normalize_gemini_model,
         record_gemini_usage,
         record_gemini_usage_from_response,
+        release_gemini_reservation,
     )
 
 # Repo root: .../ads-insights/web/app/gemini_client.py -> parents[2] = repo root
@@ -661,6 +665,10 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
         out = str(resp)
         record_from_resp(resp, out, estimated=True)
         return out
+    except GeminiBudgetUnavailable:
+        # The provider already returned; do not retry or release a charge that
+        # may have occurred when durable finalization is temporarily down.
+        raise
     except Exception as e:
         last_err = e
 
@@ -707,9 +715,13 @@ def call_gemini(*, system_prompt: str, user_text: str, model: str, temperature: 
         out = str(resp)
         record_from_resp(resp, out, estimated=True)
         return out
+    except GeminiBudgetUnavailable:
+        raise
     except Exception as e:
         if last_err is not None:
+            release_gemini_reservation(budget_estimate)
             raise RuntimeError(f"Gemini呼び出しに失敗しました（google-genai→google-generativeai）: {last_err} / {e}") from e
+        release_gemini_reservation(budget_estimate)
         raise
 
 

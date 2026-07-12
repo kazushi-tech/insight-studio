@@ -1,26 +1,14 @@
 from __future__ import annotations
 
-import json
-import sys
-from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+import sqlalchemy as sa
+from sqlalchemy.exc import OperationalError
 
 from web.app import gemini_budget as gb
-
-TEST_USAGE_PATH = ROOT / "data" / "test_gemini_budget_usage.json"
-
-
-def _usage_path(monkeypatch) -> Path:
-    TEST_USAGE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    if TEST_USAGE_PATH.exists():
-        TEST_USAGE_PATH.unlink()
-    monkeypatch.setenv("GEMINI_USAGE_PATH", str(TEST_USAGE_PATH))
-    return TEST_USAGE_PATH
+from web.app.platform.schema import ai_budget_accounts, ai_usage_ledger
+from web.app.platform_db import get_platform_engine
 
 
 def test_calculates_gemini_flash_lite_cost() -> None:
@@ -36,11 +24,16 @@ def test_normalizes_legacy_flash_preview_model() -> None:
     assert gb.normalize_gemini_model("") == "gemini-3.1-flash-lite"
 
 
-def test_records_real_usage_metadata(monkeypatch) -> None:
-    _usage_path(monkeypatch)
-
+def test_records_real_usage_metadata_in_shared_ledger() -> None:
+    reservation = gb.assert_gemini_budget_available(
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        prompt="hello",
+        max_output_tokens=100,
+        feature="test",
+        idempotency_key="budget:test:real-usage",
+    )
     event = gb.record_gemini_usage_from_response(
-        model="gemini-3.1-flash-lite",
+        model=gb.GEMINI_FLASH_LITE_MODEL,
         prompt="hello",
         output_text="world",
         max_output_tokens=100,
@@ -50,6 +43,7 @@ def test_records_real_usage_metadata(monkeypatch) -> None:
             "totalTokenCount": 1200,
         },
         feature="test",
+        request_estimate=reservation,
     )
 
     assert event is not None
@@ -60,23 +54,125 @@ def test_records_real_usage_metadata(monkeypatch) -> None:
 
 
 def test_blocks_when_projected_monthly_budget_exceeds(monkeypatch) -> None:
-    usage_path = _usage_path(monkeypatch)
-    monkeypatch.setenv("GEMINI_MONTHLY_BUDGET_USD", "18")
-    month = gb.current_month_key()
-    usage_path.write_text(
-        json.dumps({
-            "version": 1,
-            "events": [
-                {"month": month, "cost_usd": 17.99, "created_at": "2026-05-20T00:00:00+09:00"}
-            ],
-        }),
-        encoding="utf-8",
-    )
-
+    monkeypatch.setenv("GEMINI_MONTHLY_BUDGET_USD", "0.01")
     with pytest.raises(gb.GeminiBudgetExceeded):
         gb.assert_gemini_budget_available(
-            model="gemini-3.1-flash-lite",
+            model=gb.GEMINI_FLASH_LITE_MODEL,
             prompt="x" * 20_000,
             max_output_tokens=20_000,
             feature="test",
+            idempotency_key="budget:test:over-limit",
         )
+
+
+def test_same_idempotency_key_is_one_charge_across_store_instances() -> None:
+    engine = get_platform_engine()
+    first = gb.PostgresGeminiBudgetStore(engine_provider=lambda: engine)
+    cold_start = gb.PostgresGeminiBudgetStore(engine_provider=lambda: engine)
+
+    initial = first.reserve(
+        idempotency_key="budget:test:retry",
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        feature="retry",
+        input_tokens=10,
+        output_tokens=20,
+    )
+    replay = cold_start.reserve(
+        idempotency_key="budget:test:retry",
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        feature="retry",
+        input_tokens=10,
+        output_tokens=20,
+    )
+    assert initial["already_reserved"] is False
+    assert replay["already_reserved"] is True
+    with engine.connect() as connection:
+        assert connection.scalar(sa.select(sa.func.count()).select_from(ai_usage_ledger)) == 1
+
+
+def test_concurrent_reservations_cannot_overspend(monkeypatch) -> None:
+    monkeypatch.setenv("GEMINI_MONTHLY_BUDGET_USD", "0.00001")
+    engine = get_platform_engine()
+
+    def reserve(index: int) -> str:
+        store = gb.PostgresGeminiBudgetStore(engine_provider=lambda: engine)
+        try:
+            store.reserve(
+                idempotency_key=f"budget:test:parallel:{index}",
+                model=gb.GEMINI_FLASH_LITE_MODEL,
+                feature="parallel",
+                input_tokens=0,
+                output_tokens=1,
+            )
+            return "allowed"
+        except gb.GeminiBudgetExceeded:
+            return "blocked"
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(reserve, range(10)))
+    assert results.count("allowed") == 5
+    assert results.count("blocked") == 5
+
+
+def test_finalize_replay_and_release_are_idempotent() -> None:
+    estimate = gb.assert_gemini_budget_available(
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        prompt="hello",
+        max_output_tokens=100,
+        feature="finalize",
+        idempotency_key="budget:test:finalize",
+    )
+    first = gb.record_gemini_usage(
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        prompt_tokens=20,
+        completion_tokens=30,
+        feature="finalize",
+        request_estimate=estimate,
+    )
+    replay = gb.record_gemini_usage(
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        prompt_tokens=999,
+        completion_tokens=999,
+        feature="finalize",
+        request_estimate=estimate,
+    )
+    assert replay == first
+    assert gb.release_gemini_reservation(estimate) is False
+
+    pending = gb.assert_gemini_budget_available(
+        model=gb.GEMINI_FLASH_LITE_MODEL,
+        prompt="pending",
+        max_output_tokens=20,
+        feature="release",
+        idempotency_key="budget:test:release",
+    )
+    assert gb.release_gemini_reservation(pending) is True
+    assert gb.release_gemini_reservation(pending) is False
+
+
+def test_database_failure_fails_closed_without_file_fallback(monkeypatch) -> None:
+    def unavailable():
+        raise OperationalError("SELECT", {}, RuntimeError("secret db detail"))
+
+    monkeypatch.setattr(
+        gb,
+        "_budget_store",
+        gb.PostgresGeminiBudgetStore(engine_provider=unavailable),
+    )
+    with pytest.raises(gb.GeminiBudgetUnavailable, match="database is unavailable"):
+        gb.get_budget_summary()
+    with pytest.raises(gb.GeminiBudgetUnavailable):
+        gb.assert_gemini_budget_available(
+            model=gb.GEMINI_FLASH_LITE_MODEL,
+            prompt="paid call must not start",
+            max_output_tokens=100,
+            feature="failure",
+        )
+
+
+def test_account_and_ledger_are_migration_owned_tables() -> None:
+    engine = get_platform_engine()
+    gb.get_budget_summary()
+    with engine.connect() as connection:
+        assert connection.scalar(sa.select(sa.func.count()).select_from(ai_budget_accounts)) == 1
+        assert connection.scalar(sa.select(sa.func.count()).select_from(ai_usage_ledger)) == 0

@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import verify_admin_or_integration
+from ..auth import get_verified_owner_id, verify_admin_or_integration
 from ..repositories.scan_repository import ScanRepository
 from ..schemas.report_envelope import build_envelope_from_md, report_envelope_enabled
 from ..services import history_service
-from ..user_context import get_optional_user_id
 
 
 def create_history_router(repo: ScanRepository) -> APIRouter:
@@ -16,11 +15,11 @@ def create_history_router(repo: ScanRepository) -> APIRouter:
     router = APIRouter(dependencies=[Depends(verify_admin_or_integration)])
 
     @router.get("/api/scans")
-    async def list_scans(owner_id: str | None = Depends(get_optional_user_id)):
+    async def list_scans(owner_id: str = Depends(get_verified_owner_id)):
         return history_service.list_scans(owner_id, repo)
 
     @router.get("/api/scans/{run_id}")
-    async def get_scan(run_id: str, owner_id: str | None = Depends(get_optional_user_id)):
+    async def get_scan(run_id: str, owner_id: str = Depends(get_verified_owner_id)):
         try:
             result = history_service.get_scan(run_id, owner_id, repo)
         except ValueError:
@@ -30,7 +29,10 @@ def create_history_router(repo: ScanRepository) -> APIRouter:
         return result.model_dump(exclude={"owner_id"})
 
     @router.get("/api/scans/{run_id}/report.json")
-    async def get_scan_envelope(run_id: str, owner_id: str | None = Depends(get_optional_user_id)):
+    async def get_scan_envelope(
+        run_id: str,
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
         if not report_envelope_enabled():
             raise HTTPException(status_code=404, detail="ReportEnvelope v0 is not enabled.")
         try:
@@ -47,7 +49,10 @@ def create_history_router(repo: ScanRepository) -> APIRouter:
         return envelope.model_dump()
 
     @router.delete("/api/scans/{run_id}")
-    async def delete_scan(run_id: str, owner_id: str | None = Depends(get_optional_user_id)):
+    async def delete_scan(
+        run_id: str,
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
         try:
             deleted = history_service.delete_scan(run_id, owner_id, repo)
         except ValueError:

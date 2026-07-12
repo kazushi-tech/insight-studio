@@ -110,10 +110,14 @@ export function stopBackendKeepAlive() {
     _visibilityHandler = null
   }
 }
-const STORAGE_KEY_ADS_TOKEN = 'is_ads_token'
 const STORAGE_KEY_CLIENT_ID = 'insight-studio-client-id'
 const STORAGE_KEY_MARKET_LENS_PROFILE_ID = 'insight-studio-market-lens-profile-id'
 const STORAGE_KEY_MARKET_LENS_SCAN_HISTORY_PREFIX = 'insight-studio-market-lens-scan-history'
+let _authTokenProvider = null
+
+export function setMarketLensAuthTokenProvider(provider) {
+  _authTokenProvider = typeof provider === 'function' ? provider : null
+}
 
 const DISCOVERY_STAGE_LABELS = {
   brand_fetch: 'ブランドURL取得',
@@ -531,8 +535,7 @@ function getCurrentHistoryScope() {
   if (typeof window === 'undefined') return ''
 
   const profileId = ensureMarketLensProfileId()
-  const adsToken = window.localStorage.getItem(STORAGE_KEY_ADS_TOKEN)
-  if (adsToken) {
+  if (_authTokenProvider) {
     return `auth:${profileId}`
   }
 
@@ -580,15 +583,22 @@ async function resolveInsightUserHeader() {
   return scope ? { 'X-Insight-User': scope } : {}
 }
 
-function resolveAdsAuthorizationHeader() {
+async function resolveAdsAuthorizationHeader() {
   if (typeof window === 'undefined') return {}
-  const token = window.localStorage.getItem(STORAGE_KEY_ADS_TOKEN)
+  let token = null
+  if (_authTokenProvider) {
+    try {
+      token = await _authTokenProvider()
+    } catch {
+      token = null
+    }
+  }
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 async function buildRequestHeaders(customHeaders = {}) {
   const identityHeaders = await resolveInsightUserHeader()
-  const authorizationHeaders = resolveAdsAuthorizationHeader()
+  const authorizationHeaders = await resolveAdsAuthorizationHeader()
   return { ...authorizationHeaders, ...identityHeaders, ...customHeaders }
 }
 

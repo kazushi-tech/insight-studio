@@ -1,26 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-
-vi.mock('chart.js', () => {
-  class MockChart {
-    constructor() {
-      this.data = {}
-    }
-    update() {}
-    destroy() {}
-  }
-  MockChart.register = vi.fn()
-  return {
-    Chart: MockChart,
-    RadarController: {},
-    RadialLinearScale: {},
-    PointElement: {},
-    LineElement: {},
-    Filler: {},
-    Tooltip: {},
-    Legend: {},
-  }
-})
 
 import BrandRadarChart from '../BrandRadarChart'
 
@@ -80,15 +59,13 @@ const PROMOTED_FIXTURE = `## 4. ブランド別評価
 `
 
 describe('BrandRadarChart', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('renders a selection button for each of the 3 brands', () => {
     render(<BrandRadarChart reportMd={THREE_BRAND_FIXTURE} />)
     expect(screen.getByRole('button', { name: 'カメラの大林' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'キタムラ' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'ヨドバシカメラ' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /ブランド別評価レーダーチャート/ })).toBeInTheDocument()
+    expect(screen.getByText(/カメラの大林: 検索意図一致は強/)).toBeInTheDocument()
   })
 
   it('renders all 3 brands even when brand headings are promoted to ##', () => {

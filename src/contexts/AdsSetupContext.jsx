@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
 import { DEFAULT_ADS_DATASET_ID, loginCase, getCaseTrustToken, setCaseTrustToken } from '../api/adsInsights'
+import { platformApi } from '../api/platform'
 import {
   buildEntry as buildHistoryEntry,
   loadHistory as loadReportHistory,
@@ -25,6 +26,7 @@ function arraysDiffer(a, b) {
 
 function hasSetupChanged(prev, next) {
   if (!prev || !next) return false
+  if (prev.projectRef !== next.projectRef) return true
   if (prev.datasetId !== next.datasetId) return true
   if (arraysDiffer(prev.periods, next.periods)) return true
   if (arraysDiffer(prev.queryTypes, next.queryTypes)) return true
@@ -79,6 +81,9 @@ function normalizeSetupState(state) {
     typeof state.datasetId === 'string' && state.datasetId.trim().length > 0
       ? state.datasetId.trim()
       : DEFAULT_ADS_DATASET_ID
+  const projectRef = typeof state.projectRef === 'string' && state.projectRef.trim()
+    ? state.projectRef.trim()
+    : null
 
   if (queryTypes.length === 0 || periods.length === 0) return null
 
@@ -88,6 +93,7 @@ function normalizeSetupState(state) {
     periods,
     granularity,
     datasetId,
+    projectRef,
     completedAt: state.completedAt,
   }
 }
@@ -145,7 +151,7 @@ function migrateLegacyStorage() {
 }
 
 export function AdsSetupProvider({ children }) {
-  const { onAdsLogout, syncTokenFromApi, user } = useAuth()
+  const { authMode, onAdsLogout, syncTokenFromApi, user } = useAuth()
   const [currentCase, setCurrentCase] = useState(() => {
     try {
       const saved = localStorage.getItem(CASE_STORAGE_KEY)
@@ -160,21 +166,85 @@ export function AdsSetupProvider({ children }) {
 
   // Auto-set case for case_user login
   useEffect(() => {
-    if (user?.role === 'case_user' && user.case_id) {
+    if (authMode !== 'clerk' && user?.role === 'case_user' && user.case_id) {
       const caseInfo = {
         case_id: user.case_id,
         name: user.display_name || user.case_id,
         dataset_id: user.dataset_id,
+        is_demo: user.is_demo === true,
       }
       setCurrentCase(caseInfo) // eslint-disable-line react-hooks/set-state-in-effect -- sync user role
       setIsCaseAuthenticated(true)
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
       localStorage.setItem(CASE_AUTH_KEY, 'true')
     }
-  }, [user?.role, user?.case_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authMode, user?.role, user?.case_id, user?.is_demo]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clerk users select only from projects returned by the tenant-scoped API.
+  // The browser keeps the project reference for navigation, but never receives
+  // or persists the BigQuery dataset identifier.
+  useEffect(() => {
+    if (authMode !== 'clerk') return undefined
+    let active = true
+
+    if (!user?.user_id) {
+      Promise.resolve().then(() => {
+        if (!active) return
+        setCurrentCase(null)
+        setIsCaseAuthenticated(false)
+        localStorage.removeItem(CASE_STORAGE_KEY)
+        localStorage.removeItem(CASE_AUTH_KEY)
+      })
+      return () => { active = false }
+    }
+
+    platformApi.listProjects().then((response) => {
+      if (!active) return
+      const projects = (Array.isArray(response?.projects) ? response.projects : [])
+        .filter((project) => !['archived', 'deleted'].includes(project?.status))
+
+      let savedProjectId = null
+      try {
+        const saved = JSON.parse(localStorage.getItem(CASE_STORAGE_KEY) || 'null')
+        savedProjectId = saved?.project_id || saved?.case_id || null
+      } catch {
+        localStorage.removeItem(CASE_STORAGE_KEY)
+      }
+      const selected = projects.find((project) => project.id === savedProjectId) || projects[0] || null
+      if (!selected) {
+        setCurrentCase(null)
+        setIsCaseAuthenticated(false)
+        localStorage.removeItem(CASE_STORAGE_KEY)
+        localStorage.removeItem(CASE_AUTH_KEY)
+        return
+      }
+      const caseInfo = {
+        case_id: selected.id,
+        project_id: selected.id,
+        project_ref: selected.id,
+        project_role: user?.project_roles?.[selected.id] || user?.workspace_role || null,
+        name: selected.name,
+        status: selected.status,
+        is_demo: selected.is_demo === true,
+      }
+      setCurrentCase(caseInfo)
+      setIsCaseAuthenticated(true)
+      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
+      localStorage.setItem(CASE_AUTH_KEY, 'true')
+    }).catch(() => {
+      if (!active) return
+      setCurrentCase(null)
+      setIsCaseAuthenticated(false)
+      localStorage.removeItem(CASE_STORAGE_KEY)
+      localStorage.removeItem(CASE_AUTH_KEY)
+    })
+
+    return () => { active = false }
+  }, [authMode, user?.user_id, user?.workspace_role, user?.project_roles])
 
   // Run legacy migration on first mount
   useEffect(() => {
+    if (authMode === 'clerk') return
     migrateLegacyStorage()
     // If no case is set and not a case_user, auto-select petabit
     if (!currentCase && user?.role !== 'case_user') {
@@ -182,7 +252,7 @@ export function AdsSetupProvider({ children }) {
       setCurrentCase(petabitCase) // eslint-disable-line react-hooks/set-state-in-effect -- mount init
       localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [setupState, setSetupState] = useState(() => loadState(currentCase?.case_id))
   const [reportBundle, setReportBundle] = useState(null)
@@ -202,13 +272,31 @@ export function AdsSetupProvider({ children }) {
 
   // Case management functions
   const selectCase = useCallback((caseInfo) => {
-    setCurrentCase(caseInfo)
-    localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(caseInfo))
-  }, [])
+    const nextCase = authMode === 'clerk' && caseInfo
+      ? {
+          case_id: caseInfo.project_id || caseInfo.id || caseInfo.case_id,
+          project_id: caseInfo.project_id || caseInfo.id || caseInfo.case_id,
+          project_ref: caseInfo.project_ref || caseInfo.project_id || caseInfo.id || caseInfo.case_id,
+          project_role: caseInfo.project_role || user?.project_roles?.[caseInfo.project_id || caseInfo.id || caseInfo.case_id] || user?.workspace_role || null,
+          name: caseInfo.name,
+          status: caseInfo.status,
+          is_demo: caseInfo.is_demo === true,
+        }
+      : caseInfo
+    setCurrentCase(nextCase)
+    setIsCaseAuthenticated(Boolean(nextCase))
+    if (nextCase) {
+      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(nextCase))
+      localStorage.setItem(CASE_AUTH_KEY, 'true')
+    }
+  }, [authMode, user?.project_roles, user?.workspace_role])
 
   // Returns { status: 'ok', caseInfo } or { status: 'totp_required', caseName }.
   // Throws on hard failures (wrong password, network, etc.).
   const authenticateCase = useCallback(async (caseId, password, { totpCode = null } = {}) => {
+    if (authMode === 'clerk') {
+      throw new Error('組織の招待と案件権限でログインしてください。')
+    }
     const trustToken = getCaseTrustToken(caseId)
     const result = await loginCase(caseId, password, {
       totpCode,
@@ -224,6 +312,7 @@ export function AdsSetupProvider({ children }) {
       case_id: result.case_id,
       name: result.name,
       dataset_id: result.dataset_id,
+      is_demo: result.is_demo === true,
     }
     setCurrentCase(caseInfo)
     setIsCaseAuthenticated(true)
@@ -236,7 +325,7 @@ export function AdsSetupProvider({ children }) {
     // loginCase が token を返していたら AuthContext にも同期
     syncTokenFromApi()
     return { status: 'ok', caseInfo }
-  }, [syncTokenFromApi])
+  }, [authMode, syncTokenFromApi])
 
   const clearCase = useCallback(() => {
     setCurrentCase(null)
@@ -247,8 +336,9 @@ export function AdsSetupProvider({ children }) {
   }, [resetSetup])
 
   const getCurrentDatasetId = useCallback(() => {
+    if (authMode === 'clerk') return undefined
     return currentCase?.dataset_id ?? DEFAULT_ADS_DATASET_ID
-  }, [currentCase])
+  }, [authMode, currentCase])
 
   useEffect(() => {
     return onAdsLogout(() => {
@@ -268,7 +358,10 @@ export function AdsSetupProvider({ children }) {
       queryTypes: payload.queryTypes,
       periods: payload.periods,
       granularity: payload.granularity,
-      datasetId: payload.datasetId ?? getCurrentDatasetId(),
+      datasetId: authMode === 'clerk' ? 'managed' : (payload.datasetId ?? getCurrentDatasetId()),
+      projectRef: authMode === 'clerk'
+        ? (payload.projectRef || currentCase?.project_id || currentCase?.case_id || null)
+        : (payload.projectRef || null),
       completedAt: new Date().toISOString(),
     }
 
@@ -307,7 +400,7 @@ export function AdsSetupProvider({ children }) {
     // (data was successfully fetched from backend during wizard)
     setIsCaseAuthenticated(true)
     localStorage.setItem(CASE_AUTH_KEY, 'true')
-  }, [currentCase?.case_id, getCurrentDatasetId, setupState, reportBundle])
+  }, [authMode, currentCase?.case_id, currentCase?.project_id, getCurrentDatasetId, setupState, reportBundle])
 
   return (
     <AdsSetupContext.Provider

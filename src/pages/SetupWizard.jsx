@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { bqPeriods } from '../api/adsInsights'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -6,10 +6,13 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAdsSetup } from '../contexts/AdsSetupContext'
 import { buildAdsReportBundle, generateBatchWithRetry } from '../utils/adsReports'
 import { latestPeriodValue } from '../utils/wizardPeriods'
+import { shouldShowDemoMode } from '../utils/demoMode'
+import { normalizeCustomerError } from '../utils/customerErrors'
 
 const QUERY_TYPES = [
   { id: 'pv', icon: 'trending_up', label: '見られた回数', term: 'ページビュー数（PV）・ユーザー数・セッション数', desc: 'サイトがどれくらい見られたか、日ごとの変化を確認します。', color: 'text-orange-600' },
   { id: 'traffic', icon: 'input', label: 'どこから来たか', term: '流入元／参照元・メディア', desc: '検索、広告、ほかのサイトなど、主な来訪元を確認します。', color: 'text-blue-600' },
+  { id: 'campaign', icon: 'campaign', label: 'キャンペーン別の来訪', term: 'キャンペーン・参照元・メディア別分析', desc: '計測名ごとの訪問や成果を確認します。費用対効果は含みません。', color: 'text-sky-700' },
   { id: 'cv', icon: 'target', label: '問い合わせ・予約・購入', term: 'キーイベント／コンバージョン（CV）', desc: '成果として計測できた動きがあるかを確認します。', color: 'text-emerald-600' },
   { id: 'search', icon: 'search', label: 'サイト内で検索された言葉', term: 'サイト内検索クエリ', desc: '訪問した人がサイト内で探した言葉を確認します。', color: 'text-purple-600' },
   { id: 'anomaly', icon: 'warning', label: '急に変わった日', term: '日別異常検知（Zスコア）', desc: '普段と大きく違う動きがあった日を確認します。', color: 'text-red-600' },
@@ -18,15 +21,43 @@ const QUERY_TYPES = [
   { id: 'hourly', icon: 'schedule', label: '見られた時間帯', term: '時間帯別分析', desc: '訪問や成果が多い時間帯を確認します。', color: 'text-amber-700' },
   { id: 'user_attr', icon: 'group', label: '初めて・再訪した人と地域', term: '新規／リピーター・地域別分析', desc: '取得できる範囲で、新規・再訪と国・地域の傾向を確認します。', color: 'text-pink-600' },
   { id: 'engagement', icon: 'timer', label: 'ちゃんと読まれたか', term: 'エンゲージメント時間', desc: 'ページを見た時間や、内容への反応を確認します。', color: 'text-teal-700' },
-  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: '有料流入への偏り', term: '流入チャネル構成比（GA4推定）', desc: '来訪元の構成から、有料流入への偏りを確認します。', color: 'text-rose-600' },
+  { id: 'auction_proxy', icon: 'stacked_bar_chart', label: '流入集中の参考値', term: '来訪元の構成', desc: '特定の来訪元にアクセスが集中していないか確認します。', color: 'text-rose-600' },
 ]
 
-const BASIC_QUERY_IDS = new Set(['pv', 'traffic', 'cv', 'landing'])
+const ANALYSIS_GOALS = [
+  {
+    id: 'overview',
+    icon: 'dashboard',
+    title: '全体を見る',
+    description: '訪問、来訪元、成果、入口ページをまとめて確認します。',
+    queryIds: ['pv', 'traffic', 'cv', 'landing'],
+  },
+  {
+    id: 'acquisition',
+    icon: 'travel_explore',
+    title: '集客を見る',
+    description: 'どこから来て、どのページを入口にしたかを確認します。',
+    queryIds: ['traffic', 'campaign', 'landing', 'search'],
+  },
+  {
+    id: 'outcomes',
+    icon: 'task_alt',
+    title: '成果を見る',
+    description: '問い合わせなどの成果と、成果につながる閲覧を確認します。',
+    queryIds: ['cv', 'landing', 'engagement', 'hourly'],
+  },
+]
+
+function selectionForQueryIds(queryIds) {
+  const ids = new Set(queryIds)
+  return new Set(
+    QUERY_TYPES.map((queryType, index) => ids.has(queryType.id) ? index : null)
+      .filter((index) => index != null),
+  )
+}
 
 function recommendedSelection() {
-  return new Set(
-    QUERY_TYPES.map((queryType, index) => BASIC_QUERY_IDS.has(queryType.id) ? index : null).filter((index) => index != null),
-  )
+  return selectionForQueryIds(ANALYSIS_GOALS[0].queryIds)
 }
 
 function periodValue(period) {
@@ -49,7 +80,10 @@ function extractPeriods(data) {
   return []
 }
 
-function QueryOption({ queryType, index, selected, onToggle }) {
+function QueryOption({ queryType, index, selected, onToggle, isDemo = false, showTechnicalTerm = false }) {
+  const term = isDemo && queryType.id === 'auction_proxy'
+    ? '流入チャネル構成比（架空データ推定）'
+    : queryType.term
   return (
     <button
       type="button"
@@ -71,9 +105,11 @@ function QueryOption({ queryType, index, selected, onToggle }) {
           {selected ? 'check_circle' : 'circle'}
         </span>
       </span>
-      <span className="mt-2 block text-xs font-black leading-5 text-primary/80 japanese-text">
-        （{queryType.term}）
-      </span>
+      {showTechnicalTerm && (
+        <span className="mt-2 block text-xs font-black leading-5 text-primary/80 japanese-text">
+          （{term}）
+        </span>
+      )}
       <span className="mt-3 block text-xs font-bold leading-6 text-on-surface-variant japanese-text">{queryType.desc}</span>
     </button>
   )
@@ -82,10 +118,14 @@ function QueryOption({ queryType, index, selected, onToggle }) {
 export default function SetupWizard() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAdsAuthenticated, authExpiredMessage, clearAuthExpiredMessage } = useAuth()
+  const { authMode, isAdsAuthenticated, authExpiredMessage, clearAuthExpiredMessage, user: authUser } = useAuth()
   const { completeSetup, getCurrentDatasetId, currentCase } = useAdsSetup()
+  const projectRef = currentCase?.project_id || currentCase?.project_ref || currentCase?.case_id || null
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
+  const canViewTechnicalDetails = authUser?.platform_role === 'platform_admin' || authUser?.role === 'admin'
   const [step, setStep] = useState(0)
   const [selected, setSelected] = useState(recommendedSelection)
+  const [selectedGoal, setSelectedGoal] = useState('overview')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -97,11 +137,27 @@ export default function SetupWizard() {
   const [granularity, setGranularity] = useState('monthly')
   const [loadingLabel, setLoadingLabel] = useState('処理中…')
   const [periodDiagnostics, setPeriodDiagnostics] = useState(null)
+  const stepHeadingRef = useRef(null)
+  const previousStepRef = useRef(step)
+  const goalRefs = useRef([])
+
+  function customerErrorMessage(nextError) {
+    return normalizeCustomerError(nextError, { role: authUser?.role }).body
+  }
+
+  function initialPeriodSelection(items) {
+    if (isDemo) {
+      return new Set(items.map(periodValue).filter(Boolean))
+    }
+    const latestPeriod = latestPeriodValue(items)
+    return latestPeriod ? new Set([latestPeriod]) : new Set()
+  }
 
   useEffect(() => {
     if (!location.state?.resetAt) return
     setStep(0)
     setSelected(recommendedSelection())
+    setSelectedGoal('overview')
     setShowAdvanced(false)
     setError(null)
     setLoading(false)
@@ -119,6 +175,7 @@ export default function SetupWizard() {
     if (isAdsAuthenticated) return
     setStep(0)
     setSelected(recommendedSelection())
+    setSelectedGoal('overview')
     setShowAdvanced(false)
     setError(null)
     setLoading(false)
@@ -136,12 +193,37 @@ export default function SetupWizard() {
     const next = new Set(selected)
     next.has(index) ? next.delete(index) : next.add(index)
     setSelected(next)
+    setSelectedGoal('custom')
     setGeneratedPeriods(new Set())
     setGeneratedResults(new Map())
     setLoadResult(null)
   }
 
+  function chooseGoal(goal) {
+    setSelected(selectionForQueryIds(goal.queryIds))
+    setSelectedGoal(goal.id)
+    setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
+    setLoadResult(null)
+  }
+
+  function handleGoalKeyDown(event, index) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
+    event.preventDefault()
+    const direction = ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : -1
+    const nextIndex = (index + direction + ANALYSIS_GOALS.length) % ANALYSIS_GOALS.length
+    chooseGoal(ANALYSIS_GOALS[nextIndex])
+    goalRefs.current[nextIndex]?.focus()
+  }
+
+  useEffect(() => {
+    if (previousStepRef.current === step) return
+    previousStepRef.current = step
+    globalThis.requestAnimationFrame?.(() => stepHeadingRef.current?.focus())
+  }, [step])
+
   const togglePeriod = (value) => {
+    if (isDemo) return
     const next = new Set(selectedPeriods)
     next.has(value) ? next.delete(value) : next.add(value)
     setSelectedPeriods(next)
@@ -151,10 +233,14 @@ export default function SetupWizard() {
   }
 
   async function fetchPeriods(gran) {
-    const data = await bqPeriods({ granularity: gran, dataset_id: getCurrentDatasetId() })
+    const data = await bqPeriods({
+      granularity: gran,
+      dataset_id: getCurrentDatasetId(),
+      project_ref: projectRef,
+    })
     const datasetId = getCurrentDatasetId()
     const diagnostics = {
-      dataset_id: data?.dataset_id ?? datasetId,
+      ...(authMode === 'clerk' ? {} : { dataset_id: data?.dataset_id ?? datasetId }),
       granularity: data?.granularity ?? gran,
       table_count: data?.table_count ?? null,
       method: data?.method ?? 'period_api',
@@ -180,14 +266,13 @@ export default function SetupWizard() {
       if (items.length === 0) {
         setPeriods([])
         setSelectedPeriods(new Set())
-        setError(diagnostics?.message || 'この粒度では利用可能な分析期間が見つかりませんでした。')
+        setError('このまとめ方では利用可能な期間が見つかりませんでした。接続と計測状況を確認してください。')
       } else {
         setPeriods(items)
-        const latestPeriod = latestPeriodValue(items)
-        setSelectedPeriods(latestPeriod ? new Set([latestPeriod]) : new Set())
+        setSelectedPeriods(initialPeriodSelection(items))
       }
     } catch (e) {
-      setError(e.message)
+      setError(customerErrorMessage(e))
       setPeriods([])
     } finally {
       setLoading(false)
@@ -212,20 +297,21 @@ export default function SetupWizard() {
           setGeneratedPeriods(new Set())
           setGeneratedResults(new Map())
           setLoadResult(null)
-          setError(diagnostics?.message || 'BigQueryデータセットに利用可能な分析期間が見つかりませんでした。')
+          setError(isDemo
+            ? '利用可能なデモ期間が見つかりませんでした。'
+            : '接続済みの分析データに利用可能な期間が見つかりませんでした。')
           setStep(1)
           return
         }
 
         setPeriods(items)
-        const latestPeriod = latestPeriodValue(items)
-        setSelectedPeriods(latestPeriod ? new Set([latestPeriod]) : new Set())
+        setSelectedPeriods(initialPeriodSelection(items))
         setGeneratedPeriods(new Set())
         setGeneratedResults(new Map())
         setLoadResult(null)
         setStep(1)
       } catch (e) {
-        setError(e.message)
+        setError(customerErrorMessage(e))
       } finally {
         setLoading(false)
       }
@@ -234,7 +320,14 @@ export default function SetupWizard() {
     }
 
     if (step === 1) {
-      if (selectedPeriods.size === 0) return
+      const periodsArray = isDemo
+        ? periods.map(periodValue).filter(Boolean)
+        : [...selectedPeriods]
+      if (periodsArray.length === 0) return
+      if (isDemo && periodsArray.length < 2) {
+        setError('デモの対象月と比較月を準備できませんでした。期間を再取得してください。')
+        return
+      }
       setLoading(true)
       setLoadingLabel('レポートを生成中…')
       let completedCount = generatedResults.size
@@ -242,7 +335,6 @@ export default function SetupWizard() {
       try {
         const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
-        const periodsArray = [...selectedPeriods]
         const currentResults = new Map(generatedResults)
         const pendingPeriods = periodsArray.filter((period) => !currentResults.has(period))
         setLoadingLabel(`レポートを生成中… (0/${periodsArray.length})`)
@@ -252,6 +344,7 @@ export default function SetupWizard() {
           const data = await generateBatchWithRetry({
             query_types: queryTypeIds,
             dataset_id: getCurrentDatasetId(),
+            project_ref: projectRef,
             period,
           })
           currentResults.set(period, { ...data, period })
@@ -266,7 +359,8 @@ export default function SetupWizard() {
             queryTypes: queryTypeIds,
             periods: periodsArray,
             granularity,
-            datasetId: getCurrentDatasetId(),
+            datasetId: authMode === 'clerk' ? 'managed' : getCurrentDatasetId(),
+            projectRef,
           },
           results,
         })
@@ -276,16 +370,18 @@ export default function SetupWizard() {
             queryTypes: queryTypeIds,
             periods: periodsArray,
             granularity,
-            datasetId: getCurrentDatasetId(),
+            datasetId: authMode === 'clerk' ? 'managed' : getCurrentDatasetId(),
+            projectRef,
           },
           reportBundle,
         )
         setStep(2)
       } catch (e) {
+        const safeMessage = customerErrorMessage(e)
         const progressMessage =
           completedCount > 0
-            ? `${e.message} ${completedCount}/${selectedPeriods.size} 期間は生成済みです。次の再試行では未完了分のみ送信します。`
-            : e.message
+            ? `${safeMessage} ${completedCount}/${selectedPeriods.size} 期間は準備済みです。次の再試行では未完了分だけ確認します。`
+            : safeMessage
         setError(progressMessage)
       } finally {
         setLoading(false)
@@ -310,27 +406,27 @@ export default function SetupWizard() {
   }
 
   return (
-    <main className="mx-auto max-w-[1100px] space-y-8 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-10" aria-labelledby="setup-wizard-title">
+      <div className="mx-auto max-w-[1100px] space-y-8 px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.14em] text-primary">3ステップで完了</p>
           <h1 id="setup-wizard-title" className="mt-2 text-3xl font-extrabold tracking-tight text-on-surface japanese-text">サイト分析の準備</h1>
           <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-on-surface-variant japanese-text">
-            まずはおすすめの4項目だけで十分です。専門的な項目は、必要になってから追加できます。
+            目的を1つ選ぶだけで、必要な数字をこちらでまとめます。専門的な設定は必要ありません。
           </p>
         </div>
         <div className="rounded-2xl bg-primary/[0.055] px-4 py-3 text-sm">
-          <p className="text-[10px] font-black text-on-surface-variant">現在の計測データ</p>
+          <p className="text-[10px] font-black text-on-surface-variant">{isDemo ? '現在のデモデータ' : '現在の計測データ'}</p>
           <p className="mt-1 max-w-[280px] truncate font-extrabold text-primary japanese-text">{currentCase?.name || '接続先を選んでください'}</p>
         </div>
       </div>
 
       {authExpiredMessage && (
-        <div className="flex items-center gap-3 bg-red-50 dark:bg-error-container border border-red-200 dark:border-error/30 rounded-[0.75rem] px-5 py-3 text-sm text-red-800 dark:text-on-error-container">
-          <span className="material-symbols-outlined text-lg">error</span>
+        <div role="alert" className="flex items-center gap-3 bg-red-50 dark:bg-error-container border border-red-200 dark:border-error/30 rounded-[0.75rem] px-5 py-3 text-sm text-red-800 dark:text-on-error-container">
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">error</span>
           <span className="japanese-text flex-1">{authExpiredMessage}</span>
-          <button onClick={clearAuthExpiredMessage} className="text-red-600 dark:text-error hover:text-red-800 shrink-0">
-            <span className="material-symbols-outlined text-lg">close</span>
+          <button type="button" onClick={clearAuthExpiredMessage} aria-label="通知を閉じる" className="grid size-11 shrink-0 place-items-center rounded-xl text-red-600 hover:bg-red-100 hover:text-red-800 dark:text-error">
+            <span className="material-symbols-outlined text-lg" aria-hidden="true">close</span>
           </button>
         </div>
       )}
@@ -345,7 +441,7 @@ export default function SetupWizard() {
       {!currentCase && (
         <div className="flex items-center gap-3 bg-blue-50 dark:bg-info-container border border-blue-200 dark:border-info/30 rounded-[0.75rem] px-5 py-3 text-sm text-blue-800 dark:text-on-info-container">
           <span className="material-symbols-outlined text-lg">info</span>
-          <span className="japanese-text">案件を選択してください。ヘッダーの案件セレクターから対象案件を選べます。</span>
+          <span className="japanese-text">サイトを選択してください。ヘッダーのサイト選択から対象を選べます。</span>
         </div>
       )}
 
@@ -378,33 +474,37 @@ export default function SetupWizard() {
         <section aria-labelledby="query-selection-title" className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 id="query-selection-title" className="text-2xl font-extrabold text-on-surface japanese-text">何を知りたいですか？</h2>
-              <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">おすすめは最初から選択済みです。そのまま「次へ」で進めます。</p>
+              <h2 ref={stepHeadingRef} tabIndex={-1} id="query-selection-title" className="text-2xl font-extrabold text-on-surface outline-none japanese-text">何を知りたいですか？</h2>
+              <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">迷ったときは「全体を見る」のまま進めてください。</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setSelected(recommendedSelection())} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+              <button type="button" onClick={() => chooseGoal(ANALYSIS_GOALS[0])} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
                 おすすめに戻す
               </button>
             </div>
           </div>
 
-          <div className="rounded-2xl bg-primary/[0.045] p-4 sm:p-5">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="grid size-10 place-items-center rounded-xl bg-primary text-on-primary" aria-hidden="true">
-                <span className="material-symbols-outlined">auto_awesome</span>
-              </span>
-              <div>
-                <h3 className="font-extrabold text-primary japanese-text">おまかせ分析</h3>
-                <p className="text-xs font-bold text-on-surface-variant japanese-text">アクセス・来訪元・成果・入口ページの4つを確認します。</p>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {QUERY_TYPES.map((queryType, index) => ({ queryType, index }))
-                .filter(({ queryType }) => BASIC_QUERY_IDS.has(queryType.id))
-                .map(({ queryType, index }) => (
-                  <QueryOption key={queryType.id} queryType={queryType} index={index} selected={selected.has(index)} onToggle={toggle} />
-                ))}
-            </div>
+          <div className="grid gap-4 md:grid-cols-3" role="radiogroup" aria-label="分析の目的">
+            {ANALYSIS_GOALS.map((goal) => {
+              const active = selectedGoal === goal.id
+              return (
+                <button
+                  ref={(element) => { goalRefs.current[ANALYSIS_GOALS.indexOf(goal)] = element }}
+                  key={goal.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() => chooseGoal(goal)}
+                  onKeyDown={(event) => handleGoalKeyDown(event, ANALYSIS_GOALS.indexOf(goal))}
+                  className={`min-h-40 rounded-2xl p-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? 'bg-primary text-on-primary shadow-lg shadow-primary/10' : 'bg-surface-container-lowest text-on-surface ring-1 ring-outline-variant/20 hover:bg-surface-container-low'}`}
+                >
+                  <span className={`material-symbols-outlined text-3xl ${active ? 'text-secondary-fixed' : 'text-primary'}`} aria-hidden="true">{goal.icon}</span>
+                  <strong className="mt-4 block text-lg font-extrabold japanese-text">{goal.title}</strong>
+                  <span className={`mt-2 block text-sm font-bold leading-6 japanese-text ${active ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>{goal.description}</span>
+                </button>
+              )
+            })}
           </div>
 
           <div className="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/20">
@@ -414,16 +514,22 @@ export default function SetupWizard() {
               onClick={() => setShowAdvanced((value) => !value)}
               className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl px-5 py-3 text-left font-extrabold text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary japanese-text"
             >
-              <span>詳しい分析項目を選ぶ</span>
+              <span>{canViewTechnicalDetails ? '運用者向けの詳しい項目' : '見る内容を細かく調整する'}</span>
               <span className={`material-symbols-outlined transition-transform ${showAdvanced ? 'rotate-180' : ''}`} aria-hidden="true">expand_more</span>
             </button>
             {showAdvanced && (
               <div className="grid gap-3 border-t border-outline-variant/15 p-4 md:grid-cols-2 lg:grid-cols-3">
-                {QUERY_TYPES.map((queryType, index) => ({ queryType, index }))
-                  .filter(({ queryType }) => !BASIC_QUERY_IDS.has(queryType.id))
-                  .map(({ queryType, index }) => (
-                    <QueryOption key={queryType.id} queryType={queryType} index={index} selected={selected.has(index)} onToggle={toggle} />
-                  ))}
+                {QUERY_TYPES.map((queryType, index) => (
+                  <QueryOption
+                    key={queryType.id}
+                    queryType={queryType}
+                    index={index}
+                    selected={selected.has(index)}
+                    onToggle={toggle}
+                    isDemo={isDemo}
+                    showTechnicalTerm={canViewTechnicalDetails}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -434,12 +540,18 @@ export default function SetupWizard() {
         <section aria-labelledby="period-selection-title" className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 id="period-selection-title" className="text-2xl font-extrabold text-on-surface japanese-text">いつの結果を見ますか？</h2>
+              <h2 ref={stepHeadingRef} tabIndex={-1} id="period-selection-title" className="text-2xl font-extrabold text-on-surface outline-none japanese-text">いつの結果を見ますか？</h2>
               <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">
                 {selectedPeriods.size > 0
                   ? `${selectedPeriods.size}期間を選択中。最新期間は自動で選んであります。`
                   : periods.length > 0 ? '1期間以上選んでください' : '利用できる期間を確認できませんでした'}
               </p>
+              {isDemo && (
+                <p data-testid="demo-period-lock" className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1.5 text-xs font-black text-on-secondary-container japanese-text">
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">lock</span>
+                  デモでは対象月と比較月をセットで使います
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <button
@@ -450,7 +562,7 @@ export default function SetupWizard() {
                   setGeneratedPeriods(new Set())
                   setGeneratedResults(new Map())
                 }}
-                disabled={loading || periods.length === 0}
+                disabled={loading || periods.length === 0 || isDemo}
                 className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary disabled:opacity-50"
               >
                 最新だけ見る
@@ -462,7 +574,7 @@ export default function SetupWizard() {
                   setGeneratedPeriods(new Set())
                   setGeneratedResults(new Map())
                 }}
-                disabled={loading || periods.length === 0}
+                disabled={loading || periods.length === 0 || isDemo}
                 className="min-h-11 rounded-xl border border-primary/20 bg-surface-container-lowest px-4 py-2 text-sm font-black text-primary disabled:opacity-50"
               >
                 すべて比べる
@@ -477,6 +589,7 @@ export default function SetupWizard() {
                 <button
                   key={g.value}
                   type="button"
+                  aria-pressed={granularity === g.value}
                   onClick={() => handleGranularityChange(g.value)}
                   disabled={loading}
                   className={`flex min-h-11 items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold transition-colors ${
@@ -505,12 +618,12 @@ export default function SetupWizard() {
                   <p className="mt-1 text-sm leading-6 text-on-surface-variant japanese-text">
                     データの接続先と計測状況を確認してから、もう一度お試しください。
                   </p>
-                  {periodDiagnostics && (
+                  {periodDiagnostics && canViewTechnicalDetails && (
                     <details className="mt-4 rounded-xl bg-surface-container-lowest px-4 py-3 text-xs">
                       <summary className="cursor-pointer font-black text-on-surface-variant">接続の診断情報</summary>
                       <dl className="mt-3 grid gap-2 md:grid-cols-2">
                         {[
-                          ['保存先ID', periodDiagnostics.dataset_id],
+                          [isDemo ? 'データ種別' : '接続先', isDemo ? '完全架空データ' : '運用者設定済み'],
                           ['まとめ方', periodDiagnostics.granularity],
                           ['確認できた表', periodDiagnostics.table_count],
                           ['確認方法', periodDiagnostics.method],
@@ -532,7 +645,7 @@ export default function SetupWizard() {
                 <div className="flex items-center gap-3 bg-amber-50 dark:bg-warning-container border border-amber-200 dark:border-warning/30 rounded-[0.75rem] px-5 py-3 text-sm text-amber-800 dark:text-on-warning-container">
                   <span className="material-symbols-outlined text-lg">info</span>
                   <span className="japanese-text">
-                    前回の処理で {generatedPeriods.size} 期間は生成済みです。再試行すると未完了分のみ送信します。
+                    前回の処理で {generatedPeriods.size} 期間は準備済みです。再試行すると未完了分だけ確認します。
                   </span>
                 </div>
               )}
@@ -550,8 +663,10 @@ export default function SetupWizard() {
                       key={index}
                       type="button"
                       aria-pressed={selectedPeriods.has(value)}
+                      aria-disabled={isDemo}
+                      disabled={isDemo}
                       onClick={() => togglePeriod(value)}
-                      className={`min-h-24 rounded-2xl p-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+                      className={`min-h-24 rounded-2xl p-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed ${
                         selectedPeriods.has(value)
                           ? 'bg-primary/[0.055] ring-2 ring-primary/25'
                           : 'bg-surface-container-lowest ring-1 ring-outline-variant/20 hover:bg-surface-container-low'
@@ -579,9 +694,9 @@ export default function SetupWizard() {
       {step === 2 && (
         <div className="text-center py-12">
           <span className="material-symbols-outlined text-6xl text-secondary mb-4 block">check_circle</span>
-          <h2 className="text-2xl font-extrabold text-on-surface japanese-text">最初のレポートができました</h2>
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="text-2xl font-extrabold text-on-surface outline-none japanese-text">最初のレポートができました</h2>
           <p className="text-on-surface-variant mt-2 japanese-text">
-            {selectedPeriods.size}期間 × {selected.size}項目を確認しました。「レポートを見る」から結果へ進めます。
+            {selectedPeriods.size}期間のデータを確認しました。「Web成果レポートを見る」から結果へ進めます。
           </p>
           {loadResult?.summary && (
             <p className="text-sm text-on-surface-variant mt-4 japanese-text">{loadResult.summary}</p>
@@ -593,7 +708,7 @@ export default function SetupWizard() {
         <button
           onClick={handleBack}
           disabled={step === 0}
-          className="px-10 py-3 border border-outline-variant/50 rounded-[0.75rem] font-bold text-sm hover:bg-surface-container transition-all disabled:opacity-50"
+          className="px-10 py-3 border border-outline-variant/50 rounded-[0.75rem] font-bold text-sm hover:bg-surface-container transition-[background-color,border-color,opacity] disabled:opacity-50"
         >
           戻る
         </button>
@@ -609,12 +724,12 @@ export default function SetupWizard() {
             </>
           ) : (
             <>
-              {step === 2 ? 'レポートを見る' : '次へ'}
+              {step === 2 ? 'Web成果レポートを見る' : '次へ'}
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </>
           )}
         </button>
       </div>
-    </main>
+    </div>
   )
 }

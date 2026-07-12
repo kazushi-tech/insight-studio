@@ -6,105 +6,377 @@ on:
   pull_request:
     branches: [master]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  ENVIRONMENT: test
+  APP_ENV: test
+
 jobs:
-  ci:
+  release_source:
+    name: release-source
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require a merged pull request for master
+        if: github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pulls } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const mergedToMaster = pulls.some((pull) =>
+              pull.base.ref === 'master' && pull.merged_at && pull.merge_commit_sha === context.sha
+            );
+            if (!mergedToMaster) {
+              core.setFailed('Production source violation: master must be updated by a merged pull request.');
+            }
+      - name: Confirm pull-request source
+        if: github.event_name == 'pull_request'
+        run: echo "Pull request validation source accepted."
+
+  frontend:
+    name: frontend
+    needs: release_source
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
+      - name: Install locked frontend dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Vitest (single worker, complete suite)
+        run: npm test -- --maxWorkers=1
+      - name: Verify coverage provider is locked
+        run: |
+          node -e "require.resolve('@vitest/coverage-v8')" || {
+            echo "::error::Add @vitest/coverage-v8 to devDependencies and package-lock.json; coverage cannot be skipped."
+            exit 1
+          }
+      - name: Frontend coverage
+        run: npm run test:coverage -- --maxWorkers=1
+      - name: Production build
+        run: npm run build
+      - name: Bundle budgets
+        run: npm run bundle:check
+      - name: Preview-only Workflow compile contract
+        run: npm run workflow:verify
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/
+          if-no-files-found: warn
 
-  post-deploy-health:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: ci
+  ads_backend:
+    name: ads_backend
+    needs: release_source
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: insight_studio_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d insight_studio_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CI_DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/insight_studio_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: .github/requirements/ads-ci.lock
+      - name: Install exact hashed Ads CI lock
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes -r .github/requirements/ads-ci.lock
+          python -m pip check
+      - name: PostgreSQL platform repository and tenant gate
+        run: python scripts/ci_postgres_gate.py ads --database-url "$CI_DATABASE_URL"
+      - name: Collection floor, complete pytest, and coverage
+        run: >-
+          python scripts/ci_pytest_gate.py
+          --cwd backends/ads-insights
+          --minimum 305
+          --coverage-source web
+          --coverage-source bq
+          --coverage-xml artifacts/coverage/ads.xml
+      - name: Upload Ads coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ads-coverage
+          path: artifacts/coverage/ads.xml
+          if-no-files-found: error
+
+  ml_backend:
+    name: ml_backend
+    needs: release_source
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: insight_studio_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d insight_studio_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CI_DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/insight_studio_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: .github/requirements/ml-ci.lock
+      - name: Install exact hashed ML CI lock
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes -r .github/requirements/ml-ci.lock
+          python -m pip check
+      - name: PostgreSQL durable worker, lease, and dedupe gate
+        run: python scripts/ci_postgres_gate.py ml --database-url "$CI_DATABASE_URL"
+      - name: Collection floor, complete pytest, and coverage
+        run: >-
+          python scripts/ci_pytest_gate.py
+          --cwd backends/market-lens-ai
+          --minimum 1235
+          --coverage-source web
+          --coverage-xml artifacts/coverage/ml.xml
+      - name: Upload ML coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-coverage
+          path: artifacts/coverage/ml.xml
+          if-no-files-found: error
+
+  security:
+    name: security
+    needs: release_source
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
-
-      - name: Detect deploy surfaces
-        id: surfaces
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: .github/requirements/security-schema-ci.lock
+      - name: Install audit and security-test dependencies
         run: |
-          before="${{ github.event.before }}"
-          if git cat-file -e "$before^{commit}" 2>/dev/null; then
-            base="$before"
-          else
-            base="HEAD^"
-          fi
-
-          changed="$(git diff --name-only "$base" "$GITHUB_SHA" || true)"
-          echo "$changed"
-
-          ml_commit_required=false
-          ads_commit_required=false
-          if echo "$changed" | grep -Eq '^(backends/market-lens-ai/|render\.yaml$)'; then
-            ml_commit_required=true
-          fi
-          if echo "$changed" | grep -Eq '^(backends/ads-insights/|render\.yaml$)'; then
-            ads_commit_required=true
-          fi
-
-          echo "ml_commit_required=$ml_commit_required" >> "$GITHUB_OUTPUT"
-          echo "ads_commit_required=$ads_commit_required" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for frontend deploy
-        run: sleep 90
-
-      - name: Check frontend
+          npm ci
+          python -m pip install --disable-pip-version-check --require-hashes -r .github/requirements/security-schema-ci.lock
+          python -m pip check
+      - name: npm production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Python dependency audits
         run: |
-          for attempt in $(seq 1 20); do
-            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://insight-studio-chi.vercel.app/)
-            if [ "$status" = "200" ]; then
-              echo "Frontend OK ($status)"
-              exit 0
+          pip-audit --strict --progress-spinner=off --no-deps --disable-pip -r .github/requirements/ads-ci.lock
+          pip-audit --strict --progress-spinner=off --no-deps --disable-pip -r .github/requirements/ml-ci.lock
+      - name: Verify Python lock integrity and source freshness
+        run: python scripts/check_python_locks.py
+      - name: High-confidence tracked secret scan
+        run: python scripts/check_secret_leaks.py
+      - name: Frozen integration diff gate
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: python scripts/check_frozen_integrations.py --base-ref "$BASE_REF"
+      - name: Workflow and helper static validation
+        run: python scripts/check_ci_config.py
+      - name: actionlint (workflow expressions and shell syntax)
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7
+      - name: Ads auth, CORS, error-leak, rate, budget, and cross-tenant tests
+        working-directory: backends/ads-insights
+        run: >-
+          python -m pytest -q
+          tests/test_api_error_contract.py
+          tests/test_auth_security_followup.py
+          tests/test_gemini_budget.py
+          tests/test_platform_auth_v2.py
+          tests/test_platform_projects_v2.py
+          tests/test_project_email_invitations.py
+          tests/test_observability_contract.py
+          tests/test_tenant_isolation.py
+      - name: ML CORS, SSRF, policy, and rate-limit tests
+        working-directory: backends/market-lens-ai
+        run: >-
+          python -m pytest -q
+          tests/test_cors_and_ratelimit.py
+          tests/test_discovery_auth.py
+          tests/test_fetcher_security.py
+          tests/test_gemini_budget.py
+          tests/test_paid_pilot_auth.py
+          tests/test_policies.py
+          tests/test_observability_contract.py
+          tests/test_analysis_worker_m114.py
+          tests/test_worker_readiness_m116.py
+          tests/test_scan_jobs_security.py
+          tests/test_scrub_scan_job_secrets.py
+
+  schema:
+    name: schema
+    needs: release_source
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: insight_studio_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d insight_studio_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CI_DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/insight_studio_ci?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: .github/requirements/security-schema-ci.lock
+      - name: Install schema-test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes -r .github/requirements/security-schema-ci.lock
+          python -m pip check
+      - name: Require one Alembic head
+        working-directory: backends/market-lens-ai
+        run: |
+          heads="$(alembic heads | sed '/^[[:space:]]*$/d' | wc -l)"
+          test "$heads" -eq 1 || { echo "::error::Expected one Alembic head, got $heads"; exit 1; }
+      - name: Blank database and 007-to-head migration gates
+        working-directory: backends/market-lens-ai
+        run: python -m pytest -q tests/test_alembic_migration.py
+      - name: PostgreSQL blank database and 007-to-head migration gates
+        run: python scripts/ci_postgres_gate.py migrations --database-url "$CI_DATABASE_URL"
+      - name: report.v1/v2 and platform compatibility gates
+        working-directory: backends/ads-insights
+        run: >-
+          python -m pytest -q
+          tests/test_api_error_contract.py
+          tests/test_platform_schema_v2.py
+          tests/test_report_contract_v2.py
+          tests/test_v2_5_basic.py
+      - name: ML OpenAPI compatibility tests
+        working-directory: backends/market-lens-ai
+        run: python -m pytest -q tests/test_review_routes.py
+      - name: Generate deterministic OpenAPI snapshots
+        run: python scripts/ci_openapi_snapshot.py --output-dir artifacts/openapi
+      - name: Upload OpenAPI snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-snapshots
+          path: artifacts/openapi/
+          if-no-files-found: error
+
+  browser:
+    name: browser
+    needs: release_source
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install frontend and Python Playwright
+        run: |
+          npm ci
+          python -m pip install --disable-pip-version-check "playwright==1.55.0"
+          python -m playwright install --with-deps chromium
+      - name: Clean-storage desktop/mobile customer journey
+        env:
+          VITE_ENABLE_PROJECT_MANAGEMENT: "true"
+        run: |
+          npm run dev -- --host 127.0.0.1 > "$RUNNER_TEMP/vite.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:3002/login >/dev/null; then
+              break
             fi
-            echo "Frontend not ready yet (attempt $attempt/20, HTTP $status)"
-            sleep 15
+            if [ "$attempt" -eq 30 ]; then
+              cat "$RUNNER_TEMP/vite.log"
+              exit 1
+            fi
+            sleep 1
           done
-          echo "::error::Frontend did not become healthy"
-          exit 1
+          python scripts/ci_browser_smoke.py --base-url http://127.0.0.1:3002
 
-      - name: Check ML API via Vercel proxy
-        run: |
-          for attempt in $(seq 1 40); do
-            response=$(curl -sf --max-time 45 https://insight-studio-chi.vercel.app/api/ml/health || true)
-            commit=$(echo "$response" | jq -r '.commit // .version // ""' 2>/dev/null || true)
-            if [ "$commit" = "$GITHUB_SHA" ]; then
-              echo "ML API proxy OK at commit $commit"
-              exit 0
-            fi
-            if [ "${{ steps.surfaces.outputs.ml_commit_required }}" != "true" ] && [ -n "$commit" ]; then
-              echo "ML API proxy OK at existing commit $commit"
-              exit 0
-            fi
-            echo "ML API waiting for $GITHUB_SHA (attempt $attempt/40, current=${commit:-none})"
-            sleep 30
-          done
-          echo "::error::ML API did not become healthy for this release"
-          exit 1
-
-      - name: Check Ads API via Vercel proxy
-        run: |
-          for attempt in $(seq 1 40); do
-            response=$(curl -sf --max-time 45 https://insight-studio-chi.vercel.app/api/ads/health || true)
-            commit=$(echo "$response" | jq -r '.commit // .version // ""' 2>/dev/null || true)
-            if [ "$commit" = "$GITHUB_SHA" ]; then
-              echo "Ads API proxy OK at commit $commit"
-              exit 0
-            fi
-            if [ "${{ steps.surfaces.outputs.ads_commit_required }}" != "true" ] && [ -n "$commit" ]; then
-              echo "Ads API proxy OK at existing commit $commit"
-              exit 0
-            fi
-            echo "Ads API waiting for $GITHUB_SHA (attempt $attempt/40, current=${commit:-none})"
-            sleep 30
-          done
-          echo "::error::Ads API did not become healthy for this release"
-          exit 1
+  post_deploy:
+    name: post-deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [release_source, frontend, ads_backend, ml_backend, security, schema, browser]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Prove frontend, Ads, and ML production at the master SHA
+        env:
+          PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL || 'https://insight-studio-chi.vercel.app' }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+          VERCEL_FRONTEND_PROJECT_ID: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
+          DURABLE_JOB_BACKEND: ${{ vars.MARKET_LENS_JOB_BACKEND }}
+          WORKFLOW_READINESS_URL: ${{ secrets.WORKFLOW_READINESS_URL }}
+        run: >-
+          python scripts/ci_verify_production.py
+          --base-url "$PRODUCTION_BASE_URL"
+          --expected-sha "$GITHUB_SHA"
+          --attempts 40
+          --interval 30
+          --job-backend "$DURABLE_JOB_BACKEND"
+          --workflow-url "$WORKFLOW_READINESS_URL"

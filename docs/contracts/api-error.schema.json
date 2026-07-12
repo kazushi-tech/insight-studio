@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://insight-studio.example/contracts/api-error.schema.json",
+  "title": "Insight Studio public API failure",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["ok", "error"],
+  "properties": {
+    "ok": { "const": false },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "category", "user_message", "retryable", "request_id", "field_errors"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+        "category": { "type": "string", "minLength": 1 },
+        "user_message": { "type": "string", "minLength": 1 },
+        "retryable": { "type": "boolean" },
+        "request_id": { "type": "string", "minLength": 8 },
+        "field_errors": { "type": "object" }
+      }
+    }
+  }
+}

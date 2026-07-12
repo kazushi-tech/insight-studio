@@ -38,7 +38,6 @@ if str(ROOT) not in sys.path:
 from web.app.backend_api import (  # noqa: E402
     app,
     _login_failures,
-    _rate_buckets,
 )
 
 
@@ -79,10 +78,8 @@ def _fake_cases(*, totp_enabled: bool, totp_secret: str | None = None) -> list:
 @pytest.fixture(autouse=True)
 def _reset_rate_and_tokens():
     _login_failures.clear()
-    _rate_buckets.clear()
     yield
     _login_failures.clear()
-    _rate_buckets.clear()
 
 
 @pytest.fixture()
@@ -275,11 +272,27 @@ class TestCaseLoginTotpRequired:
         assert "token" not in second.json()
 
     @pytest.mark.anyio
-    async def test_valid_window_accepts_30s_drift(self, totp_enabled_cases):
-        # Generate a code 30 seconds in the past — valid_window=1 should still accept
-        import time as _t
+    async def test_valid_window_accepts_30s_drift(self, totp_enabled_cases, monkeypatch):
+        # Pin verification to the same instant used to generate the previous-window
+        # code.  Without this, crossing a 30-second boundary between generation and
+        # request handling can make the code two windows old and render the test
+        # nondeterministic even though valid_window=1 is configured correctly.
+        from datetime import datetime, timedelta
+
+        verification_time = datetime.now()
         totp = pyotp.TOTP(_TEST_TOTP_SECRET)
-        past_code = totp.at(_t.time() - 30)
+        past_code = totp.at(verification_time - timedelta(seconds=30))
+        original_verify = pyotp.TOTP.verify
+
+        def verify_at_pinned_time(self, otp, for_time=None, valid_window=0):
+            return original_verify(
+                self,
+                otp,
+                for_time=verification_time,
+                valid_window=valid_window,
+            )
+
+        monkeypatch.setattr(pyotp.TOTP, "verify", verify_at_pinned_time)
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
             resp = await _post_login(c, {
                 "case_id": "test_case",

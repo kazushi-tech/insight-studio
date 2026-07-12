@@ -10,8 +10,11 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any, Mapping
 
 # プロジェクトルートを sys.path に追加
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -68,6 +71,210 @@ def _escape_df_for_markdown(df: pd.DataFrame) -> pd.DataFrame:
             out[col] = series.astype(object).where(series.notna(), other=None)
     return out
 from bq.queries import get_query, list_query_types, QUERIES
+from web.app.report_contract_v2 import build_observation_measurement, build_report_v2
+from web.app.report_decision_rules import derive_report_decisions
+from web.app.report_periods import ReportPeriod, previous_period
+
+
+_REPORT_V2_METRICS: dict[str, tuple[dict[str, str], ...]] = {
+    "pv": (
+        {"key": "users", "label": "期間内ユニークユーザー数", "column": "period_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "sessions", "label": "期間内セッション数", "column": "period_sessions", "aggregation": "distinct_period", "mode": "first", "unit": "sessions"},
+        {"key": "page_views", "label": "PV数", "column": "period_page_views", "aggregation": "sum", "mode": "first", "unit": "views"},
+    ),
+    "traffic": (
+        {"key": "users", "label": "期間内ユニークユーザー数", "column": "period_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "sessions", "label": "セッション数", "column": "sessions", "aggregation": "sum", "mode": "sum", "unit": "sessions"},
+        {"key": "page_views", "label": "PV数", "column": "page_views", "aggregation": "sum", "mode": "sum", "unit": "views"},
+    ),
+    "cv": (
+        {"key": "conversions", "label": "CV件数", "column": "event_count", "aggregation": "sum", "mode": "sum", "unit": "events"},
+        {"key": "users", "label": "期間内CVユニークユーザー数", "column": "period_unique_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+    ),
+    "search": (
+        {"key": "searches", "label": "検索回数", "column": "search_count", "aggregation": "sum", "mode": "sum", "unit": "events"},
+        {"key": "users", "label": "期間内検索ユニークユーザー数", "column": "period_unique_searchers", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+    ),
+    "anomaly": (
+        {"key": "avg_daily_users", "label": "日平均ユーザー数", "column": "users", "aggregation": "average", "mode": "mean", "unit": "users"},
+        {"key": "avg_daily_sessions", "label": "日平均セッション数", "column": "sessions", "aggregation": "average", "mode": "mean", "unit": "sessions"},
+        {"key": "avg_daily_page_views", "label": "日平均PV数", "column": "page_views", "aggregation": "average", "mode": "mean", "unit": "views"},
+    ),
+    "landing": (
+        {"key": "sessions", "label": "LP流入セッション数", "column": "sessions", "aggregation": "sum", "mode": "sum", "unit": "sessions"},
+    ),
+    "device": (
+        {"key": "users", "label": "期間内ユニークユーザー数", "column": "period_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "sessions", "label": "セッション数", "column": "sessions", "aggregation": "sum", "mode": "sum", "unit": "sessions"},
+        {"key": "page_views", "label": "PV数", "column": "page_views", "aggregation": "sum", "mode": "sum", "unit": "views"},
+    ),
+    "hourly": (
+        {"key": "users", "label": "期間内ユニークユーザー数", "column": "period_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "sessions", "label": "セッション数", "column": "sessions", "aggregation": "sum", "mode": "sum", "unit": "sessions"},
+        {"key": "page_views", "label": "PV数", "column": "page_views", "aggregation": "sum", "mode": "sum", "unit": "views"},
+    ),
+    "user_attr": (
+        {"key": "users", "label": "期間内ユニークユーザー数", "column": "period_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "sessions", "label": "セッション数", "column": "sessions", "aggregation": "sum", "mode": "sum", "unit": "sessions"},
+    ),
+    "engagement": (
+        {"key": "users", "label": "期間内エンゲージドユーザー数", "column": "period_engaged_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "engagement_seconds", "label": "エンゲージメント時間", "column": "total_engagement_sec", "aggregation": "sum", "mode": "sum", "unit": "seconds"},
+    ),
+    "auction_proxy": (
+        {"key": "sessions", "label": "セッション数", "column": "sessions", "aggregation": "sum", "mode": "sum", "unit": "sessions"},
+    ),
+    "campaign": (
+        {"key": "users", "label": "期間内ユニークユーザー数", "column": "period_users", "aggregation": "distinct_period", "mode": "first", "unit": "users"},
+        {"key": "sessions", "label": "期間内セッション数", "column": "period_sessions", "aggregation": "distinct_period", "mode": "first", "unit": "sessions"},
+        {"key": "page_views", "label": "PV数", "column": "period_page_views", "aggregation": "sum", "mode": "first", "unit": "views"},
+        {"key": "conversions", "label": "CV件数", "column": "period_conversions", "aggregation": "sum", "mode": "first", "unit": "events"},
+    ),
+}
+
+
+def _metric_value(df: pd.DataFrame | None, spec: dict[str, str]) -> tuple[object | None, bool]:
+    """Return (value, configured) for a report.v2 metric specification."""
+    if df is None or spec["column"] not in df.columns:
+        return None, False
+    values = df[spec["column"]].dropna()
+    if values.empty:
+        return None, True
+    mode = spec["mode"]
+    if mode == "first":
+        return values.iloc[0], True
+    if mode == "sum":
+        return values.sum(), True
+    if mode == "mean":
+        return values.mean(), True
+    raise ValueError(f"unsupported metric aggregation mode: {mode}")
+
+
+def _last_observed_at(df: pd.DataFrame | None) -> str | None:
+    if df is None or "event_date" not in df.columns:
+        return None
+    values = df["event_date"].dropna()
+    if values.empty:
+        return None
+    return str(values.max())
+
+
+def build_dataframe_report_v2(
+    df: pd.DataFrame,
+    query_type: str,
+    period: Mapping[str, Any] | str,
+    *,
+    comparison_df: pd.DataFrame | None = None,
+    comparison_period: Mapping[str, Any] | str | None = None,
+    comparison_policy: str | None = None,
+    report_id: str | None = None,
+    project_id: str = "unknown",
+    timezone: str = "Asia/Tokyo",
+    data_freshness: object | None = None,
+    generated_at: str | None = None,
+    cv_configured: bool | None = None,
+    cv_observed_in_lookback: bool | None = None,
+    cv_observation_query_failed: bool = False,
+    current_query_failed: bool = False,
+    comparison_query_failed: bool = False,
+) -> dict:
+    """Adapt a query DataFrame to the pure report.v2 builder.
+
+    Distinct-user metrics only use explicit period-wide columns.  If a query
+    has not configured such a column, report.v2 says ``not_configured`` rather
+    than silently summing daily distinct counts.
+    """
+    specs = _REPORT_V2_METRICS.get(query_type, ())
+    metrics: list[dict] = []
+    last_observed_at = _last_observed_at(df)
+    for spec in specs:
+        value, configured = _metric_value(df, spec)
+        comparison_value, comparison_configured = _metric_value(comparison_df, spec)
+        metric = {
+            "key": spec["key"],
+            "label": spec["label"],
+            "unit": spec["unit"],
+            "aggregation": spec["aggregation"],
+            "source": f"{query_type}.{spec['column']}",
+            "value": value,
+            "configured": configured,
+            "reason": None if configured else f"{spec['column']} is not configured",
+            "last_observed_at": last_observed_at,
+            "comparison_value": comparison_value,
+            "comparison_configured": comparison_configured,
+            "query_failed": current_query_failed,
+            "comparison_query_failed": comparison_query_failed,
+        }
+        if query_type == "cv" and not current_query_failed:
+            current_measurement = (
+                {"status": "query_failed", "value": None}
+                if cv_observation_query_failed and (value is None or value == 0)
+                else build_observation_measurement(
+                    0 if value is None else value,
+                    configured=cv_configured,
+                    observed_in_lookback=cv_observed_in_lookback,
+                )
+            )
+            metric["value"] = current_measurement["value"]
+            metric["status"] = current_measurement["status"]
+            metric["configured"] = cv_configured is True
+            metric["reason"] = (
+                None
+                if current_measurement["status"] in {"measured", "measured_zero"}
+                else "CVイベントの設定または過去90日の計測実績を確認できません。"
+            )
+            if comparison_period is not None and not comparison_query_failed:
+                comparison_measurement = (
+                    {"status": "query_failed", "value": None}
+                    if cv_observation_query_failed
+                    and (comparison_value is None or comparison_value == 0)
+                    else build_observation_measurement(
+                        0 if comparison_value is None else comparison_value,
+                        configured=cv_configured,
+                        observed_in_lookback=cv_observed_in_lookback,
+                    )
+                )
+                metric["comparison_value"] = comparison_measurement["value"]
+                metric["comparison_status"] = comparison_measurement["status"]
+                metric["comparison_configured"] = cv_configured is True
+        metrics.append(metric)
+
+    resolved_generated_at = generated_at or dt.datetime.now(dt.timezone.utc).isoformat()
+    report_kwargs = {
+        "report_id": report_id or f"{query_type}:{period}",
+        "project_id": project_id,
+        "current_period": period,
+        "metrics": metrics,
+        "comparison_period": comparison_period,
+        "comparison_policy": comparison_policy,
+        "timezone": timezone,
+        "data_freshness": (
+            data_freshness
+            if data_freshness is not None
+            else {"status": "unknown", "last_observed_at": last_observed_at}
+        ),
+        "generated_at": resolved_generated_at,
+        "overall_status": None if query_type in _REPORT_V2_METRICS else "unavailable",
+    }
+    base_report = build_report_v2(**report_kwargs)
+    decisions = derive_report_decisions(base_report)
+    return build_report_v2(
+        **report_kwargs,
+        evidence=base_report["evidence"],
+        conclusions=decisions.conclusions,
+        actions=decisions.actions,
+        caveats=decisions.caveats,
+    )
+
+
+def _first_non_null_number(df: pd.DataFrame, column: str, fallback: float = 0) -> float:
+    """Read a repeated period-level metric without summing it across rows."""
+    if column not in df.columns:
+        return fallback
+    values = df[column].dropna()
+    if values.empty:
+        return fallback
+    return float(values.iloc[0])
 
 # _shared モジュールは旧リポジトリにのみ存在するため、フォールバック定義
 try:
@@ -113,9 +320,12 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
                 sessions=("sessions", "sum"),
                 page_views=("page_views", "sum"),
             ).reset_index()
-            total_users = int(daily["users"].sum())
-            total_sessions = int(daily["sessions"].sum())
-            total_pv = int(daily["page_views"].sum())
+            daily_users_sum = int(daily["users"].sum())
+            daily_sessions_sum = int(daily["sessions"].sum())
+            daily_pv_sum = int(daily["page_views"].sum())
+            total_users = int(_first_non_null_number(df, "period_users", daily_users_sum))
+            total_sessions = int(_first_non_null_number(df, "period_sessions", daily_sessions_sum))
+            total_pv = int(_first_non_null_number(df, "period_page_views", daily_pv_sum))
             avg_pv_per_day = round(daily["page_views"].mean(), 1)
             avg_users_per_day = round(daily["users"].mean(), 1)
             avg_sessions_per_day = round(daily["sessions"].mean(), 1)
@@ -123,8 +333,8 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
             pv_per_session = round(total_pv / total_sessions, 2) if total_sessions else 0
             lines.append("## 主要KPIサマリー")
             lines.append(f"- **期間日数**: {days}日")
-            lines.append(f"- **合計ユーザー数**: {total_users:,}")
-            lines.append(f"- **合計セッション数**: {total_sessions:,}")
+            lines.append(f"- **期間内ユニークユーザー数**: {total_users:,}")
+            lines.append(f"- **期間内セッション数**: {total_sessions:,}")
             lines.append(f"- **合計PV数**: {total_pv:,}")
             lines.append(f"- **1日あたり平均PV**: {avg_pv_per_day:,}")
             lines.append(f"- **1日あたり平均ユーザー数**: {avg_users_per_day:,}")
@@ -154,9 +364,10 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
             lines.append("")
         # Top ページ
         if "page_title" in df.columns and "page_views" in df.columns:
+            page_session_column = "page_sessions" if "page_sessions" in df.columns else "sessions"
             top_pages = df.groupby(["page_title"]).agg(
                 page_views=("page_views", "sum"),
-                sessions=("sessions", "sum"),
+                sessions=(page_session_column, "sum"),
             ).sort_values("page_views", ascending=False).head(15).reset_index()
             lines.append("## ページ別PVランキング（Top 15）")
             try:
@@ -167,15 +378,23 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
 
     elif query_type == "traffic":
         # V3.3: 日別明細前提で再集計
-        by_channel = df.groupby(["source", "medium"], as_index=False).agg({
+        channel_agg = {
             "sessions": "sum", "users": "sum", "page_views": "sum",
-        }).sort_values("sessions", ascending=False)
+        }
+        if "channel_period_users" in df.columns:
+            channel_agg["channel_period_users"] = "max"
+        by_channel = (
+            df.groupby(["source", "medium"], as_index=False)
+            .agg(channel_agg)
+            .sort_values("sessions", ascending=False)
+        )
         total_sessions = int(by_channel["sessions"].sum())
-        total_users = int(by_channel["users"].sum())
+        legacy_user_sum = int(by_channel["users"].sum())
+        total_users = int(_first_non_null_number(df, "period_users", legacy_user_sum))
         total_pv = int(by_channel["page_views"].sum())
         lines.append("## 主要KPIサマリー")
         lines.append(f"- **合計セッション数**: {total_sessions:,}")
-        lines.append(f"- **合計ユーザー数**: {total_users:,}")
+        lines.append(f"- **期間内ユニークユーザー数**: {total_users:,}")
         lines.append(f"- **合計PV数**: {total_pv:,}")
         pv_per_session = round(total_pv / total_sessions, 2) if total_sessions else 0
         lines.append(f"- **PV/セッション比（回遊深度）**: {pv_per_session}")
@@ -195,7 +414,7 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         lines.append("## トップ3チャネル詳細")
         for i, (_, row) in enumerate(by_channel.head(3).iterrows()):
             s = int(row.get("sessions", 0))
-            u = int(row.get("users", 0))
+            u = int(row.get("channel_period_users", row.get("users", 0)))
             pv = int(row.get("page_views", 0))
             pct = round(s / total_sessions * 100, 1) if total_sessions else 0
             ch = _escape_markdown_cell(f"{row.get('source', '')} / {row.get('medium', '')}")
@@ -206,7 +425,7 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         lines.append("|---|---:|---:|---:|---:|")
         for _, row in by_channel.head(20).iterrows():
             s = int(row.get("sessions", 0))
-            u = int(row.get("users", 0))
+            u = int(row.get("channel_period_users", row.get("users", 0)))
             pv = int(row.get("page_views", 0))
             pct = round(s / total_sessions * 100, 1) if total_sessions else 0
             lines.append(f"| {_escape_markdown_cell(row.get('source', ''))} / {_escape_markdown_cell(row.get('medium', ''))} | {s:,} | {pct}% | {u:,} | {pv:,} |")
@@ -225,7 +444,8 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
     elif query_type == "cv":
         if "event_count" in df.columns:
             total_cv = int(df["event_count"].sum())
-            total_unique = int(df["unique_users"].sum()) if "unique_users" in df.columns else 0
+            legacy_user_sum = int(df["unique_users"].sum()) if "unique_users" in df.columns else 0
+            total_unique = int(_first_non_null_number(df, "period_unique_users", legacy_user_sum))
             cv_per_user = round(total_cv / total_unique, 2) if total_unique else 0
             lines.append("## 主要KPIサマリー")
             lines.append(f"- **合計CV件数**: {total_cv:,}")
@@ -244,10 +464,17 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
                     lines.append(f"- **日別CVトレンド**: {cv_trend_label}（前半平均: {round(first_half, 1)}, 後半平均: {round(second_half, 1)}）")
             lines.append("")
         if "event_name" in df.columns:
-            by_event = df.groupby("event_name").agg(
-                event_count=("event_count", "sum"),
-                unique_users=("unique_users", "sum") if "unique_users" in df.columns else ("event_count", "count"),
-            ).sort_values("event_count", ascending=False).reset_index()
+            event_user_column = "event_period_users" if "event_period_users" in df.columns else "unique_users"
+            event_user_mode = "max" if event_user_column == "event_period_users" else "sum"
+            by_event = (
+                df.groupby("event_name")
+                .agg(
+                    event_count=("event_count", "sum"),
+                    unique_users=(event_user_column, event_user_mode),
+                )
+                .sort_values("event_count", ascending=False)
+                .reset_index()
+            )
             # 最多CVイベント詳細
             if len(by_event) > 0:
                 top_ev = by_event.iloc[0]
@@ -263,11 +490,22 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
 
     elif query_type == "search":
         # V3.3: 日別明細前提で再集計
-        by_term = df.groupby("search_term", as_index=False).agg({
+        search_agg = {
             "search_count": "sum", "unique_searchers": "sum",
-        }).sort_values("search_count", ascending=False)
+        }
+        if "term_period_searchers" in df.columns:
+            search_agg["term_period_searchers"] = "max"
+        by_term = (
+            df.groupby("search_term", as_index=False)
+            .agg(search_agg)
+            .sort_values("search_count", ascending=False)
+        )
         total_searches = int(by_term["search_count"].sum())
-        total_searchers = int(by_term["unique_searchers"].sum())
+        legacy_searcher_sum = int(by_term["unique_searchers"].sum())
+        total_searchers = int(_first_non_null_number(df, "period_unique_searchers", legacy_searcher_sum))
+        if "term_period_searchers" in by_term.columns:
+            by_term["unique_searchers"] = by_term["term_period_searchers"]
+            by_term = by_term.drop(columns=["term_period_searchers"])
         lines.append("## 主要KPIサマリー")
         lines.append(f"- **合計検索回数**: {total_searches:,}")
         lines.append(f"- **検索ユニークユーザー数**: {total_searchers:,}")
@@ -436,11 +674,12 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
     elif query_type == "device":
         # V3.3: 日別明細前提で再集計（既にgroupby済みのデータも対応）
         total_sessions = int(df["sessions"].sum()) if "sessions" in df.columns else 0
-        total_users = int(df["users"].sum()) if "users" in df.columns else 0
+        legacy_user_sum = int(df["users"].sum()) if "users" in df.columns else 0
+        total_users = int(_first_non_null_number(df, "period_users", legacy_user_sum))
         total_pv = int(df["page_views"].sum()) if "page_views" in df.columns else 0
         lines.append("## 主要KPIサマリー")
         lines.append(f"- **合計セッション数**: {total_sessions:,}")
-        lines.append(f"- **合計ユーザー数**: {total_users:,}")
+        lines.append(f"- **期間内ユニークユーザー数**: {total_users:,}")
         lines.append(f"- **合計PV数**: {total_pv:,}")
         # デバイスカテゴリ別比率
         if "device_category" in df.columns:
@@ -463,9 +702,11 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         lines.append("")
         # デバイスカテゴリ別テーブル
         if "device_category" in df.columns:
+            user_column = "device_period_users" if "device_period_users" in df.columns else "users"
+            user_mode = "max" if user_column == "device_period_users" else "sum"
             by_device = df.groupby("device_category").agg(
                 sessions=("sessions", "sum"),
-                users=("users", "sum"),
+                users=(user_column, user_mode),
                 page_views=("page_views", "sum"),
             ).sort_values("sessions", ascending=False).reset_index()
             lines.append("## デバイスカテゴリ別")
@@ -498,6 +739,9 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
 
     elif query_type == "hourly":
         lines.append("## 主要KPIサマリー")
+        if "period_users" in df.columns:
+            total_users = int(_first_non_null_number(df, "period_users"))
+            lines.append(f"- **期間内ユニークユーザー数**: {total_users:,}")
         if "page_views" in df.columns:
             total_pv = int(df["page_views"].sum())
             peak_hour = df.loc[df["page_views"].idxmax()]
@@ -524,18 +768,24 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
 
     elif query_type == "user_attr":
         total_sessions = int(df["sessions"].sum()) if "sessions" in df.columns else 0
-        total_users = int(df["users"].sum()) if "users" in df.columns else 0
+        legacy_user_sum = int(df["users"].sum()) if "users" in df.columns else 0
+        total_users = int(_first_non_null_number(df, "period_users", legacy_user_sum))
         lines.append("## 主要KPIサマリー")
         lines.append(f"- **合計セッション数**: {total_sessions:,}")
-        lines.append(f"- **合計ユーザー数**: {total_users:,}")
+        lines.append(f"- **期間内ユニークユーザー数**: {total_users:,}")
         # 新規ユーザー比率詳細
         if "user_type" in df.columns:
-            new_users = int(df[df["user_type"] == "new"]["users"].sum())
-            ret_users = int(df[df["user_type"] == "returning"]["users"].sum())
+            type_user_column = "user_type_period_users" if "user_type_period_users" in df.columns else "users"
+            type_user_mode = "max" if type_user_column == "user_type_period_users" else "sum"
+            by_type = df.groupby("user_type").agg(
+                users=(type_user_column, type_user_mode),
+                sessions=("sessions", "sum"),
+            )
+            new_users = int(by_type.loc["new", "users"]) if "new" in by_type.index else 0
+            ret_users = int(by_type.loc["returning", "users"]) if "returning" in by_type.index else 0
             new_pct = round(new_users / total_users * 100, 1) if total_users else 0
             lines.append(f"- **新規ユーザー比率**: {new_pct}%（新規: {new_users:,}, リピーター: {ret_users:,}）")
             # タイプ別セッション/人
-            by_type = df.groupby("user_type").agg(users=("users", "sum"), sessions=("sessions", "sum"))
             for ut, row in by_type.iterrows():
                 sess_per_user = round(row["sessions"] / row["users"], 2) if row["users"] else 0
                 label = "新規" if ut == "new" else "リピーター"
@@ -543,8 +793,10 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         lines.append("")
         # 新規/リピーター テーブル
         if "user_type" in df.columns:
+            type_user_column = "user_type_period_users" if "user_type_period_users" in df.columns else "users"
+            type_user_mode = "max" if type_user_column == "user_type_period_users" else "sum"
             by_type = df.groupby("user_type").agg(
-                users=("users", "sum"),
+                users=(type_user_column, type_user_mode),
                 sessions=("sessions", "sum"),
             ).reset_index()
             lines.append("## 新規/リピーター比率")
@@ -558,9 +810,11 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
             lines.append("")
         # 地域別Top 10 + 最多都市の構成比
         if "city" in df.columns:
+            city_user_column = "city_period_users" if "city_period_users" in df.columns else "users"
+            city_user_mode = "max" if city_user_column == "city_period_users" else "sum"
             by_city = df.groupby("city").agg(
                 sessions=("sessions", "sum"),
-                users=("users", "sum"),
+                users=(city_user_column, city_user_mode),
             ).sort_values("sessions", ascending=False).head(10).reset_index()
             if len(by_city) > 0:
                 top_city = by_city.iloc[0]
@@ -579,7 +833,8 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
         lines.append("## 主要KPIサマリー")
         total_sec = df["total_engagement_sec"].sum() if "total_engagement_sec" in df.columns else 0
         avg_sec = df["avg_engagement_sec"].mean() if "avg_engagement_sec" in df.columns else 0
-        total_engaged = int(df["engaged_users"].sum()) if "engaged_users" in df.columns else 0
+        legacy_user_sum = int(df["engaged_users"].sum()) if "engaged_users" in df.columns else 0
+        total_engaged = int(_first_non_null_number(df, "period_engaged_users", legacy_user_sum))
         days = len(df)
         lines.append(f"- **期間日数**: {days}日")
         lines.append(f"- **合計エンゲージメント時間**: {round(total_sec):,}秒（{round(total_sec / 3600, 1)}時間）")
@@ -614,10 +869,67 @@ def _summarize(df: pd.DataFrame, query_type: str, period: str) -> str:
             lines.append(display_df.to_string(index=False))
         lines.append("")
 
-    elif query_type == "auction_proxy":
-        # V3.3: 推定オークション圧分析
+    elif query_type == "campaign":
+        total_users = int(_first_non_null_number(df, "period_users"))
+        total_sessions = int(_first_non_null_number(df, "period_sessions"))
+        total_page_views = int(_first_non_null_number(df, "period_page_views"))
+        total_conversions = int(_first_non_null_number(df, "period_conversions"))
+
         lines.append("## 主要KPIサマリー")
-        lines.append("*注意: これはGA4の流入データから見た推定です。実際の広告オークションデータにはGoogle Ads連携が必要です。*")
+        lines.append(f"- **期間内ユニークユーザー数**: {total_users:,}")
+        lines.append(f"- **期間内セッション数**: {total_sessions:,}")
+        lines.append(f"- **合計PV数**: {total_page_views:,}")
+        lines.append(f"- **合計CV件数**: {total_conversions:,}")
+        lines.append("")
+
+        group_columns = ["campaign_name", "source", "medium"]
+        aggregate_columns = {
+            "sessions": "sum",
+            "page_views": "sum",
+            "conversions": "sum",
+        }
+        if "campaign_period_users" in df.columns:
+            aggregate_columns["campaign_period_users"] = "max"
+        campaign_summary = (
+            df.groupby(group_columns, as_index=False, dropna=False)
+            .agg(aggregate_columns)
+            .sort_values(["sessions", "campaign_name"], ascending=[False, True])
+        )
+        if "campaign_period_users" not in campaign_summary.columns:
+            campaign_summary["campaign_period_users"] = None
+
+        lines.append("## キャンペーン別実績（上位20件）")
+        lines.append("| campaign | source / medium | 期間ユーザー | セッション | PV | CV |")
+        lines.append("|---|---|---:|---:|---:|---:|")
+        for _, row in campaign_summary.head(20).iterrows():
+            campaign_users = row.get("campaign_period_users")
+            user_cell = "データなし" if pd.isna(campaign_users) else f"{int(campaign_users):,}"
+            lines.append(
+                "| "
+                f"{_escape_markdown_cell(row.get('campaign_name', ''))} | "
+                f"{_escape_markdown_cell(row.get('source', ''))} / {_escape_markdown_cell(row.get('medium', ''))} | "
+                f"{user_cell} | {int(row.get('sessions', 0)):,} | "
+                f"{int(row.get('page_views', 0)):,} | {int(row.get('conversions', 0)):,} |"
+            )
+        lines.append("")
+
+        if "event_date" in df.columns:
+            daily = (
+                df.groupby("event_date", as_index=False)
+                .agg(sessions=("sessions", "sum"), conversions=("conversions", "sum"))
+                .sort_values("event_date")
+            )
+            lines.append("## 日別キャンペーン流入推移")
+            try:
+                lines.append(_escape_df_for_markdown(daily).to_markdown(index=False))
+            except ImportError:
+                lines.append(daily.to_string(index=False))
+            lines.append("")
+
+    elif query_type == "auction_proxy":
+        # V3.3: 流入集中の参考値
+        lines.append("## 主要KPIサマリー")
+        lines.append("*注記: 訪問元の構成比から流入先の偏りを確認する参考値です。外部要因との因果関係は判定しません。*")
         lines.append("")
         # チャネルグループ別合計
         ch_agg = df.groupby("channel_group", as_index=False).agg({"sessions": "sum"}).sort_values("sessions", ascending=False)
@@ -730,7 +1042,8 @@ def generate_cross_summary(results: dict[str, dict]) -> str:
         "pv": "PV分析", "traffic": "流入分析", "cv": "CV分析",
         "search": "検索クエリ", "anomaly": "異常検知", "landing": "LP分析",
         "device": "デバイス", "hourly": "時間帯", "user_attr": "ユーザー属性",
-        "engagement": "エンゲージメント", "auction_proxy": "流入の競合影響（推定）",
+        "engagement": "エンゲージメント", "auction_proxy": "流入集中の参考値",
+        "campaign": "キャンペーン",
     }
     for qt, data in results.items():
         df = data.get("dataframe")
@@ -759,6 +1072,10 @@ def generate_cross_summary(results: dict[str, dict]) -> str:
         elif qt == "engagement" and "total_engagement_sec" in df.columns:
             total_sec = df["total_engagement_sec"].sum()
             highlight = f"合計: {round(total_sec):,}秒, 平均: {round(df['avg_engagement_sec'].mean(), 1)}秒/セッション"
+        elif qt == "campaign" and "period_sessions" in df.columns:
+            campaign_sessions = int(_first_non_null_number(df, "period_sessions"))
+            campaign_conversions = int(_first_non_null_number(df, "period_conversions"))
+            highlight = f"セッション: {campaign_sessions:,}, CV: {campaign_conversions:,}"
         elif qt == "auction_proxy" and "sessions" in df.columns:
             paid = int(df[df["channel_group"] == "paid"]["sessions"].sum()) if "channel_group" in df.columns else 0
             total = int(df["sessions"].sum())
@@ -795,12 +1112,58 @@ def period_to_dates(period: str) -> tuple[str, str]:
         return f"{year}{month:02d}01", f"{year}{month:02d}{last_day:02d}"
 
 
+def report_periods(
+    period: str,
+    selection: str | None = None,
+) -> tuple[ReportPeriod, ReportPeriod, str]:
+    """Resolve the current and policy-correct preceding report periods."""
+    start_value, end_value = period_to_dates(period)
+    current = ReportPeriod(
+        dt.datetime.strptime(start_value, "%Y%m%d").date(),
+        dt.datetime.strptime(end_value, "%Y%m%d").date(),
+    )
+    selection_aliases = {
+        "month": "month",
+        "monthly": "month",
+        "week": "week",
+        "weekly": "week",
+        "day": "custom",
+        "daily": "custom",
+        "custom": "custom",
+    }
+    resolved_selection = selection_aliases.get(str(selection or "").strip().lower())
+    if resolved_selection is None:
+        if ":" not in period and len(period.split("-")) == 2:
+            resolved_selection = "month"
+        elif current.day_count == 7:
+            resolved_selection = "week"
+        else:
+            resolved_selection = "custom"
+    comparison, policy = previous_period(current, resolved_selection)
+    return current, comparison, policy
+
+
+def _period_query_value(period: ReportPeriod) -> str:
+    return f"{period.start.isoformat()}:{period.end.isoformat()}"
+
+
+def _has_positive_cv_observation(df: pd.DataFrame | None) -> bool:
+    if df is None or df.empty or "event_count" not in df.columns:
+        return False
+    values = pd.to_numeric(df["event_count"], errors="coerce").fillna(0)
+    return bool(values.sum() > 0)
+
+
 def run_report(
     query_type: str,
     dataset: str,
     period: str,
     output_dir: Path = Path("bq_reports"),
     project: str = PROJECT_ID,
+    cv_events: Sequence[str] | str | None = None,
+    timezone: str = "Asia/Tokyo",
+    report_project_id: str | None = None,
+    period_selection: str | None = None,
 ) -> dict:
     """BigQuery レポート生成のメインフロー。
 
@@ -817,15 +1180,49 @@ def run_report(
     load_env()
     results = {}
 
+    current_period, comparison_period, comparison_policy = report_periods(
+        period,
+        period_selection,
+    )
     start_date, end_date = period_to_dates(period)
     query_info = QUERIES[query_type]
+
+    def failed_result(error_code: str) -> dict:
+        failed_df = pd.DataFrame()
+        return {
+            "dataframe": failed_df,
+            "query_info": query_info,
+            "query_failed": True,
+            "error_code": error_code,
+            "report_v2": build_dataframe_report_v2(
+                failed_df,
+                query_type,
+                current_period.as_dict(),
+                comparison_period=comparison_period.as_dict(),
+                comparison_policy=comparison_policy,
+                report_id=f"{query_type}:{report_project_id or project}:{period}",
+                project_id=report_project_id or project,
+                timezone=timezone,
+                generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+                cv_configured=bool(cv_events) if query_type == "cv" else None,
+                current_query_failed=True,
+                comparison_query_failed=True,
+            ),
+        }
 
     print(f"[bq-reporter] クエリタイプ: {query_info['name']}")
     print(f"[bq-reporter] データセット: {dataset}")
     print(f"[bq-reporter] 期間: {start_date} ~ {end_date}")
 
     # SQL 生成・実行
-    sql = get_query(query_type, dataset, start_date, end_date)
+    sql = get_query(
+        query_type,
+        dataset,
+        start_date,
+        end_date,
+        cv_events=cv_events,
+        timezone=timezone,
+    )
     print(f"[bq-reporter] SQL 実行中...")
     try:
         df = run_query(sql, project)
@@ -840,15 +1237,74 @@ def run_report(
         # google.api_core.exceptions.Forbidden / PermissionDenied 等の認証エラー
         if "Forbidden" in err_name or "PermissionDenied" in err_name or "Unauthenticated" in err_name:
             print(f"[bq-reporter] BigQuery認証エラー: gcloud auth application-default login を実行してください")
-            return results
+            return failed_result("bq_auth_error")
         # google.api_core.exceptions.NotFound — データセット/テーブルが見つからない
         if "NotFound" in err_name:
             print(f"[bq-reporter] データセットが見つかりません: {dataset}. データセットIDを確認してください")
-            return results
+            return failed_result("query_error")
         # その他のエラー
         print(f"[bq-reporter] BigQueryクエリ実行エラー: {e}")
-        return results
+        return failed_result("query_error")
     print(f"[bq-reporter] 取得行数: {len(df)}")
+
+    comparison_df: pd.DataFrame | None = None
+    comparison_query_failed = False
+    comparison_query = get_query(
+        query_type,
+        dataset,
+        comparison_period.start.strftime("%Y%m%d"),
+        comparison_period.end.strftime("%Y%m%d"),
+        cv_events=cv_events,
+        timezone=timezone,
+    )
+    try:
+        comparison_df = run_query(comparison_query, project)
+    except Exception:
+        # The current period remains useful, but the public contract must mark
+        # its comparison as failed instead of silently presenting it as zero.
+        comparison_query_failed = True
+
+    cv_configured = bool(cv_events) if query_type == "cv" else None
+    cv_observed_in_lookback: bool | None = None
+    cv_observation_query_failed = False
+    if query_type == "cv":
+        cv_observed_in_lookback = _has_positive_cv_observation(df)
+        if cv_configured and not cv_observed_in_lookback:
+            lookback_end = current_period.end
+            lookback_start = lookback_end - dt.timedelta(days=89)
+            lookback_query = get_query(
+                query_type,
+                dataset,
+                lookback_start.strftime("%Y%m%d"),
+                lookback_end.strftime("%Y%m%d"),
+                cv_events=cv_events,
+                timezone=timezone,
+            )
+            try:
+                lookback_df = run_query(lookback_query, project)
+                cv_observed_in_lookback = _has_positive_cv_observation(lookback_df)
+            except Exception:
+                cv_observed_in_lookback = None
+                cv_observation_query_failed = True
+
+    results["dataframe"] = df
+    results["query_info"] = query_info
+    results["report_v2"] = build_dataframe_report_v2(
+        df,
+        query_type,
+        current_period.as_dict(),
+        comparison_df=comparison_df,
+        comparison_period=comparison_period.as_dict(),
+        comparison_policy=comparison_policy,
+        report_id=f"{query_type}:{report_project_id or project}:{period}",
+        project_id=report_project_id or project,
+        timezone=timezone,
+        generated_at=dt.datetime.now(dt.timezone.utc).isoformat(),
+        cv_configured=cv_configured,
+        cv_observed_in_lookback=cv_observed_in_lookback,
+        cv_observation_query_failed=cv_observation_query_failed,
+        comparison_query_failed=comparison_query_failed,
+    )
 
     if df.empty:
         print("[bq-reporter] データが0件です。")
@@ -917,6 +1373,8 @@ def main():
     parser.add_argument("--period", required=True, help="期間（YYYY-MM or start:end）")
     parser.add_argument("--output", default="bq_reports", help="出力ディレクトリ")
     parser.add_argument("--project", default=PROJECT_ID, help="GCPプロジェクトID")
+    parser.add_argument("--cv-events", help="案件別CVイベント名（カンマ区切り）")
+    parser.add_argument("--timezone", default="Asia/Tokyo", help="IANA timezone")
     parser.add_argument("--list", action="store_true", help="利用可能なクエリタイプ一覧")
     args = parser.parse_args()
 
@@ -932,6 +1390,8 @@ def main():
         period=args.period,
         output_dir=Path(args.output),
         project=args.project,
+        cv_events=args.cv_events,
+        timezone=args.timezone,
     )
 
     print(f"\n[bq-reporter] 完了。生成ファイル:")

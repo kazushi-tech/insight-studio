@@ -5,7 +5,6 @@ describe('adsInsights neutral AI endpoint', () => {
     vi.resetModules()
     vi.restoreAllMocks()
     localStorage.clear()
-    localStorage.setItem('is_ads_token', 'test-token')
   })
 
   it('sends neonGenerate requests to /api/insights/neon/generate', async () => {
@@ -20,7 +19,8 @@ describe('adsInsights neutral AI endpoint', () => {
     }))
     vi.stubGlobal('fetch', fetchMock)
 
-    const { AI_GENERATE_ENDPOINT, neonGenerate } = await import('../adsInsights')
+    const { AI_GENERATE_ENDPOINT, neonGenerate, setToken } = await import('../adsInsights')
+    setToken('test-token')
 
     const result = await neonGenerate({
       provider: 'google',

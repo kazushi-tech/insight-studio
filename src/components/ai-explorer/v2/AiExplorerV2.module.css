@@ -246,7 +246,7 @@
 
 .timestamp {
   font-size: 0.75rem;
-  color: var(--color-outline);
+  color: var(--color-on-surface-variant);
   font-weight: 500;
 }
 
@@ -608,7 +608,7 @@
   justify-content: center;
   gap: 1.5rem;
   font-size: 0.75rem;
-  color: var(--color-outline);
+  color: var(--color-on-surface-variant);
   max-width: var(--ai-explorer-content-width);
   margin: 0 auto;
   width: 100%;

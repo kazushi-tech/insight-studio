@@ -4,6 +4,7 @@ import { server } from '../../test/mocks/server.js'
 import {
   health,
   getDiscoveryJob,
+  setMarketLensAuthTokenProvider,
   startDiscoveryJob,
   scan,
 } from '../../api/marketLens.js'
@@ -33,7 +34,7 @@ describe('Transport — proxy path routing', () => {
 
   it('forwards the existing Ads bearer token to Market Lens', async () => {
     let authorization = null
-    window.localStorage.setItem('is_ads_token', 'signed-admin-jwt')
+    setMarketLensAuthTokenProvider(async () => 'signed-admin-jwt')
     server.use(
       http.get('/api/ml/health', ({ request }) => {
         authorization = request.headers.get('Authorization')
@@ -45,7 +46,7 @@ describe('Transport — proxy path routing', () => {
       await health()
       expect(authorization).toBe('Bearer signed-admin-jwt')
     } finally {
-      window.localStorage.removeItem('is_ads_token')
+      setMarketLensAuthTokenProvider(null)
     }
   })
 })

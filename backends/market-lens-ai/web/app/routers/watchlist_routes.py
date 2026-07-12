@@ -57,7 +57,7 @@ def create_watchlist_router(
                 detail="Global watchlist limit reached",
             )
         # Per-project limit check
-        existing = [w for w in all_watchlists if w.project_id == req.project_id]
+        existing = _repo.list_watchlists(project_id=req.project_id)
         if len(existing) >= _MAX_WATCHLISTS_PER_PROJECT:
             raise HTTPException(
                 status_code=422,
@@ -126,6 +126,9 @@ def create_watchlist_router(
     async def delete_entry(watchlist_id: str, entry_id: str, _: str = Depends(verify_token)):
         _check_id(watchlist_id, "watchlist_id")
         _check_id(entry_id, "entry_id")
+        entry = _repo.get_entry(entry_id)
+        if entry is None or entry.watchlist_id != watchlist_id:
+            raise HTTPException(status_code=404, detail="Entry not found")
         if not _repo.delete_entry(entry_id):
             raise HTTPException(status_code=404, detail="Entry not found")
         return {"deleted": True}
@@ -136,6 +139,9 @@ def create_watchlist_router(
     async def get_diffs(watchlist_id: str, entry_id: str, limit: int = Query(default=10, ge=1, le=50), _: str | None = Depends(verify_auth_optional)):
         _check_id(watchlist_id, "watchlist_id")
         _check_id(entry_id, "entry_id")
+        entry = _repo.get_entry(entry_id)
+        if entry is None or entry.watchlist_id != watchlist_id:
+            raise HTTPException(status_code=404, detail="Entry not found")
         return _repo.get_diffs(entry_id, limit=limit)
 
     # ── Manual check ──
@@ -147,7 +153,7 @@ def create_watchlist_router(
         if _monitor is None:
             raise HTTPException(status_code=501, detail="Monitor not configured")
         entry = _repo.get_entry(entry_id)
-        if entry is None:
+        if entry is None or entry.watchlist_id != watchlist_id:
             raise HTTPException(status_code=404, detail="Entry not found")
         return await _monitor.check_entry(entry)
 

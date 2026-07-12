@@ -81,14 +81,14 @@ describe('AnalysisHub', () => {
     expect(screen.queryByRole('link', { name: 'グラフを見る' })).not.toBeInTheDocument()
   })
 
-  it('keeps advanced options visible but operator-controlled for case users', () => {
+  it('does not render operator-only advanced options for case users', () => {
     hoisted.role = 'case_user'
     hoisted.hasAnalysisKey = false
     renderPage()
 
     expect(screen.getByText('追加分析は導入担当者が行います')).toBeInTheDocument()
-    expect(screen.getAllByText('導入担当者が利用')).toHaveLength(3)
-    expect(screen.getAllByText('先行導入では担当者が実行')).toHaveLength(3)
+    expect(screen.queryByText('導入担当者が利用')).not.toBeInTheDocument()
+    expect(screen.queryByText('先行導入では担当者が実行')).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /ページ比較を開く/ })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: '自社レポートを見る' })).toHaveAttribute('href', '/ads/report')
   })

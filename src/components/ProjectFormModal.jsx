@@ -89,8 +89,8 @@ export default function ProjectFormModal({ onClose, project }) {
     try {
       const result = await getCaseBqStatus(form.case_id)
       setBqResult(result)
-    } catch (e) {
-      setBqResult({ error: e.message })
+    } catch {
+      setBqResult({ error: '接続を確認できませんでした。権限設定を確認してください。' })
     } finally {
       setBqTesting(false)
     }
@@ -110,8 +110,8 @@ export default function ProjectFormModal({ onClose, project }) {
         await createCase(payload)
       }
       onClose()
-    } catch (e) {
-      setError(e.message)
+    } catch {
+      setError('サイト情報を保存できませんでした。入力内容を確認して、もう一度お試しください。')
     } finally {
       setSubmitting(false)
     }

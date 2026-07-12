@@ -7,10 +7,15 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from ..auth import verify_admin_or_integration
+from ..auth import get_verified_owner_id, verify_admin_or_integration
+from ..jobs.analysis_backend import (
+    AnalysisJobStatus,
+    AnalysisJobType,
+    JobBackendMode,
+)
 from ..repositories.asset_repository import AssetRepository
 from ..repositories.creative_review_repository import (
     CreativeReviewRepository,
@@ -22,6 +27,13 @@ from ..repositories.creative_review_repository import (
 from ..schemas.competitor_compare import CompareReviewRequest
 from ..schemas.review_request import AdLpReviewRequest, BannerReviewRequest
 from ..schemas.review_result import ReviewResult
+from ..schemas.review_job import (
+    ReviewJobKind,
+    ReviewJobResponse,
+    ReviewJobResultResponse,
+    ReviewJobStartResponse,
+    ReviewJobStatus,
+)
 from ..services.review.ad_lp_fit_service import (
     AdLpAssetNotFoundError,
     AdLpReviewError,
@@ -111,6 +123,8 @@ def _classify_review_runtime_error(error_msg: str) -> tuple[int, str]:
 def create_review_router(
     repo: AssetRepository,
     review_repo: CreativeReviewRepository | None = None,
+    *,
+    analysis_job_backend=None,
 ) -> APIRouter:
     """Factory that creates review routes wired to the given asset repository."""
     router = APIRouter(
@@ -118,6 +132,118 @@ def create_review_router(
         tags=["creative-reviews"],
         dependencies=[Depends(verify_admin_or_integration)],
     )
+
+    def _analysis_backend_mode():
+        mode = getattr(analysis_job_backend, "mode", None)
+        if analysis_job_backend is not None and mode is None:
+            raise HTTPException(
+                status_code=503,
+                detail="Analysis job backend is unavailable.",
+            )
+        return mode
+
+    def _require_inline_review() -> None:
+        if _analysis_backend_mode() in {
+            JobBackendMode.worker,
+            JobBackendMode.workflow,
+        }:
+            raise HTTPException(
+                status_code=409,
+                detail="Use the durable /jobs endpoint for this review.",
+            )
+
+    def _require_durable_review() -> None:
+        if _analysis_backend_mode() not in {
+            JobBackendMode.worker,
+            JobBackendMode.workflow,
+        }:
+            raise HTTPException(
+                status_code=501,
+                detail="Durable review jobs are not configured.",
+            )
+
+    def _public_status(status_value: AnalysisJobStatus) -> ReviewJobStatus:
+        return {
+            AnalysisJobStatus.queued: ReviewJobStatus.queued,
+            AnalysisJobStatus.running: ReviewJobStatus.running,
+            AnalysisJobStatus.succeeded: ReviewJobStatus.completed,
+            AnalysisJobStatus.failed: ReviewJobStatus.failed,
+            AnalysisJobStatus.canceled: ReviewJobStatus.cancelled,
+        }[status_value]
+
+    def _review_type_for_job(job) -> ReviewJobKind:
+        if job.job_type == AnalysisJobType.compare:
+            return ReviewJobKind.competitor_compare
+        review_kind = str(job.payload.get("review_kind") or "")
+        if review_kind == "banner":
+            return ReviewJobKind.banner_review
+        if review_kind == "ad_lp":
+            return ReviewJobKind.ad_lp_review
+        raise HTTPException(status_code=404, detail="Review job not found.")
+
+    def _load_durable_review_job(job_id: str, owner_id: str):
+        _require_durable_review()
+        job = analysis_job_backend.get(job_id)
+        if job is None or job.job_type not in {
+            AnalysisJobType.compare,
+            AnalysisJobType.creative_review,
+        }:
+            raise HTTPException(status_code=404, detail="Review job not found.")
+        if job.owner_id and job.owner_id != owner_id:
+            raise HTTPException(status_code=404, detail="Review job not found.")
+        _review_type_for_job(job)
+        return job
+
+    def _job_response(job) -> ReviewJobResponse:
+        return ReviewJobResponse(
+            job_id=job.id,
+            review_type=_review_type_for_job(job),
+            status=_public_status(job.status),
+            stage=job.stage,
+            progress_pct=job.progress_pct,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            updated_at=job.updated_at,
+            heartbeat_at=job.heartbeat_at,
+            result=dict(job.result) if job.result is not None else None,
+            error=dict(job.error) if job.error is not None else None,
+            retry_after_sec=(2 if job.status in {AnalysisJobStatus.queued, AnalysisJobStatus.running} else None),
+        )
+
+    def _enqueue_review(
+        req,
+        *,
+        job_type: AnalysisJobType,
+        review_type: ReviewJobKind,
+        idempotency_key: str,
+        review_kind: str | None = None,
+    ) -> ReviewJobStartResponse:
+        _require_durable_review()
+        key = idempotency_key.strip()
+        if not key:
+            raise HTTPException(status_code=422, detail="Idempotency-Key is required.")
+        if getattr(req, "api_key", None):
+            raise HTTPException(
+                status_code=422,
+                detail="BYOK credentials cannot be queued; use the configured service provider.",
+            )
+        payload = req.model_dump(mode="json", exclude={"api_key"})
+        if review_kind is not None:
+            payload["review_kind"] = review_kind
+        job = analysis_job_backend.enqueue(
+            job_type,
+            payload,
+            idempotency_key=key,
+        )
+        return ReviewJobStartResponse(
+            job_id=job.id,
+            review_type=review_type,
+            status=_public_status(job.status),
+            stage=job.stage,
+            poll_url=f"/api/reviews/jobs/{job.id}",
+            result_url=f"/api/reviews/jobs/{job.id}/result",
+            retry_after_sec=3,
+        )
 
     def _persist(review_type: str, asset_id: str, result: ReviewResult, req) -> str | None:
         """Persist review run and output if review_repo is wired.
@@ -146,6 +272,7 @@ def create_review_router(
 
     @router.post("/banner", response_model=ReviewSubmissionResponse)
     async def banner_review(req: BannerReviewRequest):
+        _require_inline_review()
         if is_smoke_mode():
             logger.info("[SMOKE] Returning deterministic banner review")
             # Validate asset exists (still check repo)
@@ -191,6 +318,7 @@ def create_review_router(
 
     @router.post("/ad-lp", response_model=ReviewSubmissionResponse)
     async def ad_lp_review(req: AdLpReviewRequest):
+        _require_inline_review()
         if is_smoke_mode():
             logger.info("[SMOKE] Returning deterministic ad-LP review")
             try:
@@ -236,6 +364,7 @@ def create_review_router(
 
     @router.post("/compare", response_model=ReviewSubmissionResponse)
     async def compare_review(req: CompareReviewRequest):
+        _require_inline_review()
         try:
             result = await review_competitor_compare(
                 asset_id=req.asset_id,
@@ -255,6 +384,92 @@ def create_review_router(
         except CompareReviewError as e:
             logger.warning("Compare review failed: %s", e)
             raise HTTPException(status_code=422, detail=str(e))
+
+    @router.post(
+        "/banner/jobs",
+        status_code=202,
+        response_model=ReviewJobStartResponse,
+    )
+    async def start_banner_review_job(
+        req: BannerReviewRequest,
+        idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    ):
+        return _enqueue_review(
+            req,
+            job_type=AnalysisJobType.creative_review,
+            review_type=ReviewJobKind.banner_review,
+            review_kind="banner",
+            idempotency_key=idempotency_key,
+        )
+
+    @router.post(
+        "/ad-lp/jobs",
+        status_code=202,
+        response_model=ReviewJobStartResponse,
+    )
+    async def start_ad_lp_review_job(
+        req: AdLpReviewRequest,
+        idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    ):
+        return _enqueue_review(
+            req,
+            job_type=AnalysisJobType.creative_review,
+            review_type=ReviewJobKind.ad_lp_review,
+            review_kind="ad_lp",
+            idempotency_key=idempotency_key,
+        )
+
+    @router.post(
+        "/compare/jobs",
+        status_code=202,
+        response_model=ReviewJobStartResponse,
+    )
+    async def start_compare_review_job(
+        req: CompareReviewRequest,
+        idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    ):
+        return _enqueue_review(
+            req,
+            job_type=AnalysisJobType.compare,
+            review_type=ReviewJobKind.competitor_compare,
+            idempotency_key=idempotency_key,
+        )
+
+    @router.get("/jobs/{job_id}", response_model=ReviewJobResponse)
+    async def get_review_job(
+        job_id: str,
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
+        return _job_response(_load_durable_review_job(job_id, owner_id))
+
+    @router.get("/jobs/{job_id}/result", response_model=ReviewJobResultResponse)
+    async def get_review_job_result(
+        job_id: str,
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
+        job = _load_durable_review_job(job_id, owner_id)
+        if job.status != AnalysisJobStatus.succeeded or job.result is None:
+            raise HTTPException(
+                status_code=409,
+                detail="Review job is not completed.",
+            )
+        return ReviewJobResultResponse(
+            job_id=job.id,
+            run_id=job.id,
+            review_type=_review_type_for_job(job),
+            review=ReviewResult(**job.result),
+        )
+
+    @router.post("/jobs/{job_id}/cancel", response_model=ReviewJobResponse)
+    async def cancel_review_job(
+        job_id: str,
+        owner_id: str = Depends(get_verified_owner_id),
+    ):
+        job = _load_durable_review_job(job_id, owner_id)
+        canceled = analysis_job_backend.cancel(job.id)
+        if canceled is None:
+            raise HTTPException(status_code=404, detail="Review job not found.")
+        return _job_response(canceled)
 
     @router.get("/{review_id}", response_model=StoredReviewResponse)
     async def get_review(review_id: str):

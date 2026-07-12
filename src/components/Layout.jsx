@@ -18,10 +18,25 @@ import CaseSelector from './CaseSelector'
 import CaseAuthModal from './CaseAuthModal'
 import ReportHistoryDrawer from './report-history/ReportHistoryDrawer'
 import { isProjectManagementEnabled } from '../config/features'
+import { shouldShowDemoMode } from '../utils/demoMode'
+import { MotionPage, MotionProvider } from '../motion'
 
 const SETUP_GATED_PATHS = ['/ads/report', '/ads/graphs', '/ads/ai', '/insights/ai']
 const AI_EXPLORER_PATH = '/insights/ai'
 const ANALYSIS_NAV_PATHS = ['/analysis', AI_EXPLORER_PATH, '/compare', '/discovery', '/creative-review']
+const ROUTE_TITLES = {
+  '/': 'ホーム',
+  '/analysis': '分析メニュー',
+  '/compare': '競合ページ比較',
+  '/discovery': '競合サイト探索',
+  '/creative-review': '画像レビュー',
+  '/ads/wizard': 'サイト分析の準備',
+  '/ads/report': 'Web成果レポート',
+  '/ads/graphs': '根拠グラフ',
+  '/insights/ai': 'AIへの質問',
+  '/projects': 'プロジェクト管理',
+  '/settings': 'データ連携と設定',
+}
 
 const NAV_ITEMS = [
   { to: '/', icon: 'home', label: 'ホーム' },
@@ -151,7 +166,7 @@ function SidebarGroup({ item, disabledPaths, canManageProjects }) {
 }
 
 function MobileNavLink({ to, icon, label, disabled, activePaths }) {
-  const baseClass = 'flex min-h-14 min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-black japanese-text transition-[color,background-color,transform] active:translate-y-px motion-reduce:transition-none'
+  const baseClass = 'flex min-h-14 min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-black japanese-text transition-transform active:translate-y-px motion-reduce:transition-none'
   const location = useLocation()
   const isActive = activePaths
     ? activePaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`))
@@ -185,9 +200,12 @@ function MobileNavLink({ to, icon, label, disabled, activePaths }) {
           : 'text-on-surface-variant hover:bg-primary/[0.06] hover:text-primary'
       }`}
     >
-      <span className={`grid size-8 place-items-center rounded-xl transition-[background-color,color,transform] motion-reduce:transition-none ${
-        isActive ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container text-on-surface-variant'
-      }`}>
+      <span
+        className={`grid size-8 place-items-center rounded-xl transition-transform motion-reduce:transition-none ${
+          isActive ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container text-on-surface-variant'
+        }`}
+        style={isActive ? { backgroundColor: '#003925', color: '#ffffff' } : undefined}
+      >
         <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{icon}</span>
       </span>
       <span className="max-w-full truncate">{label}</span>
@@ -285,8 +303,8 @@ function KeySettingsModal({ onClose }) {
     try {
       await loginAds(adsPassword)
       setAdsPassword('')
-    } catch (e) {
-      setAdsError(e.message)
+    } catch {
+      setAdsError('接続設定を確認できませんでした。少し待って、もう一度お試しください。')
     }
   }
 
@@ -479,12 +497,22 @@ export default function Layout() {
   const [selectedCase, setSelectedCase] = useState(null)
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false)
   const location = useLocation()
-  const { hasAnalysisKey, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
+  const mainRef = useRef(null)
+  const { authMode, hasAnalysisKey, isAdsAuthenticated, logoutAds, user: authUser } = useAuth()
   const { isDark, toggleTheme } = useTheme()
-  const { isSetupComplete, resetSetup, authenticateCase, clearCase, selectCase } = useAdsSetup()
+  const { isSetupComplete, resetSetup, authenticateCase, clearCase, selectCase, currentCase } = useAdsSetup()
   const { displayName, avatarInitial } = useUserProfile()
-  const { canManageProjects, isCaseUser } = useRbac()
+  const { canManageProjects, isAdmin, isCaseUser } = useRbac()
   const navigate = useNavigate()
+  const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
+  const routeTitle = ROUTE_TITLES[location.pathname] || 'Insight Studio'
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      mainRef.current?.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.pathname])
 
   // Pre-warm backends (fire-and-forget) to avoid cold-start delays
   useEffect(() => {
@@ -500,17 +528,23 @@ export default function Layout() {
       clearCase()
       return
     }
-    if (canManageProjects) {
+    if (authMode === 'clerk' || canManageProjects) {
+      const projectId = caseInfo.project_id || caseInfo.id || caseInfo.case_id
       selectCase({
-        case_id: caseInfo.case_id || caseInfo.id,
+        case_id: projectId,
+        project_id: authMode === 'clerk' ? projectId : caseInfo.project_id,
+        project_ref: authMode === 'clerk' ? projectId : caseInfo.project_ref,
+        project_role: caseInfo.project_role || authUser?.project_roles?.[projectId] || authUser?.workspace_role,
         name: caseInfo.name,
-        dataset_id: caseInfo.dataset_id,
+        dataset_id: authMode === 'clerk' ? undefined : caseInfo.dataset_id,
+        status: caseInfo.status,
+        is_demo: caseInfo.is_demo === true,
       })
     } else {
       setSelectedCase(caseInfo)
       setShowAuthModal(true)
     }
-  }, [clearCase, canManageProjects, selectCase])
+  }, [authMode, authUser?.project_roles, authUser?.workspace_role, clearCase, canManageProjects, selectCase])
 
   const handleCaseAuthenticate = useCallback(async (caseId, password, options = {}) => {
     return authenticateCase(caseId, password, options)
@@ -565,7 +599,9 @@ export default function Layout() {
     }
   }, [])
 
-  const profileCaption = isAdsAuthenticated ? 'Webサイト分析 接続済' : 'ローカルプロフィール'
+  const profileCaption = isDemo
+    ? 'デモデータ利用中'
+    : isAdsAuthenticated ? 'Webサイト分析 接続済' : 'ローカルプロフィール'
   const showKeyAttention = !isAdsAuthenticated
   const mobileNavItems = [
     { to: '/', icon: 'home', label: 'ホーム' },
@@ -591,9 +627,9 @@ export default function Layout() {
             <span className="material-symbols-outlined text-2xl">eco</span>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tighter leading-tight">
+            <p className="text-xl font-bold text-white tracking-tighter leading-tight">
               Insight Studio
-            </h1>
+            </p>
             <p className="text-[10px] text-white/40 uppercase tracking-widest font-bold">
               Webサイト分析
             </p>
@@ -631,19 +667,19 @@ export default function Layout() {
           <div className="px-6 mb-3">
             <Link to="/settings" className="block space-y-3 rounded-xl bg-white/[0.06] p-3 text-xs transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-fixed">
               <div className="flex min-w-0 items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-white/75">Webサイトデータ</span>
+                <span className="min-w-0 truncate text-white/75">{isDemo ? '完全架空データ' : 'Webサイトデータ'}</span>
                 <span className={`flex shrink-0 items-center gap-1 font-bold ${isAdsAuthenticated ? 'text-emerald-300' : 'text-white/70'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${isAdsAuthenticated ? 'bg-emerald-400' : 'bg-white/20'}`} />
-                  {isAdsAuthenticated ? '接続済み' : '準備が必要'}
+                  {isDemo ? 'デモデータ利用中' : isAdsAuthenticated ? '接続済み' : '準備が必要'}
                 </span>
               </div>
-              <div className="flex min-w-0 items-center justify-between gap-2">
+              {isAdmin && <div className="flex min-w-0 items-center justify-between gap-2">
                 <span className="min-w-0 truncate text-white/75">追加分析</span>
                 <span className={`flex shrink-0 items-center gap-1 font-bold ${hasAnalysisKey ? 'text-emerald-300' : 'text-white/70'}`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${hasAnalysisKey ? 'bg-emerald-400' : 'bg-white/20'}`} />
                   {hasAnalysisKey ? '利用できます' : '設定が必要'}
                 </span>
-              </div>
+              </div>}
             </Link>
           </div>
 
@@ -666,6 +702,11 @@ export default function Layout() {
           onKeyDown={handleResizeKeyDown}
           role="separator"
           aria-label="サイドバーの幅を変更"
+          aria-orientation="vertical"
+          aria-valuemin={200}
+          aria-valuemax={400}
+          aria-valuenow={sidebarWidth}
+          aria-valuetext={`${sidebarWidth}px`}
           tabIndex={0}
           className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-white/20 active:bg-white/30 transition-colors focus-ring"
         />
@@ -673,13 +714,15 @@ export default function Layout() {
 
       {/* Main Content */}
       <main
+        ref={mainRef}
         id="main-content"
+        tabIndex={-1}
         className="flex min-h-dvh min-w-0 flex-1 flex-col pb-20 lg:ml-[var(--sidebar-width)] lg:pb-0"
         style={{ '--sidebar-width': `${sidebarWidth}px` }}
       >
         {/* Top Header */}
         <header className="sticky top-0 z-50 flex min-h-16 w-full flex-nowrap items-center justify-between gap-2 border-b border-outline-variant/10 bg-surface/90 px-4 py-2 backdrop-blur-md lg:h-16 lg:gap-3 lg:px-8 lg:py-0">
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             {isCaseUser ? (
               <div className="flex min-w-0 items-center gap-2 font-bold text-on-surface">
                 <span className="material-symbols-outlined text-secondary">folder</span>
@@ -687,6 +730,14 @@ export default function Layout() {
               </div>
             ) : (
               <CaseSelector onCaseSelect={handleCaseSelect} />
+            )}
+            {isDemo && (
+              <span
+                data-testid="demo-mode-badge"
+                className="shrink-0 whitespace-nowrap rounded-full bg-secondary-container px-2 py-1 text-[9px] font-black leading-none tracking-wide text-on-secondary-container sm:px-2.5 sm:text-[10px]"
+              >
+                DEMO・完全架空データ
+              </span>
             )}
           </div>
           <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 lg:gap-6">
@@ -704,10 +755,10 @@ export default function Layout() {
                 <span className="material-symbols-outlined">history</span>
               </button>
               {/* API Key Settings */}
-              {canManageProjects && <button
+              {isAdmin && <button
                 onClick={() => setShowKeyModal(true)}
                 className={`relative flex size-11 items-center justify-center rounded-full hover:bg-surface-container transition-colors ${
-                  !showKeyAttention ? 'text-emerald-600 dark:text-success' : 'text-secondary'
+                  !showKeyAttention ? 'text-success' : 'text-secondary'
                 }`}
                 title="API キー・接続設定"
                 aria-label="API キー・接続設定"
@@ -755,9 +806,14 @@ export default function Layout() {
         </header>
 
         {/* Page Content */}
-        <div key={location.key || location.pathname} className="page-motion flex-1">
-          <Outlet />
-        </div>
+        <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {routeTitle}画面を表示しました
+        </p>
+        <MotionProvider>
+          <MotionPage key={location.key || location.pathname} className="flex-1">
+            <Outlet />
+          </MotionPage>
+        </MotionProvider>
       </main>
 
       <nav
@@ -777,7 +833,7 @@ export default function Layout() {
       </nav>
 
       {/* Key Settings Modal */}
-      {canManageProjects && showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
+      {isAdmin && showKeyModal && <KeySettingsModal onClose={() => setShowKeyModal(false)} />}
       {/* Case Auth Modal */}
       {showAuthModal && selectedCase && (
         <CaseAuthModal

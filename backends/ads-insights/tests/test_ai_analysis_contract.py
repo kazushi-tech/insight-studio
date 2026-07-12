@@ -94,11 +94,9 @@ EVIDENCE_PACK = {
 @pytest.fixture(autouse=True)
 def _patch_auth_and_rate(monkeypatch):
     backend_api._login_failures.clear()
-    backend_api._rate_buckets.clear()
     monkeypatch.setattr(backend_api, "_is_client_key_required", lambda: False)
     yield
     backend_api._login_failures.clear()
-    backend_api._rate_buckets.clear()
 
 
 async def _token(client):

@@ -28,21 +28,34 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
         <p className="text-xs font-bold text-on-surface tabular-nums">
           {formatCreatedAt(entry.createdAt)}
         </p>
-        <button
-          type="button"
-          onClick={() => onRemove?.(entry.id)}
-          className="text-[11px] text-on-surface-variant hover:text-error transition-colors japanese-text"
-          aria-label="この履歴を削除"
-        >
-          削除
-        </button>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={() => onRemove(entry.id)}
+            className="min-h-11 min-w-11 rounded-xl px-3 text-[11px] text-on-surface-variant hover:bg-error-container hover:text-on-error-container transition-colors japanese-text"
+            aria-label="この履歴を削除"
+          >
+            削除
+          </button>
+        )}
       </div>
 
       <p className="text-[11px] text-on-surface-variant japanese-text">
         <span className="font-bold">期間:</span> {meta.periodsLabel ?? '—'}
         <span className="mx-2 opacity-40">|</span>
-        <span className="font-bold">クエリ:</span> {meta.queryTypesLabel ?? '—'}
+        <span className="font-bold">見る内容:</span> {meta.queryTypesLabel ?? '—'}
       </p>
+
+      {entry._syncState === 'saving' && (
+        <p className="text-[11px] font-bold text-primary japanese-text" role="status">
+          サーバーへ保存中
+        </p>
+      )}
+      {entry._syncState === 'error' && (
+        <p className="text-[11px] font-bold text-error japanese-text" role="alert">
+          まだサーバーへ保存できていません
+        </p>
+      )}
 
       {meta.tldr && (
         <p className="text-sm text-on-surface japanese-text line-clamp-2">
@@ -59,7 +72,7 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
           <button
             type="button"
             onClick={() => setShowPreview((v) => !v)}
-            className="px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors japanese-text"
+            className="min-h-11 px-3 rounded-xl bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest transition-colors japanese-text"
           >
             {showPreview ? 'プレビューを閉じる' : 'プレビュー'}
           </button>
@@ -71,14 +84,14 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
                   setConfirmRestore(false)
                   onRestore?.(entry.id)
                 }}
-                className="px-3 py-1 rounded-full bg-primary text-on-primary font-bold hover:opacity-90 transition-all japanese-text"
+                className="min-h-11 px-3 rounded-xl bg-primary text-on-primary font-bold hover:opacity-90 transition-all japanese-text"
               >
                 復元する
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmRestore(false)}
-                className="px-2 py-1 rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors japanese-text"
+                className="min-h-11 min-w-11 rounded-xl px-2 text-on-surface-variant hover:bg-surface-container-high transition-colors japanese-text"
                 aria-label="キャンセル"
               >
                 ✕
@@ -88,7 +101,7 @@ export default function ReportHistoryItem({ entry, onRestore, onRemove }) {
             <button
               type="button"
               onClick={() => setConfirmRestore(true)}
-              className="px-3 py-1 rounded-full bg-secondary text-on-secondary font-bold hover:opacity-90 transition-all japanese-text"
+              className="min-h-11 px-3 rounded-xl bg-secondary text-on-secondary font-bold hover:opacity-90 transition-all japanese-text"
             >
               このレポートを復元
             </button>

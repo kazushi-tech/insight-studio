@@ -14,6 +14,15 @@ export const handlers = [
     HttpResponse.json({ status: 'ok' }),
   ),
 
+  // Server-backed report history starts empty unless a test overrides it.
+  http.get('/api/ads/projects/:projectRef/reports', ({ params }) =>
+    HttpResponse.json({
+      ok: true,
+      project_id: String(params.projectRef),
+      reports: [],
+    }),
+  ),
+
   // Discovery: create job
   http.post(`${ML_ORIGIN}/api/discovery/jobs`, () =>
     HttpResponse.json({

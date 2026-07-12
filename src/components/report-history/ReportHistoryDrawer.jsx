@@ -3,7 +3,17 @@ import { useReportHistory } from '../../contexts/ReportHistoryContext'
 import ReportHistoryItem from './ReportHistoryItem'
 
 export default function ReportHistoryDrawer({ open, onClose }) {
-  const { history, removeEntry, restoreEntry, clearAll, maxEntries } = useReportHistory()
+  const {
+    history,
+    removeEntry,
+    restoreEntry,
+    clearAll,
+    retryHistorySync,
+    historyState,
+    historyMessage,
+    canManageHistory = true,
+    maxEntries,
+  } = useReportHistory()
   const asideRef = useRef(null)
   const previouslyFocused = useRef(null)
 
@@ -89,6 +99,28 @@ export default function ReportHistoryDrawer({ open, onClose }) {
             </button>
           </div>
 
+          {historyMessage && (
+            <div
+              className={`mx-4 mt-4 rounded-xl px-4 py-3 text-xs japanese-text ${
+                historyState === 'error' || historyState === 'partial'
+                  ? 'bg-error-container text-on-error-container'
+                  : 'bg-secondary-container text-on-secondary-container'
+              }`}
+              role={historyState === 'error' ? 'alert' : 'status'}
+            >
+              <p>{historyMessage}</p>
+              {(historyState === 'error' || historyState === 'partial') && (
+                <button
+                  type="button"
+                  onClick={retryHistorySync}
+                  className="mt-2 min-h-11 rounded-xl px-4 font-bold underline underline-offset-4"
+                >
+                  もう一度同期する
+                </button>
+              )}
+            </div>
+          )}
+
           {/* List or Empty */}
           <div className="flex-1 overflow-y-auto px-4 py-4">
             {history.length === 0 ? (
@@ -110,7 +142,7 @@ export default function ReportHistoryDrawer({ open, onClose }) {
                       restoreEntry(id)
                       onClose?.()
                     }}
-                    onRemove={removeEntry}
+                    onRemove={canManageHistory ? removeEntry : null}
                   />
                 ))}
               </ul>
@@ -118,7 +150,7 @@ export default function ReportHistoryDrawer({ open, onClose }) {
           </div>
 
           {/* Footer */}
-          {history.length > 0 && (
+          {history.length > 0 && canManageHistory && (
             <div className="px-6 py-3 border-t border-outline-variant/30">
               <button
                 type="button"

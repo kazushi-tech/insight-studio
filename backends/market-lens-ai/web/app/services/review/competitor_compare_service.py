@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 from ...confidence_tier_validator import validate_and_annotate
 from ...deterministic_evaluator import BrandEvaluation
@@ -106,6 +106,7 @@ async def review_competitor_compare(
     model: Optional[str] = None,
     provider: Optional[str] = None,
     api_key: Optional[str] = None,
+    cancel_check: Callable[[], Awaitable[None]] | None = None,
 ) -> ReviewResult:
     """Run a competitor compare review and return validated structured result."""
     try:
@@ -124,6 +125,8 @@ async def review_competitor_compare(
         operator_memo=operator_memo,
     )
 
+    if cancel_check is not None:
+        await cancel_check()
     raw_text, _usage = await _call_text_model(
         prompt,
         provider=provider,

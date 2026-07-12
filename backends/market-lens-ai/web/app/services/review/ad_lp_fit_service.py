@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Awaitable, Callable, Optional
 
 _ASSET_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 
@@ -50,6 +50,7 @@ async def review_ad_lp_fit(
     model: Optional[str] = None,
     provider: Optional[str] = None,
     api_key: Optional[str] = None,
+    cancel_check: Callable[[], Awaitable[None]] | None = None,
 ) -> ReviewResult:
     """Run an ad-to-LP fit review and return validated structured result."""
     if not _ASSET_ID_RE.match(asset_id):
@@ -66,16 +67,16 @@ async def review_ad_lp_fit(
 
     # Server-side LP capture: if LP data is URL-only, fetch structured data
     if landing_page.url and not landing_page.title and not landing_page.first_view_text:
-        logger.info("LP data is URL-only — running server-side capture for %s", landing_page.url)
+        logger.info("LP data is URL-only — running server-side capture")
+        if cancel_check is not None:
+            await cancel_check()
         capture_result = await capture_landing_page(
             landing_page.url,
             fetch_timeout=_LP_CAPTURE_TIMEOUT_SEC,
             fetch_max_retries=_LP_CAPTURE_MAX_RETRIES,
         )
         if capture_result.error:
-            raise AdLpReviewError(
-                f"LP capture failed for {landing_page.url}: {capture_result.error}"
-            )
+            raise AdLpReviewError(f"LP capture failed: {capture_result.error}")
         landing_page = capture_result.landing_page
 
     prompt = build_ad_lp_review_prompt(
@@ -101,6 +102,8 @@ async def review_ad_lp_fit(
             )
             logger.info("Retrying ad-LP LLM call (parse attempt %d) after parse error", parse_attempt + 1)
 
+        if cancel_check is not None:
+            await cancel_check()
         if image_data is not None:
             try:
                 raw_text, _usage = await _call_multimodal_model(
@@ -130,6 +133,8 @@ async def review_ad_lp_fit(
                         f"画像の処理に失敗しました (asset_id={asset_id}, "
                         f"mime_type={meta.mime_type}): {exc_detail[:200]}"
                     ) from multimodal_exc
+                if cancel_check is not None:
+                    await cancel_check()
                 raw_text, _usage = await _call_text_model(
                     call_prompt,
                     provider=provider,

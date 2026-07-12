@@ -98,6 +98,7 @@ export default function InsightTimeline({
   reportError,
   reportBundle,
   chartGroups,
+  isDemo = false,
 }) {
   const endRef = useRef(null)
 
@@ -142,6 +143,12 @@ export default function InsightTimeline({
     <div className={`ui-v2 ${styles.root}`} data-testid="ai-explorer-v2">
       {/* ───────── Banners ───────── */}
       <div className={styles.bannerStack}>
+        {isDemo && (
+          <div data-testid="demo-ai-notice" className={`${styles.banner} ${styles.bannerInfo}`}>
+            <span className="material-symbols-outlined" aria-hidden="true">science</span>
+            <span className="japanese-text">デモでは固定された架空回答を表示します。外部AIは利用しません。</span>
+          </div>
+        )}
         {!isAdsAuthenticated && (
           <div className={`${styles.banner} ${styles.bannerWarning}`}>
             <span className="material-symbols-outlined" aria-hidden="true">warning</span>
@@ -150,11 +157,11 @@ export default function InsightTimeline({
             </span>
           </div>
         )}
-        {!hasAnalysisKey && (
+        {!hasAnalysisKey && !isDemo && (
           <div className={`${styles.banner} ${styles.bannerInfo}`}>
             <span className="material-symbols-outlined" aria-hidden="true">data_check</span>
             <span className="japanese-text">
-              APIキーなしの根拠整理モードで利用できます。Geminiを設定すると、安価な1回生成と厳格検査で詳しい考察に切り替わります。
+              表示中の根拠を使った整理モードで利用できます。詳しい追加分析は、導入担当者の設定後に利用できます。
             </span>
           </div>
         )}
