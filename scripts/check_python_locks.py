@@ -23,6 +23,14 @@ LOCK_SOURCES = {
         "backends/market-lens-ai/requirements.in",
         "backends/market-lens-ai/requirements.txt",
     ),
+    "backends/ads-insights/requirements.frozen.txt": (
+        ".github/requirements/known-good-constraints.txt",
+        "backends/ads-insights/requirements.vercel.in",
+    ),
+    "backends/market-lens-ai/requirements.frozen.txt": (
+        ".github/requirements/known-good-constraints.txt",
+        "backends/market-lens-ai/requirements.vercel.in",
+    ),
     ".github/requirements/ads-ci.lock": (
         ".github/requirements/known-good-constraints.txt",
         ".github/requirements/ads-ci.in",
@@ -94,16 +102,14 @@ def _validate_production_wrappers() -> None:
 
 
 def _validate_vercel_frozen_manifests() -> None:
-    """Keep Vercel's directly parseable manifest identical to the hashed lock."""
-    for backend in ("ads-insights", "market-lens-ai"):
-        directory = ROOT / "backends" / backend
-        lock_path = directory / "requirements.lock"
-        frozen_path = directory / "requirements.frozen.txt"
-        if frozen_path.read_bytes() != lock_path.read_bytes():
-            raise AssertionError(
-                f"{frozen_path.relative_to(ROOT)} must be an exact mirror of "
-                f"{lock_path.relative_to(ROOT)}"
-            )
+    """Keep the Ads serverless bundle on the current Gemini SDK only."""
+    frozen = (ROOT / "backends/ads-insights/requirements.frozen.txt").read_text(
+        encoding="utf-8"
+    )
+    if "google-genai==" not in frozen:
+        raise AssertionError("Ads Vercel manifest must include google-genai")
+    if "google-generativeai==" in frozen:
+        raise AssertionError("Ads Vercel manifest must omit deprecated google-generativeai")
 
 
 def main() -> int:

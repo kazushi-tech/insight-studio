@@ -29,6 +29,14 @@
       "backends/market-lens-ai/requirements.in": "dfcc80dca1386a34085a27a59ef5012132db2db2cca5c0139ac080e626877a60"
     }
   },
+  "backends/ads-insights/requirements.frozen.txt": {
+    "lock_sha256": "a7123152b7883313b360a756e438ac685b960f336d3f42a687292ba085135087",
+    "package_count": 75,
+    "sources": {
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      "backends/ads-insights/requirements.vercel.in": "45607f10c123abf3cd38dada4a02230acb71e827a69f687cd82bf19eaac4ad71"
+    }
+  },
   "backends/ads-insights/requirements.lock": {
     "lock_sha256": "07ae5a89d5771f43d79019994eb0938f7a25193219151b1bd1bc0c61bb571611",
     "package_count": 82,
@@ -36,6 +44,14 @@
       ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
       "backends/ads-insights/requirements.in": "e57f36172542bbc7fa322d3be802eef4055ea0f362f81da8210021b9b27e771c",
       "backends/ads-insights/requirements.txt": "4f9a1ea6da8c1654c41cabbaae8f20c9ae0c0e63b31c622a669f739e9626fc2f"
+    }
+  },
+  "backends/market-lens-ai/requirements.frozen.txt": {
+    "lock_sha256": "203020d9fafe4f951948c5f69703921183f5f80900833899a711d8b88d4f84fe",
+    "package_count": 67,
+    "sources": {
+      ".github/requirements/known-good-constraints.txt": "674b09ad9d17f3eb6ce4b76d9578021d869564c3f53d004e50060dde6506287b",
+      "backends/market-lens-ai/requirements.vercel.in": "dfcc80dca1386a34085a27a59ef5012132db2db2cca5c0139ac080e626877a60"
     }
   },
   "backends/market-lens-ai/requirements.lock": {
