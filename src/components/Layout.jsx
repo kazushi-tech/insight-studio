@@ -166,7 +166,7 @@ function SidebarGroup({ item, disabledPaths, canManageProjects }) {
 }
 
 function MobileNavLink({ to, icon, label, disabled, activePaths }) {
-  const baseClass = 'flex min-h-14 min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-black japanese-text transition-[color,background-color,transform] active:translate-y-px motion-reduce:transition-none'
+  const baseClass = 'flex min-h-14 min-w-0 touch-manipulation flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-black japanese-text transition-transform active:translate-y-px motion-reduce:transition-none'
   const location = useLocation()
   const isActive = activePaths
     ? activePaths.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`))
@@ -200,9 +200,12 @@ function MobileNavLink({ to, icon, label, disabled, activePaths }) {
           : 'text-on-surface-variant hover:bg-primary/[0.06] hover:text-primary'
       }`}
     >
-      <span className={`grid size-8 place-items-center rounded-xl transition-transform motion-reduce:transition-none ${
-        isActive ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container text-on-surface-variant'
-      }`}>
+      <span
+        className={`grid size-8 place-items-center rounded-xl transition-transform motion-reduce:transition-none ${
+          isActive ? 'bg-primary text-on-primary shadow-sm' : 'bg-surface-container text-on-surface-variant'
+        }`}
+        style={isActive ? { backgroundColor: '#003925', color: '#ffffff' } : undefined}
+      >
         <span className="material-symbols-outlined text-[20px]" aria-hidden="true">{icon}</span>
       </span>
       <span className="max-w-full truncate">{label}</span>
