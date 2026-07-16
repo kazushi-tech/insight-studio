@@ -47,11 +47,14 @@ const THEME_DEFINITIONS = [
 const QUERY_TYPE_THEME = {
   pv: 'lp',
   traffic: 'traffic',
+  campaign: 'traffic',
   cv: 'cv',
+  search: 'lp',
   landing: 'lp',
   engagement: 'lp',
   device: 'device',
   hourly: 'time',
+  user_attr: 'other',
   anomaly: 'anomaly',
   auction_proxy: 'traffic',
 }

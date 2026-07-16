@@ -9,6 +9,7 @@ const ADS_DIRECT_HEALTH_URL = '/api/ads/health'
 export const AI_GENERATE_ENDPOINT = '/api/insights/neon/generate'
 const INSIGHTS_BASE = '/api/insights'
 const INSIGHTS_DIRECT_BASE = INSIGHTS_BASE
+const BQ_BATCH_TIMEOUT_MS = 180000
 export const DEFAULT_ADS_DATASET_ID = 'analytics_311324674'
 export const AUTH_EXPIRED_MESSAGE = '認証エラー: セッションが切れました。再ログインしてください。'
 
@@ -239,11 +240,18 @@ async function request(path, options = {}) {
     }
     if (e.name === 'AbortError') {
       const sec = Math.round(timeout / 1000)
-      throw new Error(
+      const timeoutError = new Error(
         sec >= 60
-          ? `リクエストが ${sec} 秒でタイムアウトしました。AI生成の処理に時間がかかっている、またはバックエンドのコールドスタートが原因の可能性があります。しばらく待ってから再試行してください。`
+          ? `リクエストが ${sec} 秒でタイムアウトしました。集計処理またはバックエンドの起動に時間がかかっている可能性があります。処理状況を確認してから再試行してください。`
           : 'リクエストがタイムアウトしました。ネットワーク接続を確認してください。'
       )
+      // The server may still be running after the browser stops waiting.  Mark
+      // this as an uncertain outcome so callers do not immediately duplicate a
+      // long-running BigQuery batch.
+      timeoutError.code = 'request_timeout'
+      timeoutError.retryable = false
+      timeoutError.uncertain = true
+      throw timeoutError
     }
     throw e
   }
@@ -625,6 +633,7 @@ export function bqGenerateBatch(payload) {
     method: 'POST',
     headers: projectScopeHeaders(projectRef),
     body: JSON.stringify(body),
+    timeout: BQ_BATCH_TIMEOUT_MS,
   })
 }
 

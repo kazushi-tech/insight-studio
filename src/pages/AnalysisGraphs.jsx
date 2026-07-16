@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AUTH_EXPIRED_MESSAGE, neonGenerate } from '../api/adsInsights'
 import ChartGroupCard from '../components/ads/ChartGroupCard'
@@ -18,14 +18,12 @@ import {
   extractMarkdownSummary,
   selectChartGroupsForPrompt,
 } from '../utils/adsReports'
-import { analyzeChartReadability } from '../utils/chartReadability'
 import { extractInsightMeta, extractInsightReport, getAdsText, normalizeAdsPayload } from '../utils/adsResponse'
 import { getAnalysisModel } from '../utils/analysisProvider'
 import {
   groupChartsByTheme,
   extractTopInsights,
   computeThemeSummary,
-  THEME_DEFINITIONS,
 } from '../utils/chartThemeClassifier'
 import {
   extractExecutiveCards,
@@ -38,6 +36,7 @@ import {
 import { latestPeriodValue, periodRangeLabel } from '../utils/wizardPeriods'
 import { shouldShowDemoMode } from '../utils/demoMode'
 import { normalizeCustomerError } from '../utils/customerErrors'
+import { captureSafeClientError } from '../observability/client'
 
 /* ── Section IDs for local nav ── */
 const SECTIONS = [
@@ -85,6 +84,47 @@ const QUERY_STATUS_STYLES = {
     className: 'border-outline-variant/25 bg-surface-container-low',
     valueClassName: 'text-on-surface-variant',
   },
+}
+
+export class ChartCardErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { failed: false }
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  componentDidCatch() {
+    captureSafeClientError('ads_graph_card_render_failed')
+  }
+
+  componentDidUpdate(previousProps) {
+    if (this.state.failed && previousProps.resetKey !== this.props.resetKey) {
+      this.setState({ failed: false })
+    }
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children
+
+    return (
+      <section role="alert" className="rounded-xl border border-error/20 bg-error-container/35 p-5">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-2xl text-error" aria-hidden="true">broken_image</span>
+          <div>
+            <h4 className="font-black text-on-error-container japanese-text">
+              {this.props.title || 'グラフ'}を表示できませんでした
+            </h4>
+            <p className="mt-1 text-sm font-bold leading-6 text-on-error-container/80 japanese-text">
+              ほかのグラフはそのまま確認できます。この項目だけ再取得してください。
+            </p>
+          </div>
+        </div>
+      </section>
+    )
+  }
 }
 
 function customerSafeChartGroup(group) {
@@ -158,11 +198,44 @@ function summarizeQueryExecution(selectedQueryTypes, executionSummary = [], char
   })
 }
 
-function QueryCoverageSummary({ setupState, reportBundle, filteredGroups, periodLabel }) {
+function reportPeriodTags(setupState, reportBundle, chartGroups) {
+  const tags = [
+    ...(setupState?.periods ?? []),
+    ...(reportBundle?.periodReports ?? []).map((period) => period?.periodTag ?? period?.period),
+    ...(reportBundle?.executionSummary ?? []).map((entry) => entry?.periodTag ?? entry?.period_tag ?? entry?.period),
+    ...getChartPeriodTags(chartGroups),
+  ]
+    .map((tag) => String(tag ?? '').trim())
+    .filter(Boolean)
+
+  return [...new Set(tags)].sort((left, right) => left.localeCompare(right, 'en'))
+}
+
+function executionSummaryForPeriod(executionSummary, periodFilter, periodTags) {
+  if (periodFilter === 'all') return executionSummary
+  const targetPeriod = periodFilter === 'latest' ? latestPeriodValue(periodTags) : periodFilter
+  if (!targetPeriod) return executionSummary
+
+  const taggedEntries = executionSummary.filter((entry) => (
+    entry?.periodTag ?? entry?.period_tag ?? entry?.period
+  ))
+  if (taggedEntries.length === 0) return executionSummary
+
+  return executionSummary.filter((entry) => (
+    entry?.periodTag ?? entry?.period_tag ?? entry?.period
+  ) === targetPeriod)
+}
+
+function QueryCoverageSummary({ setupState, reportBundle, filteredGroups, periodLabel, periodFilter, periodTags }) {
   const selectedQueryTypes = setupState?.queryTypes ?? []
   if (selectedQueryTypes.length === 0) return null
 
-  const summaries = summarizeQueryExecution(selectedQueryTypes, reportBundle?.executionSummary ?? [], filteredGroups)
+  const executionSummary = executionSummaryForPeriod(
+    reportBundle?.executionSummary ?? [],
+    periodFilter,
+    periodTags,
+  )
+  const summaries = summarizeQueryExecution(selectedQueryTypes, executionSummary, filteredGroups)
 
   return (
     <section className="rounded-xl border border-primary/15 bg-surface-container-lowest p-5 shadow-sm">
@@ -321,7 +394,7 @@ function EvidenceDrawer({ cards, reportBundle, isDemo = false }) {
 function ThemeTabs({ activeTheme, onThemeChange, themes }) {
   const allTabs = [
     { id: 'all', label: '全件', icon: 'select_all' },
-    ...THEME_DEFINITIONS.map((theme) => ({
+    ...themes.map((theme) => ({
       ...theme,
       label: replaceCustomerTerms(theme.label),
     })),
@@ -543,7 +616,7 @@ function InlineAgentTracePanel({ trace = [] }) {
 }
 
 /* ── Graph Section (Accordion for analyst) ── */
-function GraphSection({ theme, isOpen, onToggle, viewMode }) {
+function GraphSection({ theme, isOpen, onToggle, viewMode, resetKey }) {
   const summary = useMemo(() => computeThemeSummary(theme.groups), [theme.groups])
 
   return (
@@ -592,19 +665,11 @@ function GraphSection({ theme, isOpen, onToggle, viewMode }) {
           <div className="grid grid-cols-1 gap-8">
             {theme.groups.map((group, groupIndex) => {
               const normalizedGroup = normalizeChartGroupShape(group)
-              const readability = analyzeChartReadability(normalizedGroup, normalizedGroup.chartType)
-              const shouldStayOpen =
-                readability.recommendedDisplayMode === 'flat_diagnostic' ||
-                readability.recommendedDisplayMode === 'low_sample_table' ||
-                readability.recommendedDisplayMode === 'focused_line' ||
-                normalizedGroup.chartType === 'bar_horizontal'
-              const shouldCollapse =
-                !shouldStayOpen && (groupIndex >= 2 || (normalizedGroup.labels?.length ?? 0) > 12)
+              const graphKey = `${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`
               return (
-                <ChartGroupCard
-                  key={`${group.title ?? 'group'}-${group._periodTag ?? 'merged'}-${groupIndex}`}
-                  group={{ ...normalizedGroup, defaultCollapsed: shouldCollapse }}
-                />
+                <ChartCardErrorBoundary key={graphKey} title={normalizedGroup.title} resetKey={resetKey}>
+                  <ChartGroupCard group={{ ...normalizedGroup, defaultCollapsed: false }} />
+                </ChartCardErrorBoundary>
               )
             })}
           </div>
@@ -1769,7 +1834,10 @@ export default function AnalysisGraphs() {
 
   /* ── Chart data ── */
   const chartGroups = useMemo(() => reportBundle?.chartGroups ?? [], [reportBundle?.chartGroups])
-  const periodTags = useMemo(() => getChartPeriodTags(chartGroups), [chartGroups])
+  const periodTags = useMemo(
+    () => reportPeriodTags(setupState, reportBundle, chartGroups),
+    [chartGroups, reportBundle, setupState],
+  )
   const {
     period: periodFilter,
     theme: activeTheme,
@@ -1787,14 +1855,25 @@ export default function AnalysisGraphs() {
   }, [periodFilter, periodTags, setPeriodFilter])
 
   const filteredGroups = useMemo(() => {
-    return getDisplayChartGroups(chartGroups, periodFilter).map(customerSafeChartGroup)
-  }, [chartGroups, periodFilter])
+    const resolvedPeriod = periodFilter === 'latest'
+      ? latestPeriodValue(periodTags)
+      : periodFilter
+    return getDisplayChartGroups(chartGroups, resolvedPeriod).map(customerSafeChartGroup)
+  }, [chartGroups, periodFilter, periodTags])
 
   const themes = useMemo(() => groupChartsByTheme(filteredGroups), [filteredGroups])
+  const effectiveActiveTheme = activeTheme === 'all' || themes.some((theme) => theme.id === activeTheme)
+    ? activeTheme
+    : 'all'
+
+  useEffect(() => {
+    if (effectiveActiveTheme !== activeTheme) setActiveTheme(effectiveActiveTheme)
+  }, [activeTheme, effectiveActiveTheme, setActiveTheme])
+
   const displayThemes = useMemo(() => {
-    if (activeTheme === 'all') return themes
-    return themes.filter((t) => t.id === activeTheme)
-  }, [themes, activeTheme])
+    if (effectiveActiveTheme === 'all') return themes
+    return themes.filter((t) => t.id === effectiveActiveTheme)
+  }, [themes, effectiveActiveTheme])
 
   const topInsights = useMemo(() => extractTopInsights(filteredGroups), [filteredGroups])
 
@@ -1828,8 +1907,8 @@ export default function AnalysisGraphs() {
   useEffect(() => {
     setOpenSections((current) => {
       const next = {}
-      themes.forEach((theme, index) => {
-        next[theme.id] = current[theme.id] ?? index === 0
+      themes.forEach((theme) => {
+        next[theme.id] = current[theme.id] ?? true
       })
       return next
     })
@@ -2060,9 +2139,18 @@ export default function AnalysisGraphs() {
             {/* ═══ 4. GRAPH SECTION ═══ */}
             <section id="section-graphs" className="scroll-mt-24 space-y-6">
               <h2 className="sr-only">グラフによる数値の根拠</h2>
+              <QueryCoverageSummary
+                setupState={setupState}
+                reportBundle={reportBundle}
+                filteredGroups={filteredGroups}
+                periodLabel={activeScopeLabel}
+                periodFilter={periodFilter}
+                periodTags={periodTags}
+              />
+
               {hasGraphData ? (
                 <>
-                  <ThemeTabs activeTheme={activeTheme} onThemeChange={setActiveTheme} themes={themes} />
+                  <ThemeTabs activeTheme={effectiveActiveTheme} onThemeChange={setActiveTheme} themes={themes} />
 
                   <div className="space-y-6">
                     {displayThemes.map((theme) => (
@@ -2072,22 +2160,16 @@ export default function AnalysisGraphs() {
                         isOpen={openSections[theme.id] ?? false}
                         onToggle={() => toggleSection(theme.id)}
                         viewMode={viewMode}
+                        resetKey={reportBundle?.generatedAt ?? reportBundle}
                       />
                     ))}
 
-                    {(activeTheme === 'all' || activeTheme === 'anomaly') && (
+                    {(effectiveActiveTheme === 'all' || effectiveActiveTheme === 'anomaly') && (
                       <AnomalySection chartGroups={filteredGroups} />
                     )}
                   </div>
-
-                  <QueryCoverageSummary
-                    setupState={setupState}
-                    reportBundle={reportBundle}
-                    filteredGroups={filteredGroups}
-                    periodLabel={activeScopeLabel}
-                  />
                 </>
-              ) : !loading && (
+              ) : !loading && !error && (
                 <div className="bg-surface-container-lowest rounded-xl p-8 text-center space-y-3">
                   <span className="material-symbols-outlined text-5xl text-outline-variant">bar_chart</span>
                   <h3 className="text-xl font-bold japanese-text">この期間は十分なデータがありません</h3>
@@ -2145,25 +2227,6 @@ export default function AnalysisGraphs() {
             >
               <span className="material-symbols-outlined text-lg" aria-hidden="true">forum</span>
               この数字をAIに聞く
-            </button>
-          </div>
-        )}
-
-        {/* Empty state when no data at all */}
-        {!loading && !error && !hasGraphData && (
-          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/15 p-8 text-center space-y-3">
-            <span className="material-symbols-outlined text-5xl text-outline-variant">analytics</span>
-            <h3 className="text-xl font-bold japanese-text">この期間は十分なデータがありません</h3>
-            <p className="text-sm text-on-surface-variant japanese-text">
-              期間や接続を確認するか、上の「再取得」ボタンで最新の状態を確認してください。
-            </p>
-            <button
-              type="button"
-              onClick={handleChangeSetup}
-              className="mx-auto inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary shadow-sm transition-all hover:opacity-90"
-            >
-              <span className="material-symbols-outlined text-base" aria-hidden="true">settings_suggest</span>
-              期間と分析項目を確認する
             </button>
           </div>
         )}

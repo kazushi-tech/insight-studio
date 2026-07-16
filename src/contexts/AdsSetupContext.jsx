@@ -1,6 +1,12 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
-import { DEFAULT_ADS_DATASET_ID, loginCase, getCaseTrustToken, setCaseTrustToken } from '../api/adsInsights'
+import {
+  DEFAULT_ADS_DATASET_ID,
+  getCases,
+  loginCase,
+  getCaseTrustToken,
+  setCaseTrustToken,
+} from '../api/adsInsights'
 import { platformApi } from '../api/platform'
 import {
   buildEntry as buildHistoryEntry,
@@ -151,7 +157,7 @@ function migrateLegacyStorage() {
 }
 
 export function AdsSetupProvider({ children }) {
-  const { authMode, onAdsLogout, syncTokenFromApi, user } = useAuth()
+  const { authMode, isAdsAuthenticated, onAdsLogout, syncTokenFromApi, user } = useAuth()
   const [currentCase, setCurrentCase] = useState(() => {
     try {
       const saved = localStorage.getItem(CASE_STORAGE_KEY)
@@ -242,17 +248,76 @@ export function AdsSetupProvider({ children }) {
     return () => { active = false }
   }, [authMode, user?.user_id, user?.workspace_role, user?.project_roles])
 
-  // Run legacy migration on first mount
+  // Run legacy migration on first mount. A legacy selection is not trusted
+  // until it has been reconciled with the authenticated server registry.
   useEffect(() => {
     if (authMode === 'clerk') return
     migrateLegacyStorage()
-    // If no case is set and not a case_user, auto-select petabit
-    if (!currentCase && user?.role !== 'case_user') {
-      const petabitCase = { case_id: 'petabit', name: 'ペタサイト', dataset_id: 'analytics_311324674' }
-      setCurrentCase(petabitCase) // eslint-disable-line react-hooks/set-state-in-effect -- mount init
-      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(petabitCase))
+  }, [authMode])
+
+  // Admin selections are browser convenience state, not an authority source.
+  // Reconcile them after every authenticated legacy login so a removed,
+  // disabled, or differently configured case can never survive a new session.
+  useEffect(() => {
+    if (authMode === 'clerk' || user?.role === 'case_user') return undefined
+
+    let active = true
+    const savedCaseId = currentCase?.case_id || null
+
+    const clearSelection = () => {
+      setCurrentCase(null)
+      setIsCaseAuthenticated(false)
+      localStorage.removeItem(CASE_STORAGE_KEY)
+      localStorage.removeItem(CASE_AUTH_KEY)
     }
-  }, [authMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!isAdsAuthenticated) {
+      Promise.resolve().then(() => {
+        if (!active) return
+        setIsCaseAuthenticated(false)
+        localStorage.removeItem(CASE_AUTH_KEY)
+      })
+      return () => { active = false }
+    }
+
+    if (!['admin', 'operator'].includes(user?.role)) {
+      Promise.resolve().then(() => {
+        if (active) clearSelection()
+      })
+      return () => { active = false }
+    }
+
+    // Do not expose the saved selection while the server is validating it.
+    Promise.resolve().then(() => {
+      if (active) clearSelection()
+    })
+
+    getCases().then((response) => {
+      if (!active) return
+      const cases = (Array.isArray(response) ? response : response?.cases || [])
+        .filter((caseInfo) => caseInfo?.case_id)
+        .filter((caseInfo) => caseInfo.is_active !== false)
+        .filter((caseInfo) => !['inactive', 'archived', 'deleted'].includes(caseInfo?.status))
+      const selected = cases.find((caseInfo) => caseInfo.case_id === savedCaseId)
+        || cases.find((caseInfo) => caseInfo.case_id === 'petabit')
+        || cases[0]
+        || null
+
+      if (!selected) {
+        clearSelection()
+        return
+      }
+
+      setCurrentCase(selected)
+      setIsCaseAuthenticated(true)
+      localStorage.setItem(CASE_STORAGE_KEY, JSON.stringify(selected))
+      localStorage.setItem(CASE_AUTH_KEY, 'true')
+    }).catch(() => {
+      if (active) clearSelection()
+    })
+
+    return () => { active = false }
+  }, [authMode, isAdsAuthenticated, user?.role]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [setupState, setSetupState] = useState(() => loadState(currentCase?.case_id))
   const [reportBundle, setReportBundle] = useState(null)

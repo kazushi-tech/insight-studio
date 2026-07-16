@@ -215,6 +215,31 @@ describe('chart group normalization', () => {
     expect(bundle.reportV2).toBeNull()
   })
 
+  it('keeps an all-failed graph refresh classified as failed without report markdown', () => {
+    const bundle = buildAdsReportBundle({
+      setupState: {
+        datasetId: 'analytics_123',
+        periods: ['2026-05'],
+        queryTypes: ['pv', 'campaign'],
+      },
+      results: [{
+        ok: false,
+        period: '2026-05',
+        data_availability: 'failed',
+        missing_reason: '集計先へ接続できませんでした。',
+        report_md: '',
+        chart_data: {},
+        execution_summary: [
+          { query_type: 'pv', status: 'error', chart_group_count: 0, message: '取得失敗' },
+          { query_type: 'campaign', status: 'error', chart_group_count: 0, message: '取得失敗' },
+        ],
+      }],
+    })
+
+    expect(bundle.dataAvailability).toBe('failed')
+    expect(bundle.missingReason).toContain('集計先へ接続できませんでした')
+  })
+
   it('renames trend coverage into a concrete selection explanation', () => {
     const normalized = normalizeChartGroupShape(makeGroup({
       title: 'LP分析 — 日別推移（上位5件 / 最大5件）',
@@ -625,38 +650,38 @@ describe('generateBatchWithRetry', () => {
     expect(bqGenerateBatch).toHaveBeenCalledTimes(1)
   })
 
-  it('retries non-deterministic ok:false results (e.g. partial) until success', async () => {
-    vi.useFakeTimers()
-    try {
-      bqGenerateBatch
-        .mockResolvedValueOnce({ ok: false, data_availability: 'partial' })
-        .mockResolvedValueOnce({ ok: true, report_md: '# ok' })
+  it('does not replay a structured partial response from a completed batch', async () => {
+    bqGenerateBatch.mockResolvedValue({
+      ok: false,
+      data_availability: 'partial',
+      missing_reason: '一部の項目を取得できませんでした。',
+    })
 
-      const promise = generateBatchWithRetry({ period: '2026-05' })
-      await vi.runAllTimersAsync()
-
-      await expect(promise).resolves.toEqual({ ok: true, report_md: '# ok' })
-      expect(bqGenerateBatch).toHaveBeenCalledTimes(2)
-    } finally {
-      vi.useRealTimers()
-    }
+    await expect(generateBatchWithRetry({ period: '2026-05' })).rejects.toThrow(
+      '一部の項目を取得できませんでした。',
+    )
+    expect(bqGenerateBatch).toHaveBeenCalledTimes(1)
   })
 
-  it('retries transient errors thrown by the API (network / 5xx) up to the retry limit', async () => {
-    vi.useFakeTimers()
-    try {
-      const networkError = new Error('Failed to fetch') // status 無し = 一時的とみなす
-      bqGenerateBatch.mockRejectedValue(networkError)
+  it('does not duplicate a batch after an uncertain network failure', async () => {
+    const networkError = new Error('Failed to fetch')
+    bqGenerateBatch.mockRejectedValue(networkError)
 
-      const promise = generateBatchWithRetry({ period: '2026-05' })
-      const assertion = expect(promise).rejects.toThrow('Failed to fetch')
-      await vi.runAllTimersAsync()
-      await assertion
+    await expect(generateBatchWithRetry({ period: '2026-05' })).rejects.toThrow('Failed to fetch')
+    expect(bqGenerateBatch).toHaveBeenCalledTimes(1)
+  })
 
-      // 初回 + GENERATE_RETRY_DELAYS_MS.length 回の再試行
-      expect(bqGenerateBatch).toHaveBeenCalledTimes(3)
-    } finally {
-      vi.useRealTimers()
-    }
+  it('shares one in-flight request for identical batch payloads', async () => {
+    let resolveBatch
+    bqGenerateBatch.mockImplementation(() => new Promise((resolve) => { resolveBatch = resolve }))
+    const payload = { period: '2026-05', query_types: ['pv', 'campaign'] }
+
+    const first = generateBatchWithRetry(payload)
+    const second = generateBatchWithRetry({ ...payload, query_types: [...payload.query_types] })
+
+    expect(first).toBe(second)
+    expect(bqGenerateBatch).toHaveBeenCalledTimes(1)
+    resolveBatch({ ok: true, report_md: '# ok' })
+    await expect(first).resolves.toEqual({ ok: true, report_md: '# ok' })
   })
 })

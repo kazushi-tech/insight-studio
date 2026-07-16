@@ -92,6 +92,17 @@ function renderAppAt(initialPath = '/insights/ai') {
 describe('/insights/ai neutral route AI Explorer', () => {
   beforeEach(() => {
     seedReadyStorage()
+    server.use(
+      http.get('/api/ads/cases', () => HttpResponse.json({
+        ok: true,
+        cases: [{
+          case_id: 'synthetic-demo',
+          name: 'Synthetic Demo',
+          dataset_id: 'analytics_synthetic_demo',
+          status: 'active',
+        }],
+      })),
+    )
     Object.defineProperty(Element.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),

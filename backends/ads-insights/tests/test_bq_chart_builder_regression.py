@@ -9,7 +9,70 @@ import pandas as pd
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_PROJECT_ROOT))
 
-from web.app.bq_chart_builder import build_beginner_report, build_bq_chart_data
+from bq.queries import QUERIES
+from web.app.bq_chart_builder import _BUILDERS, build_beginner_report, build_bq_chart_data
+
+
+def test_every_registered_query_has_exactly_one_chart_builder_entry():
+    assert set(_BUILDERS) == set(QUERIES)
+
+
+def test_campaign_builder_returns_stable_readable_groups():
+    df = pd.DataFrame({
+        "event_date": ["20260701", "20260702", "20260701"],
+        "campaign_name": ["summer", "summer", "newsletter"],
+        "source": ["google", "google", "email"],
+        "medium": ["cpc", "cpc", "email"],
+        "users": [6, 5, 4],
+        "sessions": [8, 7, 5],
+        "page_views": [12, 11, 7],
+        "conversions": [2, 1, 4],
+        "campaign_period_users": [10, 10, 4],
+    })
+
+    groups = build_bq_chart_data(df, "campaign")["groups"]
+
+    assert [group["queryType"] for group in groups] == ["campaign"] * 3
+    assert [group["chartType"] for group in groups] == [
+        "bar_horizontal",
+        "bar_horizontal",
+        "line",
+    ]
+
+    volume = groups[0]
+    assert volume["labels"] == [
+        "summer · google / cpc",
+        "newsletter · email / email",
+    ]
+    assert [dataset["label"] for dataset in volume["datasets"]] == [
+        "セッション",
+        "期間内ユーザー",
+        "PV",
+    ]
+    assert [dataset["data"] for dataset in volume["datasets"]] == [
+        [15, 5],
+        [10, 4],
+        [23, 7],
+    ]
+    assert volume["selectionLabel"] == "セッション数上位2キャンペーンを表示"
+
+    conversions = groups[1]
+    assert conversions["labels"] == [
+        "newsletter · email / email",
+        "summer · google / cpc",
+    ]
+    assert conversions["datasets"][0]["data"] == [4, 3]
+
+    trend = groups[2]
+    assert trend["labels"] == ["20260701", "20260702"]
+    assert [dataset["label"] for dataset in trend["datasets"]] == [
+        "summer · google / cpc",
+        "newsletter · email / email",
+    ]
+    assert [dataset["data"] for dataset in trend["datasets"]] == [
+        [8, 7],
+        [5, 0],
+    ]
 
 
 def test_build_bq_chart_data_adds_query_type_to_every_group(monkeypatch):

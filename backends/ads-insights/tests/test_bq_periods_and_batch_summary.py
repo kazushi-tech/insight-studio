@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
@@ -157,6 +158,94 @@ def test_generate_batch_treats_all_no_data_as_a_normal_partial_result(monkeypatc
     assert body["data_availability"] == "partial"
     assert body["execution_summary"][0]["status"] == "no_data"
     assert "データがない項目" in body["missing_reason"]
+
+
+def test_generate_batch_mixed_valid_and_invalid_is_partial_in_request_order(monkeypatch):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
+        return {
+            "report_md": "# PV",
+            "dataframe": pd.DataFrame({
+                "event_date": ["20260501"],
+                "users": [3],
+                "sessions": [3],
+                "page_views": [5],
+                "period_users": [3],
+                "period_sessions": [3],
+                "period_page_views": [5],
+            }),
+            "query_info": {"name": "PV"},
+        }
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_queries, "QUERIES", {"pv": {}})
+    monkeypatch.setattr(bq_reporter, "run_report", fake_run_report)
+    requested = ["unknown_before", "pv", "unknown_after"]
+
+    response = asyncio.run(api.api_bq_generate_batch(_FakeRequest({
+        "query_types": requested,
+        "dataset_id": "analytics_123",
+        "period": "2026-05",
+    })))
+    body = _json_body(response)
+
+    assert response.status_code == 200
+    assert body["ok"] is True
+    assert body["data_availability"] == "partial"
+    assert [item["query_type"] for item in body["execution_summary"]] == requested
+    assert [item["status"] for item in body["execution_summary"]] == ["error", "success", "error"]
+    assert "unknown_before:error" in body["missing_reason"]
+    assert "unknown_after:error" in body["missing_reason"]
+
+
+def test_generate_batch_mixed_invalid_and_failed_valid_is_failed_in_request_order(monkeypatch):
+    def fake_run_report(query_type, dataset, period, **_kwargs):
+        return {"query_failed": True, "error_code": "query_error"}
+
+    api._bq_cache.clear()
+    monkeypatch.setattr(bq_queries, "QUERIES", {"pv": {}})
+    monkeypatch.setattr(bq_reporter, "run_report", fake_run_report)
+    requested = ["pv", "unknown"]
+
+    response = asyncio.run(api.api_bq_generate_batch(_FakeRequest({
+        "query_types": requested,
+        "dataset_id": "analytics_123",
+        "period": "2026-05",
+    })))
+    body = _json_body(response)
+
+    assert response.status_code == 502
+    assert body["data_availability"] == "failed"
+    assert [item["query_type"] for item in body["execution_summary"]] == requested
+    assert [item["status"] for item in body["execution_summary"]] == ["error", "error"]
+
+
+def test_bq_cache_parallel_get_put_is_bounded_and_consistent(monkeypatch):
+    api._bq_cache.clear()
+    monkeypatch.setattr(api, "_BQ_CACHE_MAX", 12)
+    monkeypatch.setattr(api, "_BQ_CACHE_TTL", 3600)
+
+    def churn(worker_id):
+        observed = []
+        for sequence in range(100):
+            key = f"worker:{worker_id}"
+            value = {"worker": worker_id, "sequence": sequence}
+            api._bq_cache_put(key, value)
+            cached = api._bq_cache_get(key, api._BQ_CACHE_TTL)
+            if cached is not None:
+                observed.append(cached[1])
+        return observed
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(churn, range(8)))
+
+    assert all(result for result in results)
+    assert all(
+        item["worker"] == worker_id
+        for worker_id, result in enumerate(results)
+        for item in result
+    )
+    assert len(api._bq_cache) == 8
+    assert len(api._bq_cache) <= api._BQ_CACHE_MAX
 
 
 def test_generate_batch_exposes_combined_report_v2_on_the_top_level(monkeypatch):

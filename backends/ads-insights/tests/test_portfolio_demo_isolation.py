@@ -29,6 +29,7 @@ if str(ROOT) not in sys.path:
 
 import bq.auth as bq_auth  # noqa: E402
 import bq.client as bq_client  # noqa: E402
+import bq.queries as bq_queries  # noqa: E402
 import bq.reporter as bq_reporter  # noqa: E402
 from web.app import backend_api as api  # noqa: E402
 from web.app.demo.portfolio_demo_fixture import (  # noqa: E402
@@ -421,6 +422,8 @@ async def test_demo_fixture_contract_integrity_and_zero_external_calls(monkeypat
         }
     ]
     assert [item["key"] for item in query_types.json()["query_types"]] == list(QUERY_TYPE_KEYS)
+    assert len(QUERY_TYPE_KEYS) == 12
+    assert tuple(bq_queries.QUERIES) == QUERY_TYPE_KEYS
     assert [item["period_tag"] for item in periods.json()["periods"]] == list(DEMO_PERIODS)
     assert single.status_code == 200
     assert single.json()["period_metadata"]["period_tag"] == DEMO_CURRENT_PERIOD
@@ -436,10 +439,25 @@ async def test_demo_fixture_contract_integrity_and_zero_external_calls(monkeypat
     assert {
         group["chartType"] for group in comparison_body["chart_data"]["groups"]
     } <= _SUPPORTED_CHART_TYPES
-    assert [item["query_type"] for item in batch_body["execution_summary"]] == list(QUERY_TYPE_KEYS)
-    assert all(item["status"] in {"success", "no_data"} for item in batch_body["execution_summary"])
+    for body, expected_period in (
+        (batch_body, DEMO_CURRENT_PERIOD),
+        (comparison_body, DEMO_COMPARISON_PERIOD),
+    ):
+        assert body["period"] == expected_period
+        assert [item["query_type"] for item in body["execution_summary"]] == list(QUERY_TYPE_KEYS)
+        assert all(item["status"] == "success" for item in body["execution_summary"])
+        assert body["data_availability"] == "full"
+        assert body["missing_reason"] == ""
+        assert body["skipped"] == []
+        assert set(body["results"]) == set(QUERY_TYPE_KEYS)
+
+        first_group_order = []
+        for group in body["chart_data"]["groups"]:
+            if group["queryType"] not in first_group_order:
+                first_group_order.append(group["queryType"])
+        assert first_group_order == list(QUERY_TYPE_KEYS)
+
     assert "電話タップは未計測" in json.dumps(batch_body["beginner_report"], ensure_ascii=False)
-    assert "未計測を0件として扱いません" in batch_body["missing_reason"]
 
     traffic_group = next(group for group in batch_body["chart_data"]["groups"] if group["queryType"] == "traffic")
     assert sum(traffic_group["datasets"][0]["data"]) == 3120
@@ -469,20 +487,20 @@ async def test_demo_fixture_contract_integrity_and_zero_external_calls(monkeypat
     assert ai_body["evidence_complete"] is True
     assert ai_body["referenced_chart_ids"] == [
         "chart_01",
-        "chart_10",
+        "chart_17",
         "chart_03",
-        "chart_11",
+        "chart_19",
         "chart_04",
-        "chart_12",
+        "chart_20",
         "chart_02",
     ]
     evidence_by_id = {chart["chart_id"]: chart for chart in evidence_pack["charts"]}
     assert [point["value"] for point in evidence_by_id["chart_01"]["series"][0]["points"]] == [2480, 3120, 4860]
-    assert [point["value"] for point in evidence_by_id["chart_10"]["series"][0]["points"]] == [2180, 2760, 4210]
+    assert [point["value"] for point in evidence_by_id["chart_17"]["series"][0]["points"]] == [2180, 2760, 4210]
     assert evidence_by_id["chart_03"]["series"][0]["points"][0]["value"] == 47
-    assert evidence_by_id["chart_11"]["series"][0]["points"][0]["value"] == 42
+    assert evidence_by_id["chart_19"]["series"][0]["points"][0]["value"] == 42
     assert evidence_by_id["chart_04"]["series"][0]["points"][0]["value"] == 1.51
-    assert evidence_by_id["chart_12"]["series"][0]["points"][0]["value"] == 1.52
+    assert evidence_by_id["chart_20"]["series"][0]["points"][0]["value"] == 1.52
     assert [point["value"] for point in evidence_by_id["chart_02"]["series"][0]["points"]] == [1420, 780, 520, 400]
     assert all(chart_id in ai_body["answer_markdown"] for chart_id in ai_body["referenced_chart_ids"])
     assert "可能性があります" in ai_body["answer_markdown"]

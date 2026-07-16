@@ -5,7 +5,9 @@ import { AdsSetupProvider, useAdsSetup } from '../AdsSetupContext'
 
 const mocks = vi.hoisted(() => ({
   authMode: 'legacy',
+  isAdsAuthenticated: false,
   user: null,
+  getCases: vi.fn(),
   loginCase: vi.fn(),
   listProjects: vi.fn(),
   syncTokenFromApi: vi.fn(),
@@ -14,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../AuthContext', () => ({
   useAuth: () => ({
     authMode: mocks.authMode,
+    isAdsAuthenticated: mocks.isAdsAuthenticated,
     user: mocks.user,
     onAdsLogout: () => () => {},
     syncTokenFromApi: mocks.syncTokenFromApi,
@@ -28,6 +31,7 @@ vi.mock('../../api/platform', () => ({
 
 vi.mock('../../api/adsInsights', () => ({
   DEFAULT_ADS_DATASET_ID: 'analytics_default',
+  getCases: (...args) => mocks.getCases(...args),
   getCaseTrustToken: vi.fn(() => null),
   setCaseTrustToken: vi.fn(),
   loginCase: (...args) => mocks.loginCase(...args),
@@ -50,13 +54,16 @@ describe('AdsSetupContext demo metadata', () => {
     localStorage.clear()
     sessionStorage.clear()
     mocks.authMode = 'legacy'
+    mocks.isAdsAuthenticated = false
     mocks.user = null
+    mocks.getCases.mockReset()
     mocks.loginCase.mockReset()
     mocks.listProjects.mockReset()
     mocks.syncTokenFromApi.mockReset()
   })
 
   it('syncs is_demo from an authenticated case user into currentCase storage', async () => {
+    mocks.isAdsAuthenticated = true
     mocks.user = {
       role: 'case_user',
       case_id: 'demo',
@@ -73,6 +80,77 @@ describe('AdsSetupContext demo metadata', () => {
       dataset_id: 'demo_portfolio_dataset',
       is_demo: true,
     }))
+    expect(mocks.getCases).not.toHaveBeenCalled()
+  })
+
+  it('reconciles a stale saved demo to the active Petabit case after admin login', async () => {
+    localStorage.setItem('insight-studio-current-case', JSON.stringify({
+      case_id: 'demo',
+      name: 'Insight Studio デモ',
+      dataset_id: 'demo_portfolio_dataset',
+      is_demo: true,
+    }))
+    localStorage.setItem('insight-studio-case-authenticated', 'true')
+    mocks.isAdsAuthenticated = true
+    mocks.user = { role: 'admin', display_name: 'オペレーター' }
+    mocks.getCases.mockResolvedValue({
+      cases: [
+        { case_id: 'petabit', name: 'ペタサイト', dataset_id: 'analytics_live', status: 'active' },
+        { case_id: 'other', name: '別サイト', dataset_id: 'analytics_other', status: 'active' },
+      ],
+    })
+
+    render(<AdsSetupProvider><SetupProbe /></AdsSetupProvider>)
+
+    await waitFor(() => expect(screen.getByLabelText('current-case')).toHaveTextContent('petabit'))
+    expect(screen.getByLabelText('current-case')).not.toHaveTextContent('demo_portfolio_dataset')
+    expect(screen.getByLabelText('case-authenticated')).toHaveTextContent('true')
+    expect(JSON.parse(localStorage.getItem('insight-studio-current-case'))).toEqual(expect.objectContaining({
+      case_id: 'petabit',
+      dataset_id: 'analytics_live',
+    }))
+  })
+
+  it('keeps a valid saved admin case but refreshes its metadata from the server', async () => {
+    localStorage.setItem('insight-studio-current-case', JSON.stringify({
+      case_id: 'other',
+      name: '古い名前',
+      dataset_id: 'analytics_old',
+    }))
+    mocks.isAdsAuthenticated = true
+    mocks.user = { role: 'admin' }
+    mocks.getCases.mockResolvedValue({
+      cases: [
+        { case_id: 'petabit', name: 'ペタサイト', dataset_id: 'analytics_live', status: 'active' },
+        { case_id: 'other', name: '更新後サイト', dataset_id: 'analytics_current', status: 'active' },
+      ],
+    })
+
+    render(<AdsSetupProvider><SetupProbe /></AdsSetupProvider>)
+
+    await waitFor(() => expect(screen.getByLabelText('current-case')).toHaveTextContent('更新後サイト'))
+    expect(screen.getByLabelText('current-case')).toHaveTextContent('analytics_current')
+    expect(screen.getByLabelText('current-case')).not.toHaveTextContent('analytics_old')
+  })
+
+  it('clears an unverified admin selection when the server has no active case', async () => {
+    localStorage.setItem('insight-studio-current-case', JSON.stringify({
+      case_id: 'removed-case',
+      name: '削除済みサイト',
+      dataset_id: 'analytics_removed',
+    }))
+    localStorage.setItem('insight-studio-case-authenticated', 'true')
+    mocks.isAdsAuthenticated = true
+    mocks.user = { role: 'admin' }
+    mocks.getCases.mockResolvedValue({ cases: [] })
+
+    render(<AdsSetupProvider><SetupProbe /></AdsSetupProvider>)
+
+    await waitFor(() => expect(localStorage.getItem('insight-studio-current-case')).toBeNull())
+    expect(screen.getByLabelText('current-case')).toBeEmptyDOMElement()
+    expect(screen.getByLabelText('case-authenticated')).toHaveTextContent('false')
+    expect(localStorage.getItem('insight-studio-current-case')).toBeNull()
+    expect(localStorage.getItem('insight-studio-case-authenticated')).toBeNull()
   })
 
   it('keeps is_demo returned by case authentication', async () => {

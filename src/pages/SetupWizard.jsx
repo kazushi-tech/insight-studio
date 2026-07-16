@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { bqPeriods } from '../api/adsInsights'
 import { LoadingSpinner, ErrorBanner } from '../components/ui'
@@ -24,40 +24,8 @@ const QUERY_TYPES = [
   { id: 'auction_proxy', icon: 'stacked_bar_chart', label: '流入集中の参考値', term: '来訪元の構成', desc: '特定の来訪元にアクセスが集中していないか確認します。', color: 'text-rose-600' },
 ]
 
-const ANALYSIS_GOALS = [
-  {
-    id: 'overview',
-    icon: 'dashboard',
-    title: '全体を見る',
-    description: '訪問、来訪元、成果、入口ページをまとめて確認します。',
-    queryIds: ['pv', 'traffic', 'cv', 'landing'],
-  },
-  {
-    id: 'acquisition',
-    icon: 'travel_explore',
-    title: '集客を見る',
-    description: 'どこから来て、どのページを入口にしたかを確認します。',
-    queryIds: ['traffic', 'campaign', 'landing', 'search'],
-  },
-  {
-    id: 'outcomes',
-    icon: 'task_alt',
-    title: '成果を見る',
-    description: '問い合わせなどの成果と、成果につながる閲覧を確認します。',
-    queryIds: ['cv', 'landing', 'engagement', 'hourly'],
-  },
-]
-
-function selectionForQueryIds(queryIds) {
-  const ids = new Set(queryIds)
-  return new Set(
-    QUERY_TYPES.map((queryType, index) => ids.has(queryType.id) ? index : null)
-      .filter((index) => index != null),
-  )
-}
-
-function recommendedSelection() {
-  return selectionForQueryIds(ANALYSIS_GOALS[0].queryIds)
+function allQuerySelection() {
+  return new Set(QUERY_TYPES.map((queryType) => queryType.id))
 }
 
 function periodValue(period) {
@@ -80,7 +48,7 @@ function extractPeriods(data) {
   return []
 }
 
-function QueryOption({ queryType, index, selected, onToggle, isDemo = false, showTechnicalTerm = false }) {
+function QueryOption({ queryType, selected, onToggle, isDemo = false, showTechnicalTerm = false }) {
   const term = isDemo && queryType.id === 'auction_proxy'
     ? '流入チャネル構成比（架空データ推定）'
     : queryType.term
@@ -88,7 +56,7 @@ function QueryOption({ queryType, index, selected, onToggle, isDemo = false, sho
     <button
       type="button"
       aria-pressed={selected}
-      onClick={() => onToggle(index)}
+      onClick={() => onToggle(queryType.id)}
       className={`relative min-h-32 overflow-hidden rounded-2xl p-5 pl-7 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
         selected
           ? 'bg-primary/[0.055] ring-2 ring-primary/25'
@@ -122,11 +90,10 @@ export default function SetupWizard() {
   const { completeSetup, getCurrentDatasetId, currentCase } = useAdsSetup()
   const projectRef = currentCase?.project_id || currentCase?.project_ref || currentCase?.case_id || null
   const isDemo = shouldShowDemoMode({ isAdsAuthenticated, user: authUser, currentCase })
+  const caseSelectionKey = `${projectRef || ''}:${currentCase?.dataset_id || ''}:${isDemo ? 'demo' : 'standard'}`
   const canViewTechnicalDetails = authUser?.platform_role === 'platform_admin' || authUser?.role === 'admin'
   const [step, setStep] = useState(0)
-  const [selected, setSelected] = useState(recommendedSelection)
-  const [selectedGoal, setSelectedGoal] = useState('overview')
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [selected, setSelected] = useState(allQuerySelection)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [periods, setPeriods] = useState([])
@@ -139,7 +106,12 @@ export default function SetupWizard() {
   const [periodDiagnostics, setPeriodDiagnostics] = useState(null)
   const stepHeadingRef = useRef(null)
   const previousStepRef = useRef(step)
-  const goalRefs = useRef([])
+  const activeCaseKeyRef = useRef(caseSelectionKey)
+  const previousCaseKeyRef = useRef(caseSelectionKey)
+
+  useLayoutEffect(() => {
+    activeCaseKeyRef.current = caseSelectionKey
+  }, [caseSelectionKey])
 
   function customerErrorMessage(nextError) {
     return normalizeCustomerError(nextError, { role: authUser?.role }).body
@@ -156,9 +128,7 @@ export default function SetupWizard() {
   useEffect(() => {
     if (!location.state?.resetAt) return
     setStep(0)
-    setSelected(recommendedSelection())
-    setSelectedGoal('overview')
-    setShowAdvanced(false)
+    setSelected(allQuerySelection())
     setError(null)
     setLoading(false)
     setPeriods([])
@@ -174,9 +144,7 @@ export default function SetupWizard() {
   useEffect(() => {
     if (isAdsAuthenticated) return
     setStep(0)
-    setSelected(recommendedSelection())
-    setSelectedGoal('overview')
-    setShowAdvanced(false)
+    setSelected(allQuerySelection())
     setError(null)
     setLoading(false)
     setPeriods([])
@@ -189,31 +157,37 @@ export default function SetupWizard() {
     setPeriodDiagnostics(null)
   }, [isAdsAuthenticated])
 
-  const toggle = (index) => {
+  useEffect(() => {
+    if (previousCaseKeyRef.current === caseSelectionKey) return
+    previousCaseKeyRef.current = caseSelectionKey
+    setStep(0)
+    setSelected(allQuerySelection())
+    setError(null)
+    setLoading(false)
+    setPeriods([])
+    setSelectedPeriods(new Set())
+    setGeneratedPeriods(new Set())
+    setGeneratedResults(new Map())
+    setLoadResult(null)
+    setGranularity('monthly')
+    setLoadingLabel('処理中…')
+    setPeriodDiagnostics(null)
+  }, [caseSelectionKey])
+
+  const toggle = (queryId) => {
     const next = new Set(selected)
-    next.has(index) ? next.delete(index) : next.add(index)
+    next.has(queryId) ? next.delete(queryId) : next.add(queryId)
     setSelected(next)
-    setSelectedGoal('custom')
     setGeneratedPeriods(new Set())
     setGeneratedResults(new Map())
     setLoadResult(null)
   }
 
-  function chooseGoal(goal) {
-    setSelected(selectionForQueryIds(goal.queryIds))
-    setSelectedGoal(goal.id)
+  function selectAllQueries() {
+    setSelected(allQuerySelection())
     setGeneratedPeriods(new Set())
     setGeneratedResults(new Map())
     setLoadResult(null)
-  }
-
-  function handleGoalKeyDown(event, index) {
-    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
-    event.preventDefault()
-    const direction = ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : -1
-    const nextIndex = (index + direction + ANALYSIS_GOALS.length) % ANALYSIS_GOALS.length
-    chooseGoal(ANALYSIS_GOALS[nextIndex])
-    goalRefs.current[nextIndex]?.focus()
   }
 
   useEffect(() => {
@@ -251,6 +225,7 @@ export default function SetupWizard() {
   }
 
   async function handleGranularityChange(gran) {
+    const requestCaseKey = caseSelectionKey
     setGranularity(gran)
     setSelectedPeriods(new Set())
     setGeneratedPeriods(new Set())
@@ -262,6 +237,7 @@ export default function SetupWizard() {
     setLoadingLabel('期間を取得中…')
     try {
       const { items, diagnostics } = await fetchPeriods(gran)
+      if (activeCaseKeyRef.current !== requestCaseKey) return
       setPeriodDiagnostics(diagnostics)
       if (items.length === 0) {
         setPeriods([])
@@ -272,10 +248,11 @@ export default function SetupWizard() {
         setSelectedPeriods(initialPeriodSelection(items))
       }
     } catch (e) {
+      if (activeCaseKeyRef.current !== requestCaseKey) return
       setError(customerErrorMessage(e))
       setPeriods([])
     } finally {
-      setLoading(false)
+      if (activeCaseKeyRef.current === requestCaseKey) setLoading(false)
     }
   }
 
@@ -284,11 +261,13 @@ export default function SetupWizard() {
 
     if (step === 0) {
       if (selected.size === 0) return
+      const requestCaseKey = caseSelectionKey
       setLoading(true)
       setLoadingLabel('期間を取得中…')
 
       try {
         const { items, diagnostics } = await fetchPeriods(granularity)
+        if (activeCaseKeyRef.current !== requestCaseKey) return
         setPeriodDiagnostics(diagnostics)
 
         if (items.length === 0) {
@@ -311,9 +290,10 @@ export default function SetupWizard() {
         setLoadResult(null)
         setStep(1)
       } catch (e) {
+        if (activeCaseKeyRef.current !== requestCaseKey) return
         setError(customerErrorMessage(e))
       } finally {
-        setLoading(false)
+        if (activeCaseKeyRef.current === requestCaseKey) setLoading(false)
       }
 
       return
@@ -328,12 +308,13 @@ export default function SetupWizard() {
         setError('デモの対象月と比較月を準備できませんでした。期間を再取得してください。')
         return
       }
+      const requestCaseKey = caseSelectionKey
       setLoading(true)
       setLoadingLabel('レポートを生成中…')
       let completedCount = generatedResults.size
 
       try {
-        const selectedTypes = [...selected].map((index) => QUERY_TYPES[index])
+        const selectedTypes = QUERY_TYPES.filter((queryType) => selected.has(queryType.id))
         const queryTypeIds = selectedTypes.map((t) => t.id).filter(Boolean)
         const currentResults = new Map(generatedResults)
         const pendingPeriods = periodsArray.filter((period) => !currentResults.has(period))
@@ -346,7 +327,9 @@ export default function SetupWizard() {
             dataset_id: getCurrentDatasetId(),
             project_ref: projectRef,
             period,
+            granularity,
           })
+          if (activeCaseKeyRef.current !== requestCaseKey) return
           currentResults.set(period, { ...data, period })
           completedCount = currentResults.size
           setGeneratedResults(new Map(currentResults))
@@ -377,6 +360,7 @@ export default function SetupWizard() {
         )
         setStep(2)
       } catch (e) {
+        if (activeCaseKeyRef.current !== requestCaseKey) return
         const safeMessage = customerErrorMessage(e)
         const progressMessage =
           completedCount > 0
@@ -384,8 +368,10 @@ export default function SetupWizard() {
             : safeMessage
         setError(progressMessage)
       } finally {
-        setLoading(false)
-        setLoadingLabel('処理中…')
+        if (activeCaseKeyRef.current === requestCaseKey) {
+          setLoading(false)
+          setLoadingLabel('処理中…')
+        }
       }
 
       return
@@ -474,64 +460,35 @@ export default function SetupWizard() {
         <section aria-labelledby="query-selection-title" className="space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 ref={stepHeadingRef} tabIndex={-1} id="query-selection-title" className="text-2xl font-extrabold text-on-surface outline-none japanese-text">何を知りたいですか？</h2>
-              <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">迷ったときは「全体を見る」のまま進めてください。</p>
+              <h2 ref={stepHeadingRef} tabIndex={-1} id="query-selection-title" className="text-2xl font-extrabold text-on-surface outline-none japanese-text">表示するグラフを選んでください</h2>
+              <p className="mt-1 text-sm font-bold text-on-surface-variant japanese-text">最初は{QUERY_TYPES.length}項目すべて選択されています。不要な項目だけ外せます。</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => chooseGoal(ANALYSIS_GOALS[0])} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-                おすすめに戻す
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <p className="text-sm font-black text-primary japanese-text" role="status" aria-live="polite">
+                {selected.size} / {QUERY_TYPES.length} 項目を選択中
+              </p>
+              <button
+                type="button"
+                onClick={selectAllQueries}
+                disabled={selected.size === QUERY_TYPES.length}
+                className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-black text-on-primary hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                すべて選ぶ
               </button>
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3" role="radiogroup" aria-label="分析の目的">
-            {ANALYSIS_GOALS.map((goal) => {
-              const active = selectedGoal === goal.id
-              return (
-                <button
-                  ref={(element) => { goalRefs.current[ANALYSIS_GOALS.indexOf(goal)] = element }}
-                  key={goal.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  tabIndex={active ? 0 : -1}
-                  onClick={() => chooseGoal(goal)}
-                  onKeyDown={(event) => handleGoalKeyDown(event, ANALYSIS_GOALS.indexOf(goal))}
-                  className={`min-h-40 rounded-2xl p-5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${active ? 'bg-primary text-on-primary shadow-lg shadow-primary/10' : 'bg-surface-container-lowest text-on-surface ring-1 ring-outline-variant/20 hover:bg-surface-container-low'}`}
-                >
-                  <span className={`material-symbols-outlined text-3xl ${active ? 'text-secondary-fixed' : 'text-primary'}`} aria-hidden="true">{goal.icon}</span>
-                  <strong className="mt-4 block text-lg font-extrabold japanese-text">{goal.title}</strong>
-                  <span className={`mt-2 block text-sm font-bold leading-6 japanese-text ${active ? 'text-on-primary/80' : 'text-on-surface-variant'}`}>{goal.description}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="rounded-2xl bg-surface-container-lowest ring-1 ring-outline-variant/20">
-            <button
-              type="button"
-              aria-expanded={showAdvanced}
-              onClick={() => setShowAdvanced((value) => !value)}
-              className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl px-5 py-3 text-left font-extrabold text-on-surface hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-primary japanese-text"
-            >
-              <span>{canViewTechnicalDetails ? '運用者向けの詳しい項目' : '見る内容を細かく調整する'}</span>
-              <span className={`material-symbols-outlined transition-transform ${showAdvanced ? 'rotate-180' : ''}`} aria-hidden="true">expand_more</span>
-            </button>
-            {showAdvanced && (
-              <div className="grid gap-3 border-t border-outline-variant/15 p-4 md:grid-cols-2 lg:grid-cols-3">
-                {QUERY_TYPES.map((queryType, index) => (
-                  <QueryOption
-                    key={queryType.id}
-                    queryType={queryType}
-                    index={index}
-                    selected={selected.has(index)}
-                    onToggle={toggle}
-                    isDemo={isDemo}
-                    showTechnicalTerm={canViewTechnicalDetails}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3" role="group" aria-label="表示するグラフ">
+            {QUERY_TYPES.map((queryType) => (
+              <QueryOption
+                key={queryType.id}
+                queryType={queryType}
+                selected={selected.has(queryType.id)}
+                onToggle={toggle}
+                isDemo={isDemo}
+                showTechnicalTerm={canViewTechnicalDetails}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -714,7 +671,7 @@ export default function SetupWizard() {
         </button>
         <button
           onClick={handleNext}
-          disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated}
+          disabled={loading || (step === 0 && selected.size === 0) || (step === 1 && selectedPeriods.size === 0) || !isAdsAuthenticated || !currentCase}
           className="px-10 py-3 bg-primary-container text-on-primary rounded-[0.75rem] font-bold text-sm flex items-center gap-2 hover:opacity-88 transition-opacity disabled:opacity-45 disabled:cursor-not-allowed"
         >
           {loading ? (
