@@ -2,6 +2,8 @@ import { bqGenerateBatch } from '../api/adsInsights'
 import { latestPeriodValue } from './wizardPeriods'
 
 const GENERATE_RETRY_DELAYS_MS = [800, 1600]
+const inFlightBatchRequests = new Map()
+const inFlightRegenerations = new Map()
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -10,8 +12,38 @@ function sleep(ms) {
 function isRetryableError(error) {
   // data_availability === 'failed' のような決定論的失敗（BQ全失敗）は
   // 再試行しても成功しないため、再試行対象から除外する。
-  if (error?.deterministic) return false
-  return !error?.status || error.status === 429 || error.status >= 500
+  if (error?.deterministic || error?.uncertain || error?.retryable === false) return false
+  // A transport failure has an unknown server outcome. Retrying the whole
+  // batch can duplicate up to 12 BigQuery jobs, so leave recovery to an
+  // explicit user retry unless the server returned a retryable status.
+  if (!error?.status) return false
+  // Only middleware rejections are known to happen before BigQuery work
+  // starts.  Proxy/5xx outcomes are ambiguous and must not duplicate a whole
+  // 12-query batch automatically.
+  return (
+    (error.status === 429 && error.code === 'rate_limited') ||
+    (error.status === 503 && error.code === 'rate_limit_unavailable')
+  )
+}
+
+function batchRequestKey(payload = {}) {
+  return JSON.stringify({
+    project_ref: payload.project_ref ?? payload.projectRef ?? null,
+    dataset_id: payload.dataset_id ?? null,
+    period: payload.period ?? null,
+    granularity: payload.granularity ?? payload.period_selection ?? null,
+    query_types: Array.isArray(payload.query_types) ? payload.query_types : [],
+  })
+}
+
+function regenerationKey(setupState = {}) {
+  return JSON.stringify({
+    projectRef: setupState.projectRef ?? null,
+    datasetId: setupState.datasetId ?? null,
+    granularity: setupState.granularity ?? null,
+    periods: Array.isArray(setupState.periods) ? setupState.periods : [],
+    queryTypes: Array.isArray(setupState.queryTypes) ? setupState.queryTypes : [],
+  })
 }
 
 export function pickReportMarkdown(result) {
@@ -1160,19 +1192,16 @@ export function buildBeginnerReportFromCharts(chartGroups = [], executionSummary
   })
 }
 
-export async function generateBatchWithRetry(payload) {
+async function runBatchWithRetry(payload) {
   for (let attempt = 0; attempt <= GENERATE_RETRY_DELAYS_MS.length; attempt += 1) {
     try {
       const result = await bqGenerateBatch(payload)
       if (result?.ok === false) {
-        // data_availability === 'failed' は BQ 全失敗（CVデータ無し等）の決定論的エラー。
-        // 再試行しても結果は変わらないため deterministic フラグを立てて即 throw する。
-        // partial 等の非決定論的失敗は従来どおり status 500 で再試行対象に残す。
-        const deterministicFailure = result?.data_availability === 'failed'
         const error = new Error(result?.message || result?.missing_reason || result?.error || 'BQレポート生成に失敗しました。')
-        error.status = deterministicFailure ? 502 : 500
         error.body = result
-        if (deterministicFailure) error.deterministic = true
+        // A structured response proves the server completed the batch.  Never
+        // replay it automatically, including partial results.
+        error.deterministic = true
         throw error
       }
       return result
@@ -1185,6 +1214,20 @@ export async function generateBatchWithRetry(payload) {
   }
 
   throw new Error('BQレポート生成に失敗しました。')
+}
+
+export function generateBatchWithRetry(payload) {
+  const key = batchRequestKey(payload)
+  const existing = inFlightBatchRequests.get(key)
+  if (existing) return existing
+
+  const request = runBatchWithRetry(payload).finally(() => {
+    if (inFlightBatchRequests.get(key) === request) {
+      inFlightBatchRequests.delete(key)
+    }
+  })
+  inFlightBatchRequests.set(key, request)
+  return request
 }
 
 export function buildAdsReportBundle({ setupState, results }) {
@@ -1252,12 +1295,11 @@ export function buildAdsReportBundle({ setupState, results }) {
     latestPeriodReport?.beginnerReport ||
     buildBeginnerReportFromCharts(flatChartGroups, flatExecutionSummary)
   const reportV2 = latestPeriodReport?.reportV2 ?? null
-  const dataAvailability = reportMd
-    ? summarizeAvailability(results, periodReports)
-    : 'fallback'
-  const missingReason = reportMd
-    ? collectMissingReasons(results, flatExecutionSummary)
-    : 'BigQueryからレポート本文が返っていません。'
+  const dataAvailability = summarizeAvailability(results, periodReports)
+  const collectedMissingReason = collectMissingReasons(results, flatExecutionSummary)
+  const missingReason = collectedMissingReason || (reportMd
+    ? ''
+    : 'BigQueryからレポート本文が返っていません。')
 
   return {
     source: 'bq_generate_batch',
@@ -1302,43 +1344,63 @@ export function buildAdsFallbackReportBundle(setupState, reason = 'BQレポー�
   }
 }
 
-export async function regenerateAdsReportBundle(setupState) {
-  if (!setupState?.queryTypes?.length || !setupState?.periods?.length) {
-    throw new Error('セットアップ条件が不足しています。')
+function failedPeriodResult(setupState, period, error) {
+  const message = error?.message || 'BigQueryレポート生成に失敗しました。'
+  return {
+    ok: false,
+    period,
+    data_availability: 'failed',
+    missing_reason: message,
+    report_md: '',
+    chart_data: {},
+    execution_summary: (setupState.queryTypes ?? []).map((queryType) => ({
+      query_type: queryType,
+      status: 'error',
+      row_count: 0,
+      chart_group_count: 0,
+      message,
+    })),
   }
+}
 
-  const settled = await Promise.allSettled(
-    setupState.periods.map(period =>
-      generateBatchWithRetry({
+async function runRegeneration(setupState) {
+  const results = []
+  // Keep one period in flight at a time. Each period already fans out to up to
+  // three backend workers, so parallel periods only multiply BigQuery load.
+  for (const period of setupState.periods) {
+    try {
+      const result = await generateBatchWithRetry({
         query_types: setupState.queryTypes,
         dataset_id: setupState.datasetId,
         project_ref: setupState.projectRef,
+        granularity: setupState.granularity,
         period,
-      }).then((result) => ({ ...result, period }))
-    ),
-  )
-  const results = settled.map((item, index) => {
-    if (item.status === 'fulfilled') return item.value
-    const period = setupState.periods[index]
-    const error = item.reason
-    return {
-      ok: false,
-      period,
-      data_availability: 'failed',
-      missing_reason: error?.message || 'BigQueryレポート生成に失敗しました。',
-      report_md: '',
-      chart_data: {},
-      execution_summary: (setupState.queryTypes ?? []).map((queryType) => ({
-        query_type: queryType,
-        status: 'error',
-        row_count: 0,
-        chart_group_count: 0,
-        message: error?.message || 'BigQueryレポート生成に失敗しました。',
-      })),
+      })
+      results.push({ ...result, period })
+    } catch (error) {
+      results.push(failedPeriodResult(setupState, period, error))
     }
-  })
+  }
 
   return buildAdsReportBundle({ setupState, results })
+}
+
+export function regenerateAdsReportBundle(setupState) {
+  if (!setupState?.queryTypes?.length || !setupState?.periods?.length) {
+    return Promise.reject(new Error('セットアップ条件が不足しています。'))
+  }
+
+  const key = regenerationKey(setupState)
+  const existing = inFlightRegenerations.get(key)
+  if (existing) return existing
+
+  const regeneration = runRegeneration(setupState).finally(() => {
+    if (inFlightRegenerations.get(key) === regeneration) {
+      inFlightRegenerations.delete(key)
+    }
+  })
+  inFlightRegenerations.set(key, regeneration)
+  return regeneration
 }
 
 export function extractMarkdownSummary(markdown) {

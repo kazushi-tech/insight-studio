@@ -53,6 +53,36 @@ const JULY_RESULT = {
   execution_summary: [{ query_type: 'cv', status: 'no_data' }],
 }
 
+const ALL_QUERY_TYPES = [
+  'pv',
+  'traffic',
+  'campaign',
+  'cv',
+  'search',
+  'anomaly',
+  'landing',
+  'device',
+  'hourly',
+  'user_attr',
+  'engagement',
+  'auction_proxy',
+]
+
+const ALL_QUERY_LABELS = [
+  '見られた回数',
+  'どこから来たか',
+  'キャンペーン別の来訪',
+  '問い合わせ・予約・購入',
+  'サイト内で検索された言葉',
+  '急に変わった日',
+  '入口になったページ',
+  'スマホ・パソコン',
+  '見られた時間帯',
+  '初めて・再訪した人と地域',
+  'ちゃんと読まれたか',
+  '流入集中の参考値',
+]
+
 function renderWizard() {
   return render(
     <MemoryRouter initialEntries={['/ads/wizard']}>
@@ -108,13 +138,14 @@ describe('SetupWizard', () => {
 
     expect(await screen.findByRole('heading', { name: '最初のレポートができました' })).toBeInTheDocument()
     expect(mocks.generateBatchWithRetry).toHaveBeenCalledWith({
-      query_types: ['pv', 'traffic', 'cv', 'landing'],
+      query_types: ALL_QUERY_TYPES,
       dataset_id: 'analytics_311324674',
       project_ref: 'petabit',
       period: '2026-07',
+      granularity: 'monthly',
     })
     expect(mocks.completeSetup).toHaveBeenCalledWith(
-      expect.objectContaining({ periods: ['2026-07'], datasetId: 'analytics_311324674' }),
+      expect.objectContaining({ queryTypes: ALL_QUERY_TYPES, periods: ['2026-07'], datasetId: 'analytics_311324674' }),
       expect.objectContaining({ reportMd: '# まとめ' }),
     )
   })
@@ -152,31 +183,76 @@ describe('SetupWizard', () => {
     })
   })
 
-  it('starts with three beginner goals and hides technical terms from customers', async () => {
-    const user = userEvent.setup()
+  it('shows all query cards without a disclosure and selects every query by default', () => {
     renderWizard()
 
-    expect(screen.getByRole('radio', { name: /全体を見る/ })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('radio', { name: /集客を見る/ })).toBeInTheDocument()
-    expect(screen.getByRole('radio', { name: /成果を見る/ })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '見る内容を細かく調整する' }))
-    expect(screen.getByText('見られた回数')).toBeInTheDocument()
-    expect(screen.getByText('見られた時間帯')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '表示するグラフを選んでください' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('12 / 12 項目を選択中')
+    expect(screen.queryByRole('button', { name: /細かく調整|詳しい項目/ })).not.toBeInTheDocument()
+    ALL_QUERY_LABELS.forEach((label) => {
+      expect(screen.getByRole('button', { name: new RegExp(label) })).toHaveAttribute('aria-pressed', 'true')
+    })
     expect(screen.queryByText(/ページビュー数（PV）|BigQuery|データセット|保存先ID/)).not.toBeInTheDocument()
   })
 
-  it('keeps professional analysis terms inside the platform-admin details only', async () => {
+  it('restores all queries after an individual query is deselected', async () => {
     const user = userEvent.setup()
+    renderWizard()
+
+    const pageViews = screen.getByRole('button', { name: /見られた回数/ })
+    await user.click(pageViews)
+
+    expect(pageViews).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('status')).toHaveTextContent('11 / 12 項目を選択中')
+
+    await user.click(screen.getByRole('button', { name: 'すべて選ぶ' }))
+
+    expect(pageViews).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('status')).toHaveTextContent('12 / 12 項目を選択中')
+  })
+
+  it('clears stale errors and returns to the first step when the selected case changes', async () => {
+    const user = userEvent.setup()
+    mocks.currentCase = {
+      case_id: 'demo',
+      name: 'Insight Studio デモ',
+      dataset_id: 'demo_portfolio_dataset',
+      is_demo: true,
+    }
+    mocks.getCurrentDatasetId.mockReturnValue('demo_portfolio_dataset')
+    mocks.bqPeriods.mockRejectedValueOnce(Object.assign(new Error('案件が見つかりません'), { status: 404 }))
+    const view = renderWizard()
+
+    await user.click(screen.getByRole('button', { name: /^次へ/ }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    mocks.currentCase = {
+      case_id: 'petabit',
+      name: 'ペタサイト',
+      dataset_id: 'analytics_311324674',
+      is_demo: false,
+    }
+    mocks.getCurrentDatasetId.mockReturnValue('analytics_311324674')
+    view.rerender(
+      <MemoryRouter initialEntries={['/ads/wizard']}>
+        <SetupWizard />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: '表示するグラフを選んでください' })).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('12 / 12 項目を選択中')
+    expect(screen.getByRole('button', { name: /^次へ/ })).toBeEnabled()
+  })
+
+  it('shows professional analysis terms only to platform admins', () => {
     mocks.authUser = { role: 'admin', platform_role: 'platform_admin' }
     renderWizard()
-    await user.click(screen.getByRole('button', { name: '運用者向けの詳しい項目' }))
     expect(screen.getByText('（ページビュー数（PV）・ユーザー数・セッション数）')).toBeInTheDocument()
     expect(screen.getByText('（時間帯別分析）')).toBeInTheDocument()
   })
 
-  it('uses fictional source wording for the demo case only', async () => {
-    const user = userEvent.setup()
+  it('uses fictional source wording for the demo case only', () => {
     mocks.currentCase = {
       case_id: 'demo',
       name: 'Insight Studio デモ',
@@ -188,7 +264,6 @@ describe('SetupWizard', () => {
     renderWizard()
 
     expect(screen.getByText('現在のデモデータ')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '見る内容を細かく調整する' }))
     expect(screen.getByText('流入集中の参考値')).toBeInTheDocument()
     expect(screen.queryByText(/GA4|BigQuery|流入チャネル構成比/)).not.toBeInTheDocument()
   })
@@ -234,19 +309,21 @@ describe('SetupWizard', () => {
     await user.click(screen.getByRole('button', { name: /^次へ/ }))
     expect(await screen.findByRole('heading', { name: '最初のレポートができました' })).toBeInTheDocument()
     expect(mocks.generateBatchWithRetry).toHaveBeenNthCalledWith(1, {
-      query_types: ['pv', 'traffic', 'cv', 'landing'],
+      query_types: ALL_QUERY_TYPES,
       dataset_id: 'demo_portfolio_dataset',
       project_ref: 'demo',
       period: '2026-06',
+      granularity: 'monthly',
     })
     expect(mocks.generateBatchWithRetry).toHaveBeenNthCalledWith(2, {
-      query_types: ['pv', 'traffic', 'cv', 'landing'],
+      query_types: ALL_QUERY_TYPES,
       dataset_id: 'demo_portfolio_dataset',
       project_ref: 'demo',
       period: '2026-05',
+      granularity: 'monthly',
     })
     expect(mocks.completeSetup).toHaveBeenCalledWith(
-      expect.objectContaining({ periods: ['2026-06', '2026-05'] }),
+      expect.objectContaining({ queryTypes: ALL_QUERY_TYPES, periods: ['2026-06', '2026-05'], granularity: 'monthly' }),
       expect.any(Object),
     )
   })

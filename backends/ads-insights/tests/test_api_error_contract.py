@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from web.app.api_errors import normalize_legacy_failure
+from web.app import backend_api as api
 from web.app.backend_api import app
 from web.app.platform_db import reset_platform_engine_for_tests
 
@@ -98,3 +99,40 @@ async def test_readiness_fails_closed_without_managed_database(monkeypatch):
 
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "database_unavailable"
+
+
+@pytest.mark.anyio
+async def test_local_liveness_is_separate_from_platform_readiness(monkeypatch):
+    monkeypatch.setattr(api, "_IS_PRODUCTION", False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    reset_platform_engine_for_tests()
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        health = await client.get("/api/ads/health")
+        readiness = await client.get("/api/platform/readiness")
+
+    assert health.status_code == 200
+    assert health.json()["ok"] is True
+    assert health.json()["status"] == "healthy"
+    assert readiness.status_code == 503
+    assert readiness.json()["error"]["code"] == "database_unavailable"
+
+
+@pytest.mark.anyio
+async def test_production_health_stays_fail_closed_without_managed_database(monkeypatch):
+    monkeypatch.setattr(api, "_IS_PRODUCTION", True)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    reset_platform_engine_for_tests()
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        health = await client.get("/api/ads/health")
+
+    assert health.status_code == 503
+    assert health.json()["ok"] is False
+    assert health.json()["persistence"] == "unavailable"

@@ -55,10 +55,11 @@ function SecretProbe() {
 }
 
 function CaseProbe() {
-  const { user, loginWithCase } = useAuth()
+  const { user, loginWithCase, isAdsAuthenticated } = useAuth()
   return (
     <div>
       <output aria-label="case-user">{user ? JSON.stringify(user) : ''}</output>
+      <output aria-label="case-authenticated">{String(isAdsAuthenticated)}</output>
       <button onClick={() => loginWithCase({
         case_id: 'demo',
         name: 'Insight Studio デモ',
@@ -92,6 +93,22 @@ describe('AuthContext analysis secrets', () => {
     expect(localStorage.getItem('is_claude_key')).toBeNull()
     expect(localStorage.getItem('is_ads_token')).toBeNull()
     expect(screen.getByLabelText('authenticated')).toHaveTextContent('false')
+  })
+
+  it('discards a stale legacy user when a reload has no in-memory token', () => {
+    localStorage.setItem('is_ads_token', 'unsafe-persistent-jwt')
+    localStorage.setItem('is_user', JSON.stringify({
+      role: 'case_user',
+      case_id: 'stale-case',
+      display_name: '古い利用者',
+    }))
+
+    render(<AuthProvider><CaseProbe /></AuthProvider>)
+
+    expect(screen.getByLabelText('case-user')).toBeEmptyDOMElement()
+    expect(screen.getByLabelText('case-authenticated')).toHaveTextContent('false')
+    expect(localStorage.getItem('is_ads_token')).toBeNull()
+    expect(localStorage.getItem('is_user')).toBeNull()
   })
 
   it('stores newly entered analysis keys in sessionStorage only', async () => {
@@ -128,6 +145,8 @@ describe('AuthContext analysis secrets', () => {
     await user.click(screen.getByRole('button', { name: 'デモ案件でログイン' }))
 
     expect(screen.getByLabelText('case-user')).toHaveTextContent('"is_demo":true')
+    expect(screen.getByLabelText('case-authenticated')).toHaveTextContent('true')
+    expect(localStorage.getItem('is_ads_token')).toBeNull()
     expect(JSON.parse(localStorage.getItem('is_user'))).toEqual(expect.objectContaining({
       role: 'case_user',
       case_id: 'demo',

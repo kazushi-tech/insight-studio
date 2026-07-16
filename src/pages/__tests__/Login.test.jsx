@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Login from '../Login'
 
@@ -9,12 +9,22 @@ const loginWithCase = vi.fn()
 const loginCase = vi.fn()
 const getCaseTrustToken = vi.fn()
 const warmAdsInsightsBackend = vi.fn()
+const authState = {
+  authMode: 'legacy',
+  clerkLoaded: true,
+  clerkSignedIn: false,
+  loading: false,
+  platformSyncError: null,
+  clerkOrganizationId: null,
+  user: null,
+  isAdsAuthenticated: false,
+}
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
+    ...authState,
     loginAds,
     loginWithCase,
-    user: null,
   }),
 }))
 
@@ -26,8 +36,12 @@ vi.mock('../../api/adsInsights', () => ({
 
 function renderLogin() {
   return render(
-    <MemoryRouter>
-      <Login />
+    <MemoryRouter initialEntries={['/login']}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/ads/wizard" element={<p>ウィザード画面</p>} />
+        <Route path="/" element={<p>ホーム画面</p>} />
+      </Routes>
     </MemoryRouter>,
   )
 }
@@ -42,6 +56,35 @@ describe('Login', () => {
     warmAdsInsightsBackend.mockReset()
     getCaseTrustToken.mockReturnValue(null)
     warmAdsInsightsBackend.mockResolvedValue(false)
+    Object.assign(authState, {
+      authMode: 'legacy',
+      clerkLoaded: true,
+      clerkSignedIn: false,
+      loading: false,
+      platformSyncError: null,
+      clerkOrganizationId: null,
+      user: null,
+      isAdsAuthenticated: false,
+    })
+  })
+
+  it('does not redirect a stale persisted user after a legacy reload', () => {
+    authState.user = { role: 'case_user', case_id: 'stale-case' }
+    authState.isAdsAuthenticated = false
+
+    renderLogin()
+
+    expect(screen.getByRole('heading', { name: 'ご利用画面へログイン' })).toBeInTheDocument()
+    expect(screen.queryByText('ウィザード画面')).not.toBeInTheDocument()
+  })
+
+  it('keeps the successful in-memory case login redirect unchanged', () => {
+    authState.user = { role: 'case_user', case_id: 'active-case' }
+    authState.isAdsAuthenticated = true
+
+    renderLogin()
+
+    expect(screen.getByText('ウィザード画面')).toBeInTheDocument()
   })
 
   it('keeps the login screen simple and sends one password-only case request', async () => {

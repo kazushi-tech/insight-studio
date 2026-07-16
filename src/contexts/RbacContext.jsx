@@ -5,9 +5,9 @@ const RbacContext = createContext(null)
 const EMPTY_PROJECT_ROLES = Object.freeze({})
 
 export function RbacProvider({ children }) {
-  const { user } = useAuth()
+  const { user, isAdsAuthenticated } = useAuth()
 
-  const isAuthenticated = !!user
+  const isAuthenticated = Boolean(user && isAdsAuthenticated)
   const platformRole = user?.platform_role ?? null
   const workspaceRole = user?.workspace_role ?? null
   const projectRoles = user?.project_roles ?? EMPTY_PROJECT_ROLES

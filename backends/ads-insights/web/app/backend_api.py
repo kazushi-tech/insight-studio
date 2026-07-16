@@ -1917,6 +1917,7 @@ async def _auth_middleware(request, call_next):
     return await call_next(request)
 
 # ── 共有レート制限 ─────────────────────────────────────────
+import collections
 import ipaddress
 from starlette.concurrency import run_in_threadpool
 
@@ -1934,6 +1935,10 @@ _RATE_LIMITED_PATHS = {
     "/api/generate_multi_report",
     "/api/gdrive/process_and_generate",
 }
+_LOCAL_RATE_LIMIT_FALLBACK_PATHS = {
+    "/api/bq/generate",
+    "/api/bq/generate_batch",
+}
 
 _RATE_LIMITED_MUTATION_PREFIXES = (
     "/api/projects",
@@ -1946,6 +1951,15 @@ _RATE_LIMITED_PLATFORM_MUTATIONS = {
     "/api/billing/portal",
     "/api/billing/portal-sessions",
 }
+_local_rate_buckets: dict[str, collections.deque[float]] = {}
+
+
+def _is_local_rate_limit_fallback_request(method: str, path: str) -> bool:
+    """Return whether a legacy data route may use the local development guard."""
+    return (
+        str(method or "").upper() != "OPTIONS"
+        and str(path or "") in _LOCAL_RATE_LIMIT_FALLBACK_PATHS
+    )
 
 
 def _is_shared_rate_limited_request(method: str, path: str) -> bool:
@@ -1998,25 +2012,61 @@ def _get_rate_limit_subject(request: Request) -> str:
     return f"ip:{_socket_client_ip(request)}"
 
 
+def _consume_local_rate_limit(request: Request) -> int | None:
+    """Consume a bounded per-process slot for non-production legacy routes.
+
+    The managed shared limiter remains authoritative whenever it is available.
+    This guard exists only so local legacy case/BQ verification can proceed
+    without PostgreSQL; Production never falls back to this state.
+    """
+    subject = _get_rate_limit_subject(request)
+    now = time.time()
+    bucket = _local_rate_buckets.setdefault(subject, collections.deque())
+    cutoff = now - _RATE_LIMIT_WINDOW
+    while bucket and bucket[0] < cutoff:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT_MAX:
+        return max(1, int(bucket[0] + _RATE_LIMIT_WINDOW - now) + 1)
+    bucket.append(now)
+    return None
+
+
 @app.middleware("http")
 async def _rate_limit_middleware(request, call_next):
     """Consume a PostgreSQL-shared slot for data and commercial mutations.
 
     Legacy password endpoints retain their existing bounded in-process
     brute-force limiter so the pre-Clerk demo login remains usable without a
-    platform database. Customer data and commercial mutations still fail
-    closed when shared persistence is unavailable.
+    platform database. In non-production only, legacy data routes may use a
+    bounded per-process fallback when the shared database is absent. Production
+    and every platform/commercial mutation remain fail-closed.
     """
-    if _is_shared_rate_limited_request(request.method, request.url.path):
+    method = request.method
+    path = request.url.path
+    is_local_fallback_route = _is_local_rate_limit_fallback_request(method, path)
+    if _is_shared_rate_limited_request(method, path):
         try:
             decision = await run_in_threadpool(
                 consume_rate_limit,
                 subject_material=_get_rate_limit_subject(request),
-                route_key=f"{request.method.upper()}:{request.url.path}",
+                route_key=f"{method.upper()}:{path}",
                 limit=_RATE_LIMIT_MAX,
                 window_seconds=_RATE_LIMIT_WINDOW,
             )
         except RateLimitUnavailable:
+            if not _IS_PRODUCTION and is_local_fallback_route:
+                retry_after = _consume_local_rate_limit(request)
+                if retry_after is None:
+                    return await call_next(request)
+                return problem_response(
+                    request,
+                    status_code=429,
+                    code="rate_limited",
+                    category="rate_limit",
+                    user_message="操作が集中しています。少し待って再試行してください。",
+                    retryable=True,
+                    headers={"Retry-After": str(retry_after)},
+                )
             return problem_response(
                 request,
                 status_code=503,
@@ -17290,26 +17340,42 @@ def _is_credentials_error(e: Exception) -> bool:
             or "Could not automatically determine credentials" in err_str)
 
 # BQレポート軽量キャッシュ（TTL 5分、上限50エントリ）
+import threading
 import time as _time
 _bq_cache: dict[str, tuple[float, dict]] = {}
+_bq_cache_lock = threading.RLock()
 _BQ_CACHE_TTL = 300              # 5分（レポート生成結果）
 _BQ_PERIODS_CACHE_TTL = 1800     # 30分（期間一覧 — テーブル構成はほぼ変わらない）
 _BQ_DATASETS_CACHE_TTL = 3600    # 1時間（データセット一覧）
 _BQ_CACHE_MAX = 50               # 最大エントリ数
 
 
+def _bq_cache_get(key: str, ttl: int) -> tuple[float, dict] | None:
+    """Read one unexpired entry while batch workers may evict or populate."""
+    with _bq_cache_lock:
+        now = _time.time()
+        cached = _bq_cache.get(key)
+        if cached is None:
+            return None
+        if (now - cached[0]) >= ttl:
+            _bq_cache.pop(key, None)
+            return None
+        return cached
+
+
 def _bq_cache_put(key: str, value: dict) -> None:
     """キャッシュにエントリを追加（期限切れ自動削除 + 上限超過時は最古追い出し）。"""
     now = _time.time()
-    # 期限切れエントリを除去
-    expired = [k for k, (ts, _) in _bq_cache.items() if (now - ts) >= _BQ_CACHE_TTL]
-    for k in expired:
-        del _bq_cache[k]
-    # 上限超過時は最古エントリを追い出し
-    while len(_bq_cache) >= _BQ_CACHE_MAX:
-        oldest_key = min(_bq_cache, key=lambda k: _bq_cache[k][0])
-        del _bq_cache[oldest_key]
-    _bq_cache[key] = (now, value)
+    with _bq_cache_lock:
+        # 期限切れエントリを除去
+        expired = [k for k, (ts, _) in _bq_cache.items() if (now - ts) >= _BQ_CACHE_TTL]
+        for k in expired:
+            del _bq_cache[k]
+        # 上限超過時は最古エントリを追い出し
+        while len(_bq_cache) >= _BQ_CACHE_MAX:
+            oldest_key = min(_bq_cache, key=lambda k: _bq_cache[k][0])
+            del _bq_cache[oldest_key]
+        _bq_cache[key] = (now, value)
 
 
 def _bq_availability_from_summary(summary: list[dict], requested_count: int) -> tuple[str, str]:
@@ -17363,8 +17429,8 @@ def api_bq_datasets(request: Request = None):
         return _json({"ok": True, "datasets": [{"dataset_id": dataset_id, "label": label}]})
 
     cache_key = "datasets:all"
-    cached = _bq_cache.get(cache_key)
-    if cached and (_time.time() - cached[0]) < _BQ_DATASETS_CACHE_TTL:
+    cached = _bq_cache_get(cache_key, _BQ_DATASETS_CACHE_TTL)
+    if cached:
         return _json(cached[1])
     try:
         from bq.client import list_datasets
@@ -17432,8 +17498,8 @@ def api_bq_periods(
 
     cache_key = f"periods:{dataset_id}:{granularity}"
     if not fresh:
-        cached = _bq_cache.get(cache_key)
-        if cached and (_time.time() - cached[0]) < _BQ_PERIODS_CACHE_TTL:
+        cached = _bq_cache_get(cache_key, _BQ_PERIODS_CACHE_TTL)
+        if cached:
             return _json(cached[1])
     try:
         from bq.client import run_query, PROJECT_ID
@@ -17586,8 +17652,8 @@ async def api_bq_generate(request: Request):
                 ",".join(report_options.get("cv_events") or []),
             ]
         )
-        cached = _bq_cache.get(cache_key)
-        if cached and (_time.time() - cached[0]) < _BQ_CACHE_TTL:
+        cached = _bq_cache_get(cache_key, _BQ_CACHE_TTL)
+        if cached:
             return _json(cached[1])
 
         from bq.reporter import run_report
@@ -17744,8 +17810,8 @@ async def api_bq_generate_batch(request: Request):
                     ",".join(report_options.get("cv_events") or []),
                 ]
             )
-            cached = _bq_cache.get(cache_key)
-            if cached and (_time.time() - cached[0]) < _BQ_CACHE_TTL:
+            cached = _bq_cache_get(cache_key, _BQ_CACHE_TTL)
+            if cached:
                 cached_data = cached[1]
                 cached_groups = cached_data.get("chart_data", {}).get("groups") or []
                 cached_summary = cached_data.get("execution_summary") or {
@@ -17905,7 +17971,7 @@ async def api_bq_generate_batch(request: Request):
             execution_summary,
             key=lambda item: query_types.index(item.get("query_type")) if item.get("query_type") in query_types else 999,
         )
-        data_availability, missing_reason = _bq_availability_from_summary(sorted_summary, len(valid_types))
+        data_availability, missing_reason = _bq_availability_from_summary(sorted_summary, len(query_types))
         ok = data_availability != "failed"
         beginner_report = build_beginner_report(all_groups, sorted_summary)
         child_reports_v2 = {

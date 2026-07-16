@@ -704,6 +704,162 @@ def _build_auction_proxy(df: pd.DataFrame) -> list[dict]:
     return groups
 
 
+# ========== V3.4: GA4キャンペーン分析 ==========
+def _build_campaign(df: pd.DataFrame) -> list[dict]:
+    """GA4 campaign/source/medium 別の量・成果・日別推移を表示する。"""
+    required = {"campaign_name", "source", "medium", "sessions"}
+    if not required.issubset(df.columns):
+        return []
+
+    working = df.copy()
+    for column in ("campaign_name", "source", "medium"):
+        working[column] = working[column].fillna("(not set)").astype(str)
+    metric_columns = [
+        column
+        for column in ("sessions", "users", "page_views", "conversions")
+        if column in working.columns
+    ]
+    for column in metric_columns:
+        working[column] = pd.to_numeric(working[column], errors="coerce").fillna(0)
+
+    group_columns = ["campaign_name", "source", "medium"]
+    aggregations: dict[str, str] = {column: "sum" for column in metric_columns}
+    if "campaign_period_users" in working.columns:
+        working["campaign_period_users"] = pd.to_numeric(
+            working["campaign_period_users"], errors="coerce"
+        ).fillna(0)
+        aggregations["campaign_period_users"] = "max"
+
+    aggregate = working.groupby(group_columns, as_index=False, dropna=False).agg(aggregations)
+    aggregate["campaign_label"] = aggregate.apply(
+        lambda row: (
+            f"{row['campaign_name']} · {row['source']} / {row['medium']}"
+            if row["campaign_name"] != "(not set)"
+            else f"{row['source']} / {row['medium']}"
+        ),
+        axis=1,
+    )
+    aggregate = aggregate.sort_values(
+        ["sessions", "campaign_name", "source", "medium"],
+        ascending=[False, True, True, True],
+        kind="mergesort",
+    )
+
+    groups: list[dict] = []
+    ranking_limit = 15
+    top = aggregate.head(ranking_limit).copy()
+    ranking_meta = _ranking_meta(
+        "campaign",
+        limit=ranking_limit,
+        actual_count=len(top),
+        source_row_count=len(aggregate),
+    )
+    ranking_meta["selectionLabel"] = f"セッション数上位{len(top)}キャンペーンを表示"
+
+    volume_datasets = []
+    volume_metrics = [
+        ("sessions", "セッション"),
+        (
+            "campaign_period_users" if "campaign_period_users" in top.columns else "users",
+            "期間内ユーザー" if "campaign_period_users" in top.columns else "日別ユーザー延べ",
+        ),
+        ("page_views", "PV"),
+    ]
+    for index, (column, label) in enumerate(volume_metrics):
+        if column not in top.columns:
+            continue
+        color = _color(index)
+        volume_datasets.append({
+            "label": label,
+            "data": _safe_list(top[column]),
+            "backgroundColor": color["bg"],
+            "borderColor": color["border"],
+            "borderWidth": 1,
+        })
+    if volume_datasets:
+        groups.append(_with_meta({
+            "title": f"キャンペーン分析 — セッション数上位{len(top)}件",
+            "chartType": "bar_horizontal",
+            "labels": top["campaign_label"].tolist(),
+            "datasets": volume_datasets,
+        }, ranking_meta))
+
+    if "conversions" in aggregate.columns:
+        conversion_top = aggregate.sort_values(
+            ["conversions", "sessions", "campaign_name", "source", "medium"],
+            ascending=[False, False, True, True, True],
+            kind="mergesort",
+        ).head(ranking_limit)
+        conversion_meta = _ranking_meta(
+            "campaign",
+            limit=ranking_limit,
+            actual_count=len(conversion_top),
+            source_row_count=len(aggregate),
+        )
+        conversion_meta["selectionLabel"] = f"CV数上位{len(conversion_top)}キャンペーンを表示"
+        color = _color(3)
+        groups.append(_with_meta({
+            "title": f"キャンペーン分析 — CV数上位{len(conversion_top)}件",
+            "chartType": "bar_horizontal",
+            "labels": conversion_top["campaign_label"].tolist(),
+            "datasets": [{
+                "label": "CV",
+                "data": _safe_list(conversion_top["conversions"]),
+                "backgroundColor": color["bg"],
+                "borderColor": color["border"],
+                "borderWidth": 1,
+            }],
+        }, conversion_meta))
+
+    if "event_date" in working.columns and not top.empty:
+        trend_limit = 5
+        top_keys = [tuple(row) for row in top[group_columns].head(trend_limit).to_numpy().tolist()]
+        daily = working.groupby(["event_date", *group_columns], as_index=False).agg({"sessions": "sum"})
+        daily["campaign_key"] = list(zip(daily["campaign_name"], daily["source"], daily["medium"]))
+        daily = daily[daily["campaign_key"].isin(top_keys)]
+        if not daily.empty:
+            label_by_key = {
+                tuple(row[group_columns]): row["campaign_label"]
+                for _, row in top.head(trend_limit).iterrows()
+            }
+            daily["campaign_label"] = daily["campaign_key"].map(label_by_key)
+            ordered_labels = [label_by_key[key] for key in top_keys]
+            pivot = daily.pivot_table(
+                index="event_date",
+                columns="campaign_label",
+                values="sessions",
+                aggfunc="sum",
+            ).fillna(0).sort_index()
+            ordered_labels = [label for label in ordered_labels if label in pivot.columns]
+            pivot = pivot.reindex(columns=ordered_labels)
+            trend_datasets = []
+            for index, label in enumerate(ordered_labels):
+                color = _color(index)
+                trend_datasets.append({
+                    "label": label,
+                    "data": _safe_list(pivot[label]),
+                    "borderColor": color["border"],
+                    "backgroundColor": color["bg"],
+                    "tension": 0.3,
+                    "fill": False,
+                })
+            trend_meta = _ranking_meta(
+                "campaign",
+                limit=trend_limit,
+                actual_count=len(ordered_labels),
+                source_row_count=len(aggregate),
+            )
+            trend_meta["selectionLabel"] = f"セッション数上位{len(ordered_labels)}キャンペーンを表示"
+            groups.append(_with_meta({
+                "title": f"キャンペーン分析 — セッション数上位{len(ordered_labels)}件の日別推移",
+                "chartType": "line",
+                "labels": [str(value) for value in pivot.index.tolist()],
+                "datasets": trend_datasets,
+            }, trend_meta))
+
+    return groups
+
+
 # ========== V3.3: LP品質ランキング ==========
 def _build_lp_quality(df: pd.DataFrame, search_df: pd.DataFrame = None) -> list[dict]:
     """LP品質スコアのランキング棒グラフ。build_bq_chart_dataから直接呼ばれない特殊ビルダー。"""
@@ -773,6 +929,7 @@ _BUILDERS: dict[str, Any] = {
     "user_attr": _build_user_attr,
     "engagement": _build_engagement,
     "auction_proxy": _build_auction_proxy,
+    "campaign": _build_campaign,
 }
 
 

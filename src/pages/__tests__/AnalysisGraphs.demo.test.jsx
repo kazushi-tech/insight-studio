@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import AnalysisGraphs from '../AnalysisGraphs'
+import AnalysisGraphs, { ChartCardErrorBoundary } from '../AnalysisGraphs'
 
 const state = vi.hoisted(() => ({
   currentCase: null,
@@ -34,12 +34,32 @@ vi.mock('../../components/ai-assistant/AiContextRail', () => ({
   default: () => null,
 }))
 
-function renderPage() {
+function renderPage(initialEntry = '/ads/graphs') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <AnalysisGraphs />
     </MemoryRouter>,
   )
+}
+
+function chartGroup({
+  title,
+  queryType,
+  period = '2026-06',
+  value = 12,
+}) {
+  return {
+    title,
+    queryType,
+    chartType: 'bar',
+    _periodTag: period,
+    labels: ['項目'],
+    datasets: [{ label: '件数', data: [value] }],
+  }
+}
+
+function BrokenGraph() {
+  throw new Error('test-only graph render failure')
 }
 
 describe('AnalysisGraphs demo labels', () => {
@@ -62,6 +82,53 @@ describe('AnalysisGraphs demo labels', () => {
       executionSummary: [],
       dataAvailability: 'full',
       generatedAt: '2026-07-11T00:00:00.000Z',
+    }
+  })
+
+  it('isolates one graph render failure behind a readable fallback', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      render(
+        <ChartCardErrorBoundary title="時間帯グラフ">
+          <BrokenGraph />
+        </ChartCardErrorBoundary>,
+      )
+
+      expect(screen.getByRole('alert')).toHaveTextContent('時間帯グラフを表示できませんでした')
+      expect(screen.getByRole('alert')).toHaveTextContent('ほかのグラフはそのまま確認できます')
+    } finally {
+      errorSpy.mockRestore()
+    }
+  })
+
+  it('recovers a failed graph only after a new report version is loaded', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { rerender } = render(
+        <ChartCardErrorBoundary title="時間帯グラフ" resetKey="report-v1">
+          <BrokenGraph />
+        </ChartCardErrorBoundary>,
+      )
+
+      expect(screen.getByRole('alert')).toHaveTextContent('時間帯グラフを表示できませんでした')
+
+      rerender(
+        <ChartCardErrorBoundary title="時間帯グラフ" resetKey="report-v1">
+          <div>復旧したグラフ</div>
+        </ChartCardErrorBoundary>,
+      )
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+
+      rerender(
+        <ChartCardErrorBoundary title="時間帯グラフ" resetKey="report-v2">
+          <div>復旧したグラフ</div>
+        </ChartCardErrorBoundary>,
+      )
+
+      await waitFor(() => expect(screen.getByText('復旧したグラフ')).toBeInTheDocument())
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    } finally {
+      errorSpy.mockRestore()
     }
   })
 
@@ -163,5 +230,98 @@ describe('AnalysisGraphs demo labels', () => {
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog', { name: 'グラフを見ながら質問' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'この数字をAIに聞く' })).toHaveFocus()
+  })
+
+  it('shows every selected query status even when no graph can be rendered', () => {
+    state.setupState = {
+      ...state.setupState,
+      queryTypes: ['pv', 'campaign'],
+    }
+    state.reportBundle = {
+      ...state.reportBundle,
+      chartGroups: [],
+      dataAvailability: 'failed',
+      executionSummary: [
+        { periodTag: '2026-06', query_type: 'pv', status: 'error', chart_group_count: 0, message: '接続確認が必要です。' },
+        { periodTag: '2026-06', query_type: 'campaign', status: 'no_data', chart_group_count: 0, message: '対象データがありません。' },
+      ],
+    }
+
+    renderPage()
+
+    const coverageHeading = screen.getByRole('heading', { name: '選択した分析項目と表示期間の対応' })
+    const coverage = coverageHeading.closest('section')
+    expect(within(coverage).getByText('見られた回数')).toBeInTheDocument()
+    expect(within(coverage).getByText('キャンペーン別の来訪')).toBeInTheDocument()
+    expect(within(coverage).getByText('確認が必要')).toBeInTheDocument()
+    expect(within(coverage).getByText('十分なデータなし')).toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { name: 'この期間は十分なデータがありません' })).toHaveLength(1)
+  })
+
+  it('opens all graph themes and graph cards by default', () => {
+    state.setupState = { ...state.setupState, queryTypes: ['pv', 'traffic'] }
+    state.reportBundle = {
+      ...state.reportBundle,
+      chartGroups: [
+        chartGroup({ title: '閲覧数', queryType: 'pv' }),
+        chartGroup({ title: '参照元別セッション', queryType: 'traffic' }),
+      ],
+      executionSummary: [
+        { periodTag: '2026-06', query_type: 'pv', status: 'success', chart_group_count: 1 },
+        { periodTag: '2026-06', query_type: 'traffic', status: 'success', chart_group_count: 1 },
+      ],
+    }
+
+    renderPage()
+
+    const lpSectionButton = screen.getAllByRole('button', { name: /LP分析/ })
+      .find((button) => button.hasAttribute('aria-expanded'))
+    const trafficSectionButton = screen.getAllByRole('button', { name: /流入分析/ })
+      .find((button) => button.hasAttribute('aria-expanded'))
+    expect(lpSectionButton).toHaveAttribute('aria-expanded', 'true')
+    expect(trafficSectionButton).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByTitle('グラフを閉じる')).toHaveLength(2)
+  })
+
+  it('falls back to all themes when a stale theme URL has no matching graph', () => {
+    state.reportBundle = {
+      ...state.reportBundle,
+      chartGroups: [chartGroup({ title: '閲覧数', queryType: 'pv' })],
+      executionSummary: [
+        { periodTag: '2026-06', query_type: 'pv', status: 'success', chart_group_count: 1 },
+      ],
+    }
+
+    renderPage('/ads/graphs?theme=device')
+
+    expect(screen.getByRole('button', { name: '全件' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('閲覧数')).toBeInTheDocument()
+  })
+
+  it('scopes query coverage counts to the displayed latest period', () => {
+    state.setupState = {
+      ...state.setupState,
+      periods: ['2026-05', '2026-06'],
+      queryTypes: ['pv'],
+    }
+    state.reportBundle = {
+      ...state.reportBundle,
+      chartGroups: [
+        chartGroup({ title: '5月の閲覧数', queryType: 'pv', period: '2026-05' }),
+        chartGroup({ title: '6月の閲覧数', queryType: 'pv', period: '2026-06' }),
+      ],
+      executionSummary: [
+        { periodTag: '2026-05', query_type: 'pv', status: 'success', row_count: 20, chart_group_count: 3 },
+        { periodTag: '2026-06', query_type: 'pv', status: 'success', row_count: 10, chart_group_count: 1 },
+      ],
+    }
+
+    renderPage()
+
+    const coverageHeading = screen.getByRole('heading', { name: '選択した分析項目と表示期間の対応' })
+    const coverage = coverageHeading.closest('section')
+    expect(within(coverage).getByText('1件')).toBeInTheDocument()
+    expect(within(coverage).queryByText('4件')).not.toBeInTheDocument()
+    expect(within(coverage).getByText(/最新期間: 2026-06/)).toBeInTheDocument()
   })
 })

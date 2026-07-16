@@ -27,15 +27,15 @@ QUERY_TYPES: tuple[dict[str, str], ...] = (
     {"key": "pv", "name": "閲覧・訪問分析", "description": "利用者、訪問、見られた回数"},
     {"key": "traffic", "name": "流入元分析", "description": "どこから訪問されたか"},
     {"key": "cv", "name": "問い合わせ分析", "description": "問い合わせ件数と問い合わせ率"},
-    {"key": "search", "name": "サイト内検索", "description": "サイト内検索語（デモでは未計測）"},
+    {"key": "search", "name": "サイト内検索", "description": "サイト内で検索された語句"},
     {"key": "anomaly", "name": "前月比チェック", "description": "主要指標の前月比"},
     {"key": "landing", "name": "上位ページ分析", "description": "よく見られたページ"},
-    {"key": "device", "name": "デバイス分析", "description": "端末別データ（デモでは未計測）"},
-    {"key": "hourly", "name": "時間帯分析", "description": "時間帯別データ（デモでは未計測）"},
+    {"key": "device", "name": "デバイス分析", "description": "端末別の訪問"},
+    {"key": "hourly", "name": "時間帯分析", "description": "時間帯別の訪問"},
     {"key": "user_attr", "name": "利用者分析", "description": "利用者数の推移"},
     {"key": "engagement", "name": "関心度分析", "description": "エンゲージメント率"},
-    {"key": "auction_proxy", "name": "流入集中の参考値", "description": "デモでは判断保留"},
-    {"key": "campaign", "name": "キャンペーン分析", "description": "デモでは未計測"},
+    {"key": "auction_proxy", "name": "流入集中の参考値", "description": "訪問元の構成比"},
+    {"key": "campaign", "name": "キャンペーン分析", "description": "GA4キャンペーン名別の訪問と成果（広告費なし）"},
 )
 QUERY_TYPE_KEYS = tuple(item["key"] for item in QUERY_TYPES)
 QUERY_TYPE_INFO = {item["key"]: item for item in QUERY_TYPES}
@@ -84,6 +84,34 @@ TRAFFIC_SOURCES: tuple[dict[str, Any], ...] = (
     {"label": "social", "sessions": 400},
 )
 
+TRAFFIC_SOURCES_BY_PERIOD: dict[str, tuple[dict[str, Any], ...]] = {
+    DEMO_CURRENT_PERIOD: TRAFFIC_SOURCES,
+    DEMO_COMPARISON_PERIOD: (
+        {"label": "google / organic", "sessions": 1210},
+        {"label": "direct", "sessions": 700},
+        {"label": "referral", "sessions": 480},
+        {"label": "social", "sessions": 370},
+    ),
+}
+
+SEARCH_TERMS_BY_PERIOD: dict[str, tuple[dict[str, Any], ...]] = {
+    DEMO_CURRENT_PERIOD: (
+        {"label": "料金", "searches": 48},
+        {"label": "制作事例", "searches": 31},
+        {"label": "納期", "searches": 19},
+    ),
+    DEMO_COMPARISON_PERIOD: (
+        {"label": "料金", "searches": 42},
+        {"label": "制作事例", "searches": 25},
+        {"label": "納期", "searches": 17},
+    ),
+}
+
+WEEKLY_SESSIONS_BY_PERIOD: dict[str, tuple[int, ...]] = {
+    DEMO_CURRENT_PERIOD: (720, 760, 800, 840),
+    DEMO_COMPARISON_PERIOD: (650, 680, 700, 730),
+}
+
 
 TOP_PAGES: tuple[dict[str, Any], ...] = (
     {"path": "/service", "page_views": 1420},
@@ -91,6 +119,47 @@ TOP_PAGES: tuple[dict[str, Any], ...] = (
     {"path": "/about", "page_views": 620},
     {"path": "/contact", "page_views": 310},
 )
+
+TOP_PAGES_BY_PERIOD: dict[str, tuple[dict[str, Any], ...]] = {
+    DEMO_CURRENT_PERIOD: TOP_PAGES,
+    DEMO_COMPARISON_PERIOD: (
+        {"path": "/service", "page_views": 1180},
+        {"path": "/column/guide", "page_views": 820},
+        {"path": "/about", "page_views": 590},
+        {"path": "/contact", "page_views": 270},
+    ),
+}
+
+DEVICE_SESSIONS_BY_PERIOD: dict[str, tuple[dict[str, Any], ...]] = {
+    DEMO_CURRENT_PERIOD: (
+        {"label": "mobile", "sessions": 2100},
+        {"label": "desktop", "sessions": 900},
+        {"label": "tablet", "sessions": 120},
+    ),
+    DEMO_COMPARISON_PERIOD: (
+        {"label": "mobile", "sessions": 1830},
+        {"label": "desktop", "sessions": 820},
+        {"label": "tablet", "sessions": 110},
+    ),
+}
+
+HOURLY_SESSIONS_BY_PERIOD: dict[str, tuple[int, ...]] = {
+    DEMO_CURRENT_PERIOD: (260, 430, 610, 720, 650, 450),
+    DEMO_COMPARISON_PERIOD: (240, 390, 550, 630, 570, 380),
+}
+
+CAMPAIGNS_BY_PERIOD: dict[str, tuple[dict[str, Any], ...]] = {
+    DEMO_CURRENT_PERIOD: (
+        {"label": "service_campaign · google / cpc", "sessions": 740, "users": 610, "page_views": 1180, "conversions": 15},
+        {"label": "newsletter · email / email", "sessions": 420, "users": 350, "page_views": 680, "conversions": 9},
+        {"label": "direct_brand · direct / none", "sessions": 310, "users": 260, "page_views": 470, "conversions": 5},
+    ),
+    DEMO_COMPARISON_PERIOD: (
+        {"label": "service_campaign · google / cpc", "sessions": 650, "users": 530, "page_views": 990, "conversions": 13},
+        {"label": "newsletter · email / email", "sessions": 360, "users": 300, "page_views": 570, "conversions": 8},
+        {"label": "direct_brand · direct / none", "sessions": 290, "users": 240, "page_views": 430, "conversions": 4},
+    ),
+}
 
 
 DATA_GAPS: tuple[dict[str, str], ...] = (
@@ -201,14 +270,15 @@ def chart_groups_for(query_type: str, period: str) -> list[dict[str, Any]]:
             )
         ]
 
-    if query_type == "traffic" and period == DEMO_CURRENT_PERIOD:
+    if query_type == "traffic":
+        traffic_sources = TRAFFIC_SOURCES_BY_PERIOD[period]
         return [
             _group(
                 "traffic",
                 "流入元 — 訪問",
                 "bar_horizontal",
-                [item["label"] for item in TRAFFIC_SOURCES],
-                [_dataset("訪問", [item["sessions"] for item in TRAFFIC_SOURCES])],
+                [item["label"] for item in traffic_sources],
+                [_dataset("訪問", [item["sessions"] for item in traffic_sources])],
                 selection_label="訪問数上位4流入元を表示",
             )
         ]
@@ -231,53 +301,101 @@ def chart_groups_for(query_type: str, period: str) -> list[dict[str, Any]]:
             ),
         ]
 
-    if query_type == "anomaly" and period == DEMO_CURRENT_PERIOD:
+    if query_type == "search":
+        search_terms = SEARCH_TERMS_BY_PERIOD[period]
         return [
             _group(
-                "anomaly",
-                "前月比 — 主要指標",
+                "search",
+                "サイト内検索 — 検索回数上位3語",
                 "bar_horizontal",
-                ["利用者", "訪問", "見られた回数", "問い合わせ"],
-                [
-                    _dataset(
-                        "前月比 (%)",
-                        [
-                            MONTH_OVER_MONTH["users_percent"],
-                            MONTH_OVER_MONTH["sessions_percent"],
-                            MONTH_OVER_MONTH["page_views_percent"],
-                            MONTH_OVER_MONTH["inquiries_percent"],
-                        ],
-                    )
-                ],
-            ),
-            _group(
-                "anomaly",
-                "前月比 — 率の変化",
-                "bar_horizontal",
-                ["問い合わせ率", "エンゲージメント率"],
-                [
-                    _dataset(
-                        "前月差 (ポイント)",
-                        [
-                            MONTH_OVER_MONTH["inquiry_rate_points"],
-                            MONTH_OVER_MONTH["engagement_rate_points"],
-                        ],
-                        color=_GOLD,
-                        soft=_GOLD_SOFT,
-                    )
-                ],
-            ),
+                [item["label"] for item in search_terms],
+                [_dataset("検索回数", [item["searches"] for item in search_terms])],
+                selection_label="検索回数上位3語を表示",
+            )
         ]
 
-    if query_type == "landing" and period == DEMO_CURRENT_PERIOD:
+    if query_type == "anomaly":
+        groups = [
+            _group(
+                "anomaly",
+                "変化確認 — 週別の訪問",
+                "line",
+                ["第1週", "第2週", "第3週", "第4週"],
+                [_dataset("訪問", list(WEEKLY_SESSIONS_BY_PERIOD[period]))],
+            )
+        ]
+        if period == DEMO_CURRENT_PERIOD:
+            groups.extend([
+                _group(
+                    "anomaly",
+                    "前月比 — 主要指標",
+                    "bar_horizontal",
+                    ["利用者", "訪問", "見られた回数", "問い合わせ"],
+                    [
+                        _dataset(
+                            "前月比 (%)",
+                            [
+                                MONTH_OVER_MONTH["users_percent"],
+                                MONTH_OVER_MONTH["sessions_percent"],
+                                MONTH_OVER_MONTH["page_views_percent"],
+                                MONTH_OVER_MONTH["inquiries_percent"],
+                            ],
+                        )
+                    ],
+                ),
+                _group(
+                    "anomaly",
+                    "前月比 — 率の変化",
+                    "bar_horizontal",
+                    ["問い合わせ率", "エンゲージメント率"],
+                    [
+                        _dataset(
+                            "前月差 (ポイント)",
+                            [
+                                MONTH_OVER_MONTH["inquiry_rate_points"],
+                                MONTH_OVER_MONTH["engagement_rate_points"],
+                            ],
+                            color=_GOLD,
+                            soft=_GOLD_SOFT,
+                        )
+                    ],
+                ),
+            ])
+        return groups
+
+    if query_type == "landing":
+        top_pages = TOP_PAGES_BY_PERIOD[period]
         return [
             _group(
                 "landing",
                 "上位ページ — 見られた回数",
                 "bar_horizontal",
-                [item["path"] for item in TOP_PAGES],
-                [_dataset("見られた回数", [item["page_views"] for item in TOP_PAGES])],
+                [item["path"] for item in top_pages],
+                [_dataset("見られた回数", [item["page_views"] for item in top_pages])],
                 selection_label="見られた回数上位4ページを表示",
+            )
+        ]
+
+    if query_type == "device":
+        devices = DEVICE_SESSIONS_BY_PERIOD[period]
+        return [
+            _group(
+                "device",
+                "デバイス — 訪問",
+                "bar_horizontal",
+                [item["label"] for item in devices],
+                [_dataset("訪問", [item["sessions"] for item in devices])],
+            )
+        ]
+
+    if query_type == "hourly":
+        return [
+            _group(
+                "hourly",
+                "時間帯 — 訪問",
+                "line",
+                ["0-3時", "4-7時", "8-11時", "12-15時", "16-19時", "20-23時"],
+                [_dataset("訪問", list(HOURLY_SESSIONS_BY_PERIOD[period]))],
             )
         ]
 
@@ -303,8 +421,45 @@ def chart_groups_for(query_type: str, period: str) -> list[dict[str, Any]]:
             )
         ]
 
-    # search/device/hourly/auction_proxy/campaign are intentionally unmeasured.  Empty
-    # means "no_data" and must never be rewritten to a numeric zero.
+    if query_type == "auction_proxy":
+        traffic_sources = TRAFFIC_SOURCES_BY_PERIOD[period]
+        return [
+            _group(
+                "auction_proxy",
+                "流入集中の参考値 — 訪問元構成",
+                "bar_horizontal",
+                [item["label"] for item in traffic_sources],
+                [_dataset("訪問", [item["sessions"] for item in traffic_sources])],
+                selection_label="訪問数上位4流入元を表示",
+            )
+        ]
+
+    if query_type == "campaign":
+        campaigns = CAMPAIGNS_BY_PERIOD[period]
+        labels = [item["label"] for item in campaigns]
+        return [
+            _group(
+                "campaign",
+                "キャンペーン — 訪問・利用者・閲覧",
+                "bar_horizontal",
+                labels,
+                [
+                    _dataset("訪問", [item["sessions"] for item in campaigns]),
+                    _dataset("利用者", [item["users"] for item in campaigns], color=_GOLD, soft=_GOLD_SOFT),
+                    _dataset("見られた回数", [item["page_views"] for item in campaigns]),
+                ],
+                selection_label="訪問数上位3キャンペーンを表示",
+            ),
+            _group(
+                "campaign",
+                "キャンペーン — 問い合わせ",
+                "bar_horizontal",
+                labels,
+                [_dataset("問い合わせ", [item["conversions"] for item in campaigns], color=_GOLD, soft=_GOLD_SOFT)],
+                selection_label="訪問数上位3キャンペーンを表示",
+            ),
+        ]
+
     return []
 
 

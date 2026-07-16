@@ -6,6 +6,27 @@ describe('chartThemeClassifier', () => {
     expect(classifyChartTheme({ queryType: 'landing', title: '入口ページ — セッション数上位5ページ' })).toBe('lp')
   })
 
+  it('keeps every selectable query type inside a visible theme', () => {
+    const expectedThemes = {
+      pv: 'lp',
+      traffic: 'traffic',
+      campaign: 'traffic',
+      cv: 'cv',
+      search: 'lp',
+      anomaly: 'anomaly',
+      landing: 'lp',
+      device: 'device',
+      hourly: 'time',
+      user_attr: 'other',
+      engagement: 'lp',
+      auction_proxy: 'traffic',
+    }
+
+    Object.entries(expectedThemes).forEach(([queryType, theme]) => {
+      expect(classifyChartTheme({ queryType, title: '分類に依存しない題名' })).toBe(theme)
+    })
+  })
+
   it('does not interpret category order as a time change', () => {
     const categoryGroup = {
       queryType: 'traffic',

@@ -25,6 +25,7 @@ os.environ.setdefault(
     "rate-limit-test-secret-longer-than-thirty-two-bytes",
 )
 
+import bq.reporter as bq_reporter  # noqa: E402
 from web.app import backend_api as api  # noqa: E402
 from web.app.platform.rate_limits import (  # noqa: E402
     RateLimitUnavailable,
@@ -32,7 +33,15 @@ from web.app.platform.rate_limits import (  # noqa: E402
     hash_rate_limit_subject,
 )
 from web.app.platform.schema import rate_limit_buckets  # noqa: E402
-from web.app.platform_db import PlatformDatabaseUnavailable  # noqa: E402
+from web.app.platform_db import (  # noqa: E402
+    PlatformDatabaseUnavailable,
+    reset_platform_engine_for_tests,
+)
+from web.app.demo.portfolio_demo_fixture import (  # noqa: E402
+    DEMO_CASE_ID,
+    DEMO_CURRENT_PERIOD,
+    DEMO_DATASET_ID,
+)
 
 
 NOW = datetime(2026, 7, 12, 6, 0, 30, tzinfo=timezone.utc)
@@ -233,6 +242,135 @@ async def test_legacy_login_uses_its_bounded_local_limiter_without_platform_data
     assert payload["token"]
 
 
+@pytest.mark.anyio
+async def test_local_demo_batch_uses_bounded_fallback_without_platform_database(monkeypatch):
+    demo_case = {
+        "case_id": DEMO_CASE_ID,
+        "name": "Insight Studio デモ",
+        "dataset_id": DEMO_DATASET_ID,
+        "is_active": True,
+        "is_demo": True,
+    }
+
+    monkeypatch.setattr(api, "_IS_PRODUCTION", False)
+    monkeypatch.setattr(api, "_RATE_LIMIT_MAX", 1)
+    monkeypatch.setattr(api, "_RATE_LIMIT_WINDOW", 3600)
+    monkeypatch.setattr(api, "_load_cases_master", lambda: [demo_case])
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    reset_platform_engine_for_tests()
+    getattr(api, "_local_rate_buckets", {}).clear()
+    token = api._generate_case_auth_token(demo_case)
+    request = {
+        "query_types": ["pv", "traffic", "cv", "landing"],
+        "dataset_id": DEMO_DATASET_ID,
+        "period": DEMO_CURRENT_PERIOD,
+    }
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api.app),
+        base_url="http://test",
+    ) as client:
+        first = await client.post(
+            "/api/bq/generate_batch",
+            json=request,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        second = await client.post(
+            "/api/bq/generate_batch",
+            json=request,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert first.status_code == 200, first.text
+    assert first.json()["ok"] is True
+    assert first.json()["query_count"] == 4
+    assert second.status_code == 429
+    assert second.json()["error"]["code"] == "rate_limited"
+
+
+@pytest.mark.anyio
+async def test_local_petasite_batch_keeps_signed_dataset_boundary_without_platform_database(monkeypatch):
+    petasite_case = {
+        "case_id": "petasite-test",
+        "name": "ペタサイト",
+        "dataset_id": "analytics_311324674",
+        "is_active": True,
+        "is_demo": False,
+    }
+
+    monkeypatch.setattr(api, "_IS_PRODUCTION", False)
+    monkeypatch.setattr(api, "_load_cases_master", lambda: [petasite_case])
+    monkeypatch.setattr(bq_reporter, "run_report", lambda **_kwargs: None)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    reset_platform_engine_for_tests()
+    getattr(api, "_local_rate_buckets", {}).clear()
+    token = api._generate_case_auth_token(petasite_case)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api.app),
+        base_url="http://test",
+    ) as client:
+        wrong_dataset = await client.post(
+            "/api/bq/generate_batch",
+            json={
+                "query_types": ["pv"],
+                "dataset_id": "analytics_other_customer",
+                "period": "2026-07",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        own_dataset = await client.post(
+            "/api/bq/generate_batch",
+            json={
+                "query_types": ["pv"],
+                "dataset_id": petasite_case["dataset_id"],
+                "period": "2026-07",
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert wrong_dataset.status_code == 403
+    assert wrong_dataset.json()["error"]["code"] == "access_denied"
+    assert own_dataset.status_code == 200, own_dataset.text
+    assert own_dataset.json()["data_availability"] == "partial"
+    assert own_dataset.json()["execution_summary"][0]["status"] == "no_data"
+
+
+@pytest.mark.anyio
+async def test_production_batch_stays_fail_closed_without_shared_database(monkeypatch):
+    demo_case = {
+        "case_id": DEMO_CASE_ID,
+        "name": "Insight Studio デモ",
+        "dataset_id": DEMO_DATASET_ID,
+        "is_active": True,
+        "is_demo": True,
+    }
+
+    monkeypatch.setattr(api, "_IS_PRODUCTION", True)
+    monkeypatch.setattr(api, "_load_cases_master", lambda: [demo_case])
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    reset_platform_engine_for_tests()
+    getattr(api, "_local_rate_buckets", {}).clear()
+    token = api._generate_case_auth_token(demo_case)
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api.app),
+        base_url="http://test",
+    ) as client:
+        response = await client.post(
+            "/api/bq/generate_batch",
+            json={
+                "query_types": ["pv"],
+                "dataset_id": DEMO_DATASET_ID,
+                "period": DEMO_CURRENT_PERIOD,
+            },
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "rate_limit_unavailable"
+
+
 @pytest.mark.parametrize(
     ("method", "path"),
     [
@@ -264,6 +402,20 @@ def test_commercial_mutations_are_in_shared_limit_scope(method, path):
 )
 def test_reads_and_signed_provider_webhooks_are_not_in_customer_bucket(method, path):
     assert api._is_shared_rate_limited_request(method, path) is False
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("/api/bq/generate", True),
+        ("/api/bq/generate_batch", True),
+        ("/api/insights/neon/generate", False),
+        ("/api/generate_report", False),
+        ("/api/projects/project-a/reports", False),
+    ],
+)
+def test_local_database_fallback_is_limited_to_legacy_bq_routes(path, expected):
+    assert api._is_local_rate_limit_fallback_request("POST", path) is expected
 
 
 @pytest.mark.anyio

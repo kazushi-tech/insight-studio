@@ -52,6 +52,7 @@ export default function Login() {
     platformSyncError,
     clerkOrganizationId,
     user,
+    isAdsAuthenticated,
   } = useAuth()
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function Login() {
     if (error) errorRef.current?.focus()
   }, [error])
 
-  if (user) {
+  if (user && isAdsAuthenticated) {
     return <Navigate to={user.role === 'case_user' ? '/ads/wizard' : '/'} replace />
   }
 

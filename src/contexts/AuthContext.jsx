@@ -39,7 +39,7 @@ export function AuthProvider({ children, initialToken = null, initialUser = null
     // Remove credentials left by the pre-Clerk client. Authentication tokens
     // are memory-only; Clerk will supply short-lived tokens through providers.
     localStorage.removeItem(STORAGE_KEY_TOKEN)
-    if (initialToken) setToken(initialToken)
+    setToken(initialToken || null)
     return initialToken || null
   })
 
@@ -55,11 +55,18 @@ export function AuthProvider({ children, initialToken = null, initialUser = null
 
   // RBAC user object { user_id, email, role, display_name }
   const [user, setUser] = useState(() => {
-    if (initialUser) return initialUser
     if (clerkSession) {
+      localStorage.removeItem('is_user')
+      return initialUser || null
+    }
+    // Legacy JWTs are intentionally memory-only. A persisted user without an
+    // explicitly supplied token is stale reload state, not an authenticated
+    // session, so discard it before guards and /login inspect the context.
+    if (!initialToken) {
       localStorage.removeItem('is_user')
       return null
     }
+    if (initialUser) return initialUser
     try {
       const saved = localStorage.getItem('is_user')
       return saved ? JSON.parse(saved) : null
